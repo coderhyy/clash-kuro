@@ -8,7 +8,7 @@ import { createDesktopPlatform, createResumeHandler, createSocketTransport } fro
 const corePath = '/Applications/Clash Party.app/Contents/Resources/sidecar/mihomo'
 
 test.skipIf(!existsSync(corePath) || process.platform !== 'darwin')('real mihomo validates config, starts on unix socket, streams and stops', async () => {
-  const dataDir = await mkdtemp('/tmp/tern-mihomo-')
+  const dataDir = await mkdtemp('/tmp/kuro-mihomo-')
   const server = createServer()
   await new Promise<void>((resolve, reject) => server.once('error', reject).listen(0, '127.0.0.1', resolve))
   const address = server.address()

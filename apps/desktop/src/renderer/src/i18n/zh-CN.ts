@@ -1,5 +1,5 @@
 export const zhCN = {
-  app: 'Tern',
+  app: 'Clash Kuro',
   tagline: '轻盈连接，自在切换',
   workspace: '连接工作台',
   overview: '管理 Profile 与出站连接。',
@@ -7,7 +7,7 @@ export const zhCN = {
   activeProfile: 'Active Profile',
   noActive: '尚未启用 Profile',
   import: '导入 Profile',
-  importHint: '原始内容只读，Tern 不会修改来源。',
+  importHint: '原始内容只读，Clash Kuro 不会修改来源。',
   name: '名称',
   remote: '远程',
   local: '本地',
@@ -45,7 +45,7 @@ export const zhCN = {
   globalHint: '所有连接通过全局 Proxy Group。',
   directHint: '所有连接直接访问，不经过 Proxy。',
   systemProxy: 'System Proxy',
-  systemProxyHint: '将系统 HTTP / HTTPS 代理指向 Tern。',
+  systemProxyHint: '将系统 HTTP / HTTPS 代理指向 Clash Kuro。',
   manualRequired:
     '系统权限不足。请在系统网络设置中手动设置 HTTP / HTTPS 代理：{host}:{port}。',
   on: '已开启',

@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { isAbsolute } from 'node:path'
-import { applyProfileUpdate, buildRuntimeConfig, type ControlChannel, type Platform, type Profile, type Settings } from '@tern/core'
+import { applyProfileUpdate, buildRuntimeConfig, type ControlChannel, type Platform, type Profile, type Settings } from '@kuro/core'
 
 /** Original content of each Profile lives at `profiles/<id>.yaml`; only refresh ever replaces it (ADR-0003). */
 export const contentFile = (id: string) => `profiles/${id}.yaml`

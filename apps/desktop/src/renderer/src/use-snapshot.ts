@@ -1,8 +1,8 @@
 import { useMemo, useSyncExternalStore } from 'react'
-import type { StateBridge, StateSnapshot } from '@tern/state'
-import { createSnapshotCache } from '@tern/state'
+import type { StateBridge, StateSnapshot } from '@kuro/state'
+import { createSnapshotCache } from '@kuro/state'
 
-/** Shared cache from @tern/state (drops older versions); errors surface as a value for the connection screen. */
+/** Shared cache from @kuro/state (drops older versions); errors surface as a value for the connection screen. */
 export function createSnapshotView(bridge: StateBridge) {
   const inner = createSnapshotCache(bridge)
   let last = { snapshot: null as StateSnapshot | null, error: null as string | null }

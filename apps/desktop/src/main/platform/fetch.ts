@@ -1,7 +1,7 @@
 import { request as httpRequest } from 'node:http'
 import { Agent, request as httpsRequest } from 'node:https'
 import { connect } from 'node:tls'
-import type { FetchResult } from '@tern/core'
+import type { FetchResult } from '@kuro/core'
 
 /** Profile downloads use a separate HTTP proxy connection, never a global proxy setting. */
 export async function fetchProfileText(

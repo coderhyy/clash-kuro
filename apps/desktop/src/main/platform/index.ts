@@ -5,7 +5,7 @@ import { chmod, lstat, mkdir, readFile, readlink, realpath, rename, rm, writeFil
 import { createServer } from 'node:net'
 import { isAbsolute, join, resolve, win32 } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
-import type { ControlChannel, Platform, ValidationResult } from '@tern/core'
+import type { ControlChannel, Platform, ValidationResult } from '@kuro/core'
 import { fetchProfileText } from './fetch'
 import { createSystemProxy, execCommand, type Exec } from './system-proxy'
 import { createSocketTransport } from './transport'
@@ -67,7 +67,7 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
   const port = () => typeof options.mixedPort === 'function' ? options.mixedPort() : options.mixedPort
   let channel: ControlChannel
   let usedPipe = false
-  if (os === 'win32') channel = { kind: 'pipe', name: `\\\\.\\pipe\\tern-${randomUUID()}` }
+  if (os === 'win32') channel = { kind: 'pipe', name: `\\\\.\\pipe\\kuro-${randomUUID()}` }
   else {
     let path = join(dataDir, 'mihomo.sock')
     if (Buffer.byteLength(path) > 103) path = join(dataDir, 'c')
@@ -207,7 +207,7 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
       if (await read('runtime.yaml') === null) throw new Error('No Runtime Config has been applied')
       if (channel.kind === 'pipe' && usedPipe) {
         const yaml = (await read('runtime.yaml'))!
-        const next: ControlChannel = { kind: 'pipe', name: `\\\\.\\pipe\\tern-${randomUUID()}` }
+        const next: ControlChannel = { kind: 'pipe', name: `\\\\.\\pipe\\kuro-${randomUUID()}` }
         // shortcut: pipe rotation expects a top-level block scalar; widen if the generator adopts flow YAML.
         const directive = /^(?:external-controller-pipe|'external-controller-pipe'|"external-controller-pipe")\s*:.*$/m
         if (!directive.test(yaml)) throw new Error('Runtime Config is missing external-controller-pipe')
@@ -259,7 +259,7 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
     controlChannel: () => ({ ...channel }),
     ...systemProxy,
     fetchText: options.fetchText ?? ((url, input) => fetchProfileText(url, {
-      ...input, userAgent: input.userAgent || options.userAgent || options.appProcessName || 'Tern', mixedPort: port(),
+      ...input, userAgent: input.userAgent || options.userAgent || options.appProcessName || 'Clash Kuro', mixedPort: port(),
     })),
     onResume(listener) {
       options.powerMonitor?.on('resume', listener)

@@ -16,7 +16,7 @@ Blocked by: 01
 
 ## Answer
 
-- 从 `@tern/core` 导出 `parseProfile`、`buildRuntimeConfig`、`parseSubscriptionUserinfo`、`parseUpdateInterval`、`effectiveUpdateIntervalHours`、`nextUpdateAt`、`isDue`、`applyProfileUpdate`。
+- 从 `@kuro/core` 导出 `parseProfile`、`buildRuntimeConfig`、`parseSubscriptionUserinfo`、`parseUpdateInterval`、`effectiveUpdateIntervalHours`、`nextUpdateAt`、`isDue`、`applyProfileUpdate`。
 - 新增类型：`ParsedProfile`、`ProfileParseResult`、`ProfileUpdateResult`；已有接口不变。
 - `parseProfile` 返回 `{ ok: true, value }` 或 `{ ok: false, error }`；`buildRuntimeConfig` 接收原始 YAML 或上述解析结果，返回 YAML，非法输入抛出可读错误。仅检查 YAML 结构，语义校验仍由调用方通过 `mihomo -t` 完成。
 - `applyProfileUpdate(profile, previousContent, fetchResultOrError, now)` 返回新 Profile、原始内容、`attemptedAt` 和 `nextUpdateAt`。失败保留旧内容、成功时间和订阅元信息，只更新 `lastError`；成功清除错误并替换内容与服务端元信息。

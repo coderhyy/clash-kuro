@@ -44,7 +44,7 @@ test('failed restart never enables a proxy pointing at a dead Core', async () =>
 
 test('powerMonitor is injected and can be unsubscribed', () => {
   const powerMonitor = new EventEmitter()
-  const platform = createDesktopPlatform({ dataDir: '/tmp/tern-resume', corePath: '/unused', mixedPort: 17890, powerMonitor })
+  const platform = createDesktopPlatform({ dataDir: '/tmp/kuro-resume', corePath: '/unused', mixedPort: 17890, powerMonitor })
   const listener = vi.fn()
   const off = platform.onResume(listener)
   powerMonitor.emit('resume')

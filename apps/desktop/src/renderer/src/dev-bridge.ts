@@ -1,10 +1,10 @@
-import { FakeBridge, fakeSnapshot } from '@tern/state/fake'
+import { FakeBridge, fakeSnapshot } from '@kuro/state/fake'
 import type {
   CommandInput,
   CommandName,
   CommandOutput,
   CommandResult
-} from '@tern/state'
+} from '@kuro/state'
 import { t } from './i18n/zh-CN'
 
 // shortcut: development commands simulate state only; real I/O belongs to the main process.

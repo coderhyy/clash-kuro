@@ -22,9 +22,9 @@ state：
 
 ## Answer
 
-- `@tern/api` 新增 `createMihomoClient(transport): MihomoClient`；REST 字段映射、路径段编码、HTTP 错误 message 和三个流均用 FakeTransport 测试。
-- `@tern/state` 新增 `createAppStore(deps): Promise<AppStore>`、`buildTrayMenu(snapshot)`、`createSnapshotCache(bridge)`；新增类型 `AppStoreDeps`、`AppStore`、`TrayCommand`、`TrayMenuItem`。已有接口未修改。
-- `@tern/state/react` 导出 `useSnapshot(bridge): StateSnapshot | null`（初次加载前为 null，拉取失败进入 React error boundary）和 `useCommand(bridge, name)`。主入口不加载 React。快照订阅先于初次拉取注册，丢弃旧/重复 version，窗口重建重新拉取全量。
+- `@kuro/api` 新增 `createMihomoClient(transport): MihomoClient`；REST 字段映射、路径段编码、HTTP 错误 message 和三个流均用 FakeTransport 测试。
+- `@kuro/state` 新增 `createAppStore(deps): Promise<AppStore>`、`buildTrayMenu(snapshot)`、`createSnapshotCache(bridge)`；新增类型 `AppStoreDeps`、`AppStore`、`TrayCommand`、`TrayMenuItem`。已有接口未修改。
+- `@kuro/state/react` 导出 `useSnapshot(bridge): StateSnapshot | null`（初次加载前为 null，拉取失败进入 React error boundary）和 `useCommand(bridge, name)`。主入口不加载 React。快照订阅先于初次拉取注册，丢弃旧/重复 version，窗口重建重新拉取全量。
 
 Deps 形状（Runtime Config / Profile 实现由集成层适配线 A，store 不依赖线 A 的新增实现）：
 

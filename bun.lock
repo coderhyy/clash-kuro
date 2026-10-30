@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "tern",
+      "name": "clash-kuro",
       "devDependencies": {
         "turbo": "2.11.10",
         "typescript": "7.0.2",
@@ -11,48 +11,48 @@
       },
     },
     "apps/desktop": {
-      "name": "@tern/desktop",
+      "name": "@kuro/desktop",
       "version": "0.0.1",
       "devDependencies": {
         "@base-ui/react": "1.9.0",
+        "@kuro/api": "workspace:*",
+        "@kuro/core": "workspace:*",
+        "@kuro/state": "workspace:*",
         "@tailwindcss/vite": "4.3.3",
-        "@tern/api": "workspace:*",
-        "@tern/core": "workspace:*",
-        "@tern/state": "workspace:*",
         "@types/node": "24.10.1",
         "@types/react": "19.3.0",
         "@types/react-dom": "19.2.3",
         "@vitejs/plugin-react": "6.1.2",
-        "class-variance-authority": "^0.7.1",
-        "clsx": "^2.1.1",
+        "class-variance-authority": "0.7.1",
+        "clsx": "2.1.1",
         "electron": "45.1.0",
         "electron-builder": "26.18.0",
         "electron-vite": "6.0.0",
-        "lucide-react": "^1.64.0",
+        "lucide-react": "1.64.0",
         "react": "19.3.1",
         "react-dom": "19.3.1",
-        "tailwind-merge": "^3.7.0",
+        "tailwind-merge": "3.7.0",
         "tailwindcss": "4.3.3",
         "vite": "8.3.5",
       },
     },
     "packages/api": {
-      "name": "@tern/api",
+      "name": "@kuro/api",
       "dependencies": {
-        "@tern/core": "workspace:*",
+        "@kuro/core": "workspace:*",
       },
     },
     "packages/core": {
-      "name": "@tern/core",
+      "name": "@kuro/core",
       "dependencies": {
         "yaml": "2.9.1",
       },
     },
     "packages/state": {
-      "name": "@tern/state",
+      "name": "@kuro/state",
       "dependencies": {
-        "@tern/api": "workspace:*",
-        "@tern/core": "workspace:*",
+        "@kuro/api": "workspace:*",
+        "@kuro/core": "workspace:*",
         "zustand": "5.0.16",
       },
       "devDependencies": {
@@ -148,6 +148,14 @@
 
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
 
+    "@kuro/api": ["@kuro/api@workspace:packages/api"],
+
+    "@kuro/core": ["@kuro/core@workspace:packages/core"],
+
+    "@kuro/desktop": ["@kuro/desktop@workspace:apps/desktop"],
+
+    "@kuro/state": ["@kuro/state@workspace:packages/state"],
+
     "@malept/cross-spawn-promise": ["@malept/cross-spawn-promise@2.0.0", "", { "dependencies": { "cross-spawn": "^7.0.1" } }, "sha512-1DpKU0Z5ThltBwjNySMC14g0CkbyhCaz9FkhxqNsZI6uAPJXFS8cMXlBKo26FJ8ZuW6S9GCMcR9IO5k2X5/9Fg=="],
 
     "@malept/flatpak-bundler": ["@malept/flatpak-bundler@0.4.0", "", { "dependencies": { "debug": "^4.1.1", "fs-extra": "^9.0.0", "lodash": "^4.17.15", "tmp-promise": "^3.0.2" } }, "sha512-9QOtNffcOF/c1seMCDnjckb3R9WHcG34tky+FHpNKKCW0wc/scYLwMtO+ptyGUfMW0/b/n4qRiALlaFHc9Oj7Q=="],
@@ -229,14 +237,6 @@
     "@tailwindcss/oxide-win32-x64-msvc": ["@tailwindcss/oxide-win32-x64-msvc@4.3.3", "", { "os": "win32", "cpu": "x64" }, "sha512-yJ0pwIVc/nYeGoV02WtsN8KYyLQv7kyI2wDnkezyJlGGjkd4QLwDGAwl47YpPJeuI0M0ObaXGSPjvWDPeTPggw=="],
 
     "@tailwindcss/vite": ["@tailwindcss/vite@4.3.3", "", { "dependencies": { "@tailwindcss/node": "4.3.3", "@tailwindcss/oxide": "4.3.3", "tailwindcss": "4.3.3" }, "peerDependencies": { "vite": "^5.2.0 || ^6 || ^7 || ^8" } }, "sha512-yYU8cogLeSh/ms2jh8Fj7jaba/EWa7Ja6GoUqYZaraEuCI5YS6ms6ObZgjjedm+jm6XZjdNRWBpPP6Z86oOxcw=="],
-
-    "@tern/api": ["@tern/api@workspace:packages/api"],
-
-    "@tern/core": ["@tern/core@workspace:packages/core"],
-
-    "@tern/desktop": ["@tern/desktop@workspace:apps/desktop"],
-
-    "@tern/state": ["@tern/state@workspace:packages/state"],
 
     "@turbo/darwin-64": ["@turbo/darwin-64@2.11.10", "", { "os": "darwin", "cpu": "x64" }, "sha512-By4idRap5+nLnMuRzLB4qkOPRlvNdyY1ne4VJYDyUoUB11H94k7uif9mbe3JT8JSNXs1D68uMcBj6hJ/jMQRvA=="],
 

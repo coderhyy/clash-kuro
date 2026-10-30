@@ -4,28 +4,34 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-primary: var(--primary);
-  --color-primary-foreground: #ffffff;
-  --color-secondary: #e8f0f5;
-  --color-secondary-foreground: #395668;
-  --color-muted: #edf2f6;
+  --color-primary-foreground: #1f2430;
+  --color-secondary: var(--muted);
+  --color-secondary-foreground: var(--foreground);
+  --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
-  --color-input: #c6d2dc;
-  --color-ring: #1974a1;
-  --color-destructive: #b03932;
+  --color-input: var(--input);
+  --color-ring: var(--accent);
+  --color-destructive: var(--danger);
   --radius-md: 8px;
 }
 
+/* ayu Light and ayu Mirage (ayu 9.1.0), following the system appearance.
+   --primary fills controls; --accent is the text/icon/outline form (Light: #f29718 darkened to >= 4.5:1). */
 :root {
-  color-scheme: light;
-  --background: #ffffff;
-  --foreground: #233b4c;
-  --primary: #12628b;
-  --muted-foreground: #586f80;
-  --border: #dce5ec;
-  --sidebar: #eff4f8;
-  --success: #257056;
-  --danger: #a53730;
+  color-scheme: light dark;
+  --sidebar: #f8f9fa;
+  --background: #fcfcfc;
+  --card: #f8f9fa;
+  --foreground: #5c6166;
+  --muted-foreground: #828e9f;
+  --border: #6b7d8f1f;
+  --input: #6b7d8f40;
+  --muted: color-mix(in srgb, #6b7d8f 9%, transparent);
+  --primary: #f29718;
+  --accent: #995d09;
+  --success: #577400;
+  --danger: #cb1d1d;
   font-family: 'Avenir Next', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   font-size: 13px;
   line-height: 1.55;
@@ -33,6 +39,22 @@
   color: var(--foreground);
   background: var(--sidebar);
   -webkit-font-smoothing: antialiased;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --sidebar: #1f2430;
+    --background: #242936;
+    --card: #1f2430;
+    --foreground: #cccac2;
+    --muted-foreground: #707a8c;
+    --border: #707a8c33;
+    --input: #707a8c66;
+    --muted: color-mix(in srgb, #707a8c 14%, transparent);
+    --primary: #ffcc66;
+    --accent: #ffcc66;
+    --success: #87d96c;
+    --danger: #f28779;
+  }
 }
 
 * {
@@ -62,21 +84,20 @@ fieldset:disabled {
   cursor: default;
 }
 input {
-  caret-color: var(--primary);
+  caret-color: var(--accent);
 }
 input[type='radio'] {
   accent-color: var(--primary);
 }
 ::selection {
-  background: #cce5f5;
-  color: #163d56;
+  background: color-mix(in srgb, var(--primary) 30%, transparent);
 }
 * {
   scrollbar-width: thin;
-  scrollbar-color: #b8c9d6 transparent;
+  scrollbar-color: var(--input) transparent;
 }
 :focus-visible {
-  outline: 2px solid var(--primary);
+  outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
 h1,
@@ -112,7 +133,7 @@ fieldset:disabled .proxy-option {
   opacity: 0.65;
 }
 a {
-  color: var(--primary);
+  color: var(--accent);
   text-underline-offset: 3px;
 }
 .muted {
@@ -142,7 +163,7 @@ a {
 .brand svg {
   width: 34px;
   height: 34px;
-  color: var(--primary);
+  color: var(--accent);
 }
 .brand strong {
   font-size: 25px;
@@ -158,7 +179,7 @@ a {
 }
 .demo-label {
   font-size: 11px;
-  color: #566978;
+  color: var(--muted-foreground);
   display: flex;
   align-items: center;
   gap: 7px;
@@ -167,7 +188,7 @@ a {
   width: 6px;
   height: 6px;
   display: inline-block;
-  background: #8595a1;
+  background: var(--muted-foreground);
   border-radius: 50%;
   flex: 0 0 auto;
 }
@@ -211,14 +232,14 @@ a {
   color: var(--foreground);
 }
 .profile-row:hover {
-  background: #e3edf4;
+  background: var(--muted);
 }
 .profile-row.is-selected {
-  background: #fff;
-  border-color: #c9dce9;
+  background: var(--background);
+  border-color: var(--primary);
 }
 .profile-icon {
-  color: var(--primary);
+  color: var(--accent);
   display: grid;
   place-items: center;
   width: 24px;
@@ -240,7 +261,7 @@ a {
   color: var(--muted-foreground);
 }
 .profile-row > svg {
-  color: var(--primary);
+  color: var(--accent);
   flex-shrink: 0;
 }
 .profile-details {
@@ -283,21 +304,21 @@ progress {
   display: block;
   height: 5px;
   width: 100%;
-  background: #dce7ef;
+  background: var(--muted);
   border: 0;
   border-radius: 6px;
   overflow: hidden;
   accent-color: var(--primary);
 }
 progress::-webkit-progress-bar {
-  background: #dce7ef;
+  background: var(--muted);
 }
 progress::-webkit-progress-value {
-  background: #3686af;
+  background: var(--primary);
   border-radius: 6px;
 }
 progress::-moz-progress-bar {
-  background: #3686af;
+  background: var(--primary);
 }
 .subscription-stats {
   margin: 14px 0 0;
@@ -367,11 +388,11 @@ progress::-moz-progress-bar {
   display: grid;
   place-items: center;
   border-radius: 12px;
-  background: #edf2f5;
+  background: var(--muted);
   color: var(--muted-foreground);
 }
 .core-symbol.is-running {
-  background: #e8f3ef;
+  background: color-mix(in srgb, var(--success) 12%, var(--background));
   color: var(--success);
 }
 .core-summary {
@@ -417,7 +438,7 @@ progress::-moz-progress-bar {
 .mode-options {
   display: flex;
   border-radius: 8px;
-  background: #edf2f6;
+  background: var(--muted);
   padding: 3px;
   gap: 3px;
 }
@@ -431,9 +452,9 @@ progress::-moz-progress-bar {
   font-size: 12px;
 }
 .mode-options label.is-active {
-  background: #fff;
-  color: var(--primary);
-  box-shadow: 0 1px 3px #223b4c18;
+  background: var(--background);
+  color: var(--accent);
+  box-shadow: 0 1px 3px #1f243026;
   font-weight: 600;
 }
 .mode-options input,
@@ -445,7 +466,7 @@ progress::-moz-progress-bar {
 }
 .mode-options label:has(:focus-visible),
 .proxy-option:has(:focus-visible) {
-  outline: 2px solid var(--primary);
+  outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
 .mode-control > p {
@@ -508,21 +529,21 @@ progress::-moz-progress-bar {
   min-width: 0;
 }
 .proxy-option:hover {
-  background: #f6f9fb;
+  background: var(--muted);
 }
 .proxy-option.is-active {
-  border-color: #83b5cf;
-  background: #f0f7fb;
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
 }
 .proxy-selection {
   width: 17px;
   height: 17px;
   border-radius: 50%;
-  border: 1px solid #adbfcc;
+  border: 1px solid var(--input);
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  color: white;
+  color: #1f2430;
 }
 .proxy-option.is-active .proxy-selection {
   background: var(--primary);
@@ -568,14 +589,14 @@ progress::-moz-progress-bar {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  background: #e8f3ef;
-  color: #215f4a;
+  background: color-mix(in srgb, var(--success) 12%, var(--background));
+  color: var(--success);
 }
 .notice.is-error,
 .inline-error,
 .remove-confirm {
   color: var(--danger);
-  background: #fff0ee;
+  background: color-mix(in srgb, var(--danger) 10%, var(--background));
 }
 .inline-error {
   display: flex;
@@ -594,22 +615,22 @@ progress::-moz-progress-bar {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  background: #edf5fc;
-  color: #225a7b;
+  background: color-mix(in srgb, var(--primary) 12%, var(--background));
+  color: var(--accent);
 }
 .update-notice a {
   margin-left: auto;
 }
 .manual-notice {
-  background: #fff5df;
-  color: #795417;
+  background: color-mix(in srgb, var(--primary) 12%, var(--background));
+  color: var(--accent);
 }
 .error-text {
   color: var(--danger);
   font-size: 12px;
 }
 .import-form {
-  background: #fff;
+  background: var(--card);
   border-radius: 10px;
   padding: 12px;
   border: 1px solid var(--border);
@@ -627,8 +648,8 @@ progress::-moz-progress-bar {
 }
 .form-fields select {
   width: 100%;
-  border: 1px solid #c6d2dc;
-  background: white;
+  border: 1px solid var(--input);
+  background: var(--background);
   border-radius: 8px;
   padding: 6px 8px;
   color: var(--foreground);
@@ -647,7 +668,7 @@ progress::-moz-progress-bar {
 }
 .settings-panel {
   margin-top: 22px;
-  background: #f5f8fb;
+  background: var(--card);
   padding: 17px;
   border-radius: 10px;
 }
@@ -689,7 +710,7 @@ progress::-moz-progress-bar {
 .empty-profiles > svg,
 .empty-groups > svg {
   margin: 0 auto 10px;
-  color: #718fa4;
+  color: var(--muted-foreground);
   width: 24px;
   height: 24px;
 }
@@ -830,7 +851,7 @@ progress::-moz-progress-bar {
   color: var(--danger);
 }
 .log-warning .log-level {
-  color: #8a5a00;
+  color: var(--accent);
 }
 .log-payload {
   overflow-wrap: anywhere;

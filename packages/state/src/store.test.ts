@@ -1,7 +1,7 @@
 import { expect, test, vi } from 'vitest'
-import { FakePlatform } from '@tern/core/fake'
-import { FakeTransport } from '@tern/api/fake'
-import { createMihomoClient } from '@tern/api'
+import { FakePlatform } from '@kuro/core/fake'
+import { FakeTransport } from '@kuro/api/fake'
+import { createMihomoClient } from '@kuro/api'
 import { fakeSnapshot } from './fake'
 import { createAppStore, type AppStoreDeps } from './index'
 

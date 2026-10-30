@@ -1,4 +1,4 @@
-import type { StreamHandle } from '@tern/api'
+import type { StreamHandle } from '@kuro/api'
 
 export interface StreamHub<T> {
   subscribe(listener: (value: T) => void): () => void

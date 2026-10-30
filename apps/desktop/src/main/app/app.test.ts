@@ -2,8 +2,8 @@ import { mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, test, vi } from 'vitest'
-import type { Profile } from '@tern/core'
-import { FakePlatform } from '@tern/core/fake'
+import type { Profile } from '@kuro/core'
+import { FakePlatform } from '@kuro/core/fake'
 import { contentFile, createProfileSource } from './profiles'
 import { createUpdateScheduler } from './scheduler'
 import { checkForUpdate, isNewer } from './release-check'
@@ -20,7 +20,7 @@ test('remote refresh: direct first, then once through Core; stores content and m
   platform.fetchText = vi.fn()
     .mockRejectedValueOnce(new Error('blocked'))
     .mockResolvedValueOnce(ok)
-  const source = createProfileSource({ platform, userAgent: 'Tern', isCoreRunning: async () => true, now: () => 5 })
+  const source = createProfileSource({ platform, userAgent: 'Clash Kuro', isCoreRunning: async () => true, now: () => 5 })
   const next = await source.refreshProfile(remote)
   expect(vi.mocked(platform.fetchText).mock.calls.map((c) => c[1].viaCore)).toEqual([false, true])
   expect(next).toMatchObject({ updatedAt: 5, lastError: null, serverUpdateIntervalHours: 12, subscriptionInfo: { total: 3 } })
@@ -31,7 +31,7 @@ test('remote refresh does not retry through a stopped Core and keeps old content
   const platform = new FakePlatform()
   platform.files.set(contentFile('p1'), 'old')
   platform.fetchText = vi.fn().mockResolvedValue({ status: 500, headers: {}, body: '' })
-  const source = createProfileSource({ platform, userAgent: 'Tern', isCoreRunning: async () => false })
+  const source = createProfileSource({ platform, userAgent: 'Clash Kuro', isCoreRunning: async () => false })
   await expect(source.refreshProfile(remote)).rejects.toThrow(/HTTP 500/)
   expect(platform.fetchText).toHaveBeenCalledTimes(1)
   expect(platform.files.get(contentFile('p1'))).toBe('old')
@@ -39,7 +39,7 @@ test('remote refresh does not retry through a stopped Core and keeps old content
 
 test('local refresh reads an absolute path; Runtime Config is built from stored content', async () => {
   const platform = new FakePlatform()
-  const source = createProfileSource({ platform, userAgent: 'Tern', isCoreRunning: async () => false, readLocal: async () => 'mode: global\nsecret: x\n' })
+  const source = createProfileSource({ platform, userAgent: 'Clash Kuro', isCoreRunning: async () => false, readLocal: async () => 'mode: global\nsecret: x\n' })
   const local: Profile = { ...remote, source: { kind: 'local', path: '/tmp/a.yaml' } }
   await source.refreshProfile(local)
   await expect(source.refreshProfile({ ...local, source: { kind: 'local', path: 'a.yaml' } })).rejects.toThrow(/absolute/)

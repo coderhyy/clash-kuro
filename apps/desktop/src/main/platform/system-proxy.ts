@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import type { SystemProxySettings } from '@tern/core'
+import type { SystemProxySettings } from '@kuro/core'
 
 export type Exec = (file: string, args: string[]) => Promise<{ stdout: string; stderr: string }>
 

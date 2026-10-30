@@ -1,7 +1,7 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, powerMonitor, shell, Tray, type IpcMainEvent, type IpcMainInvokeEvent } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, powerMonitor, shell, Tray, type IpcMainEvent, type IpcMainInvokeEvent } from 'electron'
 import { join } from 'node:path'
-import { createMihomoClient } from '@tern/api'
-import { buildTrayMenu, createAppStore, type AppStore, type CommandName } from '@tern/state'
+import { createMihomoClient } from '@kuro/api'
+import { buildTrayMenu, createAppStore, type AppStore, type CommandName } from '@kuro/state'
 import { createDesktopPlatform, createResumeHandler, createSocketTransport } from './platform'
 import { createProfileSource } from './app/profiles'
 import { createUpdateScheduler } from './app/scheduler'
@@ -10,13 +10,13 @@ import { installGeoData } from './app/geo'
 import { IPC, type StreamKind } from './ipc-channels'
 import { trayIcon } from './tray-icon'
 
-// shortcut: no GitHub repository yet; set TERN_RELEASE_REPO=owner/name (or change this default) once it exists.
-const RELEASE_REPO = process.env.TERN_RELEASE_REPO ?? null
+// shortcut: no GitHub repository yet; set KURO_RELEASE_REPO=owner/name (or change this default) once it exists.
+const RELEASE_REPO = process.env.KURO_RELEASE_REPO ?? null
 const SHUTDOWN_TIMEOUT_MS = 3_000
 
 const trayLabels: Record<string, string> = {
   'mode.rule': '规则模式', 'mode.global': '全局模式', 'mode.direct': '直连模式',
-  systemProxy: 'System Proxy', openWindow: '打开 Tern', quit: '退出'
+  systemProxy: 'System Proxy', openWindow: '打开 Clash Kuro', quit: '退出'
 }
 
 if (!app.requestSingleInstanceLock()) {
@@ -27,8 +27,8 @@ if (!app.requestSingleInstanceLock()) {
 
 async function main(): Promise<void> {
   await app.whenReady()
-  if (process.env.TERN_SMOKE) {
-    console.log('TERN_SMOKE_OK')
+  if (process.env.KURO_SMOKE) {
+    console.log('KURO_SMOKE_OK')
     app.quit()
     return
   }
@@ -37,7 +37,7 @@ async function main(): Promise<void> {
   const geoDir = app.isPackaged ? join(process.resourcesPath, 'core', 'geo') : join(app.getAppPath(), 'resources', 'core', 'geo')
   const corePath = join(resources, process.platform === 'win32' ? 'mihomo.exe' : 'mihomo')
   const dataDir = join(app.getPath('userData'), 'data')
-  const userAgent = `Tern/${app.getVersion()} (clash.meta)`
+  const userAgent = `ClashKuro/${app.getVersion()} (clash.meta)`
 
   let store: AppStore | undefined
   const platform = createDesktopPlatform({
@@ -76,7 +76,8 @@ async function main(): Promise<void> {
     }
     void app.dock?.show()
     win = new BrowserWindow({
-      width: 960, height: 640, minWidth: 720, minHeight: 520, title: 'Tern', show: false,
+      width: 960, height: 640, minWidth: 720, minHeight: 520, title: 'Clash Kuro', show: false,
+      backgroundColor: nativeTheme.shouldUseDarkColors ? '#1f2430' : '#f8f9fa',
       webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: true, contextIsolation: true }
     })
     win.once('ready-to-show', () => win?.show())
@@ -138,6 +139,8 @@ async function main(): Promise<void> {
     streams.delete(id)
   })
 
+  const trayOpen = trayIcon(true), trayClosed = trayIcon(false)
+  let trayRunning = false
   function renderTray(): void {
     if (!tray) return
     const snapshot = app_.store.getState()
@@ -149,11 +152,14 @@ async function main(): Promise<void> {
         checked: item.checked ?? false,
         click: () => void app_.run(item.command.name, item.command.input as never).then((result) => {
           if (!result.ok && item.command.name === 'quit') void exit()
-          else if (!result.ok) dialog.showErrorBox('Tern', result.error)
+          else if (!result.ok) dialog.showErrorBox('Clash Kuro', result.error)
         })
       }
     ])))
-    tray.setToolTip(`Tern · ${snapshot.core.status}`)
+    tray.setToolTip(`Clash Kuro · ${snapshot.core.status}`)
+    const running = snapshot.core.status === 'running'
+    if (running !== trayRunning) tray.setImage(running ? trayOpen : trayClosed)
+    trayRunning = running
   }
 
   app_.store.subscribe((snapshot) => {
@@ -161,7 +167,7 @@ async function main(): Promise<void> {
     renderTray()
   })
 
-  tray = new Tray(trayIcon())
+  tray = new Tray(trayClosed)
   renderTray()
 
   const onResume = createResumeHandler({

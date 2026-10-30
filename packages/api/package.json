@@ -1,5 +1,5 @@
 {
-  "name": "@tern/api",
+  "name": "@kuro/api",
   "private": true,
   "type": "module",
   "exports": {
@@ -10,5 +10,5 @@
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run"
   },
-  "dependencies": { "@tern/core": "workspace:*" }
+  "dependencies": { "@kuro/core": "workspace:*" }
 }

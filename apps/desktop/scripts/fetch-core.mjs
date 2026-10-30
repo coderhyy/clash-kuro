@@ -65,7 +65,7 @@ async function fetchCore(lock, target) {
   if (spec.format === 'gz') binary = gunzipSync(archive)
   else {
     // shortcut: relies on bsdtar (macOS, Windows 10+) to unzip; add a JS unzip if a CI image lacks it.
-    const dir = await mkdtemp(join(tmpdir(), 'tern-core-'))
+    const dir = await mkdtemp(join(tmpdir(), 'kuro-core-'))
     try {
       await writeFile(join(dir, 'a.zip'), archive)
       execFileSync('tar', ['-xf', 'a.zip'], { cwd: dir })

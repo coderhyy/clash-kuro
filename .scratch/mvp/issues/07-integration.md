@@ -27,7 +27,7 @@ Windows System Proxy：
 
 ## Answer
 
-2026-10-30 在 macOS 27.2 arm64 上，用打包后的 `Tern.app`（unsigned，`bun run package`）配合独立 `--user-data-dir` 和本机测试订阅服务器实测。测试脚本在仓库外（`/tmp/tern-e2e/`）。
+2026-10-30 在 macOS 27.2 arm64 上，用打包后的 `Clash Kuro.app`（unsigned，`bun run package`）配合独立 `--user-data-dir` 和本机测试订阅服务器实测。测试脚本在仓库外（`/tmp/kuro-e2e/`）。
 
 全流程：
 - 导入远程 Profile（带 `subscription-userinfo`、`profile-update-interval`）和本地 YAML；Subscription Info 与 Update Interval 正确显示；存储的原始内容与来源逐字节一致。
@@ -41,7 +41,7 @@ Windows System Proxy：
 - 强杀应用后 Core 成为孤儿；下次启动按 pid 文件和可执行路径核对后结束旧 Core，再启动新的。
 - 经 `quit` Command（托盘同一路径）退出后 Core 停止、pid 文件删除。
 - System Proxy：开启后 Wi-Fi 的 HTTP/HTTPS 代理指向 `127.0.0.1:17890`，经代理的请求到达 Core；开着代理强杀应用，下次启动会清掉；正常退出也会关闭。测完所有网络服务的代理都是关闭状态。
-- 新版本提示：代码已接好，但 GitHub 仓库还没建，`TERN_RELEASE_REPO` 为空时跳过检查；未实测。
+- 新版本提示：代码已接好，但 GitHub 仓库还没建，`KURO_RELEASE_REPO` 为空时跳过检查；未实测。
 
 Tray Mode 内存（`footprint`，窗口销毁 10 秒后）：GUI 合计约 80 MB（main 51、GPU 22、utility 7，renderer 已退出），Core 另计约 50 MB。窗口打开时 GUI 约 174 MB。参考值 Clash Party 托盘模式 GUI 约 143 MB；两者测法未必一致（我们用 `footprint`，参考值来源未注明工具）。
 

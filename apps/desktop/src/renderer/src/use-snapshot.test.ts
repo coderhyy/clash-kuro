@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { FakeBridge, fakeSnapshot } from '@tern/state/fake'
+import { FakeBridge, fakeSnapshot } from '@kuro/state/fake'
 import { createSnapshotView } from './use-snapshot'
 
 test('view returns a stable object until the snapshot changes, and drops older versions', async () => {

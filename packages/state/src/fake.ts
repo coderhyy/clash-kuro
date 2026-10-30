@@ -1,4 +1,4 @@
-import type { LogEntry, Traffic } from '@tern/api'
+import type { LogEntry, Traffic } from '@kuro/api'
 import type { CommandInput, CommandName, CommandResult, StateBridge, StateSnapshot } from './index'
 
 export function fakeSnapshot(overrides: Partial<StateSnapshot> = {}): StateSnapshot {

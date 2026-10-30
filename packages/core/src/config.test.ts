@@ -51,7 +51,7 @@ proxies: []
 rules: [MATCH,DIRECT]
 `
 
-  test.each<ControlChannel>([unix, { kind: 'pipe', name: '\\\\.\\pipe\\tern-random' }])('replaces all app-managed fields for $kind', channel => {
+  test.each<ControlChannel>([unix, { kind: 'pipe', name: '\\\\.\\pipe\\kuro-random' }])('replaces all app-managed fields for $kind', channel => {
     const parsed = parseProfile(yaml)
     const original = JSON.parse(JSON.stringify(parsed))
     const result = parse(buildRuntimeConfig(parsed, settings, channel))

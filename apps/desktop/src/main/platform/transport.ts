@@ -1,8 +1,8 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { request } from 'node:http'
 import type { Socket } from 'node:net'
-import type { ControlChannel } from '@tern/core'
-import type { HttpResponse, Transport } from '@tern/api'
+import type { ControlChannel } from '@kuro/core'
+import type { HttpResponse, Transport } from '@kuro/api'
 import { clientFrame, WebSocketReader } from './websocket'
 
 const MAX_RESPONSE_BYTES = 8 * 1024 * 1024

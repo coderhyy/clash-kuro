@@ -5,8 +5,8 @@ import type {
   CommandName,
   StateBridge,
   StateSnapshot
-} from '@tern/state'
-import type { Profile } from '@tern/core'
+} from '@kuro/state'
+import type { Profile } from '@kuro/core'
 import {
   Activity,
   ArrowDownToLine,
@@ -129,12 +129,12 @@ function ImportForm({
             required
             aria-describedby={kind === 'local' ? 'path-hint' : undefined}
           />
-          {kind === 'local' && window.ternFiles && (
+          {kind === 'local' && window.kuroFiles && (
             <Button
               type="button"
               variant="outline"
               onClick={async () => {
-                const path = await window.ternFiles?.pickProfileFile()
+                const path = await window.kuroFiles?.pickProfileFile()
                 if (path && sourceRef.current) sourceRef.current.value = path
               }}
             >
@@ -486,9 +486,16 @@ export function App({ bridge, demo }: { bridge: StateBridge; demo: boolean }) {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          <svg aria-hidden="true" viewBox="0 0 32 32">
-            <path d="M3 9 16 15 29 5 20 20 16 28 13 18Z" fill="currentColor" />
-            <path d="m3 9 10 9 7 2-4-5Z" fill="white" opacity=".35" />
+          <svg aria-hidden="true" viewBox="8 11 84 80">
+            <path
+              fill="currentColor"
+              fillRule="evenodd"
+              d="M19 15 39 31Q50 28.5 61 31L81 15Q86.5 11.5 86.5 18L84.5 44Q92 55 89 69Q83 90 50 90Q17 90 11 69Q8 55 15.5 44L13.5 18Q13.5 11.5 19 15ZM24.5 57Q36 49.5 44.5 61Q34 67.5 24.5 57ZM75.5 57Q64 49.5 55.5 61Q66 67.5 75.5 57Z"
+            />
+            <path
+              fill="currentColor"
+              d="M35 52.6Q37.2 58.5 35 64.6Q32.8 58.5 35 52.6ZM65 52.6Q67.2 58.5 65 64.6Q62.8 58.5 65 52.6Z"
+            />
           </svg>
           <div>
             <strong>{t('app')}</strong>

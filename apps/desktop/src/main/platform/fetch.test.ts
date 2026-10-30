@@ -23,10 +23,10 @@ async function fixture(handler?: RequestListener) {
 test('direct downloads preserve status and lower-case subscription headers, UA and redirects', async () => {
   const { url } = await fixture((req, res) => {
     if (req.url === '/redirect') { res.writeHead(302, { location: '/profile' }).end(); return }
-    expect(req.headers['user-agent']).toBe('Tern-test')
+    expect(req.headers['user-agent']).toBe('Kuro-test')
     res.writeHead(200, { 'Subscription-Userinfo': 'upload=1; download=2', 'Profile-Update-Interval': '24' }).end('mode: direct')
   })
-  const result = await fetchProfileText(`${url}/redirect`, { viaCore: false, userAgent: 'Tern-test', mixedPort: 1 })
+  const result = await fetchProfileText(`${url}/redirect`, { viaCore: false, userAgent: 'Kuro-test', mixedPort: 1 })
   expect(result.status).toBe(200)
   expect(result.headers['subscription-userinfo']).toBe('upload=1; download=2')
   expect(result.headers['profile-update-interval']).toBe('24')
@@ -39,7 +39,7 @@ test('HTTP viaCore uses absolute-form proxy requests and preserves the origin ho
     expect(req.headers.host).toBe('profile.invalid')
     res.writeHead(503).end('proxy result')
   })
-  expect(await fetchProfileText('http://profile.invalid/sub?token=test', { viaCore: true, userAgent: 'Tern', mixedPort: port }))
+  expect(await fetchProfileText('http://profile.invalid/sub?token=test', { viaCore: true, userAgent: 'Clash Kuro', mixedPort: port }))
     .toMatchObject({ status: 503, body: 'proxy result' })
 })
 
@@ -49,11 +49,11 @@ test('HTTPS viaCore uses CONNECT, rejects proxy errors and times out stalled tun
     expect(req.url).toBe('profile.invalid:443')
     socket.end('HTTP/1.1 403 Forbidden\r\n\r\n')
   })
-  await expect(fetchProfileText('https://profile.invalid/sub', { viaCore: true, userAgent: 'Tern', mixedPort: port }))
+  await expect(fetchProfileText('https://profile.invalid/sub', { viaCore: true, userAgent: 'Clash Kuro', mixedPort: port }))
     .rejects.toThrow('CONNECT failed: HTTP 403')
   server.removeAllListeners('connect')
   server.on('connect', () => {})
-  await expect(fetchProfileText('https://profile.invalid/sub', { viaCore: true, userAgent: 'Tern', mixedPort: port, timeoutMs: 30 }))
+  await expect(fetchProfileText('https://profile.invalid/sub', { viaCore: true, userAgent: 'Clash Kuro', mixedPort: port, timeoutMs: 30 }))
     .rejects.toThrow('CONNECT timed out')
 })
 
@@ -61,10 +61,10 @@ test('download timeouts and redirect loops reject, not hang', async () => {
   const { url } = await fixture((req, res) => {
     if (req.url === '/loop') res.writeHead(302, { location: '/loop' }).end()
   })
-  await expect(fetchProfileText(`${url}/hang`, { viaCore: false, userAgent: 'Tern', mixedPort: 1, timeoutMs: 30 })).rejects.toThrow('timed out')
-  await expect(fetchProfileText(`${url}/loop`, { viaCore: false, userAgent: 'Tern', mixedPort: 1 })).rejects.toThrow('Too many')
+  await expect(fetchProfileText(`${url}/hang`, { viaCore: false, userAgent: 'Clash Kuro', mixedPort: 1, timeoutMs: 30 })).rejects.toThrow('timed out')
+  await expect(fetchProfileText(`${url}/loop`, { viaCore: false, userAgent: 'Clash Kuro', mixedPort: 1 })).rejects.toThrow('Too many')
 })
 
 test.each(['file:///etc/passwd', 'ftp://host/profile', 'https://user:password@host/profile'])('rejects unsupported Profile URL %s', async (url) => {
-  await expect(fetchProfileText(url, { viaCore: false, userAgent: 'Tern', mixedPort: 1 })).rejects.toThrow('HTTP(S)')
+  await expect(fetchProfileText(url, { viaCore: false, userAgent: 'Clash Kuro', mixedPort: 1 })).rejects.toThrow('HTTP(S)')
 })

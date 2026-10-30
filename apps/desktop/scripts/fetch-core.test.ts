@@ -20,7 +20,7 @@ test('rejects latest URLs and missing hashes', () => {
 })
 
 test('verify fails on a hash mismatch', () => {
-  const data = Buffer.from('tern')
+  const data = Buffer.from('kuro')
   expect(verify(data, sha256(data), 'x')).toBe(data)
   expect(() => verify(data, '0'.repeat(64), 'x')).toThrow(/sha256 mismatch for x/)
 })

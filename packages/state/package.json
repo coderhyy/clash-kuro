@@ -1,5 +1,5 @@
 {
-  "name": "@tern/state",
+  "name": "@kuro/state",
   "private": true,
   "type": "module",
   "exports": {
@@ -11,7 +11,7 @@
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run"
   },
-  "dependencies": { "@tern/core": "workspace:*", "@tern/api": "workspace:*", "zustand": "5.0.16" },
+  "dependencies": { "@kuro/core": "workspace:*", "@kuro/api": "workspace:*", "zustand": "5.0.16" },
   "peerDependencies": { "react": "19.3.1" },
   "peerDependenciesMeta": { "react": { "optional": true } },
   "devDependencies": { "react": "19.3.1", "@types/react": "19.3.0" }

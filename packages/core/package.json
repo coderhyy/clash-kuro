@@ -1,5 +1,5 @@
 {
-  "name": "@tern/core",
+  "name": "@kuro/core",
   "private": true,
   "type": "module",
   "exports": {

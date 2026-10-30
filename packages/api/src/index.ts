@@ -1,4 +1,4 @@
-import type { LogLevel, Mode } from '@tern/core'
+import type { LogLevel, Mode } from '@kuro/core'
 
 export interface HttpRequest {
   method: 'GET' | 'PUT' | 'PATCH' | 'DELETE'

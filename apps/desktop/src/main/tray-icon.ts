@@ -1,20 +1,17 @@
 import { nativeImage, type NativeImage } from 'electron'
+import { catMask } from './cat-glyph'
 
-/** 18x18 template icon drawn in code (a ring with a dot), so no binary asset is needed. */
-export function trayIcon(): NativeImage {
-  const scale = 2
-  const size = 18 * scale
-  const buf = Buffer.alloc(size * size * 4)
-  const c = (size - 1) / 2
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const d = Math.hypot(x - c, y - c) / scale
-      const on = (d > 5.5 && d < 7.5) || d < 2.5
-      // BGRA; template images only use alpha.
-      buf.writeUInt32LE(on ? 0xff000000 : 0, (y * size + x) * 4)
-    }
+/** 18x18 template cat head drawn in code: eyes cut out while Core runs, closed-eye arcs when stopped. */
+export function trayIcon(running: boolean): NativeImage {
+  const image = nativeImage.createEmpty()
+  for (const scale of [1, 2]) {
+    const size = 18 * scale
+    const mask = catMask(size, running)
+    const buf = Buffer.alloc(size * size * 4)
+    // BGRA black with mask alpha; template images only use alpha.
+    mask.forEach((a, i) => buf.writeUInt32LE((a << 24) >>> 0, i * 4))
+    image.addRepresentation({ scaleFactor: scale, width: size, height: size, buffer: nativeImage.createFromBitmap(buf, { width: size, height: size }).toPNG() })
   }
-  const image = nativeImage.createFromBitmap(buf, { width: size, height: size, scaleFactor: scale })
   image.setTemplateImage(true)
   return image
 }

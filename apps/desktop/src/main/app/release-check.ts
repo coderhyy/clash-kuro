@@ -19,7 +19,7 @@ export async function checkForUpdate(options: {
   fetch?: typeof fetch
   timeoutMs?: number
 }): Promise<{ version: string; url: string } | null> {
-  // shortcut: repo is unset until the GitHub repository exists; set TERN_RELEASE_REPO or the default in main.
+  // shortcut: repo is unset until the GitHub repository exists; set KURO_RELEASE_REPO or the default in main.
   if (!options.repo || !/^[\w.-]+\/[\w.-]+$/.test(options.repo)) return null
   try {
     const res = await (options.fetch ?? fetch)(`https://api.github.com/repos/${options.repo}/releases/latest`, {

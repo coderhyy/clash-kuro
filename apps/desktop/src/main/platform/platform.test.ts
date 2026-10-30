@@ -22,7 +22,7 @@ async function freePort(): Promise<number> {
 }
 
 async function fixture(extra: Partial<DesktopPlatformOptions> = {}) {
-  const dataDir = await mkdtemp('/tmp/tern-platform-')
+  const dataDir = await mkdtemp('/tmp/kuro-platform-')
   const exec = vi.fn<Exec>(async () => ({ stdout: '', stderr: '' }))
   const platform = createDesktopPlatform({ dataDir, corePath: process.execPath, mixedPort: await freePort(), exec, ...extra })
   cleanups.push(async () => { await rm(dataDir, { force: true, recursive: true }) })
@@ -72,7 +72,7 @@ test('rejects symlink escapes in both parents and final file', async () => {
   const { platform, dataDir } = await fixture()
   await symlink('/tmp', join(dataDir, 'escape'))
   await symlink('/etc/passwd', join(dataDir, 'file'))
-  for (const name of ['escape/tern-should-not-exist', 'file']) {
+  for (const name of ['escape/kuro-should-not-exist', 'file']) {
     await expect(platform.readFile(name)).rejects.toThrow('Symlinks')
     await expect(platform.writeFileAtomic(name, 'no')).rejects.toThrow('Symlinks')
     await expect(platform.removeFile(name)).rejects.toThrow('Symlinks')
@@ -103,7 +103,7 @@ test('Windows channels are randomized and never expose TCP', () => {
   const a = createDesktopPlatform(options).controlChannel()
   const b = createDesktopPlatform(options).controlChannel()
   expect(a.kind).toBe('pipe')
-  if (a.kind === 'pipe') expect(a.name).toMatch(/^\\\\\.\\pipe\\tern-[a-f0-9-]+$/)
+  if (a.kind === 'pipe') expect(a.name).toMatch(/^\\\\\.\\pipe\\kuro-[a-f0-9-]+$/)
   expect(a).not.toEqual(b)
 })
 
@@ -247,6 +247,6 @@ test('a hanging proxy cleanup still attempts Core cleanup within the shutdown bu
 test('an injected fetchText can use Electron networking without importing Electron', async () => {
   const fetchText = vi.fn(async () => ({ status: 200, headers: {}, body: 'profile' }))
   const { platform } = await fixture({ fetchText, powerMonitor: new EventEmitter() })
-  expect(await platform.fetchText('https://example.test', { viaCore: true, userAgent: 'Tern' })).toEqual({ status: 200, headers: {}, body: 'profile' })
-  expect(fetchText).toHaveBeenCalledWith('https://example.test', { viaCore: true, userAgent: 'Tern' })
+  expect(await platform.fetchText('https://example.test', { viaCore: true, userAgent: 'Clash Kuro' })).toEqual({ status: 200, headers: {}, body: 'profile' })
+  expect(fetchText).toHaveBeenCalledWith('https://example.test', { viaCore: true, userAgent: 'Clash Kuro' })
 })

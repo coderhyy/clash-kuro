@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ArrowDown, ArrowUp } from 'lucide-react'
-import type { LogEntry, Traffic } from '@tern/api'
-import type { StateBridge } from '@tern/state'
+import type { LogEntry, Traffic } from '@kuro/api'
+import type { StateBridge } from '@kuro/state'
 import { t } from './i18n/zh-CN'
 import { formatBytes } from './display'
 

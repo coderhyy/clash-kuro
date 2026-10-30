@@ -1,5 +1,5 @@
 import { expect, test, vi } from 'vitest'
-import { FakeTransport } from '@tern/api/fake'
+import { FakeTransport } from '@kuro/api/fake'
 import { createStreamHub } from './streams'
 
 function hub(t: FakeTransport, connect = () => true, buffer = 0) {

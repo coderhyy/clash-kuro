@@ -1,4 +1,4 @@
-# Tern
+# Clash Kuro
 
 mihomo 的精简桌面客户端：管理订阅，启停 mihomo，切换模式和节点，开关系统代理。
 

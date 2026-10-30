@@ -16,7 +16,7 @@ Type: research
 
 调研日期：2026-10-30。**推荐随包分发、按当前用户运行的独立 Win32 helper exe，由主进程 spawn；不是 Node 原生模块，也不是提权服务，符合 ADR-0011。** 独立按微软 API 文档实现，不引入参考项目代码。
 
-证据范围：下文 API 行为有官方文档依据，参考实现有固定版本源码依据；本机为 macOS，**没有 Windows 功能、权限、性能、杀软或安装包实测**。所有速度比较都是工程预期，不是测量结果；未编译 helper、未执行修改代理的实验。资料临时文件仅在 `/tmp/tern-02-research/`。
+证据范围：下文 API 行为有官方文档依据，参考实现有固定版本源码依据；本机为 macOS，**没有 Windows 功能、权限、性能、杀软或安装包实测**。所有速度比较都是工程预期，不是测量结果；未编译 helper、未执行修改代理的实验。资料临时文件仅在 `/tmp/kuro-02-research/`。
 
 ### 先限定“立即生效”
 
@@ -46,13 +46,13 @@ PowerShell 若用于验证，应调用系统的 `%SystemRoot%\System32\WindowsPo
 
 ### 拨号 / VPN
 
-`INTERNET_PER_CONN_OPTION_LISTW.pszConnection=NULL` 仅表示默认/LAN，不是“全部网络”。用 `RasEnumEntriesW(NULL, NULL, ...)` 枚举当前可见的用户及 AllUsers 电话簿条目，再以每个名称分别 query/set；不需要修改电话簿本身。set、get、clear 必须使用同一覆盖范围，clear 逐连接判断归属，不能因 LAN 属于 Tern 就关闭全部 VPN 代理。[2][9]
+`INTERNET_PER_CONN_OPTION_LISTW.pszConnection=NULL` 仅表示默认/LAN，不是“全部网络”。用 `RasEnumEntriesW(NULL, NULL, ...)` 枚举当前可见的用户及 AllUsers 电话簿条目，再以每个名称分别 query/set；不需要修改电话簿本身。set、get、clear 必须使用同一覆盖范围，clear 逐连接判断归属，不能因 LAN 属于 Clash Kuro 就关闭全部 VPN 代理。[2][9]
 
 这覆盖的是 **Windows RAS 连接的 WinINet 代理配置**，不覆盖所有第三方 VPN 的独立代理、路由/TUN、组织下发策略。运行后新建的 RAS 条目也不会被此前一次枚举自动设置，应在后续重设（如唤醒）重新枚举。逐连接修改非事务：即使某项失败，也应对已改项发送通知，返回每项状态/部分失败，不宣称整体成功；不盲目重试覆盖用户的后续修改。
 
 ### 参考项目（只总结思路）
 
-- 本地 cvr `src-tauri/Cargo.toml` 使用 sysproxy git main + `guard` feature；根 `Cargo.lock` 锁到 **`89ad876a0942c049ae72e1472f9fc3ed62023c5e`**。该版本 Windows 实现：调 75 设置 LAN，再枚举 RAS 逐连接设置，最后通知 **95 + 37**（不是 39 + 37）；getter 则读 HKCU 顶层键、从协议列表优先挑 HTTP。可借鉴 API 顺序，**不能借此 getter 判断所有连接归属**。其 unset 将 flags 改为 DIRECT，会一起关闭自动代理，因此不能照搬到 Tern 的条件清理。源码仍留有中文 RAS 名可能失败的提示，需 Windows 验证；Windows bench 只是占位程序，不能作为耗时证据。[10]
+- 本地 cvr `src-tauri/Cargo.toml` 使用 sysproxy git main + `guard` feature；根 `Cargo.lock` 锁到 **`89ad876a0942c049ae72e1472f9fc3ed62023c5e`**。该版本 Windows 实现：调 75 设置 LAN，再枚举 RAS 逐连接设置，最后通知 **95 + 37**（不是 39 + 37）；getter 则读 HKCU 顶层键、从协议列表优先挑 HTTP。可借鉴 API 顺序，**不能借此 getter 判断所有连接归属**。其 unset 将 flags 改为 DIRECT，会一起关闭自动代理，因此不能照搬到 Clash Kuro 的条件清理。源码仍留有中文 RAS 名可能失败的提示，需 Windows 验证；Windows bench 只是占位程序，不能作为耗时证据。[10]
 - 本地 cp `src/main/sys/sysproxy.ts`（commit `6e1e986351dcd434c9084134c31b277fecfd8d59`）：Windows 走导入的 `sysproxy-rs` 手动/自动切换，bypass 用分号；关代理时同时关自动与手动代理，而非 Windows 上 spawn PowerShell。这里只借鉴分号格式与平台隔离，**不引入其 Node binding，不采用无条件清空自动代理**。[11]
 - 许可证校核：cvr/cp 为 GPL 参考项目，遵守 ADR-0006，不拷代码也不逐行改写。另，锁定版本 sysproxy-rs 仓库自身的 `LICENSE` 实际标为 **MIT**，并非据依赖者的 GPL 就能推导它也是 GPL；本次仍仅总结思路，不复制实现。[10]
 
@@ -64,7 +64,7 @@ PowerShell 若用于验证，应调用系统的 `%SystemRoot%\System32\WindowsPo
 
 ```text
 getSystemProxy()
-  spawn(<resources>/bin/tern-sysproxy.exe, ["get"])
+  spawn(<resources>/bin/kuro-sysproxy.exe, ["get"])
   -> JSON {connections:[{name:null|RAS名称, flags, proxyServer, bypass, autoConfigUrl}]}
 
 setSystemProxy({host:"127.0.0.1", port, bypass})
@@ -78,18 +78,18 @@ clearSystemProxy()
   -> helper 内逐连接重新读取、精确匹配后仅关本应用手动代理；不匹配即不改
 ```
 
-set 是用户明确启用 Tern 手动代理，需说明它会在目标连接上停用原 PAC/WPAD（不删其 URL）；clear 只取消当前可确认属于 Tern 的手动设置，**不承诺恢复启用前的 PAC/WPAD 状态**。bypass 使用 Windows 通配符/`<local>` 语法，不把 CIDR 当成普遍支持的格式。主进程与 helper 两侧均校验 host（MVP 固定 127.0.0.1）、端口 1..65535、字符串长度/控制字符，参数不解释成代码。
+set 是用户明确启用 Clash Kuro 手动代理，需说明它会在目标连接上停用原 PAC/WPAD（不删其 URL）；clear 只取消当前可确认属于 Clash Kuro 的手动设置，**不承诺恢复启用前的 PAC/WPAD 状态**。bypass 使用 Windows 通配符/`<local>` 语法，不把 CIDR 当成普遍支持的格式。主进程与 helper 两侧均校验 host（MVP 固定 127.0.0.1）、端口 1..65535、字符串长度/控制字符，参数不解释成代码。
 
 打包沿用 electron-builder **v26** 的 `win.extraResources`，例如：
 
 ```yaml
 win:
   extraResources:
-    - from: resources/win/${arch}/tern-sysproxy.exe
-      to: bin/tern-sysproxy.exe
+    - from: resources/win/${arch}/kuro-sysproxy.exe
+      to: bin/kuro-sysproxy.exe
 ```
 
-构建输入在项目内，打包后路径为 `path.join(process.resourcesPath, 'bin', 'tern-sysproxy.exe')`，不放进 `app.asar`、不依赖 PATH；开发环境用开发资源绝对路径。PowerShell 方案也可用同一机制带 `.ps1`；reg.exe 方案无需带系统二进制。[7]
+构建输入在项目内，打包后路径为 `path.join(process.resourcesPath, 'bin', 'kuro-sysproxy.exe')`，不放进 `app.asar`、不依赖 PATH；开发环境用开发资源绝对路径。PowerShell 方案也可用同一机制带 `.ps1`；reg.exe 方案无需带系统二进制。[7]
 
 同一主进程串行执行代理操作；设有限超时、stdout/stderr 上限、退出码及 Win32 错误传递。超时视为**结果未知**，先 get 核对，不盲目重放 clear/set；通知失败也要报告“设置可能已写入”。退出前等待清理但不无限阻塞关机。helper 被拦截时提示用户手动改代理，**不静默退回到不通知的注册表写入**。
 

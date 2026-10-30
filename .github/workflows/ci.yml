@@ -23,7 +23,7 @@ jobs:
         run: bun run package
       - uses: actions/upload-artifact@v4
         with:
-          name: tern-macos-arm64
+          name: kuro-macos-arm64
           path: apps/desktop/dist/mac-arm64
           retention-days: 7
 
@@ -37,12 +37,12 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bunx turbo typecheck
       # shortcut: desktop tests use unix sockets and POSIX signals; port them when issue 08 lands.
-      - run: bunx turbo test --filter=!@tern/desktop
+      - run: bunx turbo test --filter=!@kuro/desktop
       - name: Package (unsigned, no System Proxy helper yet; see issue 08)
         working-directory: apps/desktop
         run: bun run package:win
       - uses: actions/upload-artifact@v4
         with:
-          name: tern-windows-x64
+          name: kuro-windows-x64
           path: apps/desktop/dist/win-unpacked
           retention-days: 7

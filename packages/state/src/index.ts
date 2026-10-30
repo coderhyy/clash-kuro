@@ -1,5 +1,5 @@
-import type { LogEntry, ProxyGroup, Proxy, Traffic } from '@tern/api'
-import type { Mode, Profile, ProfileSource, Settings } from '@tern/core'
+import type { LogEntry, ProxyGroup, Proxy, Traffic } from '@kuro/api'
+import type { Mode, Profile, ProfileSource, Settings } from '@kuro/core'
 
 export type CoreStatus = 'stopped' | 'starting' | 'running' | 'error'
 

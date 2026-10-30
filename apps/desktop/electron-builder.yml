@@ -1,7 +1,8 @@
-appId: dev.tern.desktop
-productName: Tern
+appId: dev.kuro.desktop
+productName: Clash Kuro
 directories:
   output: dist
+  buildResources: build
 files:
   - out/**
 # Core, Geo data and licenses come from scripts/fetch-core.mjs (ADR-0012); never inside app.asar.
@@ -16,6 +17,8 @@ extraResources:
     to: core/core.lock.json
 mac:
   target: dir
+  icon: build/icon.icns
   identity: null
 win:
   target: dir
+  icon: build/icon.ico

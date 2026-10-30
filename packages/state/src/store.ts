@@ -1,8 +1,8 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
-import type { MihomoClient } from '@tern/api'
-import type { ControlChannel, Platform, Profile, Settings } from '@tern/core'
+import type { MihomoClient } from '@kuro/api'
+import type { ControlChannel, Platform, Profile, Settings } from '@kuro/core'
 import { LOG_BUFFER_SIZE, type CommandInput, type CommandName, type CommandOutput, type CommandResult, type StateBridge, type StateSnapshot } from './index'
-import type { LogEntry, Traffic } from '@tern/api'
+import type { LogEntry, Traffic } from '@kuro/api'
 import { createStreamHub } from './streams'
 
 export interface AppStoreDeps {

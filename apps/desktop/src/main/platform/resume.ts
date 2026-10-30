@@ -1,5 +1,5 @@
-import type { Platform } from '@tern/core'
-import type { MihomoClient } from '@tern/api'
+import type { Platform } from '@kuro/core'
+import type { MihomoClient } from '@kuro/api'
 
 export function createResumeHandler(options: {
   platform: Pick<Platform, 'isCoreRunning' | 'startCore'>

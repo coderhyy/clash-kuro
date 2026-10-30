@@ -10,7 +10,7 @@ const cleanups: Array<() => Promise<void>> = []
 afterEach(async () => { for (const cleanup of cleanups.splice(0)) await cleanup() })
 
 async function fixture(handler?: RequestListener) {
-  const dir = await mkdtemp('/tmp/tern-transport-')
+  const dir = await mkdtemp('/tmp/kuro-transport-')
   const path = join(dir, 'api.sock')
   const server = createServer(handler)
   const sockets = new Set<Socket>()

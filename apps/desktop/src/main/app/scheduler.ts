@@ -1,4 +1,4 @@
-import { isDue, nextUpdateAt, type Profile } from '@tern/core'
+import { isDue, nextUpdateAt, type Profile } from '@kuro/core'
 
 /**
  * Timed Profile updates. Checks every `tickMs`; a profile is due by `isDue` measured from its last attempt,
