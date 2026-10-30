@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest'
-import { createSystemProxy, SystemProxyPermissionError, type Exec } from './system-proxy'
+import { createSystemProxy, parseWindowsProxyServer, SystemProxyPermissionError, SystemProxyUnknownStateError, type Exec } from './system-proxy'
 
 function fixture() {
   const states = new Map([
@@ -105,13 +105,117 @@ describe('recognizable errors and validation', () => {
     await expect(proxy.setSystemProxy({ host: '127.0.0.1', port: 0, bypass: [] })).rejects.toThrow('Invalid')
     expect(exec).not.toHaveBeenCalled()
   })
-  test('Windows deliberately fails without invoking any command', async () => {
+  test('Linux deliberately fails without invoking any command', async () => {
     const exec = vi.fn<Exec>()
-    const proxy = createSystemProxy({ os: 'win32', exec })
+    const proxy = createSystemProxy({ os: 'linux', exec })
     await expect(proxy.getSystemProxy()).rejects.toThrow('not implemented')
-    await expect(proxy.clearSystemProxy()).rejects.toThrow('not implemented')
-    await expect(proxy.setSystemProxy({ host: '127.0.0.1', port: 7890, bypass: [] })).rejects.toThrow('not implemented')
-    await expect(proxy.cleanupStaleSystemProxy(7890)).rejects.toThrow('not implemented')
     expect(exec).not.toHaveBeenCalled()
+  })
+})
+
+describe('Windows helper', () => {
+  const helperPath = 'C:\\Kuro\\resources\\bin\\kuro-sysproxy.exe'
+  const ok = (body: object) => ({ stdout: JSON.stringify({ ok: true, ...body }), stderr: '' })
+  function win(exec: Exec, remembered: string | null = null, port = 7890) {
+    const saved: (string | null)[] = []
+    const memory = { load: vi.fn(async () => remembered), save: vi.fn(async (server: string | null) => { saved.push(server); remembered = server }) }
+    return { proxy: createSystemProxy({ os: 'win32', exec, helperPath, mixedPort: () => port, memory }), saved, memory }
+  }
+
+  test('set passes argv (no shell string), remembers the endpoint first', async () => {
+    const exec = vi.fn<Exec>(async () => ok({ command: 'set', connections: [{ name: null, status: 'set' }, { name: '公司 VPN', status: 'set' }] }))
+    const { proxy, saved } = win(exec)
+    await proxy.setSystemProxy({ host: '127.0.0.1', port: 17890, bypass: ['localhost', '127.0.0.1', '::1'] })
+    // Bare ::1 makes WinINet reject the whole list (measured: error 87); it must be bracketed.
+    expect(exec).toHaveBeenCalledWith(helperPath, ['set', '--host', '127.0.0.1', '--port', '17890', '--bypass', 'localhost;127.0.0.1;[::1]'])
+    expect(saved).toEqual(['127.0.0.1:17890'])
+  })
+
+  test('get reports the LAN manual proxy and ignores PAC-only or foreign mixed endpoints', async () => {
+    const responses = [
+      { flags: 3, proxyServer: 'http=127.0.0.1:7890;https=127.0.0.1:7890', bypass: 'localhost;<local>' },
+      { flags: 5, proxyServer: null, autoConfigUrl: 'http://wpad/wpad.dat' },
+      { flags: 3, proxyServer: 'http=127.0.0.1:7890;https=corp:8080' },
+    ]
+    const exec = vi.fn<Exec>(async () => ok({ command: 'get', connections: [{ name: null, ...responses.shift() }] }))
+    const { proxy } = win(exec)
+    expect(await proxy.getSystemProxy()).toEqual({ host: '127.0.0.1', port: 7890, bypass: ['localhost', '<local>'] })
+    expect(await proxy.getSystemProxy()).toBeNull()
+    expect(await proxy.getSystemProxy()).toBeNull()
+    expect(exec).toHaveBeenCalledWith(helperPath, ['get'])
+  })
+
+  test('clear asks the helper for the remembered old port and the current port, then forgets', async () => {
+    const exec = vi.fn<Exec>(async () => ok({ command: 'clear', connections: [{ name: null, status: 'cleared' }] }))
+    const { proxy, saved } = win(exec, '127.0.0.1:7890', 7891)
+    await proxy.clearSystemProxy()
+    expect(exec).toHaveBeenCalledWith(helperPath, ['clear', '--expected-server', '127.0.0.1:7890', '--expected-server', '127.0.0.1:7891'])
+    expect(saved).toEqual([null])
+  })
+
+  test('stale cleanup includes the port from settings.json', async () => {
+    const exec = vi.fn<Exec>(async () => ok({ command: 'clear', connections: [] }))
+    const { proxy } = win(exec, null, 7890)
+    await proxy.cleanupStaleSystemProxy(17890)
+    expect(exec).toHaveBeenCalledWith(helperPath, ['clear', '--expected-server', '127.0.0.1:17890', '--expected-server', '127.0.0.1:7890'])
+  })
+
+  test('partial set failure (exit 2 with JSON) rolls back and reports per connection', async () => {
+    const exec = vi.fn<Exec>(async (_file, args) => {
+      if (args[0] === 'clear') return ok({ command: 'clear', connections: [] })
+      throw Object.assign(new Error('Command failed'), { code: 2, stdout: JSON.stringify({
+        ok: false, command: 'set', connections: [{ name: null, status: 'set' }, { name: 'VPN', status: 'error', error: { code: 5, message: 'Access is denied.' } }],
+      }) })
+    })
+    const { proxy } = win(exec)
+    const error = await proxy.setSystemProxy({ host: '127.0.0.1', port: 7890, bypass: [] }).catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(SystemProxyPermissionError)
+    expect((error as Error).message).toMatch(/VPN: Access is denied.*127\.0\.0\.1:7890/s)
+    expect(exec).toHaveBeenLastCalledWith(helperPath, ['clear', '--expected-server', '127.0.0.1:7890'])
+  })
+
+  test('a helper blocked by security software surfaces a manual-setting hint, not a registry fallback', async () => {
+    const exec = vi.fn<Exec>(async () => { throw Object.assign(new Error('spawn EPERM'), { code: 'EPERM' }) })
+    const { proxy } = win(exec)
+    await expect(proxy.setSystemProxy({ host: '127.0.0.1', port: 7890, bypass: [] })).rejects.toThrow(/手动设置 127\.0\.0\.1:7890/)
+    await expect(proxy.getSystemProxy()).rejects.toBeInstanceOf(SystemProxyPermissionError)
+    expect(exec.mock.calls.every(([file]) => file === helperPath)).toBe(true)
+  })
+
+  test('timeout is reported as unknown state, not success', async () => {
+    const exec = vi.fn<Exec>(async () => { throw Object.assign(new Error('timed out'), { killed: true, signal: 'SIGTERM' }) })
+    const { proxy } = win(exec)
+    await expect(proxy.clearSystemProxy()).rejects.toBeInstanceOf(SystemProxyUnknownStateError)
+  })
+
+  test('rejects bypass entries containing the Windows list separator', async () => {
+    const exec = vi.fn<Exec>()
+    const { proxy } = win(exec)
+    await expect(proxy.setSystemProxy({ host: '127.0.0.1', port: 7890, bypass: ['a;b'] })).rejects.toThrow('Invalid')
+    expect(exec).not.toHaveBeenCalled()
+  })
+
+  test('helper calls never overlap', async () => {
+    let active = 0, peak = 0
+    const exec = vi.fn<Exec>(async () => {
+      peak = Math.max(peak, ++active)
+      await new Promise((resolve) => setTimeout(resolve, 5))
+      active--
+      return ok({ connections: [{ name: null, flags: 1 }] })
+    })
+    const { proxy } = win(exec)
+    await Promise.all([proxy.getSystemProxy(), proxy.clearSystemProxy(), proxy.setSystemProxy({ host: '127.0.0.1', port: 7890, bypass: [] })])
+    expect(peak).toBe(1)
+  })
+
+  test.each([
+    ['127.0.0.1:7890', { host: '127.0.0.1', port: 7890 }],
+    ['http=127.0.0.1:7890;https=127.0.0.1:7890', { host: '127.0.0.1', port: 7890 }],
+    ['http=127.0.0.1:7890;https=corp:8080', null],
+    ['http://127.0.0.1:7890', null],
+    ['127.0.0.1:0', null],
+    ['', null],
+  ])('parseWindowsProxyServer(%j)', (server, expected) => {
+    expect(parseWindowsProxyServer(server)).toEqual(expected)
   })
 })

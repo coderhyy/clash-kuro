@@ -36,12 +36,15 @@ async function main(): Promise<void> {
   const resources = app.isPackaged ? join(process.resourcesPath, 'core') : join(app.getAppPath(), 'resources', 'core', `${process.platform}-${process.arch}`)
   const geoDir = app.isPackaged ? join(process.resourcesPath, 'core', 'geo') : join(app.getAppPath(), 'resources', 'core', 'geo')
   const corePath = join(resources, process.platform === 'win32' ? 'mihomo.exe' : 'mihomo')
+  const sysproxyHelperPath = process.platform === 'win32'
+    ? app.isPackaged ? join(process.resourcesPath, 'bin', 'kuro-sysproxy.exe') : join(app.getAppPath(), 'resources', 'win', 'x64', 'kuro-sysproxy.exe')
+    : undefined
   const dataDir = join(app.getPath('userData'), 'data')
   const userAgent = `ClashKuro/${app.getVersion()} (clash.meta)`
 
   let store: AppStore | undefined
   const platform = createDesktopPlatform({
-    dataDir, corePath, userAgent, powerMonitor,
+    dataDir, corePath, sysproxyHelperPath, userAgent, powerMonitor,
     mixedPort: () => store?.store.getState().settings.mixedPort ?? 7890
   })
   const client = createMihomoClient(createSocketTransport(() => platform.controlChannel()))

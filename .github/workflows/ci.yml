@@ -38,9 +38,19 @@ jobs:
       - run: bunx turbo typecheck
       # shortcut: desktop tests use unix sockets and POSIX signals; port them when issue 08 lands.
       - run: bunx turbo test --filter=!@kuro/desktop
-      - name: Package (unsigned, no System Proxy helper yet; see issue 08)
+      - name: Install mingw-w64 (System Proxy helper compiler)
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          install: mingw-w64-ucrt-x86_64-gcc
+          path-type: inherit
+      - name: Package (unsigned, ADR-0010; builds kuro-sysproxy.exe first)
         working-directory: apps/desktop
+        shell: msys2 {0}
         run: bun run package:win
+      - name: System Proxy tests (mocked helper + real helper, read-only)
+        working-directory: apps/desktop
+        run: bunx vitest run src/main/platform/system-proxy.test.ts src/main/platform/sysproxy-helper.integration.test.ts
       - uses: actions/upload-artifact@v4
         with:
           name: kuro-windows-x64
