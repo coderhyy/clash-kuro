@@ -4,11 +4,15 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./fake": "./src/fake.ts"
+    "./fake": "./src/fake.ts",
+    "./react": "./src/react.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run"
   },
-  "dependencies": { "@tern/core": "workspace:*", "@tern/api": "workspace:*", "zustand": "5.0.16" }
+  "dependencies": { "@tern/core": "workspace:*", "@tern/api": "workspace:*", "zustand": "5.0.16" },
+  "peerDependencies": { "react": "19.3.1" },
+  "peerDependenciesMeta": { "react": { "optional": true } },
+  "devDependencies": { "react": "19.3.1", "@types/react": "19.3.0" }
 }

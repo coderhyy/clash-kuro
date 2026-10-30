@@ -73,3 +73,5 @@ export interface MihomoClient {
   logs(onData: (l: LogEntry) => void): StreamHandle
   connections(onData: (c: ConnectionsSummary) => void): StreamHandle
 }
+
+export * from './client'
