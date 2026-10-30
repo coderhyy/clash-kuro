@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 import type { StateBridge } from '@tern/state'
 
 declare global {
