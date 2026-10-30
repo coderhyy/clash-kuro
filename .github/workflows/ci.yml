@@ -39,15 +39,19 @@ jobs:
       # shortcut: desktop tests use unix sockets and POSIX signals; port them when issue 08 lands.
       - run: bunx turbo test --filter=!@kuro/desktop
       - name: Install mingw-w64 (System Proxy helper compiler)
+        id: msys2
         uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64
           install: mingw-w64-ucrt-x86_64-gcc
-          path-type: inherit
+      # Package in pwsh, not the msys2 shell: msys2's GNU tar shadows Windows bsdtar and cannot unzip the Core.
+      # ucrt64\bin has gcc/windres but no tar.
       - name: Package (unsigned, ADR-0010; builds kuro-sysproxy.exe first)
         working-directory: apps/desktop
-        shell: msys2 {0}
-        run: bun run package:win
+        shell: pwsh
+        run: |
+          $env:PATH = "${{ steps.msys2.outputs.msys2-location }}\ucrt64\bin;$env:PATH"
+          bun run package:win
       - name: System Proxy tests (mocked helper + real helper, read-only)
         working-directory: apps/desktop
         run: bunx vitest run src/main/platform/system-proxy.test.ts src/main/platform/sysproxy-helper.integration.test.ts
