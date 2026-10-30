@@ -55,3 +55,7 @@ export interface StateBridge {
   subscribe(listener: (snapshot: StateSnapshot) => void): () => void
   run<K extends CommandName>(name: K, input: CommandInput<K>): Promise<CommandResult<K>>
 }
+
+export * from './store'
+export * from './tray'
+export * from './snapshot'

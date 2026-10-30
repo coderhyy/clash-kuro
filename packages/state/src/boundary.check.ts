@@ -5,5 +5,8 @@ import type {} from 'node:fs'
 import type {} from 'node:child_process'
 // @ts-expect-error -- no Electron
 import type {} from 'electron'
-// @ts-expect-error -- no DOM
-export type NoDom = Document
+// React declares empty DOM interface stubs; the actual DOM globals and methods must stay absent.
+// @ts-expect-error -- no DOM global
+export type NoDom = typeof document
+// @ts-expect-error -- no DOM capabilities
+export type NoDomMethods = Document['createElement']
