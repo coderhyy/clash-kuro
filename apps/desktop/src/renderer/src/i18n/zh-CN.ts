@@ -14,7 +14,8 @@ export const zhCN = {
   source: '来源类型',
   url: '远程 URL',
   path: '本地文件路径',
-  pathHint: '输入 YAML 文件的绝对路径；文件选择将在集成时提供。',
+  pathHint: '输入 YAML 文件的绝对路径，或点击“选择文件”。',
+  browse: '选择文件',
   importSubmit: '导入',
   importing: '正在处理…',
   cancel: '取消',
@@ -95,7 +96,14 @@ export const zhCN = {
   gib: '{value} GiB',
   tib: '{value} TiB',
   notFound: '找不到这个 Profile。',
-  invalidProxy: '这个 Proxy 不属于所选 Proxy Group。'
+  invalidProxy: '这个 Proxy 不属于所选 Proxy Group。',
+  live: '实时',
+  upload: '上传',
+  download: '下载',
+  perSecond: '{value}/s',
+  logs: '日志',
+  noLogs: '暂无日志',
+  liveOffline: 'Core 运行后显示流量和日志。'
 } as const
 
 export type TranslationKey = keyof typeof zhCN

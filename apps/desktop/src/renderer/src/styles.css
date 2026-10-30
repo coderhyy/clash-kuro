@@ -781,3 +781,57 @@ progress::-moz-progress-bar {
     scroll-behavior: auto !important;
   }
 }
+
+.source-input {
+  display: flex;
+  gap: 8px;
+}
+.live {
+  padding-top: 24px;
+  margin-top: 24px;
+  border-top: 1px solid var(--border);
+}
+.traffic {
+  display: flex;
+  gap: 14px;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.traffic span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.log-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--sidebar);
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.log-list li {
+  display: flex;
+  gap: 8px;
+}
+.log-level {
+  flex: none;
+  width: 52px;
+  color: var(--muted-foreground);
+  text-transform: uppercase;
+}
+.log-error .log-level {
+  color: var(--danger);
+}
+.log-warning .log-level {
+  color: #8a5a00;
+}
+.log-payload {
+  overflow-wrap: anywhere;
+}

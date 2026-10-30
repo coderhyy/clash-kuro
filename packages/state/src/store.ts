@@ -1,7 +1,9 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import type { MihomoClient } from '@tern/api'
 import type { ControlChannel, Platform, Profile, Settings } from '@tern/core'
-import type { CommandInput, CommandName, CommandOutput, CommandResult, StateBridge, StateSnapshot } from './index'
+import { LOG_BUFFER_SIZE, type CommandInput, type CommandName, type CommandOutput, type CommandResult, type StateBridge, type StateSnapshot } from './index'
+import type { LogEntry, Traffic } from '@tern/api'
+import { createStreamHub } from './streams'
 
 export interface AppStoreDeps {
   platform: Platform
@@ -18,6 +20,8 @@ export interface AppStoreDeps {
 
 export interface AppStore extends StateBridge {
   store: StoreApi<StateSnapshot>
+  /** Close live streams; call on shutdown. */
+  dispose(): void
 }
 
 type SavedState = Pick<StateSnapshot, 'settings' | 'profiles' | 'activeProfileId'>
@@ -78,8 +82,13 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
     update: null
   }))
 
+  const coreUp = () => store.getState().core.status === 'running'
+  const traffic = createStreamHub<Traffic>({ open: (onData, onClose) => client.traffic(onData, onClose), shouldConnect: coreUp })
+  const logs = createStreamHub<LogEntry>({ open: (onData, onClose) => client.logs(onData, onClose), shouldConnect: coreUp, buffer: LOG_BUFFER_SIZE })
+
   function change(patch: Partial<StateSnapshot>): void {
     store.setState((state) => ({ ...patch, version: state.version + 1 }))
+    if (patch.core?.status === 'running') { traffic.wake(); logs.wake() }
   }
 
   async function persist(patch: Partial<SavedState>): Promise<void> {
@@ -249,6 +258,9 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
   return {
     store,
     getSnapshot: async () => store.getState(),
+    subscribeTraffic: (listener) => traffic.subscribe(listener),
+    subscribeLogs: (listener) => logs.subscribe(listener),
+    dispose() { traffic.close(); logs.close() },
     subscribe: (listener) => store.subscribe(listener),
     run<K extends CommandName>(name: K, input: CommandInput<K>): Promise<CommandResult<K>> {
       const result = pending.then(async (): Promise<CommandResult<K>> => {

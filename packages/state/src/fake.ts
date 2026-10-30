@@ -1,3 +1,4 @@
+import type { LogEntry, Traffic } from '@tern/api'
 import type { CommandInput, CommandName, CommandResult, StateBridge, StateSnapshot } from './index'
 
 export function fakeSnapshot(overrides: Partial<StateSnapshot> = {}): StateSnapshot {
@@ -34,6 +35,8 @@ export function fakeSnapshot(overrides: Partial<StateSnapshot> = {}): StateSnaps
 export class FakeBridge implements StateBridge {
   calls: Array<{ name: CommandName; input: unknown }> = []
   private listeners = new Set<(s: StateSnapshot) => void>()
+  readonly trafficListeners = new Set<(t: Traffic) => void>()
+  readonly logListeners = new Set<(l: LogEntry) => void>()
   constructor(public snapshot: StateSnapshot = fakeSnapshot()) {}
 
   async getSnapshot() {
@@ -46,6 +49,21 @@ export class FakeBridge implements StateBridge {
   async run<K extends CommandName>(name: K, input: CommandInput<K>): Promise<CommandResult<K>> {
     this.calls.push({ name, input })
     return { ok: true, value: undefined as CommandResult<K> extends { value: infer V } ? V : never }
+  }
+  subscribeTraffic(listener: (t: Traffic) => void) {
+    this.trafficListeners.add(listener)
+    return () => void this.trafficListeners.delete(listener)
+  }
+  subscribeLogs(listener: (l: LogEntry) => void) {
+    this.logListeners.add(listener)
+    return () => void this.logListeners.delete(listener)
+  }
+  /** Test helpers: push live events. */
+  emitTraffic(t: Traffic) {
+    for (const l of this.trafficListeners) l(t)
+  }
+  emitLog(entry: LogEntry) {
+    for (const l of this.logListeners) l(entry)
   }
   /** Test helper: replace the snapshot and notify subscribers. */
   publish(next: StateSnapshot) {

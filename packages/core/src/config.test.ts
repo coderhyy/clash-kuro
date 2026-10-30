@@ -45,6 +45,7 @@ external-controller-pipe: untrusted
 external-controller-cors: {allow-origins: ['*']}
 external-controller-future: unsafe
 secret: untrusted-secret
+geo-auto-update: true
 profile: {store-selected: false, store-fake-ip: true}
 proxies: []
 rules: [MATCH,DIRECT]
@@ -56,7 +57,7 @@ rules: [MATCH,DIRECT]
     const result = parse(buildRuntimeConfig(parsed, settings, channel))
     const key = channel.kind === 'unix' ? 'external-controller-unix' : 'external-controller-pipe'
     expect(result).toEqual({
-      mode: 'rule', 'mixed-port': 7890, 'allow-lan': false, 'log-level': 'info',
+      mode: 'rule', 'mixed-port': 7890, 'allow-lan': false, 'log-level': 'info', 'geo-auto-update': false,
       profile: { 'store-selected': true, 'store-fake-ip': true },
       proxies: [], rules: ['MATCH', 'DIRECT'],
       [key]: channel.kind === 'unix' ? channel.path : channel.name

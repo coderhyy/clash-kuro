@@ -1,0 +1,45 @@
+{
+  "$comment": "Pinned Core and Geo data (ADR-0005, ADR-0012). Update version, URLs and sha256 together; scripts/fetch-core.mjs fails the build on any mismatch.",
+  "mihomo": {
+    "version": "v1.19.33",
+    "license": {
+      "url": "https://raw.githubusercontent.com/MetaCubeX/mihomo/v1.19.33/LICENSE",
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    "targets": {
+      "darwin-arm64": {
+        "url": "https://github.com/MetaCubeX/mihomo/releases/download/v1.19.33/mihomo-darwin-arm64-v1.19.33.gz",
+        "sha256": "060b64b0f2c9a310831db0fe4adb2878de67bfa606c311813c1f13966aa504b6",
+        "format": "gz"
+      },
+      "darwin-x64": {
+        "url": "https://github.com/MetaCubeX/mihomo/releases/download/v1.19.33/mihomo-darwin-amd64-v1-v1.19.33.gz",
+        "sha256": "61f979d6aae3deffe4e3895161349c3d9189149eef88c5aceb7c6d4a7270a78d",
+        "format": "gz"
+      },
+      "win32-x64": {
+        "url": "https://github.com/MetaCubeX/mihomo/releases/download/v1.19.33/mihomo-windows-amd64-v1-v1.19.33.zip",
+        "sha256": "fb0b960eff568459502d4ebe53e9cca203053d86ec9024fe935f19615d74d9aa",
+        "format": "zip"
+      }
+    }
+  },
+  "geodata": {
+    "source": "https://github.com/MetaCubeX/meta-rules-dat",
+    "commit": "10f120b9f0cd1bcae8b8ff88b3f999237b919702",
+    "files": {
+      "Country.mmdb": {
+        "url": "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/10f120b9f0cd1bcae8b8ff88b3f999237b919702/country.mmdb",
+        "sha256": "9a485c40b6fda868f3d3b981f928b8ab3d1e400fac1bf9cc8d27ebc08ae9bb0b"
+      },
+      "GeoSite.dat": {
+        "url": "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/10f120b9f0cd1bcae8b8ff88b3f999237b919702/geosite.dat",
+        "sha256": "b4d3807aa45b4f5532ae236672f244a562452622483c0b489c63dd2aadaa821f"
+      },
+      "ASN.mmdb": {
+        "url": "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/10f120b9f0cd1bcae8b8ff88b3f999237b919702/GeoLite2-ASN.mmdb",
+        "sha256": "3169b9ea7dad762f6837b95408dadc1173f47be33be2d83b6c90e67a57a7eb2e"
+      }
+    }
+  }
+}

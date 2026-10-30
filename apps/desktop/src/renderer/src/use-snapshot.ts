@@ -1,63 +1,23 @@
 import { useMemo, useSyncExternalStore } from 'react'
 import type { StateBridge, StateSnapshot } from '@tern/state'
+import { createSnapshotCache } from '@tern/state'
 
-export function newerSnapshot(
-  current: StateSnapshot | null,
-  next: StateSnapshot
-): StateSnapshot {
-  return current && next.version < current.version ? current : next
-}
-
-export function createSnapshotStore(bridge: StateBridge) {
-  let state: { snapshot: StateSnapshot | null; error: string | null } = {
-    snapshot: null,
-    error: null
-  }
-  const listeners = new Set<() => void>()
-  let unsubscribe: (() => void) | undefined
-  let generation = 0
-  function notify() {
-    for (const listener of listeners) listener()
-  }
+/** Shared cache from @tern/state (drops older versions); errors surface as a value for the connection screen. */
+export function createSnapshotView(bridge: StateBridge) {
+  const inner = createSnapshotCache(bridge)
+  let last = { snapshot: null as StateSnapshot | null, error: null as string | null }
   return {
-    getSnapshot: () => state,
-    subscribe(listener: () => void) {
-      listeners.add(listener)
-      if (listeners.size === 1) {
-        const activeGeneration = ++generation
-        const receive = (next: StateSnapshot) => {
-          if (activeGeneration !== generation) return
-          const snapshot = newerSnapshot(state.snapshot, next)
-          if (snapshot === state.snapshot && !state.error) return
-          state = { snapshot, error: null }
-          notify()
-        }
-        // Subscribe before reading: a slow initial read must not overwrite a live update.
-        unsubscribe = bridge.subscribe(receive)
-        void (async () => {
-          try {
-            receive(await bridge.getSnapshot())
-          } catch (error) {
-            if (activeGeneration !== generation) return
-            state = { ...state, error: String(error) }
-            notify()
-          }
-        })()
-      }
-      return () => {
-        listeners.delete(listener)
-        if (!listeners.size) {
-          ++generation
-          unsubscribe?.()
-          unsubscribe = undefined
-        }
-      }
+    subscribe: inner.subscribe,
+    getSnapshot() {
+      let next
+      try { next = { snapshot: inner.getSnapshot(), error: null } } catch (error) { next = { snapshot: last.snapshot, error: String(error) } }
+      if (next.snapshot !== last.snapshot || next.error !== last.error) last = next
+      return last
     }
   }
 }
 
-// shortcut: renderer-local cache, replace with @tern/state/react during integration.
-export function useSnapshot(bridge: StateBridge) {
-  const store = useMemo(() => createSnapshotStore(bridge), [bridge])
-  return useSyncExternalStore(store.subscribe, store.getSnapshot)
+export function useSnapshot(bridge: StateBridge): { snapshot: StateSnapshot | null; error: string | null } {
+  const cache = useMemo(() => createSnapshotView(bridge), [bridge])
+  return useSyncExternalStore(cache.subscribe, cache.getSnapshot)
 }

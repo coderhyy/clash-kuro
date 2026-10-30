@@ -69,9 +69,10 @@ export interface MihomoClient {
   getProxyGroups(): Promise<{ groups: ProxyGroup[]; proxies: Record<string, Proxy> }>
   selectProxy(group: string, proxy: string): Promise<void>
   closeAllConnections(): Promise<void>
-  traffic(onData: (t: Traffic) => void): StreamHandle
-  logs(onData: (l: LogEntry) => void): StreamHandle
-  connections(onData: (c: ConnectionsSummary) => void): StreamHandle
+  /** `onClose` fires once when the stream ends, whether Core dropped it or `close()` was called. */
+  traffic(onData: (t: Traffic) => void, onClose?: (error?: Error) => void): StreamHandle
+  logs(onData: (l: LogEntry) => void, onClose?: (error?: Error) => void): StreamHandle
+  connections(onData: (c: ConnectionsSummary) => void, onClose?: (error?: Error) => void): StreamHandle
 }
 
 export * from './client'

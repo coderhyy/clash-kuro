@@ -66,24 +66,24 @@ export function createMihomoClient(transport: Transport): MihomoClient {
     async closeAllConnections() {
       await request({ method: 'DELETE', path: '/connections' })
     },
-    traffic(onData) {
+    traffic(onData, onClose) {
       return transport.stream('/traffic', (data) => {
         const raw = object(data)
         onData({ up: number(raw.up), down: number(raw.down) })
-      })
+      }, onClose)
     },
-    logs(onData) {
+    logs(onData, onClose) {
       return transport.stream('/logs', (data) => {
         const raw = object(data)
         onData({ level: logLevel(raw.type), payload: text(raw.payload) })
-      })
+      }, onClose)
     },
-    connections(onData) {
+    connections(onData, onClose) {
       return transport.stream('/connections', (data) => {
         const raw = object(data)
         if (!Array.isArray(raw.connections)) throw new Error('Invalid mihomo connections')
         onData({ uploadTotal: number(raw.uploadTotal), downloadTotal: number(raw.downloadTotal), count: raw.connections.length })
-      })
+      }, onClose)
     }
   }
 }

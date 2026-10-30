@@ -6,4 +6,5 @@
 
 - `packages/state` 的核心是框架无关的 store（`zustand/vanilla`），运行在主进程；渲染进程只有一层薄 React hooks，经 IPC 订阅快照。
 - 渲染进程不直接访问 Control Channel，只发有类型的 Command（`setMode`、`selectProxy`、`updateProfile` 等），由主进程执行。托盘与窗口走同一路径。
-- `/traffic`、`/logs`、`/connections` 的 WebSocket 只在窗口存在时订阅，Tray Mode 下断开。
+- 流量和日志是事件，不进状态快照。`StateBridge` 提供 `subscribeTraffic` 和 `subscribeLogs`，都返回取消订阅函数。主进程按订阅者计数：有订阅者且 Core 在运行时才连接 Core 的 `/traffic`、`/logs` WebSocket，最后一个订阅者取消后断开；Core 重启导致断流时自动重连。窗口销毁即取消订阅，所以 Tray Mode 下没有 WebSocket。
+- 日志在主进程只保留最近 500 条（`LOG_BUFFER_SIZE`），新订阅者先收到这批再接收实时日志。

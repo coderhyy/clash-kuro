@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile
+      - run: bunx turbo test typecheck
+      - name: Package (unsigned, ADR-0010)
+        working-directory: apps/desktop
+        run: bun run package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tern-macos-arm64
+          path: apps/desktop/dist/mac-arm64
+          retention-days: 7
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile
+      - run: bunx turbo typecheck
+      # shortcut: desktop tests use unix sockets and POSIX signals; port them when issue 08 lands.
+      - run: bunx turbo test --filter=!@tern/desktop
+      - name: Package (unsigned, no System Proxy helper yet; see issue 08)
+        working-directory: apps/desktop
+        run: bun run package:win
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tern-windows-x64
+          path: apps/desktop/dist/win-unpacked
+          retention-days: 7

@@ -22,7 +22,7 @@ _Avoid_: 流量信息、套餐
 远程 Profile 自动更新的间隔。取自响应头 `profile-update-interval`，缺省 24 小时，用户可改。
 
 **App-managed Fields**:
-由应用持久保存、并覆盖 Profile 中同名字段的配置项：模式、mixed-port、allow-lan、log-level、`profile.store-selected` 和控制通道。
+由应用持久保存、并覆盖 Profile 中同名字段的配置项：模式、mixed-port、allow-lan、log-level、`profile.store-selected`、`geo-auto-update: false` 和控制通道。
 _Avoid_: 覆写（覆写是第二期的独立功能）
 
 **Runtime Config**:

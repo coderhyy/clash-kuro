@@ -1,4 +1,4 @@
-import type { ProxyGroup, Proxy } from '@tern/api'
+import type { LogEntry, ProxyGroup, Proxy, Traffic } from '@tern/api'
 import type { Mode, Profile, ProfileSource, Settings } from '@tern/core'
 
 export type CoreStatus = 'stopped' | 'starting' | 'running' | 'error'
@@ -54,8 +54,15 @@ export interface StateBridge {
   getSnapshot(): Promise<StateSnapshot>
   subscribe(listener: (snapshot: StateSnapshot) => void): () => void
   run<K extends CommandName>(name: K, input: CommandInput<K>): Promise<CommandResult<K>>
+  /** Live events, not part of the snapshot. Core's WebSocket stays open only while someone is subscribed. */
+  subscribeTraffic(listener: (traffic: Traffic) => void): () => void
+  /** Replays the recent buffer (at most LOG_BUFFER_SIZE entries), then streams new entries. */
+  subscribeLogs(listener: (entry: LogEntry) => void): () => void
 }
+
+export const LOG_BUFFER_SIZE = 500
 
 export * from './store'
 export * from './tray'
 export * from './snapshot'
+export * from './streams'

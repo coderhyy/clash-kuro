@@ -11,6 +11,12 @@ import { t } from './i18n/zh-CN'
 export class DevBridge extends FakeBridge {
   constructor() {
     super(fakeSnapshot())
+    // Demo stream so the live panel has something to show without a Core.
+    setInterval(() => {
+      if (this.snapshot.core.status !== 'running') return
+      this.emitTraffic({ up: Math.round(Math.random() * 40_000), down: Math.round(Math.random() * 400_000) })
+      if (Math.random() < 0.3) this.emitLog({ level: 'info', payload: `[TCP] 127.0.0.1 --> example.com:443 match Match using 节点选择[香港 01]` })
+    }, 1000)
   }
 
   private profile(id: string) {

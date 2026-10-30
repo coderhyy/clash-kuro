@@ -4,6 +4,18 @@ directories:
   output: dist
 files:
   - out/**
+# Core, Geo data and licenses come from scripts/fetch-core.mjs (ADR-0012); never inside app.asar.
+extraResources:
+  - from: resources/core/${platform}-${arch}
+    to: core
+  - from: resources/core/geo
+    to: core/geo
+  - from: resources/core/licenses
+    to: licenses
+  - from: resources/core/core.lock.json
+    to: core/core.lock.json
 mac:
   target: dir
   identity: null
+win:
+  target: dir

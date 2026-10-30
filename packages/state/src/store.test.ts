@@ -278,3 +278,24 @@ test('invalid persisted metadata is rejected without modifying disk', async () =
     expect(platform.files.get('settings.json')).toBe(data)
   }
 })
+
+test('traffic and logs are events: Core streams open only while subscribed and Core runs', async () => {
+  const { app, transport } = await setup(false)
+  const traffic: unknown[] = []
+  const offTraffic = app.subscribeTraffic((t) => traffic.push(t))
+  expect(transport.openStreams('/traffic')).toBe(0)
+  const before = app.store.getState().version
+  await app.run('startCore', {})
+  expect(transport.openStreams('/traffic')).toBe(1)
+  expect(transport.openStreams('/logs')).toBe(0)
+  transport.push('/traffic', { up: 1, down: 2 })
+  expect(traffic).toEqual([{ up: 1, down: 2 }])
+  expect(app.store.getState().version - before).toBeLessThan(5)
+  offTraffic()
+  expect(transport.openStreams('/traffic')).toBe(0)
+  const offLogs = app.subscribeLogs(() => {})
+  expect(transport.openStreams('/logs')).toBe(1)
+  app.dispose()
+  expect(transport.openStreams('/logs')).toBe(0)
+  offLogs()
+})

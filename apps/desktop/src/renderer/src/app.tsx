@@ -30,6 +30,7 @@ import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { t } from './i18n/zh-CN'
 import { useSnapshot } from './use-snapshot'
+import { LivePanel } from './live-panel'
 import { date, formatBytes, releaseUrl } from './display'
 
 type Run = <K extends CommandName>(
@@ -48,6 +49,7 @@ function ImportForm({
 }) {
   const [kind, setKind] = useState<'remote' | 'local'>('remote')
   const [error, setError] = useState('')
+  const sourceRef = useRef<HTMLInputElement>(null)
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const data = new FormData(event.currentTarget)
@@ -117,14 +119,29 @@ function ImportForm({
         <label htmlFor="profile-source">
           {t(kind === 'remote' ? 'url' : 'path')}
         </label>
-        <Input
-          key={kind}
-          id="profile-source"
-          name="source"
-          type={kind === 'remote' ? 'url' : 'text'}
-          required
-          aria-describedby={kind === 'local' ? 'path-hint' : undefined}
-        />
+        <div className="source-input">
+          <Input
+            key={kind}
+            ref={sourceRef}
+            id="profile-source"
+            name="source"
+            type={kind === 'remote' ? 'url' : 'text'}
+            required
+            aria-describedby={kind === 'local' ? 'path-hint' : undefined}
+          />
+          {kind === 'local' && window.ternFiles && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={async () => {
+                const path = await window.ternFiles?.pickProfileFile()
+                if (path && sourceRef.current) sourceRef.current.value = path
+              }}
+            >
+              {t('browse')}
+            </Button>
+          )}
+        </div>
         {kind === 'local' && (
           <p id="path-hint" className="muted">
             {t('pathHint')}
@@ -775,6 +792,7 @@ export function App({ bridge, demo }: { bridge: StateBridge; demo: boolean }) {
             </fieldset>
           ))}
         </section>
+        <LivePanel bridge={bridge} running={running} />
       </main>
     </div>
   )

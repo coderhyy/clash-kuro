@@ -7,6 +7,7 @@ export class FakeTransport implements Transport {
   requests: HttpRequest[] = []
   private handlers = new Map<string, Handler>()
   private streams = new Map<string, Set<(data: unknown) => void>>()
+  private closers = new Map<(data: unknown) => void, (error?: Error) => void>()
 
   on(method: HttpRequest['method'], path: string, handler: Handler | HttpResponse) {
     this.handlers.set(`${method} ${path}`, typeof handler === 'function' ? handler : () => handler)
@@ -20,11 +21,22 @@ export class FakeTransport implements Transport {
     return h(req)
   }
 
-  stream(path: string, onMessage: (data: unknown) => void): StreamHandle {
+  stream(path: string, onMessage: (data: unknown) => void, onClose?: (error?: Error) => void): StreamHandle {
     const set = this.streams.get(path) ?? new Set()
     this.streams.set(path, set)
     set.add(onMessage)
-    return { close: () => void set.delete(onMessage) }
+    if (onClose) this.closers.set(onMessage, onClose)
+    return { close: () => { set.delete(onMessage); this.closers.delete(onMessage) } }
+  }
+
+  /** Test helper: simulate Core closing every stream on `path`. */
+  drop(path: string, error?: Error) {
+    for (const fn of [...(this.streams.get(path) ?? [])]) {
+      this.streams.get(path)!.delete(fn)
+      const onClose = this.closers.get(fn)
+      this.closers.delete(fn)
+      onClose?.(error)
+    }
   }
 
   /** Test helper: deliver a frame to every open stream on `path`. */
