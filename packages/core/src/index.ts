@@ -78,3 +78,6 @@ export interface Platform {
   /** Subscribe to system resume; returns an unsubscribe function. */
   onResume(listener: () => void): () => void
 }
+
+export * from './config'
+export * from './profile-update'
