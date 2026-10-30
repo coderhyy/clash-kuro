@@ -1,6 +1,6 @@
 # 骨架与接口约定
 
-Status: ready-for-agent
+Status: resolved
 Type: task
 
 串行，越短越好。合进主干后 03–06 才能开工。
@@ -23,3 +23,11 @@ Type: task
 - 三个共享包引用 fs、child_process、electron 或 DOM 类型时 typecheck/lint 失败。
 - `apps/desktop` 的 `dependencies` 为空，electron-builder 能在 macOS 产出可启动的空壳应用（验证 ADR-0011 的打包假设）。
 - 上述接口类型和 fake 已合进主干。
+
+## Answer
+
+- 打包验证：electron-builder 26.18.0 在 macOS arm64 产出 `Tern.app`，asar 内无 `node_modules`，`TERN_SMOKE=1` 启动输出 `TERN_SMOKE_OK`。用 `bun run package`（`apps/desktop`）复现。
+- 版本：bun 1.4.4、turbo 2.11.10、TypeScript 7.0.2、Vitest 5.0.5、Electron 45.1.0、electron-vite 6.0.0、Vite 8.3.5、React 19.3.1。
+- 平台边界：共享包用 `tsconfig.shared.json`（无 DOM lib、无 @types），每个包的 `src/boundary.check.ts` 用 `@ts-expect-error` 保证 fs/child_process/electron/DOM 不可解析；共享包可用的全局只有 `shared-globals.d.ts` 中列出的。
+- 接口：`Platform`（`packages/core/src/index.ts`）、`Transport` 与 `MihomoClient`（`packages/api/src/index.ts`）、`Commands`、`StateSnapshot`、`StateBridge`（`packages/state/src/index.ts`）。
+- 假实现：`@tern/core/fake` 的 `FakePlatform`、`@tern/api/fake` 的 `FakeTransport`、`@tern/state/fake` 的 `FakeBridge` 与 `fakeSnapshot()`。

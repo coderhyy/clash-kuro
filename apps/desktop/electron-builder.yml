@@ -1,0 +1,9 @@
+appId: dev.tern.desktop
+productName: Tern
+directories:
+  output: dist
+files:
+  - out/**
+mac:
+  target: dir
+  identity: null
