@@ -3,3 +3,4 @@ out/
 dist/
 .turbo/
 .DS_Store
+.worktrees/
