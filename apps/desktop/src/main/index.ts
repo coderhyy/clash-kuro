@@ -10,8 +10,8 @@ import { installGeoData } from './app/geo'
 import { IPC, type StreamKind } from './ipc-channels'
 import { trayIcon } from './tray-icon'
 
-// shortcut: no GitHub repository yet; set KURO_RELEASE_REPO=owner/name (or change this default) once it exists.
-const RELEASE_REPO = process.env.KURO_RELEASE_REPO ?? null
+// KURO_RELEASE_REPO=owner/name overrides the release source (e.g. for forks).
+const RELEASE_REPO = process.env.KURO_RELEASE_REPO ?? 'coderhyy/clash-kuro'
 const SHUTDOWN_TIMEOUT_MS = 3_000
 
 const trayLabels: Record<string, string> = {
