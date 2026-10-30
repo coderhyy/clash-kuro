@@ -41,7 +41,7 @@ Windows System Proxy：
 - 强杀应用后 Core 成为孤儿；下次启动按 pid 文件和可执行路径核对后结束旧 Core，再启动新的。
 - 经 `quit` Command（托盘同一路径）退出后 Core 停止、pid 文件删除。
 - System Proxy：开启后 Wi-Fi 的 HTTP/HTTPS 代理指向 `127.0.0.1:17890`，经代理的请求到达 Core；开着代理强杀应用，下次启动会清掉；正常退出也会关闭。测完所有网络服务的代理都是关闭状态。
-- 新版本提示：默认仓库已设为 `coderhyy/clash-kuro`（`KURO_RELEASE_REPO` 可覆盖）；仓库还没有 Release，未实测。
+- 新版本提示：默认仓库 `coderhyy/clash-kuro`（`KURO_RELEASE_REPO` 可覆盖）。2026-10-30 发临时 Release `v0.0.2-update-check-test` 实测：dev 版（0.0.1）启动后显示“发现新版本 v0.0.2-update-check-test”和指向该 Release 的“手动下载”链接；当前版本设为 0.0.2 时不提示。测后已删除 Release 和 tag。
 
 Tray Mode 内存（`footprint`，窗口销毁 10 秒后）：GUI 合计约 80 MB（main 51、GPU 22、utility 7，renderer 已退出），Core 另计约 50 MB。窗口打开时 GUI 约 174 MB。参考值 Clash Party 托盘模式 GUI 约 143 MB；两者测法未必一致（我们用 `footprint`，参考值来源未注明工具）。
 
