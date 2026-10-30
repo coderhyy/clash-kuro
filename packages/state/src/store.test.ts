@@ -697,3 +697,13 @@ test('if restoring after a failed import also fails, the error names the recover
   expect([...platform.files.keys()].some((name) => name.startsWith('backups/pre-import-'))).toBe(true)
   expect((await app.run('setMode', { mode: 'direct' })).ok).toBe(false)
 })
+
+test('a failing System Proxy probe (e.g. helper blocked) does not prevent startup', async () => {
+  const platform = new FakePlatform()
+  platform.getSystemProxy = async () => { throw new Error('spawn EPERM') }
+  const app = await createAppStore({
+    platform, client: createMihomoClient(new FakeTransport()),
+    buildRuntimeConfig: vi.fn(() => ''), refreshProfile: vi.fn(async (profile) => profile),
+  })
+  expect(app.store.getState().systemProxy).toEqual({ enabled: false })
+})

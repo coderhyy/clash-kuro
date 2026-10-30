@@ -11,8 +11,9 @@
     "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
     "test": "vitest run --passWithNoTests",
     "fetch-core": "node scripts/fetch-core.mjs",
+    "build-sysproxy": "node scripts/build-sysproxy.mjs --test",
     "icons": "electron scripts/make-icons.mjs",
-    "package:win": "node scripts/fetch-core.mjs win32-x64 && electron-vite build && electron-builder --win --dir"
+    "package:win": "node scripts/fetch-core.mjs win32-x64 && node scripts/build-sysproxy.mjs --test && electron-vite build && electron-builder --win --dir"
   },
   "devDependencies": {
     "@base-ui/react": "1.9.0",

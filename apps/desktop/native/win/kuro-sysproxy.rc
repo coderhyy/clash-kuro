@@ -1,0 +1,2 @@
+// Embeds the asInvoker manifest so Windows never prompts for elevation.
+1 24 "kuro-sysproxy.manifest"
