@@ -41,6 +41,8 @@ export interface SystemProxyOptions {
   execSync?: ExecSync
   /** Windows: absolute path to kuro-sysproxy.exe. */
   helperPath?: string
+  /** Windows: absolute log file passed to set as --log; the helper's RunOnce logon cleanup appends its result there. */
+  runOnceLogPath?: string
   /** Windows: current mixed-port, used when no earlier write is remembered. */
   mixedPort?: () => number
   /** Windows: remembers the last endpoint we wrote so clear can find it after a port change or crash. */
@@ -167,6 +169,8 @@ interface HelperResult {
   /** Logon-time fallback entry (HKCU RunOnce): written after set, deleted after a successful clear. */
   runOnce?: 'written' | 'deleted'
   runOnceError?: HelperError
+  /** The RunOnce command would exceed 260 characters with --log, so it was written without it. */
+  runOnceLogOmitted?: boolean
 }
 
 const PROXY_TYPE_PROXY = 2
@@ -362,11 +366,13 @@ function createWindowsSystemProxy(exec: Exec, options: SystemProxyOptions) {
       let result: HelperResult
       setRunning = true
       try {
-        result = await run(['set', '--host', settings.host, '--port', String(settings.port), '--bypass', bypass.join(';')], settings.port)
+        const log = options.runOnceLogPath ? ['--log', options.runOnceLogPath] : []
+        result = await run(['set', '--host', settings.host, '--port', String(settings.port), '--bypass', bypass.join(';'), ...log], settings.port)
       } finally { setRunning = false }
       if (result.ok) {
         // The proxy works without the fallback; only logoff/shutdown cleanup loses its safety net.
         if (result.runOnceError) console.warn('System Proxy logon cleanup entry not written:', result.runOnceError.message)
+        if (result.runOnceLogOmitted) console.warn('System Proxy logon cleanup entry written without --log (command line too long)')
         return
       }
       // Partial write: undo connections that did take our endpoint rather than leave a mix.

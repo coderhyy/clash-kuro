@@ -126,3 +126,43 @@ Blocked by: 02, 07
 - 下一步：
   - 注销前先退出 Fiddler 等会改代理的程序，确认 `get` 是 `flags=3`、RunOnce 条目已写入，再注销。
   - 给 helper 加 `--log <file>`，RunOnce 命令带上它，把每次 clear 的 JSON 结果追加到 `%APPDATA%\Clash Kuro\data\runonce.log`。待用户确认后再做。
+
+2026-10-31 (agent，注销第 4 次之后：假设、`--log`、HITL 脚本、ADR-0013 草案):
+
+- 新发现：本机装着 clash-verge-rev 2.5.8，注销第 4 次时它也在运行。它的日志 `2026-10-31_18-37-50.log` 里，`17:50:27.232` 记录 "Starting bounded session-ending best-effort cleanup"，`17:50:27.353` 记录 core stopped 和 "Application exited"。`Internet Settings`（.253）和 `Connections`（.277）两个键的写入时间都落在这 121 ms 里。它的 `verge.yaml` 是 `enable_system_proxy: false`，可它的会话结束清理仍可能重置代理。目前只是时间吻合，还不能算证据。
+- 假设（按可能性排序，先给用户看，确认后再测）：
+  1. clash-verge 的 session-ending 清理关了我们的代理。如果成立：完全退出 clash-verge（托盘 > 退出）后再注销，登录后、RunOnce 执行前 `get` 仍是 `flags=3`；`Connections` 的写入时间等于 runonce.log 里 clear 那一行的时间；runonce.log 记录 `LAN=cleared`。反过来，让 clash-verge 运行着再注销，会重现 `flags=1`，且写入时间落在它的 cleanup 窗口里。
+  2. 注销开始后，Windows 拒绝初始化当前会话里任何新启动的进程（0xC000026B 是 window station 关闭时的通用错误），跟 helper 导入了哪些 DLL 无关。如果成立：只依赖 kernel32 的探针进程（或者把 WinINet/RAS 改成延迟加载的 helper）在注销时也起不来，`exit.log` 仍是 0xC000026B，探针日志里没有 start 行。如果不成立，start 行会出现，失败只发生在 WinINet/RAS DLL 初始化。这一条决定 ADR-0013 能不能定稿。
+  3. 失败只出在 helper 静态导入的 DLL 上（WININET/RASAPI32 及其带进来的 combase/RPCRT4 等）。和假设 2 互斥，用同一个探针区分：探针能写 start 行，完整 helper 不能。
+  4. 注销时 Fiddler 恢复了它保存的代理设置（测试前它在运行，HookAllConnections=True）。如果成立：`proxyServer` 会变回 Fiddler 当初保存的值，而不是只去掉 PROXY 位、server 保留 `127.0.0.1:7891`。第 4 次注销后 server 没变，所以可能性较低。只运行 Fiddler 再注销可以确认。
+  5. RunOnce 的 clear 在“代理仍是我们的”时没有清掉，比如登录时 WinINet 还没准备好、返回 error，或者因为格式不同判成 notOurs。如果成立：runonce.log 里是 `status:"error"` 或 `notOurs`，并且 `get` 仍是 `flags=3`。本机按 Explorer 的方式（无标准句柄、参数原样）执行已验证能 cleared，所以排最后。
+- 实现 `--log <file>`（set 和 clear 都接受，get 不接受）：
+  - helper 先追加一行 start（UTC 时间、pid、完整命令行），再追加 JSON 结果，stdout 不变。
+  - 文件用 `FILE_APPEND_DATA` 打开，写失败不影响结果；超过 256 KB 时轮转成 `<file>.1`。
+  - 路径必须是 `X:\` 开头的绝对路径，不能含引号或控制字符，长度不超过 255。
+- set 写 RunOnce 时把 `--log` 一起带上：`"<helper>" clear --expected-server 127.0.0.1:<port> --log "<dataDir>\runonce.log"`，两段路径都加引号。命令超过 260 字符时退回不带 `--log` 的版本，JSON 里标 `runOnceLogOmitted:true`，主进程打 warning。本机打包路径下这条命令约 190 字符。主进程把 `%APPDATA%\Clash Kuro\data\runonce.log` 传给 set；clear 由 Kuro 自己读 stdout，不带 `--log`。
+- 本机实测：helper 放在带空格的临时路径，日志放在带空格的目录。
+  - set 7891：RunOnce 写入带 `--log` 的命令（185 字符）。
+  - 按 Explorer 的方式执行这条命令：clear 返回 `cleared`，`runOnce:"deleted"`，日志里有 start 行和 JSON 两行。
+  - 结束后 LAN 回到 `flags=1`，没有 RunOnce 残留。
+  - 注意：PowerShell 直接 `& helper.exe` 不会等 GUI 子系统程序结束，脚本里要用重定向 stdout 再等待的方式调用。
+- HITL 脚本 `apps/desktop/scripts/hitl-logoff-check.ps1`，只读，PowerShell 5.1 和 7 都能跑：
+  - `-Phase before`：以下任何一项不满足，就打印 FAIL 和 "DO NOT LOG OFF"，并以 exit 1 退出。
+    - Fiddler、clash-verge、verge-mihomo、v2rayN、nekoray 等会改代理的程序都已退出。
+    - Kuro 在运行。
+    - `get` 读到 LAN `flags=3`、`127.0.0.1:<port>`。
+    - RunOnce 条目存在、指向同一端点、带 `--log`，helper 路径存在。
+    
+    检查通过时，把快照存到 `%TEMP%\kuro-hitl-logoff-before.json`。
+  - `-Phase after`：在登录后、启动 Kuro 之前运行，收集以下内容。
+    - `exit.log` 和 `runonce.log` 自快照以来的新行。
+    - `get` 结果和 RunOnce 条目。
+    - `Internet Settings`、`Connections` 两个键的最后写入时间（`RegQueryInfoKey`）。
+    - `DefaultConnectionSettings` 的计数器和 flags 字节。
+    - Explorer 启动时间。
+    - Shell-Core 9705–9708 事件。
+    - clash-verge 日志里的 session-ending 行。
+  - 本机试跑：`before` 正确拦下（clash-verge 在运行、Kuro 未运行、`flags=1`、无 RunOnce），`after` 输出完整。
+- 起草 `docs/adr/0013-windows-session-end-cleanup.md`（状态：草案，前提待假设 2 确认）：先同步试一次，失败就靠 RunOnce 在下次登录时清，再加上 Kuro 启动时的清理。是否放宽 ADR-0011（例如在主进程里直接调用 WinINet 的原生模块，clash-party 的 `sysproxy-rs` 就是这样）只列了取舍，由用户决定；ADR-0011 没改。在 spec 的“退出、关机、注销”一条下注明了 Windows 做不到的部分。
+- 测试：C 单测新增带 `--log` 的命令格式（含空格路径、260 边界）和日志路径校验，并通过；desktop typecheck 通过；desktop 测试 64 个通过。新增覆盖：set 带 `--log`、clear 不带；`runOnceLogOmitted` 时 set 仍成功并 warning；helper 拒绝相对路径、含引号的路径，以及 `get --log`。
+- 下一步（用户确认假设后）：完全退出 clash-verge 和 Fiddler，用新产物在 Tray Mode 下注销，前后各跑一次脚本。假设 2/3 的探针等这轮结果出来再决定做不做。

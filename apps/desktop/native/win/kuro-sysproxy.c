@@ -1,12 +1,15 @@
 // kuro-sysproxy: per-user WinINet System Proxy helper for Clash Kuro (issue 08, ADR-0011).
 //
 //   kuro-sysproxy get
-//   kuro-sysproxy set --host <host> --port <port> [--bypass <a;b;c>]
-//   kuro-sysproxy clear --expected-server <host:port> [--expected-server ...]
+//   kuro-sysproxy set --host <host> --port <port> [--bypass <a;b;c>] [--log <file>]
+//   kuro-sysproxy clear --expected-server <host:port> [--expected-server ...] [--log <file>]
 //
 // Applies to the LAN settings (pszConnection = NULL) and every RAS/VPN phonebook entry.
 // Prints one UTF-8 JSON object on stdout. Exit codes: 0 all succeeded, 1 usage error,
 // 2 at least one connection or the change notification failed.
+// --log <file> also appends a start line and the JSON result to <file> (best effort, UTF-8), so
+// a run with nobody reading stdout (the RunOnce entry at logon) leaves evidence; set passes the
+// same --log on to the RunOnce command.
 // Runs as the calling user; never elevates, never writes proxy settings to the registry directly.
 // Its only registry write is its own HKCU RunOnce entry (see runonce_set), a logon-time fallback
 // for when logoff/shutdown ends Clash Kuro before it could clear the proxy.
@@ -33,6 +36,11 @@
 #define RUNONCE_VALUE L"ClashKuroSysProxyCleanup"
 // Run/RunOnce command lines longer than 260 characters are not executed.
 #define RUNONCE_MAX_COMMAND 260
+// The log is rotated to "<file>.1" once it grows past this.
+#define LOG_MAX_BYTES (256 * 1024)
+
+// Absolute path from --log (validated), or NULL.
+static const wchar_t *g_log;
 
 // ---- JSON output -------------------------------------------------------------------------
 
@@ -102,12 +110,59 @@ static void put_error(Buf *b, DWORD code, const wchar_t *fallback) {
   if (message) LocalFree(message);
 }
 
+// ---- --log file --------------------------------------------------------------------------
+
+static void log_append(const char *text, size_t len) {
+  if (!g_log) return;
+  WIN32_FILE_ATTRIBUTE_DATA info;
+  if (GetFileAttributesExW(g_log, GetFileExInfoStandard, &info) && (info.nFileSizeHigh || info.nFileSizeLow > LOG_MAX_BYTES)) {
+    wchar_t rotated[MAX_PATH + 2];
+    _snwprintf(rotated, MAX_PATH + 2, L"%ls.1", g_log);
+    rotated[MAX_PATH + 1] = 0;
+    MoveFileExW(g_log, rotated, MOVEFILE_REPLACE_EXISTING);
+  }
+  // FILE_APPEND_DATA only: each WriteFile lands at the current end, even with concurrent writers.
+  HANDLE file = CreateFileW(g_log, FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL,
+                            OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+  if (file == INVALID_HANDLE_VALUE) return;
+  DWORD written;
+  WriteFile(file, text, (DWORD)len, &written, NULL);
+  CloseHandle(file);
+}
+
+// "<UTC ISO time> pid=<n> " prefix, matching Clash Kuro's exit.log timestamps.
+static void log_prefix(Buf *b) {
+  SYSTEMTIME t;
+  GetSystemTime(&t);
+  putf(b, "%04u-%02u-%02uT%02u:%02u:%02u.%03uZ pid=%lu ", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond,
+       t.wMilliseconds, (unsigned long)GetCurrentProcessId());
+}
+
+static void log_start(void) {
+  if (!g_log) return;
+  Buf b = {0};
+  log_prefix(&b);
+  puts_(&b, "start ");
+  put_json_string(&b, GetCommandLineW());
+  puts_(&b, "\n");
+  log_append(b.data, b.len);
+  free(b.data);
+}
+
+// Writes the JSON result plus a newline to stdout and, with --log, to the log file.
 static void emit(Buf *b) {
   puts_(b, "\n");
   HANDLE out = GetStdHandle(STD_OUTPUT_HANDLE);
   DWORD written;
   for (size_t done = 0; done < b->len; done += written) {
     if (!WriteFile(out, b->data + done, (DWORD)(b->len - done), &written, NULL) || !written) break;
+  }
+  if (g_log) {
+    Buf line = {0};
+    log_prefix(&line);
+    put(&line, b->data, b->len);
+    log_append(line.data, line.len);
+    free(line.data);
   }
 }
 
@@ -224,18 +279,20 @@ static void finish(Buf *b, const Connections *c, int ok) {
 
 // ---- RunOnce fallback --------------------------------------------------------------------
 //
-// Windows may refuse to start new processes once logoff/shutdown has begun (0xC0000142), so
+// Windows may refuse to start new processes once logoff/shutdown has begun (0xC0000142, 0xC000026B), so
 // Clash Kuro cannot rely on launching this helper then. After a set, a per-user RunOnce entry
-// runs `"<this exe>" clear --expected-server <server>` at the next logon; the normal clear
-// endpoint check applies, so a proxy that is no longer ours is left alone. A successful clear
-// deletes the entry. Windows deletes a RunOnce value before running it.
+// runs `"<this exe>" clear --expected-server <server> [--log "<file>"]` at the next logon; the
+// normal clear endpoint check applies, so a proxy that is no longer ours is left alone. A
+// successful clear deletes the entry. Windows deletes a RunOnce value before running it.
 
-static DWORD runonce_set(const wchar_t *server) {
+// *log_omitted is set when the command only fits without --log (the cleanup matters more than its log).
+static DWORD runonce_set(const wchar_t *server, int *log_omitted) {
   wchar_t exe[MAX_PATH];
   DWORD n = GetModuleFileNameW(NULL, exe, MAX_PATH);
   if (!n || n >= MAX_PATH) return ERROR_FILENAME_EXCED_RANGE;
   wchar_t command[RUNONCE_MAX_COMMAND];
-  size_t len = kuro_runonce_command(command, RUNONCE_MAX_COMMAND, exe, server);
+  size_t len = kuro_runonce_command(command, RUNONCE_MAX_COMMAND, exe, server, g_log);
+  if (!len && g_log && (len = kuro_runonce_command(command, RUNONCE_MAX_COMMAND, exe, server, NULL))) *log_omitted = 1;
   if (!len) return ERROR_FILENAME_EXCED_RANGE;
   HKEY key;
   LSTATUS r = RegCreateKeyExW(HKEY_CURRENT_USER, RUNONCE_KEY, 0, NULL, 0, KEY_SET_VALUE, NULL, &key, NULL);
@@ -333,7 +390,11 @@ static int cmd_set(const wchar_t *server, const wchar_t *bypass) {
   }
   puts_(&b, "]");
   // Also after a partial set: some connection now carries our endpoint until the caller rolls back.
-  if (any_set) put_runonce(&b, "written", runonce_set(server));
+  if (any_set) {
+    int log_omitted = 0;
+    put_runonce(&b, "written", runonce_set(server, &log_omitted));
+    if (log_omitted) puts_(&b, ",\"runOnceLogOmitted\":true");
+  }
   notify(&b, &ok);
   finish(&b, &c, ok);
   emit(&b);
@@ -393,8 +454,8 @@ static int cmd_clear(const wchar_t **expected, int expected_count) {
 }
 
 int wmain(int argc, wchar_t **argv) {
-  if (argc < 2) return usage(L"Usage: kuro-sysproxy get | set --host H --port P [--bypass B] | clear --expected-server H:P");
-  const wchar_t *command = argv[1], *host = NULL, *port = NULL, *bypass = L"";
+  if (argc < 2) return usage(L"Usage: kuro-sysproxy get | set --host H --port P [--bypass B] [--log F] | clear --expected-server H:P [--log F]");
+  const wchar_t *command = argv[1], *host = NULL, *port = NULL, *bypass = L"", *log = NULL;
   const wchar_t *expected[MAX_EXPECTED];
   int expected_count = 0;
   for (int i = 2; i < argc; i += 2) {
@@ -403,7 +464,14 @@ int wmain(int argc, wchar_t **argv) {
     else if (!wcscmp(argv[i], L"--port") && !port) port = argv[i + 1];
     else if (!wcscmp(argv[i], L"--bypass")) bypass = argv[i + 1];
     else if (!wcscmp(argv[i], L"--expected-server") && expected_count < MAX_EXPECTED) expected[expected_count++] = argv[i + 1];
+    else if (!wcscmp(argv[i], L"--log") && !log) log = argv[i + 1];
     else return usage(L"Unknown, repeated or excess option");
+  }
+  if (log) {
+    if (!kuro_valid_log_path(log)) return usage(L"Invalid --log: expected an absolute path without quotes");
+    if (!wcscmp(command, L"get")) return usage(L"get takes no options");
+    g_log = log;
+    log_start();
   }
   if (!wcscmp(command, L"get")) {
     if (argc != 2) return usage(L"get takes no options");
