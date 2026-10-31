@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tag must match apps/desktop/package.json version
+        run: |
+          version=$(node -p "require('./apps/desktop/package.json').version")
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match package.json version v$version"
+            exit 1
+          fi
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile
+      - run: bunx turbo test typecheck
+      - name: Package dmg (ad-hoc signed, not notarized; ADR-0010)
+        working-directory: apps/desktop
+        run: bun run package
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > notes.md <<'EOF'
+          **安装**：打开 dmg，把 Clash Kuro 拖进“应用程序”，然后在终端执行下面的命令再打开（安装包未签名，详见 [README](https://github.com/coderhyy/clash-kuro#安装macos)）：
+
+          ```sh
+          xattr -d com.apple.quarantine "/Applications/Clash Kuro.app"
+          ```
+          EOF
+          gh release create "$GITHUB_REF_NAME" apps/desktop/dist/clash-kuro-*-arm64.dmg \
+            --draft --verify-tag --generate-notes --notes-file notes.md

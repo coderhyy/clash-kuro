@@ -18,13 +18,13 @@ jobs:
           bun-version: 1.4.4
       - run: bun install --frozen-lockfile
       - run: bunx turbo test typecheck
-      - name: Package (unsigned, ADR-0010)
+      - name: Package dmg (ad-hoc signed, not notarized; ADR-0010)
         working-directory: apps/desktop
         run: bun run package
       - uses: actions/upload-artifact@v4
         with:
           name: kuro-macos-arm64
-          path: apps/desktop/dist/mac-arm64
+          path: apps/desktop/dist/clash-kuro-*-arm64.dmg
           retention-days: 7
 
   windows:
