@@ -60,3 +60,24 @@ Blocked by: 02, 07
 - 诊断：每次退出往 `<userData>/data/exit.log` 追加时间戳行：`query-session-end (logoff)`、`exit start (...)`、`exit done in N ms`。注销/关机后重新登录时看这个文件和注册表的 `ProxyEnable`。
 - 已验证：本机 Electron 45.1.0 能创建这个窗口，`isVisible()` 为 false，两个事件的监听都注册上了；`session-end.test.ts` 覆盖“两个阶段都触发清理、都不调用 preventDefault”。
 - 待验证（真机，用新产物）：隐藏窗口在 Tray Mode 下能否收到 `query-session-end` / `session-end`（Electron 文档没写不可见窗口的情况，Win32 层面顶层窗口不论可见与否都会收到 `WM_QUERYENDSESSION`）；`exit.log` 里能否看到 `exit done`，还是进程在中途被结束；注销、关机各测 5 次，记录耗时和重新登录后的 `ProxyEnable`。
+
+2026-10-31 (用户真机 + agent，注销清理第二版):
+
+- 用户实测（产物 run 41156570110，注销 2 次）：隐藏 `BaseWindow` 两个事件都收到了（app/主窗口状态和注销方式在用户的反馈模板里没填）。`exit.log`：`06:37:18.933Z query-session-end (critical,logoff)` → `18.946 exit start` → `18.955 session-end`；`07:11:22.493Z query-session-end (logoff)` → `22.503 exit start` → `22.674 session-end`。两次都没有 `exit done`。重新登录后 `ProxyEnable=0x1`、`ProxyServer=127.0.0.1:7891`，代理没清掉。
+- 原因：`exit()` 是异步的，事件处理函数一返回，`session-end` 后 9–171 ms 进程就被结束，异步的 helper 调用来不及跑完。
+- 新方案：
+  - `query-session-end` 处理函数里同步清 System Proxy：`clearSystemProxySync` 用 `execFileSync` 调 `kuro-sysproxy.exe clear`（`windowsHide`，硬超时 1.5 s，超时用 `TerminateProcess` 杀掉 helper），返回前完成；不调用 `preventDefault()`；清完再 `void exit()` 停 Core。
+  - `session-end` 里如果还没清成功（失败、超时、退出码非 0，或当时有 set 正在执行），再同步清一次兜底。两次最多 3 s，在 Windows 给每个进程的 5 s 内。
+  - 端点只用内存：上次写入的端点在 `createSystemProxy` 时预加载，每次 set/clear 后同步更新；当前端口来自 `mixedPort()`。事件处理函数里不读文件、不 await。内存里确认没有我们的代理时不启动 helper，关机时少起一个进程。
+  - 同步清理之后拒绝新的 set，异步的 `clearSystemProxy` 也不再启动第二个 helper。
+  - `exit.log` 记录同步清理的结果，例如 `sync clear ok: exit=0 timedOut=false 82 ms servers=127.0.0.1:7891 LAN=cleared`。NTSTATUS 退出码以 16 进制显示，`3221225794 (0xC0000142 DLL init failed)` 会单独标出。
+  - 遵守 ADR-0011：没有 Node 原生模块，helper 每次运行完就退出，不常驻。
+- 测试：desktop typecheck 通过；`session-end.test.ts`、`app.test.ts`、`system-proxy.test.ts`、`sysproxy-helper.integration.test.ts` 共 57 个通过；core 89、api 12、state 36 个通过。新增的单测覆盖：先同步清再 exit，两个事件都不调用 `preventDefault`；清成功后 session-end 不再清，失败或超时则重试；清理用内存端点，不调用 `memory.load`；没有待清端点时不启动 helper；超时、0xC0000142、exit 2 报告为失败；set 正在执行时报告为失败；set 卡在写记忆文件时遇到会话结束，不会再启动 helper；`execCommandSync` 真实超时会杀掉挂住的进程，并返回退出码和 stdout。
+- 真机耗时：同步 clear（端点不匹配，不写设置，热启动）n=20，p50 82 / p95 89 / max 89 ms。
+- 参考实现：
+  - clash-party（`mihomo-party-org/clash-party@1d4ad19`，`src/main/lifecycle.ts`）：在 `browser-window-created` 时给每个 BrowserWindow 挂 `session-end`，在 `cleanupBeforeExit()` 里先用 `disableSysProxySync()` 同步关代理（`sysproxy-rs` Node 原生模块），再异步停 Core；`will-quit` 再同步关一次兜底。我们沿用“先同步关代理、再异步停 Core”的顺序。不同之处：没有 BrowserWindow 时（Tray Mode）会漏掉事件，所以我们用专用的隐藏 BaseWindow；ADR-0011 不允许原生模块，所以用 `execFileSync` + helper；我们在更早的 `query-session-end` 就开始清理。
+  - clash-verge-rev #5018：后台运行时关机或重启，弹出 `sysproxy.exe` 无法正常启动（0xc0000142）；由 PR #5024 修复（关机时标记 exiting，停掉后台任务）。启示：关机时尽量少起新进程、尽早清理，日志里要能看出 0xC0000142。
+  - clash-verge-rev #7725：Windows 关机/重启时，等待 Service IPC 停 Core 没有超时，app 挂起约 46 s。启示：每一步都要有硬超时，不等 Core，不 `preventDefault`。
+- 已知取舍：`query-session-end` 之后如果别的程序取消了关机，Kuro 已经关掉代理并退出，不会恢复运行。代理不会悬空，但用户需要手动重开 Kuro。
+- 观察：2026-10-31 16:2x 本机 `reg query` 显示 `ProxyEnable=0x0`，但同一时刻 `kuro-sysproxy.exe get` 读到 LAN `flags=3`、`proxyServer=127.0.0.1:7891`（`DefaultConnectionSettings` 的 flags 字节也是 3），Kuro 没有在运行。注册表的 `ProxyEnable` 和 WinINet 实际使用的值可能不一致，所以验证以 helper `get` 为准。
+- 待验证（新产物，Tray Mode，注销、关机各 5 次）：`exit.log` 里每次都有 `sync clear ok`；重新登录后用 `kuro-sysproxy.exe get` 看 LAN `flags` 的 2 位已清除；注销/关机没有变慢，也没有出现 0xC0000142 弹窗。
