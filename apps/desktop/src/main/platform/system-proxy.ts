@@ -164,6 +164,9 @@ interface HelperResult {
   error?: HelperError
   notifyError?: HelperError
   rasError?: HelperError
+  /** Logon-time fallback entry (HKCU RunOnce): written after set, deleted after a successful clear. */
+  runOnce?: 'written' | 'deleted'
+  runOnceError?: HelperError
 }
 
 const PROXY_TYPE_PROXY = 2
@@ -326,7 +329,8 @@ function createWindowsSystemProxy(exec: Exec, options: SystemProxyOptions) {
     // A set still running could re-enable the proxy after this clear; let the session-end fallback retry.
     report.ok = !report.timedOut && report.exitCode === 0 && result?.ok === true && !inFlightSet
     const statuses = result?.connections?.map((c) => `${c.name ?? 'LAN'}=${c.status ?? '?'}`).join(',')
-    report.detail = [failure, statuses, inFlightSet && 'set in flight', !result && stdout && `stdout: ${stdout.slice(0, 120)}`]
+    const runOnce = result?.runOnceError ? `runOnce error ${result.runOnceError.code}` : result?.runOnce && `runOnce=${result.runOnce}`
+    report.detail = [failure, statuses, runOnce, inFlightSet && 'set in flight', !result && stdout && `stdout: ${stdout.slice(0, 120)}`]
       .filter(Boolean).join(' ') || undefined
     if (report.ok) {
       remembered = null
@@ -360,7 +364,11 @@ function createWindowsSystemProxy(exec: Exec, options: SystemProxyOptions) {
       try {
         result = await run(['set', '--host', settings.host, '--port', String(settings.port), '--bypass', bypass.join(';')], settings.port)
       } finally { setRunning = false }
-      if (result.ok) return
+      if (result.ok) {
+        // The proxy works without the fallback; only logoff/shutdown cleanup loses its safety net.
+        if (result.runOnceError) console.warn('System Proxy logon cleanup entry not written:', result.runOnceError.message)
+        return
+      }
       // Partial write: undo connections that did take our endpoint rather than leave a mix.
       await clear([server]).catch(() => {})
       throw failure(result, settings.port)

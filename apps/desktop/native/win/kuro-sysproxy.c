@@ -7,7 +7,11 @@
 // Applies to the LAN settings (pszConnection = NULL) and every RAS/VPN phonebook entry.
 // Prints one UTF-8 JSON object on stdout. Exit codes: 0 all succeeded, 1 usage error,
 // 2 at least one connection or the change notification failed.
-// Runs as the calling user; never elevates, never writes the registry directly.
+// Runs as the calling user; never elevates, never writes proxy settings to the registry directly.
+// Its only registry write is its own HKCU RunOnce entry (see runonce_set), a logon-time fallback
+// for when logoff/shutdown ends Clash Kuro before it could clear the proxy.
+// Built as a GUI-subsystem program (-mwindows): no console is created, and a parent's stdout pipe
+// (STARTUPINFO std handles) still works.
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <wininet.h>
@@ -24,6 +28,11 @@
 #endif
 
 #define MAX_EXPECTED 8
+
+#define RUNONCE_KEY L"Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce"
+#define RUNONCE_VALUE L"ClashKuroSysProxyCleanup"
+// Run/RunOnce command lines longer than 260 characters are not executed.
+#define RUNONCE_MAX_COMMAND 260
 
 // ---- JSON output -------------------------------------------------------------------------
 
@@ -213,6 +222,47 @@ static void finish(Buf *b, const Connections *c, int ok) {
   putf(b, ",\"ok\":%s}", ok ? "true" : "false");
 }
 
+// ---- RunOnce fallback --------------------------------------------------------------------
+//
+// Windows may refuse to start new processes once logoff/shutdown has begun (0xC0000142), so
+// Clash Kuro cannot rely on launching this helper then. After a set, a per-user RunOnce entry
+// runs `"<this exe>" clear --expected-server <server>` at the next logon; the normal clear
+// endpoint check applies, so a proxy that is no longer ours is left alone. A successful clear
+// deletes the entry. Windows deletes a RunOnce value before running it.
+
+static DWORD runonce_set(const wchar_t *server) {
+  wchar_t exe[MAX_PATH];
+  DWORD n = GetModuleFileNameW(NULL, exe, MAX_PATH);
+  if (!n || n >= MAX_PATH) return ERROR_FILENAME_EXCED_RANGE;
+  wchar_t command[RUNONCE_MAX_COMMAND];
+  size_t len = kuro_runonce_command(command, RUNONCE_MAX_COMMAND, exe, server);
+  if (!len) return ERROR_FILENAME_EXCED_RANGE;
+  HKEY key;
+  LSTATUS r = RegCreateKeyExW(HKEY_CURRENT_USER, RUNONCE_KEY, 0, NULL, 0, KEY_SET_VALUE, NULL, &key, NULL);
+  if (r != ERROR_SUCCESS) return (DWORD)r;
+  r = RegSetValueExW(key, RUNONCE_VALUE, 0, REG_SZ, (const BYTE *)command, (DWORD)((len + 1) * sizeof(wchar_t)));
+  RegCloseKey(key);
+  return (DWORD)r;
+}
+
+static DWORD runonce_delete(void) {
+  HKEY key;
+  LSTATUS r = RegOpenKeyExW(HKEY_CURRENT_USER, RUNONCE_KEY, 0, KEY_SET_VALUE, &key);
+  if (r == ERROR_FILE_NOT_FOUND) return ERROR_SUCCESS;
+  if (r != ERROR_SUCCESS) return (DWORD)r;
+  r = RegDeleteValueW(key, RUNONCE_VALUE);
+  RegCloseKey(key);
+  return r == ERROR_FILE_NOT_FOUND ? ERROR_SUCCESS : (DWORD)r;
+}
+
+// Reported separately: a missing fallback must not fail the proxy change itself.
+static void put_runonce(Buf *b, const char *action, DWORD error) {
+  if (error) {
+    puts_(b, ",\"runOnceError\":");
+    put_error(b, error, error == ERROR_FILENAME_EXCED_RANGE ? L"RunOnce command line would exceed 260 characters" : NULL);
+  } else putf(b, ",\"runOnce\":\"%s\"", action);
+}
+
 // ---- Commands ----------------------------------------------------------------------------
 
 static int cmd_get(void) {
@@ -249,7 +299,7 @@ static int cmd_get(void) {
 static int cmd_set(const wchar_t *server, const wchar_t *bypass) {
   Connections c = connections();
   Buf b = {0};
-  int ok = 1;
+  int ok = 1, any_set = 0;
   puts_(&b, "{\"command\":\"set\",\"connections\":[");
   for (DWORD i = 0; i < c.count; i++) {
     if (i) puts_(&b, ",");
@@ -274,11 +324,16 @@ static int cmd_set(const wchar_t *server, const wchar_t *bypass) {
       ok = 0;
       puts_(&b, ",\"status\":\"error\",\"error\":");
       put_error(&b, error, NULL);
-    } else puts_(&b, ",\"status\":\"set\"");
+    } else {
+      puts_(&b, ",\"status\":\"set\"");
+      any_set = 1;
+    }
     puts_(&b, "}");
     release(&st);
   }
   puts_(&b, "]");
+  // Also after a partial set: some connection now carries our endpoint until the caller rolls back.
+  if (any_set) put_runonce(&b, "written", runonce_set(server));
   notify(&b, &ok);
   finish(&b, &c, ok);
   emit(&b);
@@ -329,6 +384,9 @@ static int cmd_clear(const wchar_t **expected, int expected_count) {
   }
   puts_(&b, "]");
   if (changed) notify(&b, &ok);
+  // Nothing of ours is left (cleared, notOurs or unchanged everywhere): the logon fallback is no longer needed.
+  // On failure the entry stays, so the next logon retries.
+  if (ok) put_runonce(&b, "deleted", runonce_delete());
   finish(&b, &c, ok);
   emit(&b);
   return ok ? 0 : 2;

@@ -184,6 +184,14 @@ describe('Windows helper', () => {
     expect(exec.mock.calls.every(([file]) => file === helperPath)).toBe(true)
   })
 
+  test('a set whose logon fallback entry could not be written still succeeds, with a warning', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const exec = vi.fn<Exec>(async () => ok({ command: 'set', connections: [{ name: null, status: 'set' }], runOnceError: { code: 5, message: 'Access is denied.' } }))
+    const { proxy } = win(exec)
+    await expect(proxy.setSystemProxy({ host: '127.0.0.1', port: 7890, bypass: [] })).resolves.toBeUndefined()
+    expect(warn).toHaveBeenCalledWith('System Proxy logon cleanup entry not written:', 'Access is denied.')
+    warn.mockRestore()
+  })
   test('timeout is reported as unknown state, not success', async () => {
     const exec = vi.fn<Exec>(async () => { throw Object.assign(new Error('timed out'), { killed: true, signal: 'SIGTERM' }) })
     const { proxy } = win(exec)
@@ -291,6 +299,16 @@ describe('Windows helper', () => {
       await set
     })
 
+    test('the log detail shows whether the logon fallback entry was deleted', async () => {
+      const deleted = JSON.stringify({ ok: true, command: 'clear', connections: [{ name: null, status: 'cleared' }], runOnce: 'deleted' })
+      const a = win(vi.fn<Exec>(), '127.0.0.1:7891', 7891, vi.fn<ExecSync>(() => deleted))
+      await tick()
+      expect(a.proxy.clearSystemProxySync({ timeoutMs: 1500 }).detail).toBe('LAN=cleared runOnce=deleted')
+      const failed = JSON.stringify({ ok: true, command: 'clear', connections: [{ name: null, status: 'cleared' }], runOnceError: { code: 5, message: 'Access is denied.' } })
+      const b = win(vi.fn<Exec>(), '127.0.0.1:7891', 7891, vi.fn<ExecSync>(() => failed))
+      await tick()
+      expect(b.proxy.clearSystemProxySync({ timeoutMs: 1500 }).detail).toBe('LAN=cleared runOnce error 5')
+    })
     test('a set waiting on the memory file when the session ends never starts the helper', async () => {
       const pendingSaves: Array<() => void> = []
       const exec = vi.fn<Exec>(async () => ok({ command: 'set', connections: [] }))
