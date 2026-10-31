@@ -16,9 +16,15 @@ extraResources:
   - from: resources/core/core.lock.json
     to: core/core.lock.json
 mac:
-  target: dir
+  target:
+    - target: dmg
+      arch: [arm64]
   icon: build/icon.icns
-  identity: null
+  # Ad-hoc only, not code signing; users still need xattr (ADR-0010).
+  identity: '-'
+  hardenedRuntime: false
+dmg:
+  artifactName: clash-kuro-${version}-${arch}.${ext}
 win:
   target: dir
   icon: build/icon.ico

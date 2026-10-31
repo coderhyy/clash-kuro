@@ -12,7 +12,7 @@
     },
     "apps/desktop": {
       "name": "@kuro/desktop",
-      "version": "0.0.1",
+      "version": "0.1.0",
       "devDependencies": {
         "@base-ui/react": "1.9.0",
         "@kuro/api": "workspace:*",
