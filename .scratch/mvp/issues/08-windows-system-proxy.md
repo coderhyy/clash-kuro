@@ -113,3 +113,16 @@ Blocked by: 02, 07
   - RunOnce 是常见的持久化位置，Defender/EDR 可能提示或拦截写入。拦截时 set 仍然成功，只是兜底失效，日志里能看到 `runOnceError`。
   - RunOnce 只在下一次登录时运行。注销到再次登录之间，以及关机后开机到登录之前，代理设置仍会指向已停止的端口。
   - 删除或移动 app 后，残留的 RunOnce 会执行失败一次，然后被 Windows 删掉，不影响其他设置。
+
+2026-10-31 (用户真机 + agent，注销第 4 次，产物 run 41188296509，GUI 子系统 helper + RunOnce):
+
+- `exit.log`：`09:50:26.938Z query-session-end (logoff)` → `27.111Z sync clear FAILED: exit=3221226091 (0xC000026B)` → `27.144Z session-end` → `27.276Z sync clear FAILED: exit=3221226091 (0xC000026B)`。
+- 0xC000026B 是 STATUS_DLL_INIT_FAILED_LOGOFF（window station 正在关闭，DLL 初始化失败）。改成 GUI 子系统后错误码变了，但 helper 仍然启动不了。结论更确定：注销开始后，任何新启动的进程都不能指望。
+- 重新登录后、Kuro 未启动时，`get` 读到 LAN `flags=1`，代理已关。但不是 RunOnce 关的：
+  - 注册表键的最后写入时间：`Internet Settings` 是 17:50:27.253，`Connections` 是 17:50:27.277，都落在注销过程中（第二次同步清理失败的同一时刻）。
+  - Shell-Core 日志：RunOnce 在 17:52:42 才执行 `kuro-sysproxy.exe clear --expected-server 127.0.0.1:7891`（PID 27224，事件 9707/9708）。之后 `Connections` 键没有再被写过，说明那时代理已经是关的，clear 没改任何设置。用户 17:52 的截图里 `get` 已经是 `flags=1`，RunOnce 条目还在，时间早于 RunOnce 执行，也对得上。
+  - 所以注销时有别的进程改了代理设置，具体是谁目前不知道。Kuro 的 helper 两次都没能启动，不是它。候选是注销时退出、并会恢复代理设置的程序：Fiddler 测试前在运行，登录后没有运行，但没有证据。
+- RunOnce 本身确认能工作：set 时写入，登录时 Explorer 按带引号的路径执行了它，执行后条目消失（Windows 执行前先删除）。但 helper 在 RunOnce 下运行时没有任何输出可看，所以这次没法证明它在“代理仍是我们的”时能清掉。
+- 下一步：
+  - 注销前先退出 Fiddler 等会改代理的程序，确认 `get` 是 `flags=3`、RunOnce 条目已写入，再注销。
+  - 给 helper 加 `--log <file>`，RunOnce 命令带上它，把每次 clear 的 JSON 结果追加到 `%APPDATA%\Clash Kuro\data\runonce.log`。待用户确认后再做。
