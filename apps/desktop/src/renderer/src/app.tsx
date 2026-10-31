@@ -39,6 +39,8 @@ type Run = <K extends CommandName>(
   input: CommandInput<K>
 ) => Promise<boolean>
 
+type BackupAction = 'exportBackup' | 'importBackup'
+
 function ImportForm({
   run,
   busy,
@@ -395,11 +397,13 @@ function SettingsPanel({
   snapshot,
   run,
   busy,
+  backup,
   close
 }: {
   snapshot: StateSnapshot
   run: Run
   busy: boolean
+  backup: (action: BackupAction) => Promise<void>
   close: () => void
 }) {
   const [port, setPort] = useState(String(snapshot.settings.mixedPort))
@@ -507,6 +511,28 @@ function SettingsPanel({
             busy={busy}
           />
         ))}
+      {window.kuroFiles && (
+        <>
+          <h3>{t('backup')}</h3>
+          <p className="muted">{t('backupHint')}</p>
+          <div className="backup-actions">
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={() => void backup('exportBackup')}
+            >
+              {t('exportBackup')}
+            </Button>
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={() => void backup('importBackup')}
+            >
+              {t('importBackup')}
+            </Button>
+          </div>
+        </>
+      )}
     </section>
   )
 }
@@ -546,6 +572,29 @@ export function App({ bridge, demo }: { bridge: StateBridge; demo: boolean }) {
         text: String(error)
       })
       return false
+    } finally {
+      pending.current = false
+      setBusy(false)
+    }
+  }
+
+  async function backup(action: BackupAction): Promise<void> {
+    if (pending.current || !window.kuroFiles) return
+    pending.current = true
+    setBusy(true)
+    setNotice(null)
+    try {
+      const result = await window.kuroFiles[action]()
+      if (result !== null) {
+        setNotice({
+          error: !result.ok,
+          text: result.ok
+            ? t(action === 'exportBackup' ? 'backupExported' : 'backupImported')
+            : t('operationFailed', { error: result.error })
+        })
+      }
+    } catch (error) {
+      setNotice({ error: true, text: t('operationFailed', { error: String(error) }) })
     } finally {
       pending.current = false
       setBusy(false)
@@ -822,6 +871,7 @@ export function App({ bridge, demo }: { bridge: StateBridge; demo: boolean }) {
             snapshot={snapshot}
             run={run}
             busy={busy}
+            backup={backup}
             close={() => setShowSettings(false)}
           />
         )}

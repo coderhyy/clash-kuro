@@ -5,6 +5,7 @@ import { parseOverride } from '@kuro/core'
 import { LOG_BUFFER_SIZE, type CommandInput, type CommandName, type CommandOutput, type CommandResult, type Language, type LanguagePreference, type StateBridge, type StateSnapshot } from './index'
 import type { LogEntry, Traffic } from '@kuro/api'
 import { createStreamHub } from './streams'
+import { BACKUP_FORMAT, backupProfileFile, parseBackup, type Backup } from './backup'
 
 export interface AppStoreDeps {
   platform: Platform
@@ -22,13 +23,17 @@ export interface AppStoreDeps {
 
 export interface AppStore extends StateBridge {
   store: StoreApi<StateSnapshot>
+  exportBackup(): Promise<string>
+  importBackup(json: string): Promise<void>
   /** Re-read Launch at Login from the OS; the user may change it in System Settings. */
   refreshLaunchAtLogin(): Promise<void>
   /** Close live streams; call on shutdown. */
   dispose(): void
 }
 
-type SavedState = Pick<StateSnapshot, 'settings' | 'profiles' | 'activeProfileId' | 'language'>
+/** settings.json as stored; unknown fields survive Backup round trips but are not part of the snapshot. */
+export type SavedState = Pick<StateSnapshot, 'settings' | 'profiles' | 'activeProfileId'> & Record<string, unknown>
+type PersistedState = Pick<StateSnapshot, 'settings' | 'profiles' | 'activeProfileId' | 'language'>
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
@@ -61,31 +66,41 @@ function validateProfile(profile: Profile): void {
   validateInterval(profile.serverUpdateIntervalHours)
 }
 
-/** Hydrates settings.json before exposing the bridge. All commands share one execution queue. */
-export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
-  const { platform, client } = deps
-  const saved = await platform.readFile('settings.json')
-  const initial: SavedState = saved === null ? {
-    settings: { mode: 'rule', mixedPort: 7890, allowLan: false, logLevel: 'info' },
-    profiles: [],
-    activeProfileId: null,
-    language: 'system'
-  } : JSON.parse(saved)
-  if (!['system', 'zh-CN', 'en'].includes(initial.language)) initial.language = 'system'
-  function resolveLanguage(language: LanguagePreference): Language {
-    return language === 'system' ? (deps.systemLocale().startsWith('zh') ? 'zh-CN' : 'en') : language
-  }
+export function validateSavedState(value: unknown): asserts value is SavedState {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid saved state')
+  const initial = value as SavedState
+  if (!initial.settings || typeof initial.settings !== 'object' || Array.isArray(initial.settings)) throw new Error('Invalid settings')
   validateSettings(initial.settings)
   if (!Array.isArray(initial.profiles)) throw new Error('Invalid saved Profiles')
   initial.profiles.forEach(validateProfile)
   if (new Set(initial.profiles.map((p) => p.id)).size !== initial.profiles.length) throw new Error('Duplicate Profile IDs')
   if (initial.activeProfileId !== null && !initial.profiles.some((p) => p.id === initial.activeProfileId)) throw new Error('Invalid Active Profile')
+}
+
+/** Hydrates settings.json before exposing the bridge. All commands share one execution queue. */
+export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
+  const { platform, client } = deps
+  const saved = await platform.readFile('settings.json')
+  const initial: unknown = saved === null ? {
+    settings: { mode: 'rule', mixedPort: 7890, allowLan: false, logLevel: 'info' },
+    profiles: [],
+    activeProfileId: null
+  } : JSON.parse(saved)
+  validateSavedState(initial)
+  // A missing or unknown language (old settings.json or Backup) falls back instead of blocking startup.
+  const language: LanguagePreference = ['system', 'zh-CN', 'en'].includes(initial.language as string) ? initial.language as LanguagePreference : 'system'
+  function resolveLanguage(language: LanguagePreference): Language {
+    return language === 'system' ? (deps.systemLocale().startsWith('zh') ? 'zh-CN' : 'en') : language
+  }
   const running = await platform.isCoreRunning()
   const launchAtLogin = await platform.getLaunchAtLogin()
   const override = await platform.readFile('override.yaml') ?? ''
   const store = createStore<StateSnapshot>(() => ({
-    ...initial,
-    resolvedLanguage: resolveLanguage(initial.language),
+    settings: initial.settings,
+    profiles: initial.profiles,
+    activeProfileId: initial.activeProfileId,
+    language,
+    resolvedLanguage: resolveLanguage(language),
     version: 0,
     core: { status: running ? 'running' : 'stopped', error: null },
     proxyGroups: [],
@@ -105,7 +120,7 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
     if (patch.core?.status === 'running') { traffic.wake(); logs.wake() }
   }
 
-  async function persist(patch: Partial<SavedState>): Promise<void> {
+  async function persist(patch: Partial<PersistedState>): Promise<void> {
     const { settings, profiles, activeProfileId, language } = { ...store.getState(), ...patch }
     const resolvedLanguage = patch.language === undefined ? store.getState().resolvedLanguage : resolveLanguage(language)
     await platform.writeFileAtomic('settings.json', JSON.stringify({ settings, profiles, activeProfileId, language }))
@@ -299,13 +314,57 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
   if (currentProxy?.host === '127.0.0.1' && currentProxy.port === initial.settings.mixedPort) change({ systemProxy: { enabled: true } })
   if (running) await syncProxies()
   let pending: Promise<unknown> = Promise.resolve()
+  let restartRequired = false
+  function assertNotImported(): void {
+    if (restartRequired) throw new Error('Backup import requires an application restart')
+  }
   function enqueue<T>(task: () => Promise<T>): Promise<T> {
     const result = pending.then(task)
     pending = result.catch(() => {})
     return result
   }
+
+  async function exportBackup(): Promise<string> {
+    assertNotImported()
+    const { settings, profiles, activeProfileId } = store.getState()
+    const saved: unknown = JSON.parse((await platform.readFile('settings.json')) ?? JSON.stringify({ settings, profiles, activeProfileId }))
+    validateSavedState(saved)
+    const contents = await Promise.all(saved.profiles.map(async (profile) => {
+      const content = await platform.readFile(backupProfileFile(profile.id))
+      if (content === null) throw new Error(`Profile content is missing: ${profile.id}`)
+      return [profile.id, content] as const
+    }))
+    const backup: Backup = {
+      format: BACKUP_FORMAT, version: 1, createdAt: new Date().toISOString(),
+      settings: saved, profiles: Object.fromEntries(contents), override: await platform.readFile('override.yaml')
+    }
+    return JSON.stringify(backup)
+  }
+
   return {
     store,
+    exportBackup: () => enqueue(exportBackup),
+    importBackup: (json) => enqueue(async () => {
+      assertNotImported()
+      const backup = parseBackup(json)
+      const previous = store.getState().profiles
+      const recoveryFile = `backups/pre-import-${new Date().toISOString().replace(/[:.]/g, '-')}.json`
+      await platform.writeFileAtomic(recoveryFile, await exportBackup())
+      await stop()
+      // A partial write must not let queued Commands persist stale metadata over imported files.
+      restartRequired = true
+      try {
+        for (const profile of backup.settings.profiles) await platform.writeFileAtomic(backupProfileFile(profile.id), backup.profiles[profile.id]!)
+        if (backup.override === null) await platform.removeFile('override.yaml')
+        else await platform.writeFileAtomic('override.yaml', backup.override)
+        for (const profile of previous) {
+          if (!Object.hasOwn(backup.profiles, profile.id)) await platform.removeFile(backupProfileFile(profile.id))
+        }
+        await platform.writeFileAtomic('settings.json', JSON.stringify(backup.settings))
+      } catch (error) {
+        throw new Error(`Backup import failed: ${message(error)}. Restart the application and restore ${recoveryFile}`)
+      }
+    }),
     getSnapshot: async () => store.getState(),
     refreshLaunchAtLogin: () => enqueue(readLaunchAtLogin),
     subscribeTraffic: (listener) => traffic.subscribe(listener),
@@ -315,6 +374,7 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
     run<K extends CommandName>(name: K, input: CommandInput<K>): Promise<CommandResult<K>> {
       return enqueue(async (): Promise<CommandResult<K>> => {
         try {
+          assertNotImported()
           if (!Object.hasOwn(handlers, name) || input === null || typeof input !== 'object' || Array.isArray(input)) throw new Error('Invalid command')
           return { ok: true, value: await handlers[name](input) }
         } catch (error) {

@@ -121,7 +121,13 @@ export const zhCN = {
   'mode.direct': '直连模式',
   openWindow: '打开 Clash Kuro',
   quit: '退出',
-  openFile: '打开'
+  openFile: '打开',
+  backup: '备份',
+  backupHint: '备份含订阅地址和节点密钥，请勿分享。导入将整体替换数据并重启应用。',
+  exportBackup: '导出备份…',
+  importBackup: '导入备份…',
+  backupExported: '备份已导出，请妥善保管。',
+  backupImported: '备份已导入，正在重启应用…'
 } as const
 
 export type TranslationKey = keyof typeof zhCN

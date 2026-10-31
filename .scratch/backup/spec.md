@@ -1,6 +1,6 @@
 # 备份（导入导出）
 
-Status: in-progress
+Status: in-progress（待 02 真机验证）
 
 第二期功能。术语见 `CONTEXT.md` 的 **Backup**。与覆写、英文界面并行开发，分支 `codex/backup`。
 

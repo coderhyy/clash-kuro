@@ -122,5 +122,11 @@ export const en = {
   'mode.direct': 'Direct Mode',
   openWindow: 'Open Clash Kuro',
   quit: 'Quit',
-  openFile: 'Open'
+  openFile: 'Open',
+  backup: 'Backup',
+  backupHint: 'A Backup contains subscription URLs and proxy secrets; do not share it. Importing replaces all data and restarts the app.',
+  exportBackup: 'Export Backup…',
+  importBackup: 'Import Backup…',
+  backupExported: 'Backup exported. Keep it safe.',
+  backupImported: 'Backup imported. Restarting…'
 } as const satisfies Record<TranslationKey, string>
