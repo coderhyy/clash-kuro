@@ -47,4 +47,22 @@ describe('interactive development bridge', () => {
     ).toBe(false)
     expect(bridge.snapshot.version).toBe(1)
   })
+
+  it('saves and clears raw Override YAML while preserving the previous snapshot on invalid input', async () => {
+    const bridge = new DevBridge()
+    const before = await bridge.getSnapshot()
+    const yaml = '# demo\n+rules: ["MATCH,DIRECT"]\n'
+    expect(await bridge.run('setOverride', { yaml })).toEqual({ ok: true, value: undefined })
+    expect(before.override).toBe('')
+    expect(bridge.snapshot.override).toBe(yaml)
+    const saved = bridge.snapshot
+    for (const yaml of ['[', '- rule', '+rules: invalid']) {
+      expect((await bridge.run('setOverride', { yaml })).ok).toBe(false)
+      expect(bridge.snapshot).toBe(saved)
+    }
+    expect((await bridge.run('setOverride', { yaml: '# disabled' })).ok).toBe(true)
+    expect(bridge.snapshot.override).toBe('# disabled')
+    await bridge.run('removeProfile', { profileId: 'p1' })
+    expect((await bridge.run('setOverride', { yaml: '+rules: invalid' })).ok).toBe(true)
+  })
 })
