@@ -11,7 +11,7 @@ const mocks = vi.hoisted(() => {
     isDestroyed: () => false, once: vi.fn(), on: vi.fn(), loadFile: vi.fn(),
     webContents: { setWindowOpenHandler: vi.fn(), on: vi.fn() }
   }
-  const snapshot = { settings: { mixedPort: 7890 }, core: { status: 'stopped' }, profiles: [], activeProfileId: null }
+  const snapshot = { resolvedLanguage: 'zh-CN', settings: { mixedPort: 7890 }, core: { status: 'stopped' }, profiles: [], activeProfileId: null }
   const store = {
     store: { getState: () => snapshot, subscribe: vi.fn() },
     exportBackup: vi.fn(), importBackup: vi.fn(), dispose: vi.fn()
@@ -82,11 +82,21 @@ test('Backup IPC rejects untrusted senders before opening dialogs or touching da
 test('export warns about secrets before offering a JSON save dialog and atomically writes private permissions', async () => {
   await chmod(path, 0o644)
   expect(await invoke(IPC.exportBackup)).toEqual({ ok: true })
-  expect(mocks.dialog.showMessageBox).toHaveBeenCalledWith(mocks.win, expect.objectContaining({ message: '备份含订阅地址和节点密钥，请勿分享' }))
+  expect(mocks.dialog.showMessageBox).toHaveBeenCalledWith(mocks.win, expect.objectContaining({ message: '备份含订阅地址和密钥，请妥善保管', buttons: ['取消', '继续'] }))
   expect(mocks.dialog.showMessageBox.mock.invocationCallOrder[0]).toBeLessThan(mocks.dialog.showSaveDialog.mock.invocationCallOrder[0]!)
   expect(mocks.dialog.showSaveDialog).toHaveBeenCalledWith(mocks.win, expect.objectContaining({ defaultPath: expect.stringMatching(/^clash-kuro-backup-\d{4}-\d{2}-\d{2}\.json$/) }))
   expect(await readFile(path, 'utf8')).toBe('exported secrets')
   expect((await stat(path)).mode & 0o777).toBe(0o600)
+})
+
+test('Backup dialogs follow the resolved language', async () => {
+  const state = mocks.store.store.getState() as { resolvedLanguage: string }
+  state.resolvedLanguage = 'en'
+  try {
+    expect(await invoke(IPC.exportBackup)).toEqual({ ok: true })
+    expect(mocks.dialog.showMessageBox).toHaveBeenCalledWith(mocks.win, expect.objectContaining({ message: 'A Backup contains subscription URLs and secrets. Keep it safe.', buttons: ['Cancel', 'Continue'] }))
+    expect(mocks.dialog.showSaveDialog).toHaveBeenCalledWith(mocks.win, expect.objectContaining({ filters: [{ name: 'Clash Kuro Backup', extensions: ['json'] }] }))
+  } finally { state.resolvedLanguage = 'zh-CN' }
 })
 
 test('canceling the export warning never opens a save dialog', async () => {

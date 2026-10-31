@@ -1,3 +1,4 @@
+import { parseOverride } from '@kuro/core'
 import { validateSavedState, type SavedState } from './store'
 
 export const BACKUP_FORMAT = 'clash-kuro-backup'
@@ -40,7 +41,10 @@ export function parseBackup(json: string): Backup {
     if (!Object.hasOwn(backup.profiles, profile.id)) throw new Error('Backup Profile IDs do not match contents')
     if (typeof backup.profiles[profile.id] !== 'string') throw new Error('Invalid Backup Profile content')
   }
-  // shortcut: Override is opaque text until the Override feature supplies YAML validation.
   if (backup.override !== null && typeof backup.override !== 'string') throw new Error('Invalid Backup Override content')
+  if (backup.override !== null) {
+    const override = parseOverride(backup.override)
+    if (!override.ok) throw new Error(`Invalid Backup Override: ${override.error}`)
+  }
   return backup
 }

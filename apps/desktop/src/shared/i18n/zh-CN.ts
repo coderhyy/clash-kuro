@@ -123,11 +123,18 @@ export const zhCN = {
   quit: '退出',
   openFile: '打开',
   backup: '备份',
-  backupHint: '备份含订阅地址和节点密钥，请勿分享。导入将整体替换数据并重启应用。',
+  backupHint: '备份含订阅地址和密钥，请妥善保管。导入将整体替换数据并重启应用。',
   exportBackup: '导出备份…',
   importBackup: '导入备份…',
   backupExported: '备份已导出，请妥善保管。',
-  backupImported: '备份已导入，正在重启应用…'
+  backupImported: '备份已导入，正在重启应用…',
+  backupExportWarning: '备份含订阅地址和密钥，请妥善保管',
+  backupFileType: 'Clash Kuro 备份',
+  backupImportConfirm: '导入备份将整体替换现有数据并重启 Clash Kuro。',
+  backupImportDetail: '当前数据会先自动备份到数据目录 backups/。System Proxy 将关闭，Core 将停止。',
+  backupImportSubmit: '导入并重启',
+  backupTooLarge: '备份文件不能大于 50 MB',
+  continue: '继续'
 } as const
 
 export type TranslationKey = keyof typeof zhCN

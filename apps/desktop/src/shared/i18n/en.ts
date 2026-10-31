@@ -124,9 +124,16 @@ export const en = {
   quit: 'Quit',
   openFile: 'Open',
   backup: 'Backup',
-  backupHint: 'A Backup contains subscription URLs and proxy secrets; do not share it. Importing replaces all data and restarts the app.',
+  backupHint: 'A Backup contains subscription URLs and secrets; keep it safe. Importing replaces all data and restarts the app.',
   exportBackup: 'Export Backup…',
   importBackup: 'Import Backup…',
   backupExported: 'Backup exported. Keep it safe.',
-  backupImported: 'Backup imported. Restarting…'
+  backupImported: 'Backup imported. Restarting…',
+  backupExportWarning: 'A Backup contains subscription URLs and secrets. Keep it safe.',
+  backupFileType: 'Clash Kuro Backup',
+  backupImportConfirm: 'Importing a Backup replaces all current data and restarts Clash Kuro.',
+  backupImportDetail: 'Current data is first saved to backups/ in the data folder. System Proxy will be turned off and Core will stop.',
+  backupImportSubmit: 'Import and Restart',
+  backupTooLarge: 'Backup files must not exceed 50 MB',
+  continue: 'Continue'
 } as const satisfies Record<TranslationKey, string>

@@ -341,6 +341,17 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
     return JSON.stringify(backup)
   }
 
+  /** Writes a Backup's files, removing Profile contents only `others` had; settings.json goes last as the commit point. */
+  async function writeBackupFiles(backup: Backup, others: string[]): Promise<void> {
+    for (const profile of backup.settings.profiles) await platform.writeFileAtomic(backupProfileFile(profile.id), backup.profiles[profile.id]!)
+    if (backup.override === null) await platform.removeFile('override.yaml')
+    else await platform.writeFileAtomic('override.yaml', backup.override)
+    for (const id of others) {
+      if (!Object.hasOwn(backup.profiles, id)) await platform.removeFile(backupProfileFile(id))
+    }
+    await platform.writeFileAtomic('settings.json', JSON.stringify(backup.settings))
+  }
+
   return {
     store,
     exportBackup: () => enqueue(exportBackup),
@@ -349,20 +360,24 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
       const backup = parseBackup(json)
       const previous = store.getState().profiles
       const recoveryFile = `backups/pre-import-${new Date().toISOString().replace(/[:.]/g, '-')}.json`
-      await platform.writeFileAtomic(recoveryFile, await exportBackup())
+      const current = await exportBackup()
+      await platform.writeFileAtomic(recoveryFile, current)
+      // Restored as-is on failure, even if it would not pass parseBackup (e.g. a hand-edited override.yaml).
+      const recovery = JSON.parse(current) as Backup
       await stop()
       // A partial write must not let queued Commands persist stale metadata over imported files.
       restartRequired = true
       try {
-        for (const profile of backup.settings.profiles) await platform.writeFileAtomic(backupProfileFile(profile.id), backup.profiles[profile.id]!)
-        if (backup.override === null) await platform.removeFile('override.yaml')
-        else await platform.writeFileAtomic('override.yaml', backup.override)
-        for (const profile of previous) {
-          if (!Object.hasOwn(backup.profiles, profile.id)) await platform.removeFile(backupProfileFile(profile.id))
-        }
-        await platform.writeFileAtomic('settings.json', JSON.stringify(backup.settings))
+        await writeBackupFiles(backup, previous.map((p) => p.id))
       } catch (error) {
-        throw new Error(`Backup import failed: ${message(error)}. Restart the application and restore ${recoveryFile}`)
+        try {
+          await writeBackupFiles(recovery, backup.settings.profiles.map((p) => p.id))
+        } catch (restoreError) {
+          throw new Error(`Backup import failed: ${message(error)}. Restoring the previous data also failed (${message(restoreError)}); restart the application and restore ${recoveryFile}`)
+        }
+        // Disk matches the store again, so Commands are safe; Core stays stopped until the user starts it.
+        restartRequired = false
+        throw new Error(`Backup import failed: ${message(error)}. The previous data was restored.`)
       }
     }),
     getSnapshot: async () => store.getState(),

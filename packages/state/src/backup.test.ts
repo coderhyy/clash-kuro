@@ -53,13 +53,18 @@ test('does not treat inherited object properties as Profile content', () => {
   expect(() => parseBackup(JSON.stringify({ ...data, profiles: { p1: '' } }))).toThrow('IDs do not match')
 })
 
+test.each(['rules: [', '- not a mapping'])('rejects an Override that is not valid Override YAML: %j', (override) => {
+  expect(() => parseBackup(JSON.stringify({ ...backup(), override }))).toThrow(/Invalid Backup Override/)
+})
+
 test.each(['broken JSON', 'null', '[]', '42'])('rejects malformed Backup %s with a readable error', (json) => {
   expect(() => parseBackup(json)).toThrow(/Invalid Backup/)
 })
 
-test('accepts empty storage, empty content and optional Override text without interpreting YAML', () => {
+test('accepts empty storage, empty content and a valid or empty Override', () => {
   const data = backup()
-  expect(parseBackup(JSON.stringify({ ...data, profiles: { p1: '' }, override: 'not validated as YAML' })).override).toBe('not validated as YAML')
+  expect(parseBackup(JSON.stringify({ ...data, profiles: { p1: '' }, override: '+rules: ["MATCH,DIRECT"]\n' })).override).toBe('+rules: ["MATCH,DIRECT"]\n')
+  expect(parseBackup(JSON.stringify({ ...data, override: '# empty\n' })).override).toBe('# empty\n')
   expect(parseBackup(JSON.stringify({ ...data, settings: { ...data.settings, profiles: [], activeProfileId: null }, profiles: {} })).settings.profiles).toEqual([])
 })
 

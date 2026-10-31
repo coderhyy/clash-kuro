@@ -658,22 +658,41 @@ test('import does not stop Core or replace data if System Proxy cannot be cleare
   expect(platform.coreRunning).toBe(true)
 })
 
-test.each(['profiles/p1.yaml', 'override.yaml', 'settings.json'])('a failed %s write retains the recovery Backup, does not commit settings and blocks stale Commands', async (failedFile) => {
+test.each(['profiles/p1.yaml', 'override.yaml', 'settings.json'])('a failed %s write restores the previous data automatically and keeps Commands usable', async (failedFile) => {
   const { app, platform } = await setup()
+  platform.files.set('override.yaml', 'rules: [old]\n')
   const data = JSON.parse(await app.exportBackup()) as Backup
   data.settings.settings.mixedPort = 9000
-  data.profiles.p1 = 'replacement'
-  data.override = 'replacement override'
-  const previousSettings = platform.files.get('settings.json')
+  data.settings.profiles = [{ ...data.settings.profiles[0]!, id: 'p2' }]
+  data.settings.activeProfileId = 'p2'
+  data.profiles = { p2: 'replacement' }
+  data.override = 'rules: [new]\n'
+  const before = new Map(platform.files)
   const write = platform.writeFileAtomic.bind(platform)
+  let failed = false
   vi.spyOn(platform, 'writeFileAtomic').mockImplementation(async (name, content) => {
-    if (name === failedFile) throw new Error('disk full')
+    // Fail only the import's write, not the restore's write of the same file.
+    if (name === (failedFile === 'profiles/p1.yaml' ? 'profiles/p2.yaml' : failedFile) && !failed) { failed = true; throw new Error('disk full') }
     await write(name, content)
   })
-  await expect(app.importBackup(JSON.stringify(data))).rejects.toThrow(/disk full.*backups\/pre-import-/)
-  expect(platform.files.get('settings.json')).toBe(previousSettings)
-  const recovery = [...platform.files.entries()].find(([name]) => name.startsWith('backups/'))!
-  expect(JSON.parse(recovery[1])).toMatchObject({ profiles: { p1: 'old original\n' }, override: null })
+  await expect(app.importBackup(JSON.stringify(data))).rejects.toThrow(/disk full.*previous data was restored/)
+  for (const [name, content] of before) expect(platform.files.get(name)).toBe(content)
+  expect([...platform.files.keys()].filter((name) => !before.has(name))).toEqual([expect.stringMatching(/^backups\/pre-import-/)])
+  expect(platform.coreRunning).toBe(false)
+  expect((await app.run('setMode', { mode: 'direct' })).ok).toBe(true)
+  expect(JSON.parse(platform.files.get('settings.json')!).settings.mode).toBe('direct')
+})
+
+test('if restoring after a failed import also fails, the error names the recovery Backup and Commands stay blocked', async () => {
+  const { app, platform } = await setup()
+  const data = JSON.parse(await app.exportBackup()) as Backup
+  data.profiles.p1 = 'replacement'
+  const write = platform.writeFileAtomic.bind(platform)
+  vi.spyOn(platform, 'writeFileAtomic').mockImplementation(async (name, content) => {
+    if (name === 'profiles/p1.yaml') throw new Error('disk full')
+    await write(name, content)
+  })
+  await expect(app.importBackup(JSON.stringify(data))).rejects.toThrow(/disk full.*also failed.*backups\/pre-import-/)
+  expect([...platform.files.keys()].some((name) => name.startsWith('backups/pre-import-'))).toBe(true)
   expect((await app.run('setMode', { mode: 'direct' })).ok).toBe(false)
-  expect(platform.files.get('settings.json')).toBe(previousSettings)
 })

@@ -12,7 +12,7 @@ Status: in-progress（待 02 真机验证）
      "settings": <settings.json 的整个对象>, "profiles": { "<id>": "<原始 YAML>" }, "override": "<YAML>" | null }
    ```
    `settings` 原样保留 `settings.json` 的所有字段（包括将来的 `language`）。不含 Runtime Config、pid 文件、Geo 数据和开机自启状态。不做单个 Profile 导出。
-2. 导出前提示“备份含订阅地址和节点密钥，请勿分享”。不加密。
+2. 导出前提示“备份含订阅地址和密钥，请妥善保管”（英文界面为英文）。不加密。
 3. 导入整体替换，顺序：
    1. 确认对话框。
    2. 完整校验：结构、`format`/`version`、Settings、每个 Profile、Active Profile、Profile ID 与 `profiles` 的键一一对应、每份内容是字符串。文件大于 50 MB 直接拒绝。
@@ -49,3 +49,5 @@ Status: in-progress（待 02 真机验证）
 - 加密、单个 Profile 导出、托盘入口、云同步、合并式导入。
 
 ## Comments
+
+2026-10-31 合并后补充：导入写到一半失败时，自动用 pre-import 备份还原（同样 settings.json 最后写），还原成功则 Command 恢复可用、Core 保持停止；还原也失败才要求重启并手动恢复。导入时用 `parseOverride` 校验 `override.yaml`。对话框文案改用共享翻译表，导出警告改为“备份含订阅地址和密钥，请妥善保管”。

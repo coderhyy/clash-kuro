@@ -132,15 +132,16 @@ async function main(): Promise<void> {
   })
   ipcMain.handle(IPC.exportBackup, async (event): Promise<BackupResult> => {
     if (!trusted(event) || !win) return { ok: false, error: 'untrusted sender' }
+    const language = app_.store.getState().resolvedLanguage
     try {
       const warning = await dialog.showMessageBox(win, {
-        type: 'warning', message: '备份含订阅地址和节点密钥，请勿分享',
-        buttons: ['取消', '继续'], defaultId: 0, cancelId: 0
+        type: 'warning', message: t('backupExportWarning', {}, language),
+        buttons: [t('cancel', {}, language), t('continue', {}, language)], defaultId: 0, cancelId: 0
       })
       if (warning.response !== 1) return null
       const result = await dialog.showSaveDialog(win, {
         defaultPath: `clash-kuro-backup-${new Date().toISOString().slice(0, 10)}.json`,
-        filters: [{ name: 'Clash Kuro 备份', extensions: ['json'] }]
+        filters: [{ name: t('backupFileType', {}, language), extensions: ['json'] }]
       })
       if (result.canceled || !result.filePath) return null
       const content = await app_.exportBackup()
@@ -154,20 +155,21 @@ async function main(): Promise<void> {
   })
   ipcMain.handle(IPC.importBackup, async (event): Promise<BackupResult> => {
     if (!trusted(event) || !win) return { ok: false, error: 'untrusted sender' }
+    const language = app_.store.getState().resolvedLanguage
     try {
       const result = await dialog.showOpenDialog(win, {
-        properties: ['openFile'], filters: [{ name: 'Clash Kuro 备份', extensions: ['json'] }]
+        properties: ['openFile'], filters: [{ name: t('backupFileType', {}, language), extensions: ['json'] }]
       })
       if (result.canceled) return null
       const path = result.filePaths[0]
       if (!path) return null
       const confirmation = await dialog.showMessageBox(win, {
-        type: 'warning', message: '导入备份将整体替换现有数据并重启 Clash Kuro。',
-        detail: '当前数据会先自动备份到数据目录 backups/。System Proxy 将关闭，Core 将停止。',
-        buttons: ['取消', '导入并重启'], defaultId: 0, cancelId: 0
+        type: 'warning', message: t('backupImportConfirm', {}, language),
+        detail: t('backupImportDetail', {}, language),
+        buttons: [t('cancel', {}, language), t('backupImportSubmit', {}, language)], defaultId: 0, cancelId: 0
       })
       if (confirmation.response !== 1) return null
-      if ((await stat(path)).size > MAX_BACKUP_BYTES) throw new Error('备份文件不能大于 50 MB')
+      if ((await stat(path)).size > MAX_BACKUP_BYTES) throw new Error(t('backupTooLarge', {}, language))
       await app_.importBackup(await readFile(path, 'utf8'))
       app.relaunch()
       await exit()
