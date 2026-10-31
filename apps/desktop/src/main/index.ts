@@ -9,15 +9,11 @@ import { checkForUpdate } from './app/release-check'
 import { installGeoData } from './app/geo'
 import { IPC, type StreamKind } from './ipc-channels'
 import { trayIcon } from './tray-icon'
+import { t } from '../shared/i18n'
 
 // KURO_RELEASE_REPO=owner/name overrides the release source (e.g. for forks).
 const RELEASE_REPO = process.env.KURO_RELEASE_REPO ?? 'coderhyy/clash-kuro'
 const SHUTDOWN_TIMEOUT_MS = 3_000
-
-const trayLabels: Record<string, string> = {
-  'mode.rule': '规则模式', 'mode.global': '全局模式', 'mode.direct': '直连模式',
-  systemProxy: 'System Proxy', openWindow: '打开 Clash Kuro', quit: '退出'
-}
 
 if (!app.requestSingleInstanceLock()) {
   app.quit()
@@ -99,6 +95,7 @@ async function main(): Promise<void> {
 
   const app_ = await createAppStore({
     platform, client,
+    systemLocale: () => app.getLocale(),
     buildRuntimeConfig: (input) => profiles.buildRuntimeConfig(input),
     refreshProfile: (profile) => profiles.refreshProfile(profile),
     hooks: { onOpenWindow: showWindow, onQuit: () => void exit() }
@@ -123,7 +120,8 @@ async function main(): Promise<void> {
   })
   ipcMain.handle(IPC.pickProfileFile, async (event) => {
     if (!trusted(event) || !win) return null
-    const result = await dialog.showOpenDialog(win, { properties: ['openFile'], filters: [{ name: 'YAML', extensions: ['yaml', 'yml'] }] })
+    const language = app_.store.getState().resolvedLanguage
+    const result = await dialog.showOpenDialog(win, { title: t('import', {}, language), buttonLabel: t('openFile', {}, language), properties: ['openFile'], filters: [{ name: 'YAML', extensions: ['yaml', 'yml'] }] })
     return result.canceled ? null : result.filePaths[0] ?? null
   })
   ipcMain.handle(IPC.openLoginItemsSettings, async (event) => {
@@ -153,16 +151,16 @@ async function main(): Promise<void> {
     tray.setContextMenu(Menu.buildFromTemplate(buildTrayMenu(snapshot).flatMap((item, i, all) => [
       ...(i > 0 && all[i - 1]!.type !== item.type ? [{ type: 'separator' as const }] : []),
       {
-        label: trayLabels[item.label] ?? item.label,
+        label: t(item.label, {}, snapshot.resolvedLanguage),
         type: item.type,
         checked: item.checked ?? false,
         click: () => void app_.run(item.command.name, item.command.input as never).then((result) => {
           if (!result.ok && item.command.name === 'quit') void exit()
-          else if (!result.ok) dialog.showErrorBox('Clash Kuro', result.error)
+          else if (!result.ok) dialog.showErrorBox(t('app', {}, app_.store.getState().resolvedLanguage), result.error)
         })
       }
     ])))
-    tray.setToolTip(`Clash Kuro · ${snapshot.core.status}`)
+    tray.setToolTip(`Clash Kuro · ${t(snapshot.core.status, {}, snapshot.resolvedLanguage)}`)
     const running = snapshot.core.status === 'running'
     if (running !== trayRunning) tray.setImage(running ? trayOpen : trayClosed)
     trayRunning = running

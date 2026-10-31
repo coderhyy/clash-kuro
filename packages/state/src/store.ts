@@ -1,13 +1,14 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import type { MihomoClient } from '@kuro/api'
 import type { ControlChannel, Platform, Profile, Settings } from '@kuro/core'
-import { LOG_BUFFER_SIZE, type CommandInput, type CommandName, type CommandOutput, type CommandResult, type StateBridge, type StateSnapshot } from './index'
+import { LOG_BUFFER_SIZE, type CommandInput, type CommandName, type CommandOutput, type CommandResult, type Language, type LanguagePreference, type StateBridge, type StateSnapshot } from './index'
 import type { LogEntry, Traffic } from '@kuro/api'
 import { createStreamHub } from './streams'
 
 export interface AppStoreDeps {
   platform: Platform
   client: MihomoClient
+  systemLocale(): string
   /** Reads the Profile's original content; must not mutate it. */
   buildRuntimeConfig(input: { profile: Profile; settings: Settings; controlChannel: ControlChannel }): string | Promise<string>
   /** Fetches/imports original content and returns updated metadata; rejects without destroying old content. */
@@ -26,7 +27,7 @@ export interface AppStore extends StateBridge {
   dispose(): void
 }
 
-type SavedState = Pick<StateSnapshot, 'settings' | 'profiles' | 'activeProfileId'>
+type SavedState = Pick<StateSnapshot, 'settings' | 'profiles' | 'activeProfileId' | 'language'>
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
@@ -66,8 +67,13 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
   const initial: SavedState = saved === null ? {
     settings: { mode: 'rule', mixedPort: 7890, allowLan: false, logLevel: 'info' },
     profiles: [],
-    activeProfileId: null
+    activeProfileId: null,
+    language: 'system'
   } : JSON.parse(saved)
+  if (!['system', 'zh-CN', 'en'].includes(initial.language)) initial.language = 'system'
+  function resolveLanguage(language: LanguagePreference): Language {
+    return language === 'system' ? (deps.systemLocale().startsWith('zh') ? 'zh-CN' : 'en') : language
+  }
   validateSettings(initial.settings)
   if (!Array.isArray(initial.profiles)) throw new Error('Invalid saved Profiles')
   initial.profiles.forEach(validateProfile)
@@ -77,6 +83,7 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
   const launchAtLogin = await platform.getLaunchAtLogin()
   const store = createStore<StateSnapshot>(() => ({
     ...initial,
+    resolvedLanguage: resolveLanguage(initial.language),
     version: 0,
     core: { status: running ? 'running' : 'stopped', error: null },
     proxyGroups: [],
@@ -96,9 +103,10 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
   }
 
   async function persist(patch: Partial<SavedState>): Promise<void> {
-    const { settings, profiles, activeProfileId } = { ...store.getState(), ...patch }
-    await platform.writeFileAtomic('settings.json', JSON.stringify({ settings, profiles, activeProfileId }))
-    change(patch)
+    const { settings, profiles, activeProfileId, language } = { ...store.getState(), ...patch }
+    const resolvedLanguage = patch.language === undefined ? store.getState().resolvedLanguage : resolveLanguage(language)
+    await platform.writeFileAtomic('settings.json', JSON.stringify({ settings, profiles, activeProfileId, language }))
+    change({ ...patch, resolvedLanguage })
   }
 
   function profile(id: string): Profile {
@@ -170,6 +178,10 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
   }
 
   const handlers: { [K in CommandName]: (input: CommandInput<K>) => Promise<CommandOutput<K>> } = {
+    async setLanguage({ language }) {
+      if (!['system', 'zh-CN', 'en'].includes(language)) throw new Error('Invalid language')
+      await persist({ language })
+    },
     async setMode({ mode }) {
       const settings = { ...store.getState().settings, mode }
       validateSettings(settings)

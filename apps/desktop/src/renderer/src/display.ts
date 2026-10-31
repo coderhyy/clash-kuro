@@ -1,4 +1,4 @@
-import { t } from './i18n/zh-CN'
+import { getLanguage, t } from '../../shared/i18n'
 
 export function formatBytes(bytes: number) {
   const unit = Math.min(
@@ -6,14 +6,14 @@ export function formatBytes(bytes: number) {
     Math.max(0, Math.floor(Math.log(Math.max(1, bytes)) / Math.log(1024)))
   )
   return t(['bytes', 'kib', 'mib', 'gib', 'tib'][unit]!, {
-    value: (bytes / 1024 ** unit).toLocaleString('zh-CN', {
+    value: (bytes / 1024 ** unit).toLocaleString(getLanguage(), {
       maximumFractionDigits: 1
     })
   })
 }
 
 export function date(value: number) {
-  return new Intl.DateTimeFormat('zh-CN', {
+  return new Intl.DateTimeFormat(getLanguage(), {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'

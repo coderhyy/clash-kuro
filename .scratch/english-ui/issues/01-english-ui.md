@@ -1,6 +1,6 @@
 # 英文界面与语言设置
 
-Status: ready-for-agent
+Status: resolved
 Type: task
 Blocked by:
 
@@ -17,3 +17,18 @@ Blocked by:
 - `bun run test`、`bun run typecheck` 通过。
 
 ## Comments
+
+### 2026-10-31
+
+Implemented the three-way Language setting, persisted as a top-level `language` field. Snapshots carry the preference and resolved language; missing/invalid saved values fall back to system. Language changes do not rebuild Runtime Config, restart Core, or change System Proxy.
+
+Moved the Chinese table and its tests with `git mv` into `apps/desktop/src/shared/i18n/`, added English copy and shared tray/dialog translations, and wired the renderer, demo Commands, HTML language, dates, and byte formatting. Translation keys and interpolation placeholders match in both languages. Existing notices and validation errors also follow language changes.
+
+Verification: `bun run test` passes (255 tests, 25 files; socket tests rerun with escalation), `bun run typecheck` passes, and `bunx electron-vite build` passes. Playwright demo checks cover English, Chinese, Follow system, HTML language, translated notices, and date formatting. No text/page overflow at 960x640, 720x520, or 390x844. The UI detector reports no findings.
+
+Screenshots:
+- `/Users/hyy/.codex/visualizations/2026/10/31/01a19193-6ae9-7dc3-abda-c6bebb0292c2/english-ui-en.png`
+- `/Users/hyy/.codex/visualizations/2026/10/31/01a19193-6ae9-7dc3-abda-c6bebb0292c2/english-ui-en-settings.png`
+- `/Users/hyy/.codex/visualizations/2026/10/31/01a19193-6ae9-7dc3-abda-c6bebb0292c2/english-ui-zh-CN.png`
+
+Native Electron tray/dialog interactions were not manually exercised; tray labels are tested in both languages and main/preload/renderer builds pass. Main-process error messages remain unchanged, as specified.

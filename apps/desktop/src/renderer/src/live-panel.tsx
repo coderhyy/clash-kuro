@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import type { LogEntry, Traffic } from '@kuro/api'
 import type { StateBridge } from '@kuro/state'
-import { t } from './i18n/zh-CN'
+import { t } from '../../shared/i18n'
 import { formatBytes } from './display'
 
 const VISIBLE_LOGS = 200

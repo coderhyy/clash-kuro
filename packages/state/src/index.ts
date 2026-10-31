@@ -2,6 +2,8 @@ import type { LogEntry, ProxyGroup, Proxy, Traffic } from '@kuro/api'
 import type { LaunchAtLoginStatus, Mode, Profile, ProfileSource, Settings } from '@kuro/core'
 
 export type CoreStatus = 'stopped' | 'starting' | 'running' | 'error'
+export type Language = 'zh-CN' | 'en'
+export type LanguagePreference = 'system' | Language
 
 export type SystemProxyStatus =
   | { enabled: false }
@@ -15,6 +17,8 @@ export interface StateSnapshot {
   version: number
   core: { status: CoreStatus; error: string | null }
   settings: Settings
+  language: LanguagePreference
+  resolvedLanguage: Language
   profiles: Profile[]
   activeProfileId: string | null
   proxyGroups: ProxyGroup[]
@@ -32,6 +36,7 @@ export interface Commands {
   selectProxy(input: { group: string; proxy: string }): void
   setSystemProxy(input: { enabled: boolean }): void
   setLaunchAtLogin(input: { enabled: boolean }): void
+  setLanguage(input: { language: LanguagePreference }): void
   importProfile(input: { name: string; source: ProfileSource }): { profileId: string }
   updateProfile(input: { profileId: string }): void
   removeProfile(input: { profileId: string }): void

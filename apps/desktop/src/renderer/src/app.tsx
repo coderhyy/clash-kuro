@@ -1,8 +1,9 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import type {
   CommandInput,
   CommandName,
+  LanguagePreference,
   StateBridge,
   StateSnapshot
 } from '@kuro/state'
@@ -28,7 +29,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
-import { t } from './i18n/zh-CN'
+import { setLanguage, t } from '../../shared/i18n'
 import { useSnapshot } from './use-snapshot'
 import { LivePanel } from './live-panel'
 import { date, formatBytes, releaseUrl } from './display'
@@ -56,7 +57,7 @@ function ImportForm({
     const name = String(data.get('name') ?? '').trim()
     const value = String(data.get('source') ?? '').trim()
     if (!name) {
-      setError(t('invalidName'))
+      setError('invalidName')
       return
     }
     if (kind === 'remote') {
@@ -64,11 +65,11 @@ function ImportForm({
         if (!['http:', 'https:'].includes(new URL(value).protocol))
           throw new Error()
       } catch {
-        setError(t('invalidUrl'))
+        setError('invalidUrl')
         return
       }
     } else if (!/^(\/|[a-zA-Z]:[\\/]|\\\\)/.test(value)) {
-      setError(t('invalidPath'))
+      setError('invalidPath')
       return
     }
     setError('')
@@ -149,7 +150,7 @@ function ImportForm({
         )}
         {error && (
           <p role="alert" className="error-text">
-            {error}
+            {t(error)}
           </p>
         )}
         <Button type="submit">{t(busy ? 'importing' : 'importSubmit')}</Button>
@@ -302,7 +303,7 @@ function IntervalForm({
     event.preventDefault()
     const hours = value.trim() === '' ? null : Number(value)
     if (hours !== null && (!Number.isFinite(hours) || hours <= 0)) {
-      setError(t('invalidInterval'))
+      setError('invalidInterval')
       return
     }
     setError('')
@@ -340,7 +341,7 @@ function IntervalForm({
       </Button>
       {error && (
         <p className="error-text" role="alert">
-          {error}
+          {t(error)}
         </p>
       )}
     </form>
@@ -407,7 +408,7 @@ function SettingsPanel({
     event.preventDefault()
     const mixedPort = Number(port)
     if (!Number.isInteger(mixedPort) || mixedPort < 1 || mixedPort > 65535) {
-      setError(t('invalidPort'))
+      setError('invalidPort')
       return
     }
     setError('')
@@ -427,6 +428,19 @@ function SettingsPanel({
         </Button>
       </div>
       <p className="muted">{t('settingsHint')}</p>
+      <div className="login-item">
+        <label htmlFor="language">{t('language')}</label>
+        <select
+          id="language"
+          value={snapshot.language}
+          onChange={(event) => void run('setLanguage', { language: event.target.value as LanguagePreference })}
+          disabled={busy}
+        >
+          <option value="system">{t('systemLanguage')}</option>
+          <option value="zh-CN">{t('chinese')}</option>
+          <option value="en">{t('english')}</option>
+        </select>
+      </div>
       {snapshot.launchAtLogin !== 'unsupported' && (
         <LaunchAtLogin snapshot={snapshot} run={run} busy={busy} />
       )}
@@ -453,7 +467,7 @@ function SettingsPanel({
       </form>
       {error && (
         <p className="error-text" role="alert">
-          {error}
+          {t(error)}
         </p>
       )}
       <h3>{t('interval')}</h3>
@@ -474,6 +488,11 @@ function SettingsPanel({
 
 export function App({ bridge, demo }: { bridge: StateBridge; demo: boolean }) {
   const { snapshot, error } = useSnapshot(bridge)
+  if (snapshot) setLanguage(snapshot.resolvedLanguage)
+  const language = snapshot?.resolvedLanguage
+  useEffect(() => {
+    if (language) document.documentElement.lang = language
+  }, [language])
   const [busy, setBusy] = useState(false)
   const pending = useRef(false)
   const [notice, setNotice] = useState<{ error: boolean; text: string } | null>(
@@ -492,14 +511,14 @@ export function App({ bridge, demo }: { bridge: StateBridge; demo: boolean }) {
       setNotice({
         error: !result.ok,
         text: result.ok
-          ? t(name === 'updateSettings' ? 'saved' : 'done')
-          : t('operationFailed', { error: result.error })
+          ? (name === 'updateSettings' || name === 'setLanguage' ? 'saved' : 'done')
+          : result.error
       })
       return result.ok
     } catch (error) {
       setNotice({
         error: true,
-        text: t('operationFailed', { error: String(error) })
+        text: String(error)
       })
       return false
     } finally {
@@ -654,7 +673,7 @@ export function App({ bridge, demo }: { bridge: StateBridge; demo: boolean }) {
               className={`notice ${notice.error ? 'is-error' : ''}`}
               role={notice.error ? 'alert' : 'status'}
             >
-              <span>{notice.text}</span>
+              <span>{notice.error ? t('operationFailed', { error: notice.text }) : t(notice.text)}</span>
               <Button
                 variant="ghost"
                 size="icon-xs"

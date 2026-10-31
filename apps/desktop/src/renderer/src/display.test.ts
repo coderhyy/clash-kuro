@@ -1,5 +1,8 @@
-import { describe, expect, it } from 'vitest'
-import { formatBytes, releaseUrl } from './display'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { date, formatBytes, releaseUrl } from './display'
+import { setLanguage } from '../../shared/i18n'
+
+beforeEach(() => setLanguage('zh-CN'))
 
 describe('display values', () => {
   it('formats zero, byte boundaries, and large capacities', () => {
@@ -21,5 +24,15 @@ describe('display values', () => {
     ]) {
       expect(releaseUrl(input)).toBeNull()
     }
+  })
+  it('formats dates and numbers using the current language', () => {
+    const value = new Date(2026, 9, 31).getTime()
+    expect(date(value)).toBe('2026/10/31')
+    setLanguage('en')
+    expect(date(value)).toBe('10/31/2026')
+    expect(formatBytes(1023)).toBe('1,023 B')
+    expect(formatBytes(1536)).toBe('1.5 KiB')
+    setLanguage('zh-CN')
+    expect(date(value)).toBe('2026/10/31')
   })
 })
