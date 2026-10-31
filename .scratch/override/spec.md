@@ -12,11 +12,13 @@ Status: done
    - 两边都是 mapping 时递归合并。
    - 数组和标量整体替换原值。
    - 键名写成 `+key` 时，把值（必须是数组）插到原数组前面；写成 `key+` 时追加到后面。任何层级、任何数组键都适用。原值不是数组或不存在时当作空数组。
+   - 键名写成 `key!` 时整个值直接替换原值，不递归合并，值里的键也不再解析标记。
+   - 其他标记写法（`!key`、`+key!`、`key!+`、`<key>`、`key<`、连续标记等）报错，不当作普通键写进配置。键中间的 `+`、`!`、`<`、`>` 仍是普通字符。
    - 值为 `null` 时删除这个键。
 4. 顺序：Profile → Override → App-managed Fields，App-managed Fields 始终优先。合并后照旧删除 `external-controller*` 和 `secret`，Override 不能开 TCP 控制器（ADR-0002）。
 5. 编辑和保存：
    - 设置面板里一个等宽字体的 textarea，不引入编辑器依赖。
-   - 保存时先解析 YAML，再生成 Runtime Config 并跑 `mihomo -t`（`applyRuntimeConfig`），全部通过后才写 `override.yaml` 并重载 Core。没有 Active Profile 时只做 YAML 解析。
+   - 保存时先解析 YAML，再生成 Runtime Config 并跑 `mihomo -t`（`applyRuntimeConfig`），全部通过后才写 `override.yaml` 并重载 Core。没有 Active Profile 时只做 YAML 解析和合并规则校验（标记写法、`+key`/`key+` 的值必须是数组）。
    - 失败时保留旧 Override，界面显示错误。
    - 空内容（或只有注释）表示没有 Override。
    - 快照带 `override: string`（原文）。
@@ -46,3 +48,5 @@ Status: done
 - 托盘入口。
 
 ## Comments
+
+- 2026-10-31：补 `key!`（整体替换），不做 `<key>`；未知标记组合报错。

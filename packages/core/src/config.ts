@@ -38,6 +38,8 @@ export function parseOverride(yaml: string): ProfileParseResult {
     }
     const value: unknown = document.contents === null ? {} : document.toJS({ maxAliasCount: 100 })
     if (!isMapping(value)) return { ok: false, error: 'Override must be a YAML mapping.' }
+    // Reject unsupported markers on save/import, even before a Profile exists.
+    applyOverride({}, value)
     return { ok: true, value }
   } catch (error) {
     return { ok: false, error: `Invalid Override YAML: ${error instanceof Error ? error.message : String(error)}` }
@@ -47,15 +49,21 @@ export function parseOverride(yaml: string): ProfileParseResult {
 export function applyOverride(base: ParsedProfile, override: ParsedProfile): ParsedProfile {
   const result = { ...base }
   for (const [rawKey, value] of Object.entries(override)) {
-    const prepend = rawKey.startsWith('+')
-    const append = rawKey.endsWith('+')
-    const key = prepend ? rawKey.slice(1) : append ? rawKey.slice(0, -1) : rawKey
+    const [, head = '', key = '', tail = ''] = /^([+!<>]*)(.*?)([+!<>]*)$/s.exec(rawKey) ?? []
+    const prepend = head === '+' && !tail
+    const append = !head && tail === '+'
+    const replace = !head && tail === '!'
+    if (!(prepend || append || replace || (!head && !tail)) || ((head || tail) && !key)) {
+      throw new Error(`Override key ${rawKey} is not supported; use key, +key, key+ or key!.`)
+    }
     const previous = Object.hasOwn(result, key) ? result[key] : undefined
     let next: unknown
     if (prepend || append) {
       if (!Array.isArray(value)) throw new Error(`Override ${rawKey} must be an array.`)
       const items = Array.isArray(previous) ? previous : []
       next = prepend ? [...value, ...items] : [...items, ...value]
+    } else if (replace) {
+      next = value
     } else if (value === null) {
       delete result[key]
       continue

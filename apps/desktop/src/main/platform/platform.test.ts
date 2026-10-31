@@ -1,9 +1,13 @@
 import { spawn } from 'node:child_process'
 import { EventEmitter } from 'node:events'
-import { lstat, mkdtemp, readdir, rm, symlink } from 'node:fs/promises'
+import { chmod, lstat, mkdir, mkdtemp, readdir, readFile, rm, symlink } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { join } from 'node:path'
 import { afterEach, expect, test, vi } from 'vitest'
+import { createMihomoClient } from '@kuro/api'
+import { FakeTransport } from '@kuro/api/fake'
+import { createAppStore, type Backup } from '@kuro/state'
+import { fakeSnapshot } from '@kuro/state/fake'
 import { assertMixedPortAvailable, createDesktopPlatform, type DesktopPlatform, type DesktopPlatformOptions, type Exec } from './index'
 
 const cleanups: Array<() => Promise<void>> = []
@@ -249,4 +253,39 @@ test('an injected fetchText can use Electron networking without importing Electr
   const { platform } = await fixture({ fetchText, powerMonitor: new EventEmitter() })
   expect(await platform.fetchText('https://example.test', { viaCore: true, userAgent: 'Clash Kuro' })).toEqual({ status: 200, headers: {}, body: 'profile' })
   expect(fetchText).toHaveBeenCalledWith('https://example.test', { viaCore: true, userAgent: 'Clash Kuro' })
+})
+
+test.skipIf(process.getuid?.() === 0)('a failed Backup import on real disk restores the pre-import data', async () => {
+  const { platform, dataDir } = await fixture({ os: 'darwin' })
+  const { settings } = fakeSnapshot()
+  const saved = { settings: { ...settings, mixedPort: 7891 }, profiles: [], activeProfileId: null, language: 'en' }
+  await platform.writeFileAtomic('settings.json', JSON.stringify(saved))
+  await platform.writeFileAtomic('override.yaml', 'rules+: [MATCH,DIRECT]\n')
+  const app = await createAppStore({
+    platform, client: createMihomoClient(new FakeTransport()), systemLocale: () => 'en',
+    buildRuntimeConfig: () => '', refreshProfile: async (profile) => profile
+  })
+  const before = JSON.parse(await app.exportBackup()) as Backup
+  const files = async () => ({
+    settings: await readFile(join(dataDir, 'settings.json'), 'utf8'),
+    override: await readFile(join(dataDir, 'override.yaml'), 'utf8'),
+    profiles: await readdir(join(dataDir, 'profiles'))
+  })
+  await mkdir(join(dataDir, 'profiles'))
+  const original = await files()
+  const incoming: Backup = {
+    ...before,
+    settings: { ...before.settings, profiles: [{ ...fakeSnapshot().profiles[0]!, id: 'p2' }], activeProfileId: 'p2' },
+    profiles: { p2: 'proxies: []\n' }, override: null
+  }
+  // Only the imported Profile is written into profiles/; rename into a read-only dir fails, restore never writes there.
+  await chmod(join(dataDir, 'profiles'), 0o555)
+  cleanups.push(() => chmod(join(dataDir, 'profiles'), 0o700))
+  await expect(app.importBackup(JSON.stringify(incoming))).rejects.toThrow('The previous data was restored')
+  expect(await files()).toEqual(original)
+  const after = JSON.parse(await app.exportBackup()) as Backup
+  expect({ ...after, createdAt: '' }).toEqual({ ...before, createdAt: '' })
+  const [recovery] = await readdir(join(dataDir, 'backups'))
+  expect(JSON.parse(await readFile(join(dataDir, 'backups', recovery!), 'utf8'))).toMatchObject({ settings: saved, override: before.override })
+  expect(await app.run('setMode', { mode: 'direct' })).toMatchObject({ ok: true })
 })

@@ -26,6 +26,11 @@ describe('parseOverride', () => {
   test('limits alias expansion', () => {
     expect(parseOverride('a: &a [1, 2]\nb: &b [*a, *a, *a, *a, *a]\nc: &c [*b, *b, *b, *b, *b]\nd: [*c, *c, *c, *c, *c]').ok).toBe(false)
   })
+
+  test('rejects unsupported key markers so they are never saved', () => {
+    expect(parseOverride('dns:\n  "!nameserver": []')).toEqual({ ok: false, error: expect.stringMatching(/!nameserver.*not supported/) })
+    expect(parseOverride('"rules!": [a]').ok).toBe(true)
+  })
 })
 
 describe('parseProfile', () => {
@@ -81,6 +86,25 @@ describe('applyOverride', () => {
     for (const value of [null, 1, 'rule', {}]) {
       expect(() => applyOverride({}, { dns: { [key]: value } })).toThrow(/array/)
     }
+  })
+
+  test('key! replaces the whole value without merging or reading nested markers', () => {
+    expect(applyOverride(
+      { dns: { enable: true, nameserver: ['old'] }, rules: ['old'], mode: 'rule' },
+      { 'dns!': { 'nameserver+': ['new'] }, 'rules!': ['new'], 'mode!': null, 'fresh!': 1 }
+    )).toEqual({ dns: { 'nameserver+': ['new'] }, rules: ['new'], mode: null, fresh: 1 })
+  })
+
+  test.each(['!rules', 'rules!!', '+rules!', 'rules!+', '+rules+', '++rules', '<rules>', '<rules', 'rules>', 'rules<', '!', '+', '<>'])(
+    'rejects unsupported key marker %j at any depth',
+    key => {
+      expect(() => applyOverride({}, { [key]: [] })).toThrow(/not supported/)
+      expect(() => applyOverride({}, { dns: { [key]: [] } })).toThrow(/not supported/)
+    }
+  )
+
+  test('keeps marker characters inside a key as data', () => {
+    expect(applyOverride({}, { 'a+b': 1, 'a!b': 2, 'a<b>c': 3 })).toEqual({ 'a+b': 1, 'a!b': 2, 'a<b>c': 3 })
   })
 
   test('does not modify either input, including shared YAML aliases', () => {

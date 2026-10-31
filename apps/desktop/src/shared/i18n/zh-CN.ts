@@ -72,7 +72,7 @@ export const zhCN = {
   chinese: '中文',
   english: 'English',
   override: 'Override',
-  overrideHint: '全局 YAML，对所有 Profile 生效；App-managed Fields 始终优先。+key 前插数组，key+ 追加，null 删除键。留空或仅写注释可清除 Override。保存前会校验 Runtime Config，Core 运行时会重载并断开现有连接。',
+  overrideHint: '全局 YAML，对所有 Profile 生效；App-managed Fields 始终优先。+key 前插数组，key+ 追加，key! 整体替换不合并，null 删除键；其他标记写法会报错。留空或仅写注释可清除 Override。保存前会校验 Runtime Config，Core 运行时会重载并断开现有连接。',
   saveOverride: '保存 Override',
   launchAtLogin: '开机自启',
   launchAtLoginHint: '登录系统时自动启动，只显示托盘。',

@@ -73,7 +73,7 @@ export const en = {
   chinese: '中文',
   english: 'English',
   override: 'Override',
-  overrideHint: 'Global YAML applied to every Profile; App-managed Fields always win. +key prepends to an array, key+ appends, null deletes a key. Leave empty or comments only to clear the Override. The Runtime Config is validated before saving; a running Core reloads and drops current connections.',
+  overrideHint: 'Global YAML applied to every Profile; App-managed Fields always win. +key prepends to an array, key+ appends, key! replaces the whole value without merging, null deletes a key. Other marker forms are rejected. Leave empty or comments only to clear the Override. The Runtime Config is validated before saving; a running Core reloads and drops current connections.',
   saveOverride: 'Save Override',
   launchAtLogin: 'Launch at Login',
   launchAtLoginHint: 'Start in the tray when you log in.',

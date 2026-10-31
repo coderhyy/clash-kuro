@@ -78,13 +78,14 @@ describe('interactive development bridge', () => {
     expect(before.override).toBe('')
     expect(bridge.snapshot.override).toBe(yaml)
     const saved = bridge.snapshot
-    for (const yaml of ['[', '- rule', '+rules: invalid']) {
+    for (const yaml of ['[', '- rule', '+rules: invalid', '!rules: []']) {
       expect((await bridge.run('setOverride', { yaml })).ok).toBe(false)
       expect(bridge.snapshot).toBe(saved)
     }
     expect((await bridge.run('setOverride', { yaml: '# disabled' })).ok).toBe(true)
     expect(bridge.snapshot.override).toBe('# disabled')
     await bridge.run('removeProfile', { profileId: 'p1' })
-    expect((await bridge.run('setOverride', { yaml: '+rules: invalid' })).ok).toBe(true)
+    expect((await bridge.run('setOverride', { yaml: '+rules: invalid' })).ok).toBe(false)
+    expect((await bridge.run('setOverride', { yaml: 'rules!: []' })).ok).toBe(true)
   })
 })

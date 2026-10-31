@@ -487,12 +487,13 @@ test.each([true, false])('without an Active Profile, setOverride only parses YAM
   app.store.setState({ activeProfileId: null })
   const apply = vi.spyOn(platform, 'applyRuntimeConfig')
   const stop = vi.spyOn(platform, 'stopCore')
-  for (const yaml of ['+rules: not-an-array', '', '# no Override\n']) {
+  for (const yaml of ['+rules: [MATCH,DIRECT]', '', '# no Override\n']) {
     expect((await app.run('setOverride', { yaml })).ok).toBe(true)
     expect(platform.files.get('override.yaml')).toBe(yaml)
     expect((await app.getSnapshot()).override).toBe(yaml)
   }
-  expect((await app.run('setOverride', { yaml: '[' })).ok).toBe(false)
+  for (const yaml of ['[', '+rules: not-an-array', '<rules>: []']) expect((await app.run('setOverride', { yaml })).ok).toBe(false)
+  expect(platform.files.get('override.yaml')).toBe('# no Override\n')
   expect(deps.buildRuntimeConfig).not.toHaveBeenCalled()
   expect(apply).not.toHaveBeenCalled()
   expect(stop).not.toHaveBeenCalled()
