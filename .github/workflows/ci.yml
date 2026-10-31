@@ -21,7 +21,7 @@ jobs:
       - name: Package dmg (ad-hoc signed, not notarized; ADR-0010)
         working-directory: apps/desktop
         run: bun run package
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: kuro-macos-arm64
           path: apps/desktop/dist/clash-kuro-*-arm64.dmg
@@ -41,7 +41,7 @@ jobs:
       - name: Package (unsigned, no System Proxy helper yet; see issue 08)
         working-directory: apps/desktop
         run: bun run package:win
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: kuro-windows-x64
           path: apps/desktop/dist/win-unpacked
