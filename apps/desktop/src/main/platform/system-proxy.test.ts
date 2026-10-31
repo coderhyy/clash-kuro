@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest'
-import { createSystemProxy, parseWindowsProxyServer, SystemProxyPermissionError, SystemProxyUnknownStateError, type Exec } from './system-proxy'
+import { createSystemProxy, execCommandSync, parseWindowsProxyServer, SystemProxyPermissionError, SystemProxyUnknownStateError, type Exec, type ExecSync } from './system-proxy'
 
 function fixture() {
   const states = new Map([
@@ -116,11 +116,13 @@ describe('recognizable errors and validation', () => {
 describe('Windows helper', () => {
   const helperPath = 'C:\\Kuro\\resources\\bin\\kuro-sysproxy.exe'
   const ok = (body: object) => ({ stdout: JSON.stringify({ ok: true, ...body }), stderr: '' })
-  function win(exec: Exec, remembered: string | null = null, port = 7890) {
+  function win(exec: Exec, remembered: string | null = null, port = 7890, execSync?: ExecSync) {
     const saved: (string | null)[] = []
     const memory = { load: vi.fn(async () => remembered), save: vi.fn(async (server: string | null) => { saved.push(server); remembered = server }) }
-    return { proxy: createSystemProxy({ os: 'win32', exec, helperPath, mixedPort: () => port, memory }), saved, memory }
+    return { proxy: createSystemProxy({ os: 'win32', exec, execSync, helperPath, mixedPort: () => port, memory }), saved, memory }
   }
+  const tick = () => new Promise((resolve) => setTimeout(resolve, 0))
+  const cleared = JSON.stringify({ ok: true, command: 'clear', connections: [{ name: null, status: 'cleared' }] })
 
   test('set passes argv (no shell string), remembers the endpoint first', async () => {
     const exec = vi.fn<Exec>(async () => ok({ command: 'set', connections: [{ name: null, status: 'set' }, { name: '公司 VPN', status: 'set' }] }))
@@ -206,6 +208,110 @@ describe('Windows helper', () => {
     const { proxy } = win(exec)
     await Promise.all([proxy.getSystemProxy(), proxy.clearSystemProxy(), proxy.setSystemProxy({ host: '127.0.0.1', port: 7890, bypass: [] })])
     expect(peak).toBe(1)
+  })
+
+  describe('synchronous clear at session end', () => {
+    test('uses the in-memory old and current endpoints, with a hard timeout, and reads no file', async () => {
+      const execSync = vi.fn<ExecSync>(() => cleared)
+      const { proxy, memory, saved } = win(vi.fn<Exec>(), '127.0.0.1:7890', 7891, execSync)
+      await tick()
+      memory.load.mockClear()
+      const report = proxy.clearSystemProxySync({ timeoutMs: 1500 })
+      expect(execSync).toHaveBeenCalledWith(helperPath, ['clear', '--expected-server', '127.0.0.1:7890', '--expected-server', '127.0.0.1:7891'], { timeoutMs: 1500 })
+      expect(memory.load).not.toHaveBeenCalled()
+      expect(report).toMatchObject({ ran: true, ok: true, exitCode: 0, timedOut: false, servers: ['127.0.0.1:7890', '127.0.0.1:7891'], detail: 'LAN=cleared' })
+      expect(saved).toEqual([null])
+    })
+
+    test('follows a set made in this run without waiting for the memory file', async () => {
+      const execSync = vi.fn<ExecSync>(() => cleared)
+      const exec = vi.fn<Exec>(async () => ok({ command: 'set', connections: [{ name: null, status: 'set' }] }))
+      const { proxy } = win(exec, null, 7890, execSync)
+      await proxy.setSystemProxy({ host: '127.0.0.1', port: 17890, bypass: [] })
+      proxy.clearSystemProxySync({ timeoutMs: 1500 })
+      expect(execSync.mock.calls[0]![1]).toEqual(['clear', '--expected-server', '127.0.0.1:17890', '--expected-server', '127.0.0.1:7890'])
+    })
+
+    test('starts no helper when nothing of ours is outstanding', async () => {
+      const execSync = vi.fn<ExecSync>(() => cleared)
+      const { proxy } = win(vi.fn<Exec>(), null, 7890, execSync)
+      await tick()
+      expect(proxy.clearSystemProxySync({ timeoutMs: 1500 })).toMatchObject({ ran: false, ok: true })
+      expect(execSync).not.toHaveBeenCalled()
+    })
+
+    test('still clears the current port when the memory file was not loaded yet', () => {
+      const execSync = vi.fn<ExecSync>(() => cleared)
+      const { proxy } = win(vi.fn<Exec>(), null, 7891, execSync)
+      proxy.clearSystemProxySync({ timeoutMs: 1500 })
+      expect(execSync.mock.calls[0]![1]).toEqual(['clear', '--expected-server', '127.0.0.1:7891'])
+    })
+
+    test('reports a timeout and a helper that failed to initialize', async () => {
+      const timedOut = vi.fn<ExecSync>(() => { throw Object.assign(new Error('spawnSync ETIMEDOUT'), { code: 'ETIMEDOUT', status: null, stdout: '' }) })
+      const a = win(vi.fn<Exec>(), '127.0.0.1:7890', 7890, timedOut)
+      await tick()
+      expect(a.proxy.clearSystemProxySync({ timeoutMs: 1500 })).toMatchObject({ ran: true, ok: false, timedOut: true, exitCode: null })
+      expect(a.saved).toEqual([])
+
+      const dllInit = vi.fn<ExecSync>(() => { throw Object.assign(new Error('Command failed'), { status: 3221225794, stdout: '' }) })
+      const b = win(vi.fn<Exec>(), '127.0.0.1:7890', 7890, dllInit)
+      await tick()
+      expect(b.proxy.clearSystemProxySync({ timeoutMs: 1500 })).toMatchObject({ ran: true, ok: false, timedOut: false, exitCode: 3221225794 })
+    })
+
+    test('a partial failure (exit 2) is not ok, so session-end retries', async () => {
+      const execSync = vi.fn<ExecSync>(() => { throw Object.assign(new Error('Command failed'), { status: 2, stdout: JSON.stringify({
+        ok: false, command: 'clear', connections: [{ name: null, status: 'cleared' }, { name: 'VPN', status: 'error', error: { code: 5, message: 'denied' } }],
+      }) }) })
+      const { proxy } = win(vi.fn<Exec>(), '127.0.0.1:7890', 7890, execSync)
+      await tick()
+      expect(proxy.clearSystemProxySync({ timeoutMs: 1500 })).toMatchObject({ ok: false, exitCode: 2, detail: 'LAN=cleared,VPN=error' })
+      expect(proxy.clearSystemProxySync({ timeoutMs: 1500 }).ran).toBe(true)
+    })
+
+    test('after a session-end clear, set is refused and the async clear starts no second helper', async () => {
+      const exec = vi.fn<Exec>(async () => ok({ command: 'clear', connections: [] }))
+      const { proxy } = win(exec, '127.0.0.1:7890', 7890, vi.fn<ExecSync>(() => cleared))
+      await tick()
+      proxy.clearSystemProxySync({ timeoutMs: 1500 })
+      await proxy.clearSystemProxy()
+      await expect(proxy.setSystemProxy({ host: '127.0.0.1', port: 7890, bypass: [] })).rejects.toThrow(/logoff\/shutdown/)
+      expect(exec).not.toHaveBeenCalled()
+    })
+
+    test('a set still running at session end makes the clear not ok, so session-end retries', async () => {
+      let finishSet!: () => void
+      const exec = vi.fn<Exec>(() => new Promise((resolve) => { finishSet = () => resolve(ok({ command: 'set', connections: [] })) }))
+      const { proxy } = win(exec, null, 7890, vi.fn<ExecSync>(() => cleared))
+      const set = proxy.setSystemProxy({ host: '127.0.0.1', port: 7890, bypass: [] })
+      await vi.waitFor(() => expect(exec).toHaveBeenCalled())
+      expect(proxy.clearSystemProxySync({ timeoutMs: 1500 })).toMatchObject({ ran: true, ok: false, detail: 'LAN=cleared set in flight' })
+      finishSet()
+      await set
+    })
+
+    test('a set waiting on the memory file when the session ends never starts the helper', async () => {
+      const pendingSaves: Array<() => void> = []
+      const exec = vi.fn<Exec>(async () => ok({ command: 'set', connections: [] }))
+      const memory = { load: vi.fn(async () => null), save: vi.fn(() => new Promise<void>((resolve) => { pendingSaves.push(resolve) })) }
+      const proxy = createSystemProxy({ os: 'win32', exec, execSync: vi.fn<ExecSync>(() => cleared), helperPath, mixedPort: () => 7890, memory })
+      const set = proxy.setSystemProxy({ host: '127.0.0.1', port: 7890, bypass: [] })
+      await vi.waitFor(() => expect(memory.save).toHaveBeenCalled())
+      proxy.clearSystemProxySync({ timeoutMs: 1500 })
+      for (const finish of pendingSaves) finish()
+      await expect(set).rejects.toThrow(/logoff\/shutdown/)
+      expect(exec).not.toHaveBeenCalled()
+    })
+  })
+
+  test('execCommandSync kills a hung process at the timeout and reports the exit code', () => {
+    const started = Date.now()
+    const hung = (() => { try { execCommandSync(process.execPath, ['-e', 'setTimeout(() => {}, 10000)'], { timeoutMs: 200 }) } catch (error) { return error } })()
+    expect(hung).toMatchObject({ code: 'ETIMEDOUT' })
+    expect(Date.now() - started).toBeLessThan(5000)
+    const failed = (() => { try { execCommandSync(process.execPath, ['-e', 'process.stdout.write("{}"); process.exit(2)'], { timeoutMs: 5000 }) } catch (error) { return error } })()
+    expect(failed).toMatchObject({ status: 2, stdout: '{}' })
   })
 
   test.each([

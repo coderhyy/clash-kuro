@@ -7,12 +7,12 @@ import { isAbsolute, join, resolve, win32 } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import type { ControlChannel, Platform, ValidationResult } from '@kuro/core'
 import { fetchProfileText } from './fetch'
-import { createSystemProxy, execCommand, parseWindowsProxyServer, type Exec } from './system-proxy'
+import { createSystemProxy, execCommand, parseWindowsProxyServer, type Exec, type ExecSync, type SyncClearReport } from './system-proxy'
 import { createSocketTransport } from './transport'
 
 export { createSocketTransport } from './transport'
 export { createSystemProxy, SystemProxyPermissionError, SystemProxyUnknownStateError } from './system-proxy'
-export type { Exec } from './system-proxy'
+export type { Exec, ExecSync, SyncClearReport } from './system-proxy'
 export { createResumeHandler } from './resume'
 
 export interface DesktopPlatformOptions {
@@ -27,6 +27,7 @@ export interface DesktopPlatformOptions {
   startTimeoutMs?: number
   stopTimeoutMs?: number
   exec?: Exec
+  execSync?: ExecSync
   spawn?: (file: string, args: string[], options: SpawnOptions) => ChildProcess
   powerMonitor?: { on(event: 'resume', listener: () => void): unknown; removeListener(event: 'resume', listener: () => void): unknown }
   fetchText?: Platform['fetchText']
@@ -34,6 +35,8 @@ export interface DesktopPlatformOptions {
 
 export interface DesktopPlatform extends Platform {
   cleanupStaleSystemProxy(port: number): Promise<void>
+  /** Windows logoff/shutdown: clears our System Proxy before returning, using only in-memory state. */
+  clearSystemProxySync(options: { timeoutMs: number }): SyncClearReport
   shutdown(options: { timeoutMs: number }): Promise<void>
 }
 
@@ -67,7 +70,7 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
   const stopTimeoutMs = options.stopTimeoutMs ?? 2_000
   const port = () => typeof options.mixedPort === 'function' ? options.mixedPort() : options.mixedPort
   const systemProxy = createSystemProxy({
-    os, exec, helperPath: options.sysproxyHelperPath, mixedPort: port,
+    os, exec, execSync: options.execSync, helperPath: options.sysproxyHelperPath, mixedPort: port,
     memory: {
       async load() {
         const text = await read('system-proxy.json')

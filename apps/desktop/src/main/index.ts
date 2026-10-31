@@ -15,6 +15,8 @@ import { trayIcon } from './tray-icon'
 // KURO_RELEASE_REPO=owner/name overrides the release source (e.g. for forks).
 const RELEASE_REPO = process.env.KURO_RELEASE_REPO ?? 'coderhyy/clash-kuro'
 const SHUTDOWN_TIMEOUT_MS = 3_000
+// Hard limit for the synchronous helper run inside a session-end handler; the helper is killed after this.
+const SESSION_END_CLEAR_TIMEOUT_MS = 1_500
 
 const trayLabels: Record<string, string> = {
   'mode.rule': '规则模式', 'mode.global': '全局模式', 'mode.direct': '直连模式',
@@ -218,12 +220,14 @@ async function main(): Promise<void> {
   // macOS/Linux only; Windows never emits powerMonitor 'shutdown'.
   powerMonitor.on('shutdown', () => void exit())
   // Windows logoff/shutdown arrives as BaseWindow events. Tray Mode has no main window, so a hidden window
-  // that lives as long as the app receives them. Start cleanup at query-session-end; never delay the session end.
+  // that lives as long as the app receives them. The proxy is cleared synchronously inside the handler
+  // (session-end may be followed by process termination), then Core is stopped by exit(). Never preventDefault.
   if (process.platform === 'win32') {
     const sessionWindow = new BaseWindow({ show: false, width: 1, height: 1, skipTaskbar: true, focusable: false, title: 'Clash Kuro session' })
-    watchSessionEnd(sessionWindow, (phase, reasons) => {
-      logExit(`${phase} (${reasons.join(',') || 'no reason'})`)
-      void exit(phase)
+    watchSessionEnd(sessionWindow, {
+      clearSystemProxySync: () => platform.clearSystemProxySync({ timeoutMs: SESSION_END_CLEAR_TIMEOUT_MS }),
+      exit: (phase) => void exit(phase),
+      log: logExit,
     })
   }
 
