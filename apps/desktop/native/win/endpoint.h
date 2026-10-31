@@ -81,4 +81,21 @@ static int kuro_valid_bypass(const wchar_t *bypass) {
   return 1;
 }
 
+// RunOnce command line: "<exe>" clear --expected-server <server>. The exe path is quoted because
+// it may contain spaces ("Clash Kuro"). Returns the length, or 0 when the path holds a quote or the
+// result would not fit in `cap` characters including the terminator (Run/RunOnce ignore > 260).
+static size_t kuro_runonce_command(wchar_t *out, size_t cap, const wchar_t *exe, const wchar_t *server) {
+  static const wchar_t middle[] = L"\" clear --expected-server ";
+  if (!out || !exe || !*exe || !server || !*server || wcschr(exe, L'"')) return 0;
+  size_t exe_len = wcslen(exe), middle_len = sizeof middle / sizeof *middle - 1, server_len = wcslen(server);
+  size_t len = 1 + exe_len + middle_len + server_len;
+  if (len + 1 > cap) return 0;
+  out[0] = L'"';
+  wmemcpy(out + 1, exe, exe_len);
+  wmemcpy(out + 1 + exe_len, middle, middle_len);
+  wmemcpy(out + 1 + exe_len + middle_len, server, server_len);
+  out[len] = 0;
+  return len;
+}
+
 #endif

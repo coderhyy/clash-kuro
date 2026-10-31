@@ -36,7 +36,8 @@ try {
   run(windres, ['-I', src, '-O', 'coff', join(src, 'kuro-sysproxy.rc'), '-o', res])
   mkdirSync(outDir, { recursive: true })
   const exe = join(outDir, 'kuro-sysproxy.exe')
-  // -static avoids shipping libgcc/libwinpthread DLLs; WinINet and RAS are system DLLs.
-  run(cc, [...warnings, '-mconsole', '-municode', '-O2', '-s', '-static', join(src, 'kuro-sysproxy.c'), res, '-lwininet', '-lrasapi32', '-o', exe])
+  // -static avoids shipping libgcc/libwinpthread DLLs; WinINet, RAS and Advapi32 are system DLLs.
+  // -mwindows: GUI subsystem, so Windows creates no console for it (stdout pipes still work).
+  run(cc, [...warnings, '-mwindows', '-municode', '-O2', '-s', '-static', join(src, 'kuro-sysproxy.c'), res, '-lwininet', '-lrasapi32', '-ladvapi32', '-o', exe])
   console.log(`built ${exe} with ${cc}`)
 } finally { rmSync(tmp, { recursive: true, force: true }) }

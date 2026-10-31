@@ -1,5 +1,6 @@
 // Unit test for endpoint.h; built and run by `node scripts/build-sysproxy.mjs --test`.
 #include <stdio.h>
+#include <wchar.h>
 #include "endpoint.h"
 
 static int failures = 0;
@@ -45,6 +46,25 @@ int main(void) {
   CHECK(kuro_valid_bypass(L"localhost;127.0.0.1;::1;<local>"));
   CHECK(kuro_valid_bypass(L""));
   CHECK(!kuro_valid_bypass(L"a\nb"));
+
+  {
+    wchar_t cmd[260];
+    const wchar_t *exe = L"C:\\Program Files\\Clash Kuro\\resources\\bin\\kuro-sysproxy.exe";
+    size_t n = kuro_runonce_command(cmd, 260, exe, L"127.0.0.1:7891");
+    CHECK(n == wcslen(cmd));
+    CHECK(!wcscmp(cmd, L"\"C:\\Program Files\\Clash Kuro\\resources\\bin\\kuro-sysproxy.exe\" clear --expected-server 127.0.0.1:7891"));
+    CHECK(kuro_runonce_command(cmd, 260, L"C:\\a\"b.exe", L"127.0.0.1:7891") == 0);
+    CHECK(kuro_runonce_command(cmd, 260, L"", L"127.0.0.1:7891") == 0);
+    CHECK(kuro_runonce_command(cmd, 260, exe, L"") == 0);
+    // Exactly fits (len + terminator == cap), then one character too long.
+    size_t need = n + 1;
+    CHECK(kuro_runonce_command(cmd, need, exe, L"127.0.0.1:7891") == n);
+    CHECK(kuro_runonce_command(cmd, need - 1, exe, L"127.0.0.1:7891") == 0);
+    wchar_t longexe[300];
+    for (int i = 0; i < 299; i++) longexe[i] = L'a';
+    longexe[299] = 0;
+    CHECK(kuro_runonce_command(cmd, 260, longexe, L"127.0.0.1:7891") == 0);
+  }
 
   if (failures) return 1;
   puts("endpoint tests passed");

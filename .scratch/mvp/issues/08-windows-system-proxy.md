@@ -81,3 +81,35 @@ Blocked by: 02, 07
 - 已知取舍：`query-session-end` 之后如果别的程序取消了关机，Kuro 已经关掉代理并退出，不会恢复运行。代理不会悬空，但用户需要手动重开 Kuro。
 - 观察：2026-10-31 16:2x 本机 `reg query` 显示 `ProxyEnable=0x0`，但同一时刻 `kuro-sysproxy.exe get` 读到 LAN `flags=3`、`proxyServer=127.0.0.1:7891`（`DefaultConnectionSettings` 的 flags 字节也是 3），Kuro 没有在运行。注册表的 `ProxyEnable` 和 WinINet 实际使用的值可能不一致，所以验证以 helper `get` 为准。
 - 待验证（新产物，Tray Mode，注销、关机各 5 次）：`exit.log` 里每次都有 `sync clear ok`；重新登录后用 `kuro-sysproxy.exe get` 看 LAN `flags` 的 2 位已清除；注销/关机没有变慢，也没有出现 0xC0000142 弹窗。
+
+2026-10-31 (用户真机 + agent，注销第 3 次 / 0xC0000142 / RunOnce 兜底):
+
+- 用户实测：产物 run 41184918440，Tray Mode，主窗口已关，System Proxy 已打开，从开始菜单注销。`exit.log`：
+  - `08:55:30.556Z query-session-end (logoff)`
+  - `08:55:30.849Z sync clear FAILED: exit=3221225794 (0xC0000142 DLL init failed) timedOut=false 290 ms`
+  - `08:55:30.851Z exit start (query-session-end)`
+  - `08:55:30.926Z session-end (logoff)`
+  - `08:55:31.085Z sync clear FAILED: exit=3221225794 (0xC0000142 DLL init failed) timedOut=false 157 ms`
+  
+  重新登录后 helper `get` 读到 LAN `flags=3`、`proxyServer=127.0.0.1:7891`，代理没清掉。
+- 结论：同步清理的时机是对的，两个事件都收到了，处理函数也执行到了。但注销开始后，Windows 拒绝初始化新启动的 helper（STATUS_DLL_INIT_FAILED 0xC0000142），和 clash-verge-rev #5018 的现象一致。所以凡是在注销时才启动进程的方案都靠不住。常驻 helper 待命违反 ADR-0011，不做。
+- 改动 1：helper 改为 GUI 子系统（`-mwindows`，PE subsystem=2），启动时不建控制台。本机实测：`execFileSync` 和 `execFile` 都能读到 JSON，用法错误时 `status=1`、`code=87`；没有任何标准句柄时（`Start-Process`，相当于登录时 Explorer 启动它）运行正常，exit 0。这一步只排除“控制台初始化失败”这一种可能，不保证 0xC0000142 不再出现。
+- 改动 2：RunOnce 兜底，不依赖注销时启动进程。
+  - set 只要有一个连接写成功，helper 就写入 `HKCU\Software\Microsoft\Windows\CurrentVersion\RunOnce` 的 `ClashKuroSysProxyCleanup`，值为 `"<helper 绝对路径>" clear --expected-server 127.0.0.1:<port>`。路径带引号（打包后路径里有空格 `Clash Kuro`），路径含引号或命令超过 260 字符时拒绝写入。
+  - 端口变化时，下一次 set 覆盖这条，指向新端口。
+  - clear 结果 `ok`（每个连接是 cleared、notOurs 或 unchanged）时删除这条；clear 失败则保留，下次登录重试。
+  - 登录时 Windows 先删掉这个值再执行，端点检查沿用 `notOurs`：代理已经不是我们的就不动。
+  - helper 的 JSON 带 `runOnce: "written" | "deleted"` 或 `runOnceError`。RunOnce 写失败不影响 set 本身成功，主进程只打 warning。同步清理的 `exit.log` 行会带 `runOnce=deleted` 或 `runOnce error <code>`。
+  - 不调用 `preventDefault()`，同步清理和 `exit.log` 保留。没有原生模块，helper 不常驻。
+- 本机实测 RunOnce（helper 复制到带空格的临时路径）：
+  - set 7891 → 写入 `"...\Kuro RunOnce Test\kuro-sysproxy.exe" clear --expected-server 127.0.0.1:7891`。
+  - set 7892 → 这条改为 7892。
+  - 用 `cmd /c` 原样执行这条命令 → cleared，并 `runOnce: "deleted"`。
+  - set 7891 后执行 clear 7892 → notOurs，代理保持开启，这条被删除。
+  - 实测结束后 LAN 回到 `flags=1`，RunOnce 里没有残留。
+- 测试：C 单测新增 RunOnce 命令行格式（引号、空路径、含引号路径、260 边界、超长路径）并通过；desktop typecheck 通过；desktop 测试 59 个通过，新增覆盖：日志带 RunOnce 状态，RunOnce 写失败时 set 仍成功。
+- 风险 / 待验证：
+  - 真机注销、关机各 5 次：看 `exit.log` 是 `sync clear ok` 还是 0xC0000142；重新登录后、启动 Kuro 之前，`get` 读到的 flags 2 位是否已被 RunOnce 清掉。
+  - RunOnce 是常见的持久化位置，Defender/EDR 可能提示或拦截写入。拦截时 set 仍然成功，只是兜底失效，日志里能看到 `runOnceError`。
+  - RunOnce 只在下一次登录时运行。注销到再次登录之间，以及关机后开机到登录之前，代理设置仍会指向已停止的端口。
+  - 删除或移动 app 后，残留的 RunOnce 会执行失败一次，然后被 Windows 删掉，不影响其他设置。
