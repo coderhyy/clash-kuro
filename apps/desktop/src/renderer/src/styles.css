@@ -881,3 +881,9 @@ progress::-moz-progress-bar {
 .log-payload {
   overflow-wrap: anywhere;
 }
+.backup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}

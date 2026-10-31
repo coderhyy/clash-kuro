@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import type { LogEntry, Traffic } from '@kuro/api'
 import type { CommandInput, CommandName, CommandResult, StateBridge, StateSnapshot } from '@kuro/state'
-import { IPC, type StreamKind } from '../main/ipc-channels'
+import { IPC, type BackupResult, type StreamKind } from '../main/ipc-channels'
 
 // Each renderer-side subscription is one main-side subscriber, so main can ref-count Core streams.
 function stream<T>(kind: StreamKind, channel: string, listener: (value: T) => void): () => void {
@@ -31,5 +31,7 @@ const bridge: StateBridge = {
 contextBridge.exposeInMainWorld('kuro', bridge)
 contextBridge.exposeInMainWorld('kuroFiles', {
   pickProfileFile: () => ipcRenderer.invoke(IPC.pickProfileFile) as Promise<string | null>,
-  openLoginItemsSettings: () => ipcRenderer.invoke(IPC.openLoginItemsSettings) as Promise<void>
+  openLoginItemsSettings: () => ipcRenderer.invoke(IPC.openLoginItemsSettings) as Promise<void>,
+  exportBackup: () => ipcRenderer.invoke(IPC.exportBackup) as Promise<BackupResult>,
+  importBackup: () => ipcRenderer.invoke(IPC.importBackup) as Promise<BackupResult>
 })

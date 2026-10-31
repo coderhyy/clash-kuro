@@ -3,13 +3,14 @@ import { FakePlatform } from '@kuro/core/fake'
 import { FakeTransport } from '@kuro/api/fake'
 import { createMihomoClient } from '@kuro/api'
 import { fakeSnapshot } from './fake'
-import { createAppStore, type AppStoreDeps } from './index'
+import { createAppStore, type AppStoreDeps, type Backup } from './index'
 
 async function setup(running = true) {
   const platform = new FakePlatform()
   const snapshot = fakeSnapshot()
   const metadata = { settings: snapshot.settings, profiles: snapshot.profiles, activeProfileId: snapshot.activeProfileId }
   platform.files.set('settings.json', JSON.stringify(metadata))
+  platform.files.set('profiles/p1.yaml', 'old original\n')
   platform.runtimeConfig = 'old config'
   platform.coreRunning = running
   let selected = '香港 01'
@@ -330,4 +331,170 @@ test('Launch at Login refuses unsupported/dev builds and re-reads the OS state w
   expect(await app.run('setLaunchAtLogin', { enabled: true })).toEqual({ ok: false, error: 'denied' })
   expect(app.store.getState().launchAtLogin).toBe('requires-approval')
   expect((await app.run('setLaunchAtLogin', { enabled: 'yes' } as never)).ok).toBe(false)
+})
+
+test('exports all saved metadata and Profile originals with optional Override, never runtime or OS state', async () => {
+  const { app, platform, metadata } = await setup()
+  const saved = { ...metadata, language: 'en', future: { value: 1 }, profiles: [...metadata.profiles, { ...metadata.profiles[0]!, id: 'p2' }] }
+  platform.files.set('settings.json', JSON.stringify(saved))
+  platform.files.set('profiles/p1.yaml', 'original one\n')
+  platform.files.set('profiles/p2.yaml', 'original two\n')
+  platform.files.set('override.yaml', 'rules: []\n')
+  platform.files.set('runtime.yaml', 'runtime secret')
+  platform.files.set('core.pid', '123')
+  platform.files.set('GeoSite.dat', 'geo data')
+  const exported = JSON.parse(await app.exportBackup())
+  expect(exported).toEqual({
+    format: 'clash-kuro-backup', version: 1, createdAt: expect.any(String),
+    settings: saved, profiles: { p1: 'original one\n', p2: 'original two\n' }, override: 'rules: []\n'
+  })
+  expect(Number.isFinite(Date.parse(exported.createdAt))).toBe(true)
+  platform.files.delete('override.yaml')
+  expect(JSON.parse(await app.exportBackup()).override).toBeNull()
+  platform.files.delete('profiles/p1.yaml')
+  await expect(app.exportBackup()).rejects.toThrow('Profile content is missing')
+})
+
+test('import validates before any changes, including automatic backup and stopping Core', async () => {
+  const { app, platform } = await setup()
+  await app.run('setSystemProxy', { enabled: true })
+  const before = new Map(platform.files)
+  const stop = vi.spyOn(platform, 'stopCore')
+  const clear = vi.spyOn(platform, 'clearSystemProxy')
+  const data = JSON.parse(await app.exportBackup()) as Backup
+  for (const json of ['broken JSON', JSON.stringify({ ...data, profiles: {} }), JSON.stringify({ ...data, override: 42 })]) {
+    await expect(app.importBackup(json)).rejects.toThrow()
+    expect(platform.files).toEqual(before)
+  }
+  expect(clear).not.toHaveBeenCalled()
+  expect(stop).not.toHaveBeenCalled()
+  expect(platform.coreRunning).toBe(true)
+  expect(platform.systemProxy).not.toBeNull()
+  expect((await app.run('setMode', { mode: 'direct' })).ok).toBe(true)
+})
+
+test('import backs up first, clears System Proxy then stops Core, replaces files with settings.json last, and rejects queued Commands', async () => {
+  const { app, platform } = await setup()
+  await app.run('setSystemProxy', { enabled: true })
+  platform.files.set('override.yaml', 'old override')
+  platform.files.set('runtime.yaml', 'untouched runtime')
+  const before = JSON.parse(await app.exportBackup()) as Backup
+  const incoming: Backup = {
+    ...before,
+    settings: { ...before.settings, settings: { ...before.settings.settings, mixedPort: 9000 }, profiles: [{ ...before.settings.profiles[0]!, id: 'p2' }], activeProfileId: 'p2', language: 'en' },
+    profiles: { p2: 'new original\n' }, override: null
+  }
+  const events: string[] = []
+  const write = platform.writeFileAtomic.bind(platform)
+  const remove = platform.removeFile.bind(platform)
+  vi.spyOn(platform, 'writeFileAtomic').mockImplementation(async (name, data) => { events.push(name); await write(name, data) })
+  vi.spyOn(platform, 'removeFile').mockImplementation(async (name) => { events.push(`remove:${name}`); await remove(name) })
+  vi.spyOn(platform, 'clearSystemProxy').mockImplementation(async () => { events.push('clear'); platform.systemProxy = null })
+  vi.spyOn(platform, 'stopCore').mockImplementation(async () => { events.push('stop'); platform.coreRunning = false })
+  const imported = app.importBackup(JSON.stringify(incoming))
+  const command = app.run('setMode', { mode: 'direct' })
+  await imported
+  expect(await command).toEqual({ ok: false, error: 'Backup import requires an application restart' })
+  expect(events).toEqual([
+    expect.stringMatching(/^backups\/pre-import-.*\.json$/), 'clear', 'stop',
+    'profiles/p2.yaml', 'remove:override.yaml', 'remove:profiles/p1.yaml', 'settings.json'
+  ])
+  expect(events[0]).not.toContain(':')
+  expect(JSON.parse(platform.files.get(events[0]!)!)).toMatchObject({ settings: before.settings, profiles: before.profiles, override: 'old override' })
+  expect(platform.files.get('profiles/p2.yaml')).toBe('new original\n')
+  expect(platform.files.has('profiles/p1.yaml')).toBe(false)
+  expect(platform.files.has('override.yaml')).toBe(false)
+  expect(platform.files.get('runtime.yaml')).toBe('untouched runtime')
+  expect(JSON.parse(platform.files.get('settings.json')!)).toEqual(incoming.settings)
+  expect(platform.systemProxy).toBeNull()
+  expect(platform.coreRunning).toBe(false)
+  await expect(app.exportBackup()).rejects.toThrow('restart')
+  await expect(app.importBackup(JSON.stringify(incoming))).rejects.toThrow('restart')
+})
+
+test.each([null, '', 'rules: []\n'])('export/import round trip restores exact data with Override %j', async (override) => {
+  const { app, platform, metadata, deps } = await setup(false)
+  const saved = { ...metadata, language: 'en', future: { enabled: true } }
+  platform.files.set('settings.json', JSON.stringify(saved))
+  if (override !== null) platform.files.set('override.yaml', override)
+  const exported = await app.exportBackup()
+  await app.importBackup(exported)
+  const reopened = await createAppStore(deps)
+  const roundTrip = JSON.parse(await reopened.exportBackup())
+  expect(roundTrip.settings).toEqual(saved)
+  expect(roundTrip.profiles).toEqual({ p1: 'old original\n' })
+  expect(roundTrip.override).toBe(override)
+})
+
+test('fresh storage can be exported and imported without settings.json or Profiles', async () => {
+  const { deps } = await setup(false)
+  const platform = new FakePlatform()
+  const app = await createAppStore({ ...deps, platform })
+  const exported = await app.exportBackup()
+  expect(JSON.parse(exported)).toMatchObject({ settings: { profiles: [], activeProfileId: null }, profiles: {}, override: null })
+  await app.importBackup(exported)
+  expect(JSON.parse(platform.files.get('settings.json')!)).toEqual(JSON.parse(exported).settings)
+})
+
+test('Backup operations share the Command queue, including the pre-import recovery snapshot', async () => {
+  const { app, platform } = await setup(false)
+  const original = await app.exportBackup()
+  const first = app.run('setMode', { mode: 'global' })
+  const exported = app.exportBackup()
+  const imported = app.importBackup(original)
+  expect((await first).ok).toBe(true)
+  expect(JSON.parse(await exported).settings.settings.mode).toBe('global')
+  await imported
+  const recovery = [...platform.files.entries()].find(([name]) => name.startsWith('backups/'))!
+  expect(JSON.parse(recovery[1]).settings.settings.mode).toBe('global')
+  expect(JSON.parse(platform.files.get('settings.json')!).settings.mode).toBe('rule')
+})
+
+test('a failed automatic backup leaves current data and the running Core untouched', async () => {
+  const { app, platform } = await setup()
+  const data = await app.exportBackup()
+  const before = new Map(platform.files)
+  const write = vi.spyOn(platform, 'writeFileAtomic').mockRejectedValue(new Error('disk full'))
+  const clear = vi.spyOn(platform, 'clearSystemProxy')
+  const stop = vi.spyOn(platform, 'stopCore')
+  await expect(app.importBackup(data)).rejects.toThrow('disk full')
+  expect(platform.files).toEqual(before)
+  expect(clear).not.toHaveBeenCalled()
+  expect(stop).not.toHaveBeenCalled()
+  write.mockRestore()
+  expect((await app.run('openWindow', {})).ok).toBe(true)
+})
+
+test('import does not stop Core or replace data if System Proxy cannot be cleared', async () => {
+  const { app, platform } = await setup()
+  await app.run('setSystemProxy', { enabled: true })
+  const data = await app.exportBackup()
+  const before = new Map(platform.files)
+  vi.spyOn(platform, 'clearSystemProxy').mockRejectedValue(new Error('cannot clear proxy'))
+  const stop = vi.spyOn(platform, 'stopCore')
+  await expect(app.importBackup(data)).rejects.toThrow('cannot clear proxy')
+  expect(stop).not.toHaveBeenCalled()
+  for (const [name, content] of before) expect(platform.files.get(name)).toBe(content)
+  expect([...platform.files.keys()].filter((name) => name.startsWith('backups/'))).toHaveLength(1)
+  expect(platform.coreRunning).toBe(true)
+})
+
+test.each(['profiles/p1.yaml', 'override.yaml', 'settings.json'])('a failed %s write retains the recovery Backup, does not commit settings and blocks stale Commands', async (failedFile) => {
+  const { app, platform } = await setup()
+  const data = JSON.parse(await app.exportBackup()) as Backup
+  data.settings.settings.mixedPort = 9000
+  data.profiles.p1 = 'replacement'
+  data.override = 'replacement override'
+  const previousSettings = platform.files.get('settings.json')
+  const write = platform.writeFileAtomic.bind(platform)
+  vi.spyOn(platform, 'writeFileAtomic').mockImplementation(async (name, content) => {
+    if (name === failedFile) throw new Error('disk full')
+    await write(name, content)
+  })
+  await expect(app.importBackup(JSON.stringify(data))).rejects.toThrow(/disk full.*backups\/pre-import-/)
+  expect(platform.files.get('settings.json')).toBe(previousSettings)
+  const recovery = [...platform.files.entries()].find(([name]) => name.startsWith('backups/'))!
+  expect(JSON.parse(recovery[1])).toMatchObject({ profiles: { p1: 'old original\n' }, override: null })
+  expect((await app.run('setMode', { mode: 'direct' })).ok).toBe(false)
+  expect(platform.files.get('settings.json')).toBe(previousSettings)
 })

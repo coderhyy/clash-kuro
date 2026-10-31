@@ -9,7 +9,10 @@ export const IPC = {
   traffic: 'kuro:traffic',
   logs: 'kuro:logs',
   pickProfileFile: 'kuro:pickProfileFile',
-  openLoginItemsSettings: 'kuro:openLoginItemsSettings'
+  openLoginItemsSettings: 'kuro:openLoginItemsSettings',
+  exportBackup: 'kuro:exportBackup',
+  importBackup: 'kuro:importBackup'
 } as const
 
 export type StreamKind = 'traffic' | 'logs'
+export type BackupResult = { ok: true } | { ok: false; error: string } | null
