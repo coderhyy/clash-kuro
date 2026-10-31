@@ -1,4 +1,5 @@
 import { FakeBridge, fakeSnapshot } from '@kuro/state/fake'
+import { applyOverride, parseOverride } from '@kuro/core'
 import type {
   CommandInput,
   CommandName,
@@ -140,7 +141,13 @@ export class DevBridge extends FakeBridge {
       }
     },
     openWindow: () => {},
-    quit: () => {}
+    quit: () => {},
+    setOverride: ({ yaml }) => {
+      const parsed = parseOverride(yaml)
+      if (!parsed.ok) throw new Error(parsed.error)
+      if (this.snapshot.activeProfileId !== null) applyOverride({}, parsed.value)
+      this.snapshot = { ...this.snapshot, override: yaml }
+    }
   }
 
   override async run<K extends CommandName>(

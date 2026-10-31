@@ -28,6 +28,8 @@ export interface StateSnapshot {
   update: { version: string; url: string } | null
   /** Read from the OS, not settings.json (CONTEXT.md: 开机自启). */
   launchAtLogin: LaunchAtLoginStatus
+  /** Raw global Override YAML, stored separately from settings.json. */
+  override: string
 }
 
 /** Typed requests from the window or tray to the main process (CONTEXT.md: Command). */
@@ -46,6 +48,7 @@ export interface Commands {
   stopCore(input: Record<string, never>): void
   openWindow(input: Record<string, never>): void
   quit(input: Record<string, never>): void
+  setOverride(input: { yaml: string }): void
 }
 
 export type CommandName = keyof Commands

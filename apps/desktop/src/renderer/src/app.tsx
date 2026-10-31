@@ -403,6 +403,7 @@ function SettingsPanel({
   close: () => void
 }) {
   const [port, setPort] = useState(String(snapshot.settings.mixedPort))
+  const [override, setOverride] = useState(snapshot.override)
   const [error, setError] = useState('')
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -470,6 +471,30 @@ function SettingsPanel({
           {t(error)}
         </p>
       )}
+      <form
+        className="override-form"
+        onSubmit={(event) => {
+          event.preventDefault()
+          void run('setOverride', { yaml: override })
+        }}
+      >
+        <h3><label htmlFor="override-yaml">{t('override')}</label></h3>
+        <p id="override-hint" className="muted">{t('overrideHint')}</p>
+        <textarea
+          id="override-yaml"
+          aria-describedby="override-hint"
+          rows={8}
+          spellCheck={false}
+          autoCapitalize="off"
+          autoCorrect="off"
+          value={override}
+          onChange={(event) => setOverride(event.target.value)}
+          disabled={busy}
+        />
+        <Button type="submit" size="sm" disabled={busy || override === snapshot.override}>
+          {t(busy ? 'importing' : 'saveOverride')}
+        </Button>
+      </form>
       <h3>{t('interval')}</h3>
       <p className="muted">{t('intervalHint')}</p>
       {snapshot.profiles

@@ -732,6 +732,30 @@ progress::-moz-progress-bar {
 .interval-form .error-text {
   grid-column: 1 / -1;
 }
+.override-form {
+  display: grid;
+  gap: 8px;
+}
+.override-form textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--input);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--foreground);
+  caret-color: var(--accent);
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  resize: vertical;
+}
+.override-form textarea:disabled {
+  opacity: 0.65;
+}
+.override-form button {
+  justify-self: start;
+}
 .empty-profiles,
 .empty-groups {
   text-align: center;

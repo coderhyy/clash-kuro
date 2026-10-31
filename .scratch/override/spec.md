@@ -1,6 +1,6 @@
 # 覆写（Override）
 
-Status: in-progress
+Status: done
 
 第二期功能。术语见 `CONTEXT.md` 的 **Override**。与英文界面、备份并行开发，各自一个分支（`codex/override`）。
 

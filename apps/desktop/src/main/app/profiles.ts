@@ -54,10 +54,10 @@ export function createProfileSource(deps: {
       return update.profile
     },
 
-    async buildRuntimeConfig(input: { profile: Profile; settings: Settings; controlChannel: ControlChannel }) {
+    async buildRuntimeConfig(input: { profile: Profile; settings: Settings; controlChannel: ControlChannel; override: string }) {
       const content = await deps.platform.readFile(contentFile(input.profile.id))
       if (content === null) throw new Error('Profile content is missing; update the Profile first')
-      return buildRuntimeConfig(content, input.settings, input.controlChannel)
+      return buildRuntimeConfig(content, input.settings, input.controlChannel, input.override)
     }
   }
 }

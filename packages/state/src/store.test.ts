@@ -2,6 +2,7 @@ import { expect, test, vi } from 'vitest'
 import { FakePlatform } from '@kuro/core/fake'
 import { FakeTransport } from '@kuro/api/fake'
 import { createMihomoClient } from '@kuro/api'
+import { buildRuntimeConfig } from '@kuro/core'
 import { fakeSnapshot } from './fake'
 import { createAppStore, type AppStoreDeps } from './index'
 
@@ -396,4 +397,116 @@ test('Launch at Login refuses unsupported/dev builds and re-reads the OS state w
   expect(await app.run('setLaunchAtLogin', { enabled: true })).toEqual({ ok: false, error: 'denied' })
   expect(app.store.getState().launchAtLogin).toBe('requires-approval')
   expect((await app.run('setLaunchAtLogin', { enabled: 'yes' } as never)).ok).toBe(false)
+})
+
+test.each([true, false])('setOverride validates, saves raw YAML and reloads only a running Core (%s)', async (running) => {
+  const { app, platform, deps } = await setup(running)
+  const yaml = '# global Override\n+rules: ["MATCH,DIRECT"]\n'
+  const stop = vi.spyOn(platform, 'stopCore')
+  const start = vi.spyOn(platform, 'startCore')
+  const apply = vi.spyOn(platform, 'applyRuntimeConfig')
+  const write = vi.spyOn(platform, 'writeFileAtomic')
+  const settingsFile = platform.files.get('settings.json')
+  expect((await app.getSnapshot()).override).toBe('')
+  if (running) await app.run('setSystemProxy', { enabled: true })
+  const published: string[] = []
+  app.subscribe((snapshot) => {
+    expect(platform.files.get('override.yaml')).toBe(yaml)
+    published.push(snapshot.override)
+  })
+  expect(await app.run('setOverride', { yaml })).toEqual({ ok: true, value: undefined })
+  expect(deps.buildRuntimeConfig).toHaveBeenCalledWith({ profile: app.store.getState().profiles[0], settings: app.store.getState().settings, controlChannel: platform.controlChannel(), override: yaml })
+  expect(apply).toHaveBeenCalledOnce()
+  expect(write).toHaveBeenCalledWith('override.yaml', yaml)
+  expect(apply.mock.invocationCallOrder[0]).toBeLessThan(write.mock.invocationCallOrder[0]!)
+  expect(published.every((value) => value === yaml)).toBe(true)
+  expect(platform.files.get('settings.json')).toBe(settingsFile)
+  expect((await app.getSnapshot()).override).toBe(yaml)
+  expect(stop).toHaveBeenCalledTimes(running ? 1 : 0)
+  expect(start).toHaveBeenCalledTimes(running ? 1 : 0)
+  expect(app.store.getState().systemProxy.enabled).toBe(running)
+  const reopened = await createAppStore(deps)
+  expect((await reopened.getSnapshot()).override).toBe(yaml)
+  await reopened.run('updateSettings', { settings: { mixedPort: 9001 } })
+  expect(deps.buildRuntimeConfig).toHaveBeenLastCalledWith(expect.objectContaining({ override: yaml }))
+})
+
+test('setOverride rejects malformed payloads and YAML without writing or validating Runtime Config', async () => {
+  const { app, platform } = await setup()
+  await app.run('setOverride', { yaml: 'rules: [old]' })
+  const before = await app.getSnapshot()
+  const file = platform.files.get('override.yaml')
+  const apply = vi.spyOn(platform, 'applyRuntimeConfig')
+  const write = vi.spyOn(platform, 'writeFileAtomic')
+  const stop = vi.spyOn(platform, 'stopCore')
+  for (const yaml of ['[', 'rules: [', '- rule', 'null', 42, null, undefined]) {
+    expect((await app.run('setOverride', { yaml } as never)).ok).toBe(false)
+    expect(await app.getSnapshot()).toBe(before)
+    expect(platform.files.get('override.yaml')).toBe(file)
+  }
+  expect(apply).not.toHaveBeenCalled()
+  expect(write).not.toHaveBeenCalled()
+  expect(stop).not.toHaveBeenCalled()
+})
+
+test('failed Override runtime validation preserves the file, snapshot, Runtime Config and running Core', async () => {
+  const { app, platform, deps } = await setup()
+  await app.run('setOverride', { yaml: 'rules: [old]' })
+  const before = await app.getSnapshot()
+  const runtime = platform.runtimeConfig
+  const stop = vi.spyOn(platform, 'stopCore')
+  const write = vi.spyOn(platform, 'writeFileAtomic')
+  platform.validate = () => ({ ok: false, error: 'mihomo -t rejected Override' })
+  expect(await app.run('setOverride', { yaml: 'dns: {enable: true}' })).toEqual({ ok: false, error: 'mihomo -t rejected Override' })
+  deps.buildRuntimeConfig = ({ settings, controlChannel, override }) => buildRuntimeConfig('rules: []', settings, controlChannel, override)
+  expect(await app.run('setOverride', { yaml: '+rules: not-an-array' })).toMatchObject({ ok: false, error: expect.stringMatching(/array/) })
+  expect(await app.getSnapshot()).toBe(before)
+  expect(platform.files.get('override.yaml')).toBe('rules: [old]')
+  expect(platform.runtimeConfig).toBe(runtime)
+  expect(platform.coreRunning).toBe(true)
+  expect(stop).not.toHaveBeenCalled()
+  expect(write).not.toHaveBeenCalled()
+  expect((await app.run('openWindow', {})).ok).toBe(true)
+})
+
+test('failed Override persistence leaves the saved Override and snapshot intact without restarting Core', async () => {
+  const { app, platform } = await setup()
+  await app.run('setOverride', { yaml: 'rules: [old]' })
+  const before = await app.getSnapshot()
+  platform.writeFileAtomic = async () => { throw new Error('disk full') }
+  const stop = vi.spyOn(platform, 'stopCore')
+  expect(await app.run('setOverride', { yaml: 'rules: [new]' })).toEqual({ ok: false, error: 'disk full' })
+  expect(platform.files.get('override.yaml')).toBe('rules: [old]')
+  expect(await app.getSnapshot()).toBe(before)
+  expect(stop).not.toHaveBeenCalled()
+})
+
+test.each([true, false])('without an Active Profile, setOverride only parses YAML and saves it (%s)', async (running) => {
+  const { app, platform, deps } = await setup(running)
+  app.store.setState({ activeProfileId: null })
+  const apply = vi.spyOn(platform, 'applyRuntimeConfig')
+  const stop = vi.spyOn(platform, 'stopCore')
+  for (const yaml of ['+rules: not-an-array', '', '# no Override\n']) {
+    expect((await app.run('setOverride', { yaml })).ok).toBe(true)
+    expect(platform.files.get('override.yaml')).toBe(yaml)
+    expect((await app.getSnapshot()).override).toBe(yaml)
+  }
+  expect((await app.run('setOverride', { yaml: '[' })).ok).toBe(false)
+  expect(deps.buildRuntimeConfig).not.toHaveBeenCalled()
+  expect(apply).not.toHaveBeenCalled()
+  expect(stop).not.toHaveBeenCalled()
+})
+
+test('clearing Override restores the Profile and later runtime preparations keep using the saved Override', async () => {
+  const { app, platform, deps } = await setup(false)
+  deps.buildRuntimeConfig = vi.fn(({ settings, controlChannel, override }) => buildRuntimeConfig('rules: [old]', settings, controlChannel, override))
+  await app.run('setOverride', { yaml: 'rules: [new]' })
+  expect(platform.runtimeConfig).toContain('- new')
+  await app.run('setActiveProfile', { profileId: 'p1' })
+  await app.run('updateProfile', { profileId: 'p1' })
+  await app.run('startCore', {})
+  expect(vi.mocked(deps.buildRuntimeConfig).mock.calls.every(([input]) => input.override === 'rules: [new]')).toBe(true)
+  expect((await app.run('setOverride', { yaml: '# disabled' })).ok).toBe(true)
+  expect(platform.runtimeConfig).toContain('- old')
+  expect((await app.getSnapshot()).override).toBe('# disabled')
 })

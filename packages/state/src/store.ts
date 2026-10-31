@@ -1,6 +1,7 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import type { MihomoClient } from '@kuro/api'
 import type { ControlChannel, Platform, Profile, Settings } from '@kuro/core'
+import { parseOverride } from '@kuro/core'
 import { LOG_BUFFER_SIZE, type CommandInput, type CommandName, type CommandOutput, type CommandResult, type Language, type LanguagePreference, type StateBridge, type StateSnapshot } from './index'
 import type { LogEntry, Traffic } from '@kuro/api'
 import { createStreamHub } from './streams'
@@ -10,7 +11,7 @@ export interface AppStoreDeps {
   client: MihomoClient
   systemLocale(): string
   /** Reads the Profile's original content; must not mutate it. */
-  buildRuntimeConfig(input: { profile: Profile; settings: Settings; controlChannel: ControlChannel }): string | Promise<string>
+  buildRuntimeConfig(input: { profile: Profile; settings: Settings; controlChannel: ControlChannel; override: string }): string | Promise<string>
   /** Fetches/imports original content and returns updated metadata; rejects without destroying old content. */
   refreshProfile(profile: Profile): Promise<Profile>
   hooks?: {
@@ -81,6 +82,7 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
   if (initial.activeProfileId !== null && !initial.profiles.some((p) => p.id === initial.activeProfileId)) throw new Error('Invalid Active Profile')
   const running = await platform.isCoreRunning()
   const launchAtLogin = await platform.getLaunchAtLogin()
+  const override = await platform.readFile('override.yaml') ?? ''
   const store = createStore<StateSnapshot>(() => ({
     ...initial,
     resolvedLanguage: resolveLanguage(initial.language),
@@ -90,7 +92,8 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
     proxies: {},
     systemProxy: { enabled: false },
     update: null,
-    launchAtLogin
+    launchAtLogin,
+    override
   }))
 
   const coreUp = () => store.getState().core.status === 'running'
@@ -120,8 +123,8 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
     change({ proxyGroups: groups, proxies })
   }
 
-  async function prepareRuntime(selected: Profile, settings = store.getState().settings): Promise<void> {
-    const yaml = await deps.buildRuntimeConfig({ profile: selected, settings, controlChannel: platform.controlChannel() })
+  async function prepareRuntime(selected: Profile, settings = store.getState().settings, override = store.getState().override): Promise<void> {
+    const yaml = await deps.buildRuntimeConfig({ profile: selected, settings, controlChannel: platform.controlChannel(), override })
     const result = await platform.applyRuntimeConfig(yaml)
     if (!result.ok) throw new Error(result.error)
   }
@@ -279,6 +282,16 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
     async quit() {
       await stop()
       await deps.hooks?.onQuit?.()
+    },
+    async setOverride({ yaml }) {
+      if (typeof yaml !== 'string') throw new Error('Invalid Override YAML')
+      const parsed = parseOverride(yaml)
+      if (!parsed.ok) throw new Error(parsed.error)
+      const { activeProfileId, settings } = store.getState()
+      if (activeProfileId !== null) await prepareRuntime(profile(activeProfileId), settings, yaml)
+      await platform.writeFileAtomic('override.yaml', yaml)
+      change({ override: yaml })
+      if (activeProfileId !== null) await reloadIfRunning()
     }
   }
 

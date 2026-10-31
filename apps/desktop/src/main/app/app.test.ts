@@ -2,7 +2,7 @@ import { mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, test, vi } from 'vitest'
-import type { Profile } from '@kuro/core'
+import { parseProfile, type Profile } from '@kuro/core'
 import { FakePlatform } from '@kuro/core/fake'
 import { contentFile, createProfileSource } from './profiles'
 import { createUpdateScheduler } from './scheduler'
@@ -45,11 +45,31 @@ test('local refresh reads an absolute path; Runtime Config is built from stored 
   await expect(source.refreshProfile({ ...local, source: { kind: 'local', path: 'a.yaml' } })).rejects.toThrow(/absolute/)
   const yaml = await source.buildRuntimeConfig({
     profile: local, settings: { mode: 'rule', mixedPort: 7890, allowLan: false, logLevel: 'info' },
-    controlChannel: { kind: 'unix', path: '/d/mihomo.sock' }
+    controlChannel: { kind: 'unix', path: '/d/mihomo.sock' }, override: ''
   })
   expect(yaml).toContain('mode: rule')
   expect(yaml).not.toContain('secret')
   expect(yaml).toContain('geo-auto-update: false')
+})
+
+test('Runtime Config applies the global Override without changing stored Profile content', async () => {
+  const platform = new FakePlatform()
+  platform.files.set(contentFile('p1'), 'rules: [old]\ndns: {enable: false}')
+  const source = createProfileSource({ platform, userAgent: 'Clash Kuro', isCoreRunning: async () => false })
+  const yaml = await source.buildRuntimeConfig({
+    profile: remote, settings: { mode: 'rule', mixedPort: 7890, allowLan: false, logLevel: 'info' },
+    controlChannel: { kind: 'unix', path: '/d/mihomo.sock' },
+    override: '+rules: [new]\ndns: {enable: true}\nmode: direct\nexternal-controller: 0.0.0.0:9090\nsecret: unsafe'
+  })
+  const result = parseProfile(yaml)
+  if (!result.ok) throw new Error(result.error)
+  const config = result.value
+  expect(config.rules).toEqual(['new', 'old'])
+  expect(config.dns).toEqual({ enable: true })
+  expect(config.mode).toBe('rule')
+  expect(config['external-controller']).toBeUndefined()
+  expect(config.secret).toBeUndefined()
+  expect(platform.files.get(contentFile('p1'))).toBe('rules: [old]\ndns: {enable: false}')
 })
 
 test('scheduler updates due profiles and waits a full interval after an attempt', async () => {

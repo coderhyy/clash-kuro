@@ -30,6 +30,7 @@ export function fakeSnapshot(overrides: Partial<StateSnapshot> = {}): StateSnaps
     systemProxy: { enabled: false },
     update: null,
     launchAtLogin: 'disabled',
+    override: '',
     ...overrides
   }
 }
