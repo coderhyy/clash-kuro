@@ -1,4 +1,5 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, powerMonitor, shell, Tray, type IpcMainEvent, type IpcMainInvokeEvent } from 'electron'
+import { app, BaseWindow, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, powerMonitor, shell, Tray, type IpcMainEvent, type IpcMainInvokeEvent } from 'electron'
+import { appendFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
@@ -9,6 +10,7 @@ import { createProfileSource } from './app/profiles'
 import { createUpdateScheduler } from './app/scheduler'
 import { checkForUpdate } from './app/release-check'
 import { installGeoData } from './app/geo'
+import { watchSessionEnd } from './app/session-end'
 import { IPC, type BackupResult, type StreamKind } from './ipc-channels'
 import { trayIcon } from './tray-icon'
 import { t } from '../shared/i18n'
@@ -59,13 +61,24 @@ async function main(): Promise<void> {
   let tray: Tray | null = null
   let quitting = false
 
-  async function exit(): Promise<void> {
+  // One line per exit step, so logoff/shutdown cleanup can be checked after the next login.
+  function logExit(line: string): void {
+    try { appendFileSync(join(dataDir, 'exit.log'), `${new Date().toISOString()} ${line}\n`) } catch { /* diagnostics only */ }
+  }
+
+  async function exit(trigger = 'quit'): Promise<void> {
     if (quitting) return
     quitting = true
-    scheduler.stop()
-    app_.dispose()
-    await platform.shutdown({ timeoutMs: SHUTDOWN_TIMEOUT_MS })
-    app.exit(0)
+    const started = Date.now()
+    logExit(`exit start (${trigger})`)
+    try {
+      scheduler.stop()
+      app_.dispose()
+      await platform.shutdown({ timeoutMs: SHUTDOWN_TIMEOUT_MS })
+    } finally {
+      logExit(`exit done in ${Date.now() - started} ms`)
+      app.exit(0)
+    }
   }
 
   function showWindow(): void {
@@ -250,11 +263,21 @@ async function main(): Promise<void> {
   app.on('activate', showWindow)
   app.on('window-all-closed', () => { /* Tray Mode: keep running. */ })
   app.on('before-quit', (event) => {
-    if (quitting) return
+    // exit() always ends in app.exit(), which skips before-quit; a quit that arrives mid-cleanup must wait for it.
     event.preventDefault()
     void exit()
   })
+  // macOS/Linux only; Windows never emits powerMonitor 'shutdown'.
   powerMonitor.on('shutdown', () => void exit())
+  // Windows logoff/shutdown arrives as BaseWindow events. Tray Mode has no main window, so a hidden window
+  // that lives as long as the app receives them. Start cleanup at query-session-end; never delay the session end.
+  if (process.platform === 'win32') {
+    const sessionWindow = new BaseWindow({ show: false, width: 1, height: 1, skipTaskbar: true, focusable: false, title: 'Clash Kuro session' })
+    watchSessionEnd(sessionWindow, (phase, reasons) => {
+      logExit(`${phase} (${reasons.join(',') || 'no reason'})`)
+      void exit(phase)
+    })
+  }
 
   // Launch at Login starts straight in Tray Mode (CONTEXT.md: 开机自启).
   if (process.platform === 'darwin' && app.getLoginItemSettings().wasOpenedAtLogin) app.dock?.hide()
