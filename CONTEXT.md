@@ -23,10 +23,14 @@ _Avoid_: 流量信息、套餐
 
 **App-managed Fields**:
 由应用持久保存、并覆盖 Profile 中同名字段的配置项：模式、mixed-port、allow-lan、log-level、`profile.store-selected`、`geo-auto-update: false` 和控制通道。
-_Avoid_: 覆写（覆写是第二期的独立功能）
+_Avoid_: 覆写（覆写是用户写的，见 **Override**）
+
+**Override**（覆写）:
+用户写的一段 YAML，生成 Runtime Config 时叠加在 Active Profile 上，不改 Profile 原始内容。全局一份，对所有 Profile 生效，存为数据目录下的 `override.yaml`。顺序是 Profile → Override → App-managed Fields，App-managed Fields 始终优先。
+_Avoid_: 脚本、补丁、mixin
 
 **Runtime Config**:
-Active Profile 加上 App-managed Fields 合成、经校验后交给 Core 加载的配置。
+Active Profile 依次叠加 Override 和 App-managed Fields 合成、经校验后交给 Core 加载的配置。
 _Avoid_: 合并配置、最终配置
 
 ### 运行
@@ -67,3 +71,15 @@ _Avoid_: native、bridge
 **Tray Mode**:
 窗口被销毁、只剩托盘的运行状态。此时状态由主进程持有。
 _Avoid_: 后台模式、最小化
+
+**开机自启**（Launch at Login）:
+用户登录系统时，由系统自动启动 Clash Kuro，并直接进入 Tray Mode。开关状态以系统为准，应用不另存。
+_Avoid_: 自启动、登录项（登录项指 macOS 系统设置里的那个条目本身）
+
+**界面语言**（Language）:
+界面、托盘和对话框使用的语言：跟随系统、中文或 English。存为 `settings.json` 的顶层字段 `language`，不属于 `Settings`（`Settings` 只放进 Runtime Config 的字段）。Profile、Core、System Proxy、Mode、Proxy Group 等领域术语在两种语言里都保留英文。
+_Avoid_: locale（代码里可用）、多语言
+
+**Backup**（备份）:
+一个 JSON 文件，含整个 `settings.json`、全部 Profile 原始内容和 `override.yaml`（如有）。不含 Runtime Config、pid 文件、Geo 数据和开机自启状态。导入时整体替换现有数据，先自动备份当前数据，再重启应用。
+_Avoid_: 导入导出（口语可用）、同步、单个 Profile 导出

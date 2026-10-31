@@ -299,3 +299,35 @@ test('traffic and logs are events: Core streams open only while subscribed and C
   expect(transport.openStreams('/logs')).toBe(0)
   offLogs()
 })
+
+test('Launch at Login follows the OS: read at startup, re-read after toggling and on refresh, never persisted', async () => {
+  const { app, platform } = await setup()
+  expect(app.store.getState().launchAtLogin).toBe('disabled')
+  platform.setLaunchAtLogin = async (enabled) => { platform.launchAtLogin = enabled ? 'requires-approval' : 'disabled' }
+  expect((await app.run('setLaunchAtLogin', { enabled: true })).ok).toBe(true)
+  expect(app.store.getState().launchAtLogin).toBe('requires-approval')
+  expect(platform.files.get('settings.json')).not.toContain('launch')
+  // The user approves (or removes) it in System Settings; refresh picks it up, and is silent when unchanged.
+  platform.launchAtLogin = 'enabled'
+  await app.refreshLaunchAtLogin()
+  const version = app.store.getState().version
+  await app.refreshLaunchAtLogin()
+  expect(app.store.getState()).toMatchObject({ launchAtLogin: 'enabled', version })
+})
+
+test('Launch at Login refuses unsupported/dev builds and re-reads the OS state when registration fails', async () => {
+  const { app, platform } = await setup()
+  const set = vi.spyOn(platform, 'setLaunchAtLogin')
+  for (const status of ['unsupported', 'unpackaged'] as const) {
+    platform.launchAtLogin = status
+    await app.refreshLaunchAtLogin()
+    expect((await app.run('setLaunchAtLogin', { enabled: true })).ok).toBe(false)
+  }
+  expect(set).not.toHaveBeenCalled()
+  platform.launchAtLogin = 'disabled'
+  await app.refreshLaunchAtLogin()
+  set.mockImplementation(async () => { platform.launchAtLogin = 'requires-approval'; throw new Error('denied') })
+  expect(await app.run('setLaunchAtLogin', { enabled: true })).toEqual({ ok: false, error: 'denied' })
+  expect(app.store.getState().launchAtLogin).toBe('requires-approval')
+  expect((await app.run('setLaunchAtLogin', { enabled: 'yes' } as never)).ok).toBe(false)
+})

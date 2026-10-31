@@ -347,6 +347,49 @@ function IntervalForm({
   )
 }
 
+function LaunchAtLogin({
+  snapshot,
+  run,
+  busy
+}: {
+  snapshot: StateSnapshot
+  run: Run
+  busy: boolean
+}) {
+  const status = snapshot.launchAtLogin
+  return (
+    <div className="login-item">
+      <label htmlFor="launch-at-login">
+        {t('launchAtLogin')}
+        <small id="launch-at-login-hint">
+          {t(status === 'unpackaged' ? 'launchAtLoginUnpackaged' : 'launchAtLoginHint')}
+        </small>
+      </label>
+      <Switch
+        id="launch-at-login"
+        checked={status === 'enabled' || status === 'requires-approval'}
+        onCheckedChange={(enabled) => void run('setLaunchAtLogin', { enabled })}
+        disabled={busy || status === 'unpackaged'}
+        aria-describedby="launch-at-login-hint"
+      />
+      {status === 'requires-approval' && (
+        <p className="manual-notice" role="status">
+          {t('launchAtLoginApproval')}
+          {window.kuroFiles && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void window.kuroFiles?.openLoginItemsSettings()}
+            >
+              {t('openLoginItems')}
+            </Button>
+          )}
+        </p>
+      )}
+    </div>
+  )
+}
+
 function SettingsPanel({
   snapshot,
   run,
@@ -384,6 +427,9 @@ function SettingsPanel({
         </Button>
       </div>
       <p className="muted">{t('settingsHint')}</p>
+      {snapshot.launchAtLogin !== 'unsupported' && (
+        <LaunchAtLogin snapshot={snapshot} run={run} busy={busy} />
+      )}
       <form className="port-form" onSubmit={(event) => void submit(event)}>
         <label htmlFor="mixed-port">
           {t('mixedPort')}

@@ -8,7 +8,8 @@ export const IPC = {
   streamUnsubscribe: 'kuro:stream:unsubscribe',
   traffic: 'kuro:traffic',
   logs: 'kuro:logs',
-  pickProfileFile: 'kuro:pickProfileFile'
+  pickProfileFile: 'kuro:pickProfileFile',
+  openLoginItemsSettings: 'kuro:openLoginItemsSettings'
 } as const
 
 export type StreamKind = 'traffic' | 'logs'

@@ -77,7 +77,14 @@ export interface Platform {
   fetchText(url: string, options: { viaCore: boolean; userAgent: string }): Promise<FetchResult>
   /** Subscribe to system resume; returns an unsubscribe function. */
   onResume(listener: () => void): () => void
+
+  /** Launch at Login as the OS reports it; never persisted by the app (CONTEXT.md). */
+  getLaunchAtLogin(): Promise<LaunchAtLoginStatus>
+  setLaunchAtLogin(enabled: boolean): Promise<void>
 }
+
+/** `unpackaged`: dev build, registering would add the bare Electron binary. `requires-approval`: macOS waits for the user in System Settings. */
+export type LaunchAtLoginStatus = 'unsupported' | 'unpackaged' | 'disabled' | 'enabled' | 'requires-approval'
 
 export * from './config'
 export * from './profile-update'

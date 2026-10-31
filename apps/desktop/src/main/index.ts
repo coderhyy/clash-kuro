@@ -41,7 +41,7 @@ async function main(): Promise<void> {
 
   let store: AppStore | undefined
   const platform = createDesktopPlatform({
-    dataDir, corePath, userAgent, powerMonitor,
+    dataDir, corePath, userAgent, powerMonitor, loginItemApp: app,
     mixedPort: () => store?.store.getState().settings.mixedPort ?? 7890
   })
   const client = createMihomoClient(createSocketTransport(() => platform.controlChannel()))
@@ -81,6 +81,8 @@ async function main(): Promise<void> {
       webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: true, contextIsolation: true }
     })
     win.once('ready-to-show', () => win?.show())
+    // The user may toggle the login item in System Settings while we run.
+    win.on('focus', () => void app_.refreshLaunchAtLogin().catch((error) => console.warn('Launch at Login read failed:', error)))
     // ADR-0004: closing destroys the window (default behaviour); main keeps state, tray stays.
     win.on('closed', () => {
       win = null
@@ -123,6 +125,10 @@ async function main(): Promise<void> {
     if (!trusted(event) || !win) return null
     const result = await dialog.showOpenDialog(win, { properties: ['openFile'], filters: [{ name: 'YAML', extensions: ['yaml', 'yml'] }] })
     return result.canceled ? null : result.filePaths[0] ?? null
+  })
+  ipcMain.handle(IPC.openLoginItemsSettings, async (event) => {
+    if (!trusted(event) || process.platform !== 'darwin') return
+    await shell.openExternal('x-apple.systempreferences:com.apple.LoginItems-Settings.extension')
   })
   const streams = new Map<string, () => void>()
   ipcMain.on(IPC.streamSubscribe, (event, kind: StreamKind, id: string) => {
@@ -201,7 +207,9 @@ async function main(): Promise<void> {
   })
   powerMonitor.on('shutdown', () => void exit())
 
-  showWindow()
+  // Launch at Login starts straight in Tray Mode (CONTEXT.md: 开机自启).
+  if (process.platform === 'darwin' && app.getLoginItemSettings().wasOpenedAtLogin) app.dock?.hide()
+  else showWindow()
   if (app_.store.getState().activeProfileId) {
     const result = await app_.run('startCore', {})
     if (!result.ok) console.warn('Core did not start:', result.error)
