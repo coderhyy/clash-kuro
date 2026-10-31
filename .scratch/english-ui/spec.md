@@ -1,6 +1,6 @@
 # 英文界面
 
-Status: in-progress
+Status: done
 
 第二期功能。术语见 `CONTEXT.md` 的 **界面语言**。与覆写、备份并行开发，分支 `codex/english-ui`。
 

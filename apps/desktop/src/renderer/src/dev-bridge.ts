@@ -5,12 +5,12 @@ import type {
   CommandOutput,
   CommandResult
 } from '@kuro/state'
-import { t } from './i18n/zh-CN'
+import { t } from '../../shared/i18n'
 
 // shortcut: development commands simulate state only; real I/O belongs to the main process.
 export class DevBridge extends FakeBridge {
   constructor() {
-    super(fakeSnapshot())
+    super(fakeSnapshot({ resolvedLanguage: navigator.language.startsWith('zh') ? 'zh-CN' : 'en' }))
     // Demo stream so the live panel has something to show without a Core.
     setInterval(() => {
       if (this.snapshot.core.status !== 'running') return
@@ -28,6 +28,14 @@ export class DevBridge extends FakeBridge {
   private handlers: {
     [K in CommandName]: (input: CommandInput<K>) => CommandOutput<K>
   } = {
+    setLanguage: ({ language }) => {
+      if (!['system', 'zh-CN', 'en'].includes(language)) throw new Error('Invalid language')
+      this.snapshot = {
+        ...this.snapshot,
+        language,
+        resolvedLanguage: language === 'system' ? (navigator.language.startsWith('zh') ? 'zh-CN' : 'en') : language
+      }
+    },
     setMode: ({ mode }) => {
       this.snapshot = {
         ...this.snapshot,

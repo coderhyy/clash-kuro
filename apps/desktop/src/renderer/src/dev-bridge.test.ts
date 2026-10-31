@@ -1,5 +1,11 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DevBridge } from './dev-bridge'
+
+afterEach(() => {
+  vi.clearAllTimers()
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
+})
 
 describe('interactive development bridge', () => {
   it('runs the main UI flow using immutable snapshots', async () => {
@@ -46,5 +52,21 @@ describe('interactive development bridge', () => {
         .ok
     ).toBe(false)
     expect(bridge.snapshot.version).toBe(1)
+  })
+  it('switches languages through Commands and resolves the demo system language', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('navigator', { language: 'en-US' })
+    const bridge = new DevBridge()
+    expect(bridge.snapshot).toMatchObject({ language: 'system', resolvedLanguage: 'en' })
+    for (const language of ['zh-CN', 'en', 'system'] as const) {
+      expect((await bridge.run('setLanguage', { language })).ok).toBe(true)
+      expect(bridge.snapshot).toMatchObject({ language, resolvedLanguage: language === 'zh-CN' ? 'zh-CN' : 'en' })
+    }
+    vi.stubGlobal('navigator', { language: 'zh-TW' })
+    await bridge.run('setLanguage', { language: 'system' })
+    expect(bridge.snapshot.resolvedLanguage).toBe('zh-CN')
+    const before = bridge.snapshot
+    expect((await bridge.run('setLanguage', { language: 'fr' } as never)).ok).toBe(false)
+    expect(bridge.snapshot).toBe(before)
   })
 })

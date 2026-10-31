@@ -5,5 +5,5 @@
     "types": [],
     "paths": { "@/*": ["./src/renderer/src/*"] }
   },
-  "include": ["src/renderer/src"]
+  "include": ["src/renderer/src", "src/shared"]
 }

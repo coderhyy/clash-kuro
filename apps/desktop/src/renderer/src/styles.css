@@ -646,13 +646,19 @@ progress::-moz-progress-bar {
   font-size: 11px;
   margin-top: 4px;
 }
-.form-fields select {
+.form-fields select,
+.settings-panel select {
   width: 100%;
   border: 1px solid var(--input);
   background: var(--background);
   border-radius: 8px;
   padding: 6px 8px;
   color: var(--foreground);
+}
+.settings-panel select {
+  width: auto;
+  min-width: 0;
+  max-width: 100%;
 }
 .form-fields [type='submit'] {
   margin-top: 5px;

@@ -6,6 +6,8 @@ export function fakeSnapshot(overrides: Partial<StateSnapshot> = {}): StateSnaps
     version: 1,
     core: { status: 'running', error: null },
     settings: { mode: 'rule', mixedPort: 7890, allowLan: false, logLevel: 'info' },
+    language: 'system',
+    resolvedLanguage: 'zh-CN',
     profiles: [
       {
         id: 'p1',

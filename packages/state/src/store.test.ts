@@ -24,6 +24,7 @@ async function setup(running = true) {
   const deps: AppStoreDeps = {
     platform,
     client: createMihomoClient(transport),
+    systemLocale: () => 'zh-CN',
     buildRuntimeConfig: vi.fn(({ profile, settings }) => `${profile.id}:${settings.mode}:${settings.mixedPort}`),
     refreshProfile: vi.fn(async (profile) => ({ ...profile, updatedAt: 123, lastError: null })),
     hooks: { onOpenWindow: vi.fn(), onQuit: vi.fn() }
@@ -96,6 +97,71 @@ test('mode can change while stopped without calling an unavailable Core', async 
   const { app, transport } = await setup(false)
   expect((await app.run('setMode', { mode: 'direct' })).ok).toBe(true)
   expect(transport.requests).toEqual([])
+})
+
+test('language defaults to system and resolves Chinese locales only', async () => {
+  const { deps, platform, metadata } = await setup(false)
+  for (const [locale, resolvedLanguage] of [['zh-CN', 'zh-CN'], ['zh-TW', 'zh-CN'], ['zh-Hant', 'zh-CN'], ['en-US', 'en'], ['fr-FR', 'en']] as const) {
+    deps.systemLocale = () => locale
+    for (const language of [undefined, 'invalid', null, 42, {}, 'system']) {
+      const data = JSON.stringify({ ...metadata, language })
+      platform.files.set('settings.json', data)
+      const app = await createAppStore(deps)
+      expect(await app.getSnapshot()).toMatchObject({ language: 'system', resolvedLanguage })
+      expect(platform.files.get('settings.json')).toBe(data)
+      app.dispose()
+    }
+    platform.files.delete('settings.json')
+    const app = await createAppStore(deps)
+    expect(await app.getSnapshot()).toMatchObject({ language: 'system', resolvedLanguage })
+    app.dispose()
+  }
+})
+
+test('language changes publish and persist without touching Runtime Config, Core, or System Proxy', async () => {
+  const { app, deps, platform, transport, metadata } = await setup()
+  const stop = vi.spyOn(platform, 'stopCore')
+  const start = vi.spyOn(platform, 'startCore')
+  const proxy = vi.spyOn(platform, 'clearSystemProxy')
+  const snapshots: unknown[] = []
+  app.subscribe((snapshot) => snapshots.push({ language: snapshot.language, resolvedLanguage: snapshot.resolvedLanguage }))
+  for (const language of ['en', 'zh-CN', 'system'] as const) {
+    expect(await app.run('setLanguage', { language })).toEqual({ ok: true, value: undefined })
+    expect(JSON.parse(platform.files.get('settings.json')!)).toEqual({ ...metadata, language })
+    const reopened = await createAppStore(deps)
+    expect(await reopened.getSnapshot()).toMatchObject({ language, resolvedLanguage: language === 'en' ? 'en' : 'zh-CN' })
+    reopened.dispose()
+  }
+  expect(snapshots).toEqual([
+    { language: 'en', resolvedLanguage: 'en' },
+    { language: 'zh-CN', resolvedLanguage: 'zh-CN' },
+    { language: 'system', resolvedLanguage: 'zh-CN' }
+  ])
+  expect(stop).not.toHaveBeenCalled()
+  expect(start).not.toHaveBeenCalled()
+  expect(proxy).not.toHaveBeenCalled()
+  expect(deps.buildRuntimeConfig).not.toHaveBeenCalled()
+  expect(platform.runtimeConfig).toBe('old config')
+  expect(transport.requests.every((request) => request.method === 'GET')).toBe(true)
+  await app.run('setLanguage', { language: 'en' })
+  await app.run('setMode', { mode: 'direct' })
+  expect(JSON.parse(platform.files.get('settings.json')!).language).toBe('en')
+  deps.systemLocale = () => 'en-US'
+  expect((await app.run('setLanguage', { language: 'system' })).ok).toBe(true)
+  expect(await app.getSnapshot()).toMatchObject({ language: 'system', resolvedLanguage: 'en' })
+})
+
+test('invalid language commands and failed writes leave the saved and published language unchanged', async () => {
+  const { app, platform } = await setup(false)
+  const before = await app.getSnapshot()
+  const saved = platform.files.get('settings.json')
+  for (const language of ['fr', '', null, 42, {}, undefined]) {
+    expect(await app.run('setLanguage', { language } as never)).toEqual({ ok: false, error: 'Invalid language' })
+  }
+  platform.writeFileAtomic = async () => { throw new Error('disk full') }
+  expect(await app.run('setLanguage', { language: 'en' })).toEqual({ ok: false, error: 'disk full' })
+  expect(await app.getSnapshot()).toBe(before)
+  expect(platform.files.get('settings.json')).toBe(saved)
 })
 
 test('imports remote and local Profiles, updates, persists interval, and removes metadata without deleting originals', async () => {

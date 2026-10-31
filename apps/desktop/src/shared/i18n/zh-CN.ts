@@ -67,6 +67,10 @@ export const zhCN = {
   delay: '{value} ms',
   settings: '设置',
   settingsHint: '设置由应用保存，不修改 Profile 原始内容。',
+  language: '界面语言',
+  systemLanguage: '跟随系统',
+  chinese: '中文',
+  english: 'English',
   launchAtLogin: '开机自启',
   launchAtLoginHint: '登录系统时自动启动，只显示托盘。',
   launchAtLoginUnpackaged: '仅打包版可用。',
@@ -108,18 +112,13 @@ export const zhCN = {
   perSecond: '{value}/s',
   logs: '日志',
   noLogs: '暂无日志',
-  liveOffline: 'Core 运行后显示流量和日志。'
+  liveOffline: 'Core 运行后显示流量和日志。',
+  'mode.rule': '规则模式',
+  'mode.global': '全局模式',
+  'mode.direct': '直连模式',
+  openWindow: '打开 Clash Kuro',
+  quit: '退出',
+  openFile: '打开'
 } as const
 
 export type TranslationKey = keyof typeof zhCN
-
-// Unknown keys stay visible so a missing translation is not silently hidden.
-export function t(
-  key: string,
-  values: Record<string, string | number> = {}
-): string {
-  const text = Object.hasOwn(zhCN, key) ? zhCN[key as TranslationKey] : key
-  return text.replace(/\{(\w+)\}/g, (placeholder, name: string) =>
-    Object.hasOwn(values, name) ? String(values[name]) : placeholder
-  )
-}
