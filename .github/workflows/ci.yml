@@ -52,9 +52,9 @@ jobs:
         run: |
           $env:PATH = "${{ steps.msys2.outputs.msys2-location }}\ucrt64\bin;$env:PATH"
           bun run package:win
-      - name: System Proxy tests (mocked helper + real helper, read-only)
+      - name: System Proxy and session-end tests (mocked helper + real helper, read-only)
         working-directory: apps/desktop
-        run: bunx vitest run src/main/platform/system-proxy.test.ts src/main/platform/sysproxy-helper.integration.test.ts
+        run: bunx vitest run src/main/platform/system-proxy.test.ts src/main/platform/sysproxy-helper.integration.test.ts src/main/app/session-end.test.ts
       - uses: actions/upload-artifact@v4
         with:
           name: kuro-windows-x64
