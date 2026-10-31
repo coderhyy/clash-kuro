@@ -30,5 +30,6 @@ const bridge: StateBridge = {
 
 contextBridge.exposeInMainWorld('kuro', bridge)
 contextBridge.exposeInMainWorld('kuroFiles', {
-  pickProfileFile: () => ipcRenderer.invoke(IPC.pickProfileFile) as Promise<string | null>
+  pickProfileFile: () => ipcRenderer.invoke(IPC.pickProfileFile) as Promise<string | null>,
+  openLoginItemsSettings: () => ipcRenderer.invoke(IPC.openLoginItemsSettings) as Promise<void>
 })

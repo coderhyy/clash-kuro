@@ -67,3 +67,7 @@ _Avoid_: native、bridge
 **Tray Mode**:
 窗口被销毁、只剩托盘的运行状态。此时状态由主进程持有。
 _Avoid_: 后台模式、最小化
+
+**开机自启**（Launch at Login）:
+用户登录系统时，由系统自动启动 Clash Kuro，并直接进入 Tray Mode。开关状态以系统为准，应用不另存。
+_Avoid_: 自启动、登录项（登录项指 macOS 系统设置里的那个条目本身）

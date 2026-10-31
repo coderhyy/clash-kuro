@@ -1,4 +1,4 @@
-import type { ControlChannel, FetchResult, Platform, SystemProxySettings, ValidationResult } from './index'
+import type { ControlChannel, FetchResult, LaunchAtLoginStatus, Platform, SystemProxySettings, ValidationResult } from './index'
 
 /** In-memory Platform for tests and UI development. Inspect or tweak the public fields. */
 export class FakePlatform implements Platform {
@@ -9,6 +9,7 @@ export class FakePlatform implements Platform {
   validate: (yaml: string) => ValidationResult = () => ({ ok: true })
   responses = new Map<string, FetchResult>()
   fetchLog: Array<{ url: string; viaCore: boolean }> = []
+  launchAtLogin: LaunchAtLoginStatus = 'disabled'
   private resumeListeners = new Set<() => void>()
 
   async readFile(name: string) {
@@ -56,6 +57,12 @@ export class FakePlatform implements Platform {
   onResume(listener: () => void) {
     this.resumeListeners.add(listener)
     return () => void this.resumeListeners.delete(listener)
+  }
+  async getLaunchAtLogin() {
+    return this.launchAtLogin
+  }
+  async setLaunchAtLogin(enabled: boolean) {
+    this.launchAtLogin = enabled ? 'enabled' : 'disabled'
   }
   /** Test helper: simulate a system resume. */
   resume() {

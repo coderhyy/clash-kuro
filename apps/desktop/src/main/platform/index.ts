@@ -7,6 +7,7 @@ import { isAbsolute, join, resolve, win32 } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import type { ControlChannel, Platform, ValidationResult } from '@kuro/core'
 import { fetchProfileText } from './fetch'
+import { createLaunchAtLogin, type LoginItemApp } from './login-item'
 import { createSystemProxy, execCommand, type Exec } from './system-proxy'
 import { createSocketTransport } from './transport'
 
@@ -28,6 +29,8 @@ export interface DesktopPlatformOptions {
   spawn?: (file: string, args: string[], options: SpawnOptions) => ChildProcess
   powerMonitor?: { on(event: 'resume', listener: () => void): unknown; removeListener(event: 'resume', listener: () => void): unknown }
   fetchText?: Platform['fetchText']
+  /** Electron `app`; omitted (tests) means Launch at Login is unsupported. */
+  loginItemApp?: LoginItemApp
 }
 
 export interface DesktopPlatform extends Platform {
@@ -258,6 +261,7 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
     },
     controlChannel: () => ({ ...channel }),
     ...systemProxy,
+    ...createLaunchAtLogin({ os, app: options.loginItemApp }),
     fetchText: options.fetchText ?? ((url, input) => fetchProfileText(url, {
       ...input, userAgent: input.userAgent || options.userAgent || options.appProcessName || 'Clash Kuro', mixedPort: port(),
     })),

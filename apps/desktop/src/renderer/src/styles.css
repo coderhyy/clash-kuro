@@ -678,6 +678,31 @@ progress::-moz-progress-bar {
 .settings-panel h3 {
   margin-top: 20px;
 }
+.login-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  margin-top: 15px;
+}
+.login-item label {
+  font-size: 12px;
+}
+.login-item small {
+  display: block;
+  color: var(--muted-foreground);
+  font-size: 10px;
+  margin-top: 3px;
+}
+.login-item .manual-notice {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 0;
+}
 .port-form,
 .interval-form {
   display: grid;

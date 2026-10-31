@@ -52,6 +52,12 @@ export class DevBridge extends FakeBridge {
         systemProxy: enabled ? { enabled: true } : { enabled: false }
       }
     },
+    setLaunchAtLogin: ({ enabled }) => {
+      this.snapshot = {
+        ...this.snapshot,
+        launchAtLogin: enabled ? 'enabled' : 'disabled'
+      }
+    },
     importProfile: ({ name, source }) => {
       const profileId = crypto.randomUUID()
       this.snapshot = {

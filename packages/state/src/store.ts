@@ -20,6 +20,8 @@ export interface AppStoreDeps {
 
 export interface AppStore extends StateBridge {
   store: StoreApi<StateSnapshot>
+  /** Re-read Launch at Login from the OS; the user may change it in System Settings. */
+  refreshLaunchAtLogin(): Promise<void>
   /** Close live streams; call on shutdown. */
   dispose(): void
 }
@@ -72,6 +74,7 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
   if (new Set(initial.profiles.map((p) => p.id)).size !== initial.profiles.length) throw new Error('Duplicate Profile IDs')
   if (initial.activeProfileId !== null && !initial.profiles.some((p) => p.id === initial.activeProfileId)) throw new Error('Invalid Active Profile')
   const running = await platform.isCoreRunning()
+  const launchAtLogin = await platform.getLaunchAtLogin()
   const store = createStore<StateSnapshot>(() => ({
     ...initial,
     version: 0,
@@ -79,7 +82,8 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
     proxyGroups: [],
     proxies: {},
     systemProxy: { enabled: false },
-    update: null
+    update: null,
+    launchAtLogin
   }))
 
   const coreUp = () => store.getState().core.status === 'running'
@@ -160,6 +164,11 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
     change({ core: { status: 'stopped', error: null }, proxyGroups: [], proxies: {} })
   }
 
+  async function readLaunchAtLogin(): Promise<void> {
+    const next = await platform.getLaunchAtLogin()
+    if (next !== store.getState().launchAtLogin) change({ launchAtLogin: next })
+  }
+
   const handlers: { [K in CommandName]: (input: CommandInput<K>) => Promise<CommandOutput<K>> } = {
     async setMode({ mode }) {
       const settings = { ...store.getState().settings, mode }
@@ -174,6 +183,16 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
     },
     async setSystemProxy({ enabled }) {
       await setSystemProxy(enabled)
+    },
+    async setLaunchAtLogin({ enabled }) {
+      if (typeof enabled !== 'boolean') throw new Error('Invalid Launch at Login toggle')
+      const status = store.getState().launchAtLogin
+      if (status === 'unsupported' || status === 'unpackaged') throw new Error(`Launch at Login is ${status}`)
+      try {
+        await platform.setLaunchAtLogin(enabled)
+      } finally {
+        await readLaunchAtLogin()
+      }
     },
     async importProfile({ name, source }) {
       let id = `p-${Date.now()}`
@@ -255,15 +274,21 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
   if (currentProxy?.host === '127.0.0.1' && currentProxy.port === initial.settings.mixedPort) change({ systemProxy: { enabled: true } })
   if (running) await syncProxies()
   let pending: Promise<unknown> = Promise.resolve()
+  function enqueue<T>(task: () => Promise<T>): Promise<T> {
+    const result = pending.then(task)
+    pending = result.catch(() => {})
+    return result
+  }
   return {
     store,
     getSnapshot: async () => store.getState(),
+    refreshLaunchAtLogin: () => enqueue(readLaunchAtLogin),
     subscribeTraffic: (listener) => traffic.subscribe(listener),
     subscribeLogs: (listener) => logs.subscribe(listener),
     dispose() { traffic.close(); logs.close() },
     subscribe: (listener) => store.subscribe(listener),
     run<K extends CommandName>(name: K, input: CommandInput<K>): Promise<CommandResult<K>> {
-      const result = pending.then(async (): Promise<CommandResult<K>> => {
+      return enqueue(async (): Promise<CommandResult<K>> => {
         try {
           if (!Object.hasOwn(handlers, name) || input === null || typeof input !== 'object' || Array.isArray(input)) throw new Error('Invalid command')
           return { ok: true, value: await handlers[name](input) }
@@ -271,8 +296,6 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
           return { ok: false, error: message(error) }
         }
       })
-      pending = result
-      return result
     }
   }
 }
