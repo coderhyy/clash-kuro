@@ -29,6 +29,9 @@ test.skipIf(process.platform !== 'win32' || !existsSync(helper)).each([
   [['set', '--host', '127.0.0.1']],
   [['clear']],
   [['clear', '--expected-server', 'http=127.0.0.1:7890']],
+  [['clear', '--expected-server', '127.0.0.1:7890', '--log', 'runonce.log']],
+  [['clear', '--expected-server', '127.0.0.1:7890', '--log', 'C:\\a"b.log']],
+  [['get', '--log', 'C:\\x.log']],
   [['bogus']],
 ])('helper rejects %j before touching any setting', async (args) => {
   const { code, json } = await run(args)

@@ -20,6 +20,8 @@ export interface DesktopPlatformOptions {
   corePath: string
   /** Windows: absolute path to kuro-sysproxy.exe (issue 08). */
   sysproxyHelperPath?: string
+  /** Windows: --log file for the helper's RunOnce logon cleanup (default <dataDir>\runonce.log). */
+  runOnceLogPath?: string
   mixedPort: number | (() => number)
   appProcessName?: string
   userAgent?: string
@@ -71,6 +73,7 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
   const port = () => typeof options.mixedPort === 'function' ? options.mixedPort() : options.mixedPort
   const systemProxy = createSystemProxy({
     os, exec, execSync: options.execSync, helperPath: options.sysproxyHelperPath, mixedPort: port,
+    runOnceLogPath: os === 'win32' ? options.runOnceLogPath ?? win32.join(dataDir, 'runonce.log') : undefined,
     memory: {
       async load() {
         const text = await read('system-proxy.json')

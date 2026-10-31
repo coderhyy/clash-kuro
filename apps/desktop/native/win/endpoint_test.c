@@ -50,20 +50,51 @@ int main(void) {
   {
     wchar_t cmd[260];
     const wchar_t *exe = L"C:\\Program Files\\Clash Kuro\\resources\\bin\\kuro-sysproxy.exe";
-    size_t n = kuro_runonce_command(cmd, 260, exe, L"127.0.0.1:7891");
+    size_t n = kuro_runonce_command(cmd, 260, exe, L"127.0.0.1:7891", NULL);
     CHECK(n == wcslen(cmd));
     CHECK(!wcscmp(cmd, L"\"C:\\Program Files\\Clash Kuro\\resources\\bin\\kuro-sysproxy.exe\" clear --expected-server 127.0.0.1:7891"));
-    CHECK(kuro_runonce_command(cmd, 260, L"C:\\a\"b.exe", L"127.0.0.1:7891") == 0);
-    CHECK(kuro_runonce_command(cmd, 260, L"", L"127.0.0.1:7891") == 0);
-    CHECK(kuro_runonce_command(cmd, 260, exe, L"") == 0);
+    CHECK(kuro_runonce_command(cmd, 260, L"C:\\a\"b.exe", L"127.0.0.1:7891", NULL) == 0);
+    CHECK(kuro_runonce_command(cmd, 260, L"", L"127.0.0.1:7891", NULL) == 0);
+    CHECK(kuro_runonce_command(cmd, 260, exe, L"", NULL) == 0);
     // Exactly fits (len + terminator == cap), then one character too long.
     size_t need = n + 1;
-    CHECK(kuro_runonce_command(cmd, need, exe, L"127.0.0.1:7891") == n);
-    CHECK(kuro_runonce_command(cmd, need - 1, exe, L"127.0.0.1:7891") == 0);
+    CHECK(kuro_runonce_command(cmd, need, exe, L"127.0.0.1:7891", NULL) == n);
+    CHECK(kuro_runonce_command(cmd, need - 1, exe, L"127.0.0.1:7891", NULL) == 0);
     wchar_t longexe[300];
     for (int i = 0; i < 299; i++) longexe[i] = L'a';
     longexe[299] = 0;
-    CHECK(kuro_runonce_command(cmd, 260, longexe, L"127.0.0.1:7891") == 0);
+    CHECK(kuro_runonce_command(cmd, 260, longexe, L"127.0.0.1:7891", NULL) == 0);
+
+    // With --log: both paths quoted, spaces kept.
+    const wchar_t *log = L"C:\\Users\\A B\\AppData\\Roaming\\Clash Kuro\\data\\runonce.log";
+    n = kuro_runonce_command(cmd, 260, exe, L"127.0.0.1:7891", log);
+    CHECK(n == wcslen(cmd));
+    CHECK(!wcscmp(cmd, L"\"C:\\Program Files\\Clash Kuro\\resources\\bin\\kuro-sysproxy.exe\" clear --expected-server 127.0.0.1:7891"
+                       L" --log \"C:\\Users\\A B\\AppData\\Roaming\\Clash Kuro\\data\\runonce.log\""));
+    CHECK(kuro_runonce_command(cmd, n + 1, exe, L"127.0.0.1:7891", log) == n);
+    CHECK(kuro_runonce_command(cmd, n, exe, L"127.0.0.1:7891", log) == 0);
+    CHECK(kuro_runonce_command(cmd, 260, exe, L"127.0.0.1:7891", L"C:\\a\"b.log") == 0);
+    CHECK(kuro_runonce_command(cmd, 260, exe, L"127.0.0.1:7891", L"") == 0);
+  }
+
+  CHECK(kuro_valid_log_path(L"C:\\Users\\A B\\AppData\\Roaming\\Clash Kuro\\data\\runonce.log"));
+  CHECK(kuro_valid_log_path(L"d:\\x.log"));
+  CHECK(!kuro_valid_log_path(L"runonce.log"));
+  CHECK(!kuro_valid_log_path(L"\\\\server\\share\\x.log"));
+  CHECK(!kuro_valid_log_path(L"C:x.log"));
+  CHECK(!kuro_valid_log_path(L"C:\\a\"b.log"));
+  CHECK(!kuro_valid_log_path(L"C:\\a\nb.log"));
+  CHECK(!kuro_valid_log_path(L"C:\\dir\\"));
+  CHECK(!kuro_valid_log_path(L""));
+  CHECK(!kuro_valid_log_path(NULL));
+  {
+    wchar_t longlog[300];
+    wcscpy(longlog, L"C:\\");
+    for (int i = 3; i < 256; i++) longlog[i] = L'a';
+    longlog[256] = 0;
+    CHECK(!kuro_valid_log_path(longlog));
+    longlog[255] = 0;
+    CHECK(kuro_valid_log_path(longlog));
   }
 
   if (failures) return 1;

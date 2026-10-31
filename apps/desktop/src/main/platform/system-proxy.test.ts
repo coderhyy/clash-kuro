@@ -133,6 +133,27 @@ describe('Windows helper', () => {
     expect(saved).toEqual(['127.0.0.1:17890'])
   })
 
+  test('set passes --log so the RunOnce logon cleanup records its result', async () => {
+    const exec = vi.fn<Exec>(async () => ok({ command: 'set', connections: [{ name: null, status: 'set' }], runOnce: 'written' }))
+    const runOnceLogPath = 'C:\\Users\\A B\\AppData\\Roaming\\Clash Kuro\\data\\runonce.log'
+    const memory = { load: vi.fn(async () => null), save: vi.fn(async () => {}) }
+    const proxy = createSystemProxy({ os: 'win32', exec, helperPath, runOnceLogPath, mixedPort: () => 7890, memory })
+    await proxy.setSystemProxy({ host: '127.0.0.1', port: 7891, bypass: ['localhost'] })
+    expect(exec).toHaveBeenCalledWith(helperPath, ['set', '--host', '127.0.0.1', '--port', '7891', '--bypass', 'localhost', '--log', runOnceLogPath])
+    // Clear runs from Clash Kuro itself (stdout is read), so it needs no log file.
+    await proxy.clearSystemProxy()
+    expect(exec.mock.calls[1]![1]).not.toContain('--log')
+  })
+
+  test('a RunOnce entry written without --log (too long) still counts as success, with a warning', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const exec = vi.fn<Exec>(async () => ok({ command: 'set', connections: [{ name: null, status: 'set' }], runOnce: 'written', runOnceLogOmitted: true }))
+    const { proxy } = win(exec)
+    await expect(proxy.setSystemProxy({ host: '127.0.0.1', port: 7890, bypass: [] })).resolves.toBeUndefined()
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/without --log/))
+    warn.mockRestore()
+  })
+
   test('get reports the LAN manual proxy and ignores PAC-only or foreign mixed endpoints', async () => {
     const responses = [
       { flags: 3, proxyServer: 'http=127.0.0.1:7890;https=127.0.0.1:7890', bypass: 'localhost;<local>' },
