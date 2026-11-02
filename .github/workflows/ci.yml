@@ -21,6 +21,11 @@ jobs:
       - name: Package dmg (ad-hoc signed, not notarized; ADR-0010)
         working-directory: apps/desktop
         run: bun run package
+      - name: Bundled Core integration (no System Proxy writes)
+        working-directory: apps/desktop
+        env:
+          KURO_REQUIRE_CORE: '1'
+        run: bunx vitest run src/main/platform/mihomo.integration.test.ts --maxWorkers=2
       - uses: actions/upload-artifact@v7
         with:
           name: kuro-macos-arm64
@@ -36,7 +41,6 @@ jobs:
           bun-version: 1.4.4
       - run: bun install --frozen-lockfile
       - run: bunx turbo typecheck
-      # shortcut: desktop tests use unix sockets and POSIX signals; port them when issue 08 lands.
       - run: bunx turbo test --filter=!@kuro/desktop
       - name: Install mingw-w64 (System Proxy helper compiler)
         id: msys2
@@ -52,9 +56,11 @@ jobs:
         run: |
           $env:PATH = "${{ steps.msys2.outputs.msys2-location }}\ucrt64\bin;$env:PATH"
           bun run package:win
-      - name: System Proxy and session-end tests (mocked helper + real helper, read-only)
+      - name: All desktop tests (real named pipes and bundled Core; no System Proxy writes)
         working-directory: apps/desktop
-        run: bunx vitest run src/main/platform/system-proxy.test.ts src/main/platform/sysproxy-helper.integration.test.ts src/main/app/session-end.test.ts
+        env:
+          KURO_REQUIRE_CORE: '1'
+        run: bun run test
       - uses: actions/upload-artifact@v7
         with:
           name: kuro-windows-x64
