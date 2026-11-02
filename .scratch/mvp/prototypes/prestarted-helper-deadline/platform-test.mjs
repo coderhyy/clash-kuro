@@ -2,7 +2,8 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { realpath } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -11,7 +12,7 @@ const root = dirname(fileURLToPath(import.meta.url))
 const repo = resolve(root, '../../../..')
 const dir = join(root, 'out', `resident-platform-${Date.now()}`)
 mkdirSync(dir, { recursive: true })
-const recoveryDirectory = realpathSync(mkdtempSync(join(tmpdir(), 'kuro-admission-platform-')))
+const recoveryDirectory = await realpath(mkdtempSync(join(tmpdir(), 'kuro-admission-platform-')))
 const namespace = randomUUID()
 const quote = s => '"' + s.replace(/(\\*)"/g, '$1$1\\"').replace(/(\\+)$/, '$1$1') + '"'
 const desktop = join(repo, 'apps/desktop')

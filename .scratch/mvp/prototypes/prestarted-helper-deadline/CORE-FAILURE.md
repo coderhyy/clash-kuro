@@ -566,3 +566,29 @@ its local parser/restoration guards and read-only get passed. No local exercise,
 set, clear, restore, RunOnce mutation or session event was performed. Fixture
 TEMP paths normalize Windows short-name spelling without relaxing the production
 canonical-path rejection policy.
+
+### CI 41497752909: fixture failures, not an accepted run
+
+Both jobs failed on commit 16ebbc1. macOS could not identify the readiness
+probe when observing destroy (probe was undefined); its EOF/close assertions
+therefore failed. Observation now starts at the socket connect event, before
+teardown can discard endpoint metadata. All probe EOF/local close, owned Core
+close and immediate-rebind assertions remain; no platform skip was introduced.
+
+Windows passed the full desktop suite and base coordination scenarios, then
+the wrapper fixture failed the production canonical-directory guard. A local
+read-only short-name specimen reproduced the API mismatch on Node 24:
+realpathSync("C:\\PROGRA~1") returned "C:\\PROGRA~1", while both native sync
+and promises realpath returned "C:\\Program Files". The wrapper and Platform
+fixtures now use the same promises realpath as the guard. Production alias
+rejection is unchanged; no weaker comparison or timeout extension was made.
+Raw CI failure: out/ci-41497752909-failed.log.
+
+The subsequent uncached integrated local run passed all 8 tasks, desktop
+591/591 with zero skips, core89/api12/state36, including actual read-only boot
+evidence and real Core. Log: out/integration-20261103-ci-fixtures.log.
+Private fake wrapper regressions passed 8/8 at out/resident-1793643417465;
+real Core/fake resident Platform passed 1/1 at
+out/resident-platform-1793643625891. Neither used rescue or left processes.
+These local results do not predeclare the next CI successful. No local proxy,
+RunOnce, old-helper replacement or session operation occurred.

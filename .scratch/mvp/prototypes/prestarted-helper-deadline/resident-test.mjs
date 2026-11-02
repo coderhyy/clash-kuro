@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { createRequire } from 'node:module'
-import { mkdirSync, mkdtempSync, realpathSync, readFileSync, writeFileSync, statSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync, statSync } from 'node:fs'
+import { realpath } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -174,7 +175,7 @@ if (process.argv[2] === '--child') {
   writeFileSync(join(dir, 'result.json'), JSON.stringify({ mode, pid: child.pid, exit, report, recoveryEvidence }))
   if (mode === 'normal') {
     // The production wrapper now requires v2 admission; keep legacy engine regressions separate.
-    const recoveryDirectory = realpathSync(mkdtempSync(join(tmpdir(), 'kuro-admission-wrapper-')))
+    const recoveryDirectory = await realpath(mkdtempSync(join(tmpdir(), 'kuro-admission-wrapper-')))
     process.env.KURO_ADMISSION_TEST_ROOT = recoveryDirectory
     process.env.KURO_ADMISSION_TEST_NAMESPACE = randomUUID()
     process.env.KURO_ADMISSION_TEST_MODE = ''

@@ -217,14 +217,16 @@ test('production readiness closes its own probe before reporting ready and permi
   let probe: Socket | undefined
   let coreClosed = false
   const events: string[] = []
-  const destroy = Socket.prototype.destroy
-  vi.spyOn(Socket.prototype, 'destroy').mockImplementation(function (this: Socket, error?: Error) {
-    if (mixedPort !== undefined && this.remotePort === mixedPort && !probe) {
+  const socketEvents: EventEmitter = Socket.prototype
+  const emit = socketEvents.emit
+  vi.spyOn(socketEvents, 'emit').mockImplementation(function (this: Socket, name, ...values) {
+    if (name === 'connect' && mixedPort !== undefined && this.remotePort === mixedPort && !probe) {
       probe = this
-      events.push('destroy requested')
+      events.push('connected')
+      this.once('end', () => events.push('peer FIN'))
       this.once('close', () => events.push('close emitted'))
     }
-    return destroy.call(this, error)
+    return emit.call(this, name, ...values)
   })
   const launch = fakeCore(() => platform, () => mixedPort)!
   const result = await fixture({ spawn: (...args) => {
