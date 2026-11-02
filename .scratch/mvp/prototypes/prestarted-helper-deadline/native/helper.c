@@ -9,15 +9,18 @@ static struct {
   HANDLE triggered, operation_start, operation_done, decision_ready, finished, report_start, report_done;
   HANDLE stop_core, core_ready, core;
   HANDLE window_ready;
+  HANDLE shutdown_done;
   HWND window;
   const wchar_t *report;
   LONG closing, triggers, eof, decision, operations, stops, coordinator_done, window_triggers;
+  LONG window_waiting, nested_queries, notification_in_wait;
   ULONGLONG start, deadline, operation_at, decided_at, stop_at, end_at;
   ULONGLONG start_epoch;
   DWORD core_pid, core_exit;
   int operation_hang, coordinator_hang, rescue_negative, core_hang;
   DWORD operation_delay;
   int core_forced, core_gone, forced_self;
+  int query_plain, operation_notify, notification_hang;
 } s;
 
 static LONG load(LONG *p) { return InterlockedCompareExchange(p, 0, 0); }
@@ -47,11 +50,32 @@ static void trigger(void) {
   if (begin_close()) ack("triggered\n", 10);
 }
 static LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
-  /* Routing scaffold only: returning does NOT establish survival during real logoff. */
+  if (message == WM_APP + 2) {
+    if (load(&s.window_waiting)) InterlockedIncrement(&s.notification_in_wait);
+    if (s.notification_hang) Sleep(INFINITE); /* Explicit test fault; supervision must end us. */
+    return 1;
+  }
   if (message == WM_APP + 1 || message == WM_QUERYENDSESSION ||
       (message == WM_ENDSESSION && wparam)) {
     InterlockedIncrement(&s.window_triggers);
-    begin_close(); /* No IPC, logging, wait or JS on the window thread. */
+    begin_close();
+    if (InterlockedCompareExchange(&s.window_waiting, 1, 0)) {
+      InterlockedIncrement(&s.nested_queries);
+      return message == WM_QUERYENDSESSION ? TRUE : 0;
+    }
+    /* One original budget: clear 1500, Core stop through 2000, confirmation through 2100. */
+    if (WaitForSingleObject(s.triggered, 0) == WAIT_OBJECT_0) {
+      if (s.query_plain) WaitForSingleObject(s.shutdown_done, left(s.start + 2100));
+      else while (left(s.start + 2100)) {
+        DWORD waited = MsgWaitForMultipleObjectsEx(1, &s.shutdown_done, left(s.start + 2100),
+          QS_SENDMESSAGE, MWMO_INPUTAVAILABLE);
+        if (waited != WAIT_OBJECT_0 + 1) break;
+        /* Only this helper's native procedures run here, never the Electron/JS pump. */
+        MSG incoming;
+        PeekMessageW(&incoming, NULL, 0, 0, PM_NOREMOVE);
+      }
+    }
+    InterlockedExchange(&s.window_waiting, 0);
     return message == WM_QUERYENDSESSION ? TRUE : 0;
   }
   return DefWindowProcW(window, message, wparam, lparam);
@@ -96,6 +120,12 @@ static DWORD WINAPI operation(void *unused) {
   InterlockedIncrement(&s.operations);
   if (s.operation_hang) Sleep(INFINITE);
   Sleep(s.operation_delay);
+  if (s.operation_notify) {
+    DWORD_PTR result;
+    if (!s.query_plain && !s.notification_hang)
+      SendMessageTimeoutW(s.window, WM_APP + 1, 0, 0, SMTO_BLOCK | SMTO_ABORTIFHUNG, 3000, &result);
+    if (!SendMessageTimeoutW(s.window, WM_APP + 2, 0, 0, SMTO_BLOCK | SMTO_ABORTIFHUNG, 3000, &result)) return 1;
+  }
   s.operation_at = GetTickCount64();
   SetEvent(s.operation_done);
   return 0;
@@ -107,11 +137,13 @@ static DWORD WINAPI write_report(void *unused) {
   if (!f) return 1;
   fprintf(f, "{\"pid\":%lu,\"corePid\":%lu,\"decision\":\"%s\","
     "\"triggers\":%ld,\"operations\":%ld,\"stops\":%ld,\"eof\":%ld,\"windowTriggers\":%ld,"
+    "\"nestedQueries\":%ld,\"notificationInWait\":%ld,"
     "\"decisionMs\":%llu,\"stopMs\":%llu,\"endMs\":%llu,"
     "\"deadlineMs\":%llu,\"startEpochMs\":%llu,\"reportEpochMs\":%llu,\"coreGone\":%s,\"coreForced\":%s,"
     "\"coreExit\":%lu,\"selfForced\":%s,\"coordinatorDone\":%ld}\n",
     GetCurrentProcessId(), s.core_pid, load(&s.decision) == 1 ? "cleared" : "timeout",
     load(&s.triggers), load(&s.operations), load(&s.stops), load(&s.eof), load(&s.window_triggers),
+    load(&s.nested_queries), load(&s.notification_in_wait),
     s.decided_at - s.start, s.stop_at - s.start, s.end_at - s.start,
     s.deadline - s.start, s.start_epoch, epoch(), s.core_gone ? "true" : "false", s.core_forced ? "true" : "false",
     s.core_exit, s.forced_self ? "true" : "false", load(&s.coordinator_done));
@@ -144,6 +176,7 @@ static DWORD WINAPI supervisor(void *unused) {
   /* Uncertainty is a runtime outcome, not knowledge of the injected fault. */
   s.forced_self = load(&s.decision) != 1 || !s.core_gone;
   s.end_at = GetTickCount64();
+  SetEvent(s.shutdown_done);
   SetEvent(s.report_start);
   /* Diagnostic filesystem I/O is outside shutdown work and cannot trap supervision. */
   DWORD logged = WaitForSingleObject(s.report_done, 100);
@@ -195,10 +228,14 @@ int wmain(int argc, wchar_t **argv) {
   s.coordinator_hang = !wcscmp(argv[1], L"coordinator-hang");
   s.rescue_negative = !wcscmp(argv[1], L"watchdog-negative");
   s.core_hang = !wcscmp(argv[1], L"core-hang");
+  s.query_plain = !wcscmp(argv[1], L"query-plain");
+  s.notification_hang = !wcscmp(argv[1], L"query-handler-hang");
+  s.operation_notify = s.query_plain || s.notification_hang || !wcscmp(argv[1], L"query-aware");
 #define EVENT(name) s.name = CreateEventW(NULL, TRUE, FALSE, NULL); if (!s.name) return 92
   EVENT(triggered); EVENT(operation_start); EVENT(operation_done); EVENT(decision_ready);
   EVENT(finished); EVENT(report_start); EVENT(report_done);
   EVENT(window_ready);
+  EVENT(shutdown_done);
 #undef EVENT
   HANDLE window = CreateThread(NULL, 0, window_thread, NULL, 0, NULL);
   if (!window) return 98;
