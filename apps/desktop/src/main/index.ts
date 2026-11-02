@@ -11,6 +11,7 @@ import { createUpdateScheduler } from './app/scheduler'
 import { checkForUpdate } from './app/release-check'
 import { installGeoData } from './app/geo'
 import { watchSessionEnd } from './app/session-end'
+import { guardMigrationStartup } from './app/migration-startup'
 import { IPC, type BackupResult, type StreamKind } from './ipc-channels'
 import { trayIcon } from './tray-icon'
 import { t } from '../shared/i18n'
@@ -42,6 +43,12 @@ async function main(): Promise<void> {
     ? app.isPackaged ? join(process.resourcesPath, 'bin', 'kuro-sysproxy.exe') : join(app.getAppPath(), 'resources', 'win', 'x64', 'kuro-sysproxy.exe')
     : undefined
   const dataDir = join(app.getPath('userData'), 'data')
+  try { await guardMigrationStartup(dataDir) }
+  catch (error) {
+    dialog.showErrorBox('System Proxy migration blocked', error instanceof Error ? error.message : String(error))
+    app.exit(1)
+    return
+  }
   const userAgent = `ClashKuro/${app.getVersion()} (clash.meta)`
 
   let store: AppStore | undefined

@@ -1,4 +1,6 @@
 import { existsSync } from 'node:fs'
+import { spawn } from 'node:child_process'
+import { createSocket } from 'node:dgram'
 import { chmod, copyFile, lstat, mkdtemp, realpath, rm } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { createServer as createHttpServer, request } from 'node:http'
@@ -10,15 +12,23 @@ import { startResidentSession } from './resident-session'
 
 const corePath = join(import.meta.dirname, '../../../resources/core', `${process.platform}-${process.arch}`, process.platform === 'win32' ? 'mihomo.exe' : 'mihomo')
 
-test.skipIf(!existsSync(corePath) && process.env.KURO_REQUIRE_CORE !== '1')('bundled mihomo validates config, streams traffic/logs and reconnects after channel rotation', async () => {
+test.skipIf(!existsSync(corePath) && process.env.KURO_REQUIRE_CORE !== '1')('bundled mihomo validates config, streams traffic/logs and reconnects after channel rotation', async ({ onTestFinished }) => {
   expect(existsSync(corePath), 'Run scripts/fetch-core.mjs for this host before integration tests').toBe(true)
-  const dataDir = await realpath(await mkdtemp(join(process.platform === 'win32' ? tmpdir() : '/tmp', 'kuro-mihomo-')))
+  // Core's mixed listener needs UDP too; Windows excludes different TCP and UDP ranges.
+  const udp = createSocket('udp4')
+  await new Promise<void>((resolve, reject) => udp.once('error', reject).bind(0, '127.0.0.1', resolve))
+  const mixedPort = udp.address().port
   const server = createServer()
-  await new Promise<void>((resolve, reject) => server.once('error', reject).listen(0, '127.0.0.1', resolve))
-  const address = server.address()
-  if (!address || typeof address === 'string') throw new Error('Missing port')
-  const mixedPort = address.port
-  await new Promise<void>((resolve) => server.close(() => resolve()))
+  let reserved = true
+  const releasePort = async () => {
+    if (!reserved) return
+    reserved = false
+    if (server.listening) await new Promise<void>(resolve => server.close(() => resolve()))
+    await new Promise<void>(resolve => udp.close(resolve))
+  }
+  onTestFinished(releasePort)
+  await new Promise<void>((resolve, reject) => server.once('error', reject).listen(mixedPort, '127.0.0.1', resolve))
+  const dataDir = await realpath(await mkdtemp(join(process.platform === 'win32' ? tmpdir() : '/tmp', 'kuro-mihomo-')))
   let testCorePath = corePath
   if (process.platform !== 'win32' && (await lstat(corePath)).mode & 0o6000) {
     // The development app's setuid Core creates root-owned sockets; never alter that installed binary.
@@ -33,7 +43,15 @@ test.skipIf(!existsSync(corePath) && process.env.KURO_REQUIRE_CORE !== '1')('bun
     expect(fakeResident).toBe(join(import.meta.dirname, '../../../../../.scratch/mvp/prototypes/prestarted-helper-deadline/out/resident-fake.exe'))
     expect(existsSync(fakeResident)).toBe(true)
   }
+  let coreOutput = ''
   const platform = createDesktopPlatform({ dataDir, corePath: testCorePath, mixedPort,
+    spawn: (file, args, options) => {
+      const child = spawn(file, args, options)
+      const recordOutput = (chunk: Buffer) => { coreOutput = (coreOutput + chunk.toString()).slice(-8192) }
+      child.stdout?.on('data', recordOutput)
+      child.stderr?.on('data', recordOutput)
+      return child
+    },
     ...(fakeResident ? { sysproxyHelperPath: fakeResident, startResident: async (options: Parameters<typeof startResidentSession>[0]) => {
       nativeOwner = await startResidentSession(options)
       return nativeOwner
@@ -51,8 +69,17 @@ test.skipIf(!existsSync(corePath) && process.env.KURO_REQUIRE_CORE !== '1')('bun
   // Generate only loopback traffic; do not depend on external connectivity or the user's System Proxy.
   const trafficEvidence: string[] = []
   const record = (value: string) => { trafficEvidence.push(value); if (trafficEvidence.length > 5) trafficEvidence.shift() }
+  let originResponses = 0
   const stimulate = () => {
-    const req = request({ host: '127.0.0.1', port: mixedPort, path: `http://127.0.0.1:${originAddress.port}/`, agent: false }, res => { record(`HTTP ${res.statusCode}`); res.resume() })
+    // Core routes by Host, which must name the origin even when connecting to the proxy.
+    const req = request({ host: '127.0.0.1', port: mixedPort, path: `http://127.0.0.1:${originAddress.port}/`, headers: { host: `127.0.0.1:${originAddress.port}` }, agent: false }, res => {
+      let body = ''
+      res.on('data', chunk => { body = (body + String(chunk)).slice(0, 256) })
+      res.once('end', () => {
+        record(`HTTP ${res.statusCode}: ${body}`)
+        if (res.statusCode === 200 && body === 'local test origin') originResponses++
+      })
+    })
     req.setTimeout(500, () => req.destroy())
     req.on('error', error => record(error.message))
     req.end()
@@ -70,11 +97,12 @@ test.skipIf(!existsSync(corePath) && process.env.KURO_REQUIRE_CORE !== '1')('bun
   let failure: unknown
   let phase = 'config'
   try {
-    expect(originAddress.port, 'Origin must not reuse the released mixed-port reservation').not.toBe(mixedPort)
+    expect(originAddress.port, 'Origin must use a different port from Core').not.toBe(mixedPort)
     expect(await platform.applyRuntimeConfig(yaml)).toEqual({ ok: true })
     expect((await platform.applyRuntimeConfig('mixed-port: [\n')).ok).toBe(false)
     expect(await platform.readFile('runtime.yaml')).toBe(yaml)
     phase = 'initial-start'
+    await releasePort()
     await platform.startCore()
     if (fakeResident) await platform.setSystemProxy({ host: '127.0.0.1', port: mixedPort, bypass: [] })
     expect(await platform.isCoreRunning()).toBe(true)
@@ -93,6 +121,7 @@ test.skipIf(!existsSync(corePath) && process.env.KURO_REQUIRE_CORE !== '1')('bun
     await resume()
     phase = 'first-streams'
     await Promise.all([stream('/traffic', ['up', 'down']), stream('/logs?level=info', ['type', 'payload'])])
+    expect(originResponses, 'Traffic must return the local origin response through Core').toBeGreaterThan(0)
     phase = 'stop-before-restart'
     await platform.stopCore()
     expect(await platform.isCoreRunning()).toBe(false)
@@ -104,7 +133,9 @@ test.skipIf(!existsSync(corePath) && process.env.KURO_REQUIRE_CORE !== '1')('bun
     if (channel.kind === 'pipe') expect(platform.controlChannel()).not.toEqual(channel)
     expect((await transport.request({ method: 'GET', path: '/version' })).status).toBe(200)
     phase = 'second-streams'
+    const previousResponses = originResponses
     await Promise.all([stream('/traffic', ['up', 'down']), stream('/logs?level=info', ['type', 'payload'])])
+    expect(originResponses, 'Restarted Core must return a new local origin response').toBeGreaterThan(previousResponses)
     if (fakeResident) {
       // Test-entry trigger only: model native completion preceding Electron's shutdown callback.
       await nativeOwner!.close()
@@ -115,7 +146,7 @@ test.skipIf(!existsSync(corePath) && process.env.KURO_REQUIRE_CORE !== '1')('bun
       await expect(platform.setSystemProxy({ host: '127.0.0.1', port: mixedPort, bypass: [] })).rejects.toThrow()
     }
   } catch (error) {
-    failure = new Error(`Core integration failed at ${phase}; mixedPort=${mixedPort}; originPort=${originAddress.port}; traffic=${trafficEvidence.join(', ')}`, { cause: error })
+    failure = new Error(`Core integration failed at ${phase}; mixedPort=${mixedPort}; originPort=${originAddress.port}; originHits=${originHits}; originResponses=${originResponses}; traffic=${trafficEvidence.join(', ')}; coreOutput=${coreOutput}${nativeOwner?.diagnostics() ?? ''}`, { cause: error })
     throw failure
   } finally {
     let stopError: unknown

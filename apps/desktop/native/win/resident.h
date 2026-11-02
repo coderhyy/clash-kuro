@@ -191,6 +191,8 @@ cleanup:;
   const wchar_t *expected[MAX_EXPECTED];
   for (int i = 0; i < resident.server_count; ++i) expected[i] = resident.servers[i];
   resident.response.len = 0;
+  // RunOnce discourages key edits during invocation: failed replay retains the journal for app/manual
+  // recovery, not a guaranteed next-logon retry. Do not self-register another invocation here.
   int cleared = !resident.server_count || KURO_RESIDENT_CLEAR(expected, resident.server_count, 0) == 0;
   if (cleared && kuro_recovery_reset_after_clear(resident.recovery)) cleared = 0;
   if (cleared && KURO_RECOVERY_UNREGISTER()) cleared = 0;

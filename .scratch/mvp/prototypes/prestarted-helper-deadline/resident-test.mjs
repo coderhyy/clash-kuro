@@ -5,17 +5,20 @@ import { mkdirSync, readFileSync, writeFileSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 const root = dirname(fileURLToPath(import.meta.url))
-const { residentClient } = createRequire(import.meta.url)('./out/client.cjs')
-const { recoverResident } = createRequire(import.meta.url)('./out/recovery.cjs')
-const { startResidentSession } = createRequire(import.meta.url)('./out/session.cjs')
+const out = process.env.KURO_RESIDENT_TEST_OUT ?? join(root, 'out')
+const { residentClient } = createRequire(import.meta.url)(join(out, 'client.cjs'))
+const { recoverResident } = createRequire(import.meta.url)(join(out, 'recovery.cjs'))
+const { startResidentSession } = createRequire(import.meta.url)(join(out, 'session.cjs'))
 if (process.argv[2] === '--child') {
   const [mode, dir] = process.argv.slice(3)
   const recoveryEvidence = []
-  const exe = join(root, 'out/resident-fake.exe'), log = join(dir, 'helper.json')
+  const exe = join(out, 'resident-fake.exe'), log = join(dir, 'helper.json')
   const args = ['serve', '--core', exe, '--data', dir, '--log', log,
     '--recovery', join(dir, 'recovery.bin'),
     '--expected-server', '127.0.0.1:7891']
-  const launch = () => spawn(exe, args, { detached: true, windowsHide: true, stdio: 'pipe' })
+  const launch = (path = join(dir, 'recovery.bin')) => spawn(exe,
+    args.map((arg, i) => args[i - 1] === '--recovery' ? path : arg),
+    { detached: true, windowsHide: true, stdio: 'pipe' })
   const recover = path => residentClient(spawn(exe, ['recover', '--recovery', path],
     { detached: true, windowsHide: true, stdio: 'pipe' }))
   const child = launch()
@@ -27,7 +30,7 @@ if (process.argv[2] === '--child') {
   const setEntered = new Promise(resolve => { entered = resolve })
   child.stderr.on('data', data => {
     marker += data
-    if (marker.includes('set-start\n')) entered()
+    if (marker.includes('set-start\n') || marker.includes('register-start\n')) entered()
     if (marker.includes('fake-core-start\n')) coreStarted()
   })
   await client.ready
@@ -46,7 +49,7 @@ if (process.argv[2] === '--child') {
   }
   assert.equal(JSON.parse((await client.request(['get'])).stdout).flags, 1)
   const setting = client.request(['set', '--host', '127.0.0.1', '--port', '7891']).then(() => 'done', () => 'rejected')
-  if (mode === 'late-set' || mode === 'set-hang') {
+  if (mode === 'late-set' || mode === 'set-hang' || mode === 'register-hang') {
     await setEntered
     client.close(); client.close()
     assert.equal(await setting, 'rejected')
@@ -63,7 +66,7 @@ if (process.argv[2] === '--child') {
   assert(acceptedReport)
   for (const [key, value] of Object.entries(acceptedReport)) assert.deepEqual(report[key], value)
   if (mode === 'diagnostics-stall') assert.equal(Buffer.byteLength(client.diagnostics()), 16 * 1024)
-  const timeout = mode.endsWith('hang')
+  const timeout = mode.endsWith('hang') || mode === 'replay-registration'
   assert.equal(statSync(join(dir, 'recovery.bin')).size, timeout ? 608 : 0)
   assert.equal(exit.code, timeout ? 42 : 0)
   assert.equal(report.command, 'shutdown')
@@ -89,6 +92,42 @@ if (process.argv[2] === '--child') {
     assert.equal((await retry.closed).code, 1)
     assert.deepEqual(readFileSync(join(dir, 'recovery.bin')), retained)
     assert(!retry.diagnostics().includes('fake-core-start'))
+    if (mode === 'replay-registration') {
+      for (const scenario of ['recovery-clear-fail', 'recovery-register-hang']) {
+        const path = join(dir, `${scenario}.bin`)
+        writeFileSync(path, retained)
+        const replay = recover(path)
+        await assert.rejects(replay.ready)
+        const outcome = await replay.closed
+        const trace = replay.diagnostics()
+        // Registration would block forever: replay must never self-register into the invoking RunOnce key.
+        assert(!trace.includes('register-start\n'), `${scenario}: replay must not self-register; trace=${trace}`)
+        const failed = scenario === 'recovery-clear-fail'
+        assert.equal(outcome.code, failed ? 42 : 0)
+        assert.equal(outcome.report?.ok, !failed)
+        assert.equal(outcome.report?.timedOut, false)
+        assert.equal(outcome.report?.coreGone, true)
+        assert.equal(outcome.report?.corePid, 0)
+        if (failed) {
+          assert.deepEqual(readFileSync(path), retained)
+          assert.equal(trace, 'clear-start\n')
+          await assert.rejects(recoverResident(exe, path, join(dir, 'failed-replay.json')),
+            /Recovery not verified; new writes forbidden/)
+          assert.deepEqual(readFileSync(path), retained)
+          const refused = residentClient(launch(path))
+          await assert.rejects(refused.ready)
+          assert.equal((await refused.closed).code, 1)
+          assert(!refused.diagnostics().includes('fake-core-start'))
+          assert.deepEqual(readFileSync(path), retained)
+        } else {
+          assert.equal(statSync(path).size, 0)
+          assert.equal(trace, 'clear-start\nunregister\n')
+        }
+        assert(!trace.includes('fake-core-start'))
+        assert(outcome.report.durationMs < 1800, `${scenario}: replay waited on registration`)
+        recoveryEvidence.push({ scenario, trace, ...outcome })
+      }
+    }
     if (mode === 'clear-hang') {
       const hangPath = join(dir, 'recovery-hang.bin')
       writeFileSync(hangPath, retained)
@@ -107,6 +146,7 @@ if (process.argv[2] === '--child') {
     assert.equal(recovered.code, 0)
     assert.equal(recovered.report?.ok, true)
     assert.equal(recovered.report?.corePid, 0)
+    assert.equal(recovery.diagnostics(), 'clear-start\nunregister\n')
     assert.equal(statSync(join(dir, 'recovery.bin')).size, 0)
     assert(!recovery.diagnostics().includes('fake-core-start'))
     recoveryEvidence.push({ scenario: 'recovery-clear-resets-journal', ...recovered })
@@ -141,14 +181,17 @@ if (process.argv[2] === '--child') {
     writeFileSync(join(dir, 'abort-result.json'), JSON.stringify({ exitedNormally: true, lateWritesDenied: true, restartWithAbortedSignalDenied: true }))
   }
 } else {
-  const run = join(root, 'out', `resident-${Date.now()}`)
+  const run = join(out, `resident-${Date.now()}`)
   mkdirSync(run, { recursive: true })
   const quote = s => '"' + s.replace(/(\\*)"/g, '$1$1\\"').replace(/(\\+)$/, '$1$1') + '"'
   const results = []
-  for (const mode of ['normal', 'late-set', 'clear-hang', 'set-hang', 'diagnostics-stall']) {
+  const modes = ['normal', 'late-set', 'clear-hang', 'set-hang', 'diagnostics-stall', 'replay-registration', 'register-hang']
+  const selected = process.argv.find(arg => arg.startsWith('--case='))?.slice(7)
+  if (selected) assert(modes.includes(selected), `Unknown resident case: ${selected}`)
+  for (const mode of modes.filter(mode => !selected || mode === selected)) {
     const dir = join(run, mode); mkdirSync(dir)
     const command = [process.execPath, fileURLToPath(import.meta.url), '--child', mode, dir].map(quote).join(' ')
-    const watchdog = spawn(join(root, 'out/watchdog.exe'), ['8000', join(dir, 'supervisor.json'), process.execPath, command],
+    const watchdog = spawn(join(out, 'watchdog.exe'), ['8000', join(dir, 'supervisor.json'), process.execPath, command],
       { windowsHide: true, stdio: 'pipe' })
     let output = '', rescued = false
     watchdog.stdout.on('data', data => { output += data })

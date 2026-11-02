@@ -13,6 +13,8 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.4
@@ -36,6 +38,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.4
@@ -56,6 +60,20 @@ jobs:
         run: |
           $env:PATH = "${{ steps.msys2.outputs.msys2-location }}\ucrt64\bin;$env:PATH"
           bun run package:win
+      - name: Verify packaged helper and record exact tested commit
+        shell: pwsh
+        run: |
+          $bin = 'apps/desktop/dist/win-unpacked/resources/bin'
+          $helper = Join-Path $bin 'kuro-sysproxy.exe'
+          $collector = Join-Path $bin 'collect-migration-evidence.ps1'
+          $helperHash = (Get-FileHash -LiteralPath $helper -Algorithm SHA256).Hash
+          $collectorHash = (Get-FileHash -LiteralPath $collector -Algorithm SHA256).Hash
+          if ($helperHash -ne (Get-FileHash apps/desktop/resources/win/x64/kuro-sysproxy.exe).Hash) { throw 'Packaged helper mismatch' }
+          if ($collectorHash -ne (Get-FileHash apps/desktop/scripts/collect-migration-evidence.ps1).Hash) { throw 'Packaged collector mismatch' }
+          $bytes = [IO.File]::ReadAllBytes((Resolve-Path $helper))
+          $pe = [BitConverter]::ToInt32($bytes, 60)
+          if ([BitConverter]::ToUInt32($bytes, $pe) -ne 0x4550 -or [BitConverter]::ToUInt16($bytes, $pe + 4) -ne 0x8664 -or [BitConverter]::ToUInt16($bytes, $pe + 24 + 68) -ne 2) { throw 'Helper must be x64 GUI-subsystem PE' }
+          @{ sourceCommit = (git rev-parse HEAD).Trim(); runId = $env:GITHUB_RUN_ID; helperSha256 = $helperHash; collectorSha256 = $collectorHash; residentEnabledByDefault = $false } | ConvertTo-Json | Set-Content -Encoding utf8 apps/desktop/dist/win-unpacked/build-identity.json
       - name: All desktop tests (real named pipes and bundled Core; no System Proxy writes)
         working-directory: apps/desktop
         env:
@@ -74,8 +92,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node .scratch/mvp/prototypes/prestarted-helper-deadline/resident-test.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            node .scratch/mvp/prototypes/prestarted-helper-deadline/platform-test.mjs
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node .scratch/mvp/prototypes/prestarted-helper-deadline/platform-test.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node .scratch/mvp/prototypes/prestarted-helper-deadline/test.mjs --watchdog-negative-control
           if ($LASTEXITCODE -ne 1) { throw 'Rescued fixtures must fail exit acceptance' }
           node -e "const r=require('./.scratch/mvp/prototypes/prestarted-helper-deadline/out/negative.json'); const a=require('node:assert/strict'); a.equal(r.accepted,false); a.equal(r.negativeControlsObserved,true)"
@@ -87,7 +105,7 @@ jobs:
           path: |
             .scratch/mvp/prototypes/prestarted-helper-deadline/out/runs/*/results.json
             .scratch/mvp/prototypes/prestarted-helper-deadline/out/resident-*/**/*.json
-              .scratch/mvp/prototypes/prestarted-helper-deadline/out/resident-*/**/*.log
+            .scratch/mvp/prototypes/prestarted-helper-deadline/out/resident-*/**/*.log
           include-hidden-files: true
           if-no-files-found: warn
           retention-days: 7

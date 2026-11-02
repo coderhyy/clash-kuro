@@ -419,3 +419,16 @@ Blocked by: 02, 07
 - 开始实现迁移准入策略：用户身份、重启证据、备份摘要、helper 摘要、端点集合以及旧注册/旧进程/独占所有权/恢复结果均须匹配。任何失败或未知拒绝准入。
 - 当前策略单测仅验证规则，不是 OS boot collector、证据真实性或执行器测试；未接入 app，不能凭此文件或手填迁移标记启用。下一步必须让执行器在持有恢复所有权期间采集并核验真实证据，防止检查与启用之间释放锁。
 - 本轮 typecheck 通过；全量 194/195，新迁移策略 4 项通过。真实 Core 集成失败在 first-streams，mixed-port 57785、origin 57786，traffic 持续 ECONNREFUSED、originHits=0，logs 超时。与此前 EADDRINUSE 不同，不能宣称同一根因或测试全通过；保留失败，未加重试/放宽超时。
+
+2026-11-02 (agent，并行定位与迁移默认拒绝):
+
+- 按用户授权拆分真实 Core、迁移、交付审查，真实 Core 由单一执行者持有，原生假操作使用独立目录；没有本机代理/RunOnce 写入、resident 激活、重启或会话实验。
+- 已在原失败端口 57785 及自然复现端口 57798 定位：两者落入 Windows UDP 排除范围 57722–57821。fixture 只检查 TCP，但 mihomo mixed listener 也需要 UDP；API 可用并不证明代理监听成功。修正 fixture 同端口 TCP/UDP 预留后，直接 Core、假 resident 加真实 Core 均通过；当时工作区全量 199/199。正式启动路径的双协议检查和 listener readiness 仍在补齐，不能以 fixture 通过代替最终集成。完整失败证据见 `prototypes/prestarted-helper-deadline/CORE-FAILURE.md`；历史 CI 的 EADDRINUSE 不归为此根因。
+- 增加只读启动事件采集候选：System 日志旧记录内容摘要与 record ID、Kernel-General 12、Kernel-Boot 27、CIM LastBootUpTime、当前 SID、旧 RunOnce 值及已知写入者名单。缺失/损坏/矛盾必须拒绝；进程名筛查不证明不存在改名或未知写入程序。该候选等待文档依据审查及真实重启后验证，不等于完整迁移执行器。
+- 本机两次只读采集的 checkpoint 摘要匹配，仍是同一次启动、最近 BootType=2；同次启动拒绝测试通过。策略/采集共 10 项通过，包含 Windows 实际只读采集；没有伪造重启或更改系统时间。
+- app 在创建 Platform、清旧代理、启动 Core 之前增加迁移阻断：任何 `data/proxy-migration.json`（包括空、损坏或目录）均禁止回到 legacy 写入路径；此阶段 `--experimental-resident` 也明确拒绝，不能用手填 verified 布尔值解锁。阻断测试 2/2。尚未实现可交付的 resident 正向准入，仍默认禁用。
+- 审查发现 replay 失败后的 RunOnce 再调度语义和准入/恢复/owner 交接仍需收敛。操作清单仅为 HOLD 草案，不是现在可以执行的迁移指令。ADR-0011/ADR-0013 状态、issue Status 与不合并限制不变。
+
+- 补充审查：未找到 class-90 BootIdentifier 每次重启唯一或等同 BCD 的一手保证，因此未保留这条采集实现，更不拿它放行。启动事件/CIM/旧记录摘要仅是人工受控 Restart 的旁证；BootType 语义、独立事件关联及时间容差不能提升为通用重启身份证明。候选 collector 当前不授予准入，研究见 `BOOT-EVIDENCE-RESEARCH.md`。
+- RunOnce 文档警告被调用程序不要在执行期间修改该键，未添加失败后自我重新注册。明确保留限制：RunOnce 失败后，journal 留存并阻止新 resident，依靠后续 app/人工 replay，不保证下次登录会自动重试。新增假操作回归 7 个场景通过、无外部救援/遗留进程：失败 replay 保持 journal 字节并拒绝新 owner，注册卡死在原预算结束，重复 close 不续期。不是实际 RunOnce 调度验证。
+- 三方向回收后，主执行者统一运行工作区 `turbo typecheck test`：8 个 task 成功（6 个未变更包任务命中缓存），桌面本次重新执行 210/210、无跳过、真实 Core 必需。正式 direct/resident 启动均检查 TCP/UDP，并要求 API 与 SOCKS5 greeting 同时就绪；未延长原启动预算。重建原生假 fixture 后 7/7、真实 Core 经假 resident 的 Platform 集成 1/1 通过，未使用外部救援。最终交付仍需迁移执行器及正向准入完成后再冻结提交、统一 CI 和人工验证；这些阶段结果不等于已完成交付。

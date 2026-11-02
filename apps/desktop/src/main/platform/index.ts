@@ -1,8 +1,9 @@
 import { spawn, type ChildProcess, type SpawnOptions } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
+import { createSocket } from 'node:dgram'
 import { once } from 'node:events'
 import { chmod, lstat, mkdir, readFile, readlink, realpath, rename, rm, writeFile } from 'node:fs/promises'
-import { createServer } from 'node:net'
+import { createConnection, createServer } from 'node:net'
 import { isAbsolute, join, resolve, win32 } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import type { ControlChannel, Platform, ValidationResult } from '@kuro/core'
@@ -54,14 +55,53 @@ function validatePort(port: number): void {
 
 export async function assertMixedPortAvailable(port: number): Promise<void> {
   validatePort(port)
+  const bindError = (protocol: string, error: NodeJS.ErrnoException) => new Error(
+    error.code === 'EADDRINUSE' ? `mixed-port 127.0.0.1:${port} is already in use (${protocol}); close the other application or change mixed-port`
+      : `Cannot bind mixed-port 127.0.0.1:${port} (${protocol}): ${error.message}`, { cause: error },
+  )
   await new Promise<void>((resolve, reject) => {
     const server = createServer()
-    server.once('error', (error: NodeJS.ErrnoException) => reject(new Error(
-      error.code === 'EADDRINUSE' ? `mixed-port 127.0.0.1:${port} is already in use; close the other application or change mixed-port`
-        : `Cannot bind mixed-port 127.0.0.1:${port}: ${error.message}`, { cause: error },
-    )))
+    server.once('error', (error: NodeJS.ErrnoException) => reject(bindError('TCP', error)))
     server.listen(port, '127.0.0.1', () => server.close((error) => error ? reject(error) : resolve()))
   })
+  await new Promise<void>((resolve, reject) => {
+    const socket = createSocket('udp4')
+    socket.once('error', (error: NodeJS.ErrnoException) => socket.close(() => reject(bindError('UDP', error))))
+    socket.bind(port, '127.0.0.1', () => socket.close(resolve))
+  })
+}
+
+async function assertCoreReady(channel: ControlChannel, port: number, deadline: number): Promise<void> {
+  const remaining = () => Math.min(250, Math.max(1, deadline - Date.now()))
+  const res = await createSocketTransport(channel, { timeoutMs: remaining() }).request({ method: 'GET', path: '/version' })
+  if (res.status < 200 || res.status >= 300) throw new Error(`Core API readiness returned HTTP ${res.status}`)
+  if (Date.now() >= deadline) throw new Error('Core mixed-port readiness deadline exceeded')
+  // The API can be ready even when Core failed to bind its mixed listener.
+  await new Promise<void>((resolve, reject) => {
+    const socket = createConnection({ host: '127.0.0.1', port })
+    const timer = setTimeout(() => socket.destroy(new Error('Mixed listener SOCKS5 greeting timed out')), remaining())
+    let reply = Buffer.alloc(0)
+    // Both no-auth and password negotiation prove readiness without credentials or an upstream request.
+    socket.once('connect', () => socket.write(Buffer.from([5, 2, 0, 2])))
+    socket.on('data', chunk => {
+      reply = Buffer.concat([reply, chunk]).subarray(0, 2)
+      if (reply.length < 2) return
+      if (reply[0] !== 5 || (reply[1] !== 0 && reply[1] !== 2)) {
+        socket.destroy(new Error('Invalid mixed listener SOCKS5 greeting'))
+        return
+      }
+      clearTimeout(timer)
+      socket.destroy()
+      resolve()
+    })
+    socket.once('end', () => { if (reply.length < 2) socket.destroy(new Error('Mixed listener closed before SOCKS5 greeting')) })
+    socket.once('error', error => {
+      clearTimeout(timer)
+      socket.destroy()
+      reject(new Error(`mixed-port 127.0.0.1:${port} is not ready: ${error.message}`, { cause: error }))
+    })
+  })
+  if (Date.now() >= deadline) throw new Error('Core mixed-port readiness deadline exceeded')
 }
 
 function errorText(error: unknown): string {
@@ -266,7 +306,8 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
       if (child?.pid && child.exitCode === null && child.signalCode === null && alive(child.pid)) return
       if (!options.startResident) await cleanupOrphan()
       if (shuttingDown) throw new Error('Platform is shutting down')
-      await assertMixedPortAvailable(port())
+      const mixedPort = port()
+      await assertMixedPortAvailable(mixedPort)
       if (await read('runtime.yaml') === null) throw new Error('No Runtime Config has been applied')
       if (channel.kind === 'pipe' && usedPipe) {
         const yaml = (await read('runtime.yaml'))!
@@ -283,12 +324,13 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
         await rm(channel.path, { force: true })
       }
       let output = ''
+      let readinessError = ''
       if (options.startResident) {
         residentStopping = undefined
         residentAbort = new AbortController()
         residentStarting = options.startResident({ helper: options.sysproxyHelperPath!,
           recoveryDirectory: join(dataDir, 'proxy-recovery'), dataDir, core: corePath,
-          server: `127.0.0.1:${port()}`, log: options.runOnceLogPath ?? join(dataDir, 'runonce.log'), signal: residentAbort.signal })
+          server: `127.0.0.1:${mixedPort}`, log: options.runOnceLogPath ?? join(dataDir, 'runonce.log'), signal: residentAbort.signal })
         try {
           const owner = resident = await residentStarting
           usedPipe = true
@@ -299,18 +341,17 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
             }
           })
           const deadline = Date.now() + (options.startTimeoutMs ?? 10_000)
-          while (Date.now() < deadline && !shuttingDown && resident === owner) {
+          while (Date.now() < deadline && !shuttingDown && !residentFailed && resident === owner) {
             try {
-              const res = await createSocketTransport(channel, { timeoutMs: Math.min(250, Math.max(1, deadline - Date.now())) })
-                .request({ method: 'GET', path: '/version' })
-              if (res.status >= 200 && res.status < 300) {
+              await assertCoreReady(channel, mixedPort, deadline)
+              if (!shuttingDown && !residentFailed && resident === owner) {
                 systemProxy = makeSystemProxy()
                 return
               }
-            } catch { /* Core API readiness is separate from the helper handshake. */ }
-            await delay(25)
+            } catch (error) { readinessError = errorText(error) }
+            await delay(Math.min(25, Math.max(0, deadline - Date.now())))
           }
-          throw new Error(`Resident Core readiness failed: ${owner.diagnostics()}`)
+          throw new Error(`Resident Core readiness failed: ${readinessError}\n${owner.diagnostics()}`)
         } catch (error) {
           residentFailed = true
           await stop().catch(() => {})
@@ -331,19 +372,17 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
         usedPipe = true
         await atomic('core.pid', String(started.pid))
         const deadline = Date.now() + (options.startTimeoutMs ?? 10_000)
-        let readinessError = ''
         while (Date.now() < deadline && !shuttingDown) {
           if (processError) throw processError
           if (started.exitCode !== null || started.signalCode !== null) throw new Error(`Core exited before ready: ${output}`)
           try {
             if (channel.kind === 'unix') await chmod(channel.path, 0o600)
-            const res = await createSocketTransport(channel, { timeoutMs: Math.min(250, Math.max(1, deadline - Date.now())) })
-              .request({ method: 'GET', path: '/version' })
-            if (res.status >= 200 && res.status < 300) return
+            await assertCoreReady(channel, mixedPort, deadline)
+            if (!shuttingDown && started.exitCode === null && started.signalCode === null) return
           } catch (error) { readinessError = errorText(error) }
-          await delay(25)
+          await delay(Math.min(25, Math.max(0, deadline - Date.now())))
         }
-        throw new Error(shuttingDown ? 'Platform is shutting down' : `Core Control Channel readiness timed out: ${readinessError}\n${output}`)
+        throw new Error(shuttingDown ? 'Platform is shutting down' : `Core readiness timed out: ${readinessError}\n${output}`)
       } catch (error) {
         await stop()
         throw error

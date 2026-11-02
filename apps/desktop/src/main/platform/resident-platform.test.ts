@@ -2,6 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createServer } from 'node:net'
+import { createSocket } from 'node:dgram'
 import { afterEach, expect, test, vi } from 'vitest'
 import { createDesktopPlatform } from './index'
 import type { startResidentSession } from './resident-session'
@@ -12,29 +13,53 @@ vi.mock('./transport', () => ({ createSocketTransport: vi.fn(() => ({
 const cleanups: Array<() => Promise<void>> = []
 afterEach(async () => { for (const cleanup of cleanups.splice(0)) await cleanup() })
 
-async function fixture() {
+async function fixture(listenMixed = true, reply: 'ready' | 'silent' | 'invalid' = 'ready') {
   const dir = await mkdtemp(join(tmpdir(), 'kuro-resident-platform-'))
   cleanups.push(() => rm(dir, { recursive: true, force: true }))
-  const socket = createServer()
-  await new Promise<void>(resolve => socket.listen(0, '127.0.0.1', resolve))
-  const address = socket.address()
-  if (!address || typeof address === 'string') throw new Error('Missing test port')
+  const udp = createSocket('udp4')
+  await new Promise<void>((resolve, reject) => udp.once('error', reject).bind(0, '127.0.0.1', resolve))
+  const mixedPort = udp.address().port
+  const socket = createServer(connection => {
+    connection.once('data', () => {
+      if (reply !== 'silent') connection.end(Buffer.from(reply === 'invalid' ? [0, 0] : [5, 0]))
+    })
+  })
+  const listen = () => new Promise<void>((resolve, reject) => socket.once('error', reject).listen(mixedPort, '127.0.0.1', resolve))
+  try { await listen() } finally { await new Promise<void>(resolve => udp.close(resolve)) }
   await new Promise<void>(resolve => socket.close(() => resolve()))
+  const closeListener = async () => { if (socket.listening) await new Promise<void>(resolve => socket.close(() => resolve())) }
+  cleanups.push(closeListener)
   let exit!: (value: { code: number | null; signal: NodeJS.Signals | null }) => void
   const exited = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>(resolve => { exit = resolve })
   const request = vi.fn(async (args: readonly string[]) => ({ stdout: JSON.stringify({
     command: args[0], ok: true, connections: [{ name: null, flags: 1 }],
   }), stderr: '' }))
-  const close = vi.fn(async () => { exit({ code: 0, signal: null }) })
+  const close = vi.fn(async () => { await closeListener(); exit({ code: 0, signal: null }) })
   const session = { request, close, exited, diagnostics: () => '', helper: 'fake', journal: 'fake' }
-  const start = vi.fn<typeof startResidentSession>(async () => session)
+  const start = vi.fn<typeof startResidentSession>(async () => { if (listenMixed) await listen(); return session })
   const exec = vi.fn(async () => ({ stdout: '', stderr: '' }))
   const execSync = vi.fn(() => '')
   const platform = createDesktopPlatform({ dataDir: dir, corePath: process.execPath, os: 'win32',
-    mixedPort: address.port, sysproxyHelperPath: join(dir, 'fake.exe'), startResident: start, exec, execSync })
+    mixedPort, sysproxyHelperPath: join(dir, 'fake.exe'), startResident: start, exec, execSync, startTimeoutMs: 500 })
   await platform.writeFileAtomic('runtime.yaml', 'external-controller-pipe: "original"\n')
-  return { platform, start, request, close, session, exec, execSync, exit }
+  return { platform, start, request, close, session, exec, execSync, exit, listen }
 }
+
+test('resident API-ready Core without a mixed listener fails readiness and closes its owner', async () => {
+  const f = await fixture(false)
+  await expect(f.platform.startCore()).rejects.toThrow(/readiness failed.*mixed-port/s)
+  expect(f.close).toHaveBeenCalledOnce()
+  expect(await f.platform.isCoreRunning()).toBe(false)
+  await expect(f.platform.startCore()).rejects.toThrow('uncertain')
+  expect(f.start).toHaveBeenCalledOnce()
+})
+
+test.each(['silent', 'invalid'] as const)('resident API and %s TCP listener without SOCKS5 readiness cannot report startup success', async (reply) => {
+  const f = await fixture(true, reply)
+  await expect(f.platform.startCore()).rejects.toThrow(/readiness failed.*SOCKS5 greeting/s)
+  expect(f.close).toHaveBeenCalledOnce()
+  expect(await f.platform.isCoreRunning()).toBe(false)
+})
 
 test('resident routes proxy commands through owner without per-call log or one-shot fallback', async () => {
   const f = await fixture()
@@ -58,7 +83,7 @@ test('normal resident stop permits restart, rotates pipe and never writes a help
   expect(await f.platform.readFile('core.pid')).toBeNull()
   await f.platform.stopCore()
   expect(await f.platform.isCoreRunning()).toBe(false)
-  f.start.mockResolvedValueOnce({ ...f.session, exited: new Promise(() => {}) })
+  f.start.mockImplementationOnce(async () => { await f.listen(); return { ...f.session, exited: new Promise(() => {}) } })
   await f.platform.startCore()
   expect(f.platform.controlChannel()).not.toEqual(before)
   expect(f.start).toHaveBeenCalledTimes(2)

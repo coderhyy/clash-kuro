@@ -1,7 +1,8 @@
 import { spawn } from 'node:child_process'
 import { EventEmitter } from 'node:events'
+import { createSocket } from 'node:dgram'
 import { chmod, lstat, mkdir, mkdtemp, readdir, readFile, rm, symlink } from 'node:fs/promises'
-import { createServer } from 'node:net'
+import { createConnection, createServer } from 'node:net'
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { afterEach, expect, test, vi } from 'vitest'
@@ -18,24 +19,28 @@ afterEach(async () => {
 })
 
 async function freePort(): Promise<number> {
+  const udp = createSocket('udp4')
+  await new Promise<void>((resolve, reject) => udp.once('error', reject).bind(0, '127.0.0.1', resolve))
   const server = createServer()
-  await new Promise<void>((resolve, reject) => server.once('error', reject).listen(0, '127.0.0.1', resolve))
-  const address = server.address()
-  if (!address || typeof address === 'string') throw new Error('Missing TCP port')
-  await new Promise<void>((resolve) => server.close(() => resolve()))
-  return address.port
+  try {
+    const port = udp.address().port
+    await new Promise<void>((resolve, reject) => server.once('error', reject).listen(port, '127.0.0.1', resolve))
+    await new Promise<void>((resolve) => server.close(() => resolve()))
+    return port
+  } finally { await new Promise<void>(resolve => udp.close(resolve)) }
 }
 
 async function fixture(extra: Partial<DesktopPlatformOptions> = {}) {
   const dataDir = await mkdtemp(join(process.platform === 'win32' ? tmpdir() : '/tmp', 'kuro-platform-'))
   const exec = vi.fn<Exec>(async () => ({ stdout: '', stderr: '' }))
-  const platform = createDesktopPlatform({ dataDir, corePath: process.execPath, mixedPort: await freePort(), exec, ...extra })
+  const mixedPort = await freePort()
+  const platform = createDesktopPlatform({ dataDir, corePath: process.execPath, mixedPort, exec, ...extra })
   cleanups.push(async () => { await rm(dataDir, { force: true, recursive: true, maxRetries: 10, retryDelay: 20 }) })
   cleanups.push(() => platform.stopCore())
-  return { platform, dataDir, exec }
+  return { platform, dataDir, exec, mixedPort }
 }
 
-function fakeCore(platform: () => DesktopPlatform, ignoreTerm = false): DesktopPlatformOptions['spawn'] {
+function fakeCore(platform: () => DesktopPlatform, mixedPort: () => number, ignoreTerm = false, listenMixed = true, authMethod = 0): DesktopPlatformOptions['spawn'] {
   return (_file, _args, options) => {
     const channel = platform().controlChannel()
     const path = channel.kind === 'unix' ? channel.path : channel.name
@@ -43,6 +48,7 @@ function fakeCore(platform: () => DesktopPlatform, ignoreTerm = false): DesktopP
       const http = require('node:http');
       ${ignoreTerm ? "process.on('SIGTERM', () => {});" : ''}
       http.createServer((req, res) => res.end('{"version":"fake"}')).listen(${JSON.stringify(path)});
+      ${listenMixed ? `require('node:net').createServer(socket => socket.once('data', () => socket.end(Buffer.from([5, ${authMethod}])))).listen(${mixedPort()}, '127.0.0.1');` : ''}
     `], options)
   }
 }
@@ -132,7 +138,8 @@ test('Windows Core restarts rotate and revalidate the runtime pipe scalar', asyn
 
 test('port occupancy is readable and invalid ports never reach listen', async () => {
   const server = createServer()
-  await new Promise<void>((resolve, reject) => server.once('error', reject).listen(0, '127.0.0.1', resolve))
+  const port = await freePort()
+  await new Promise<void>((resolve, reject) => server.once('error', reject).listen(port, '127.0.0.1', resolve))
   const address = server.address()
   if (!address || typeof address === 'string') throw new Error('Missing port')
   try { await expect(assertMixedPortAvailable(address.port)).rejects.toThrow('already in use') }
@@ -141,12 +148,59 @@ test('port occupancy is readable and invalid ports never reach listen', async ()
   await expect(assertMixedPortAvailable(0)).rejects.toThrow('Invalid mixed-port')
 })
 
+test.each(['direct', 'resident'] as const)('%s rejects UDP-only occupancy before creating an owner and releases its TCP probe', async (route) => {
+  const mixedPort = await freePort()
+  const udp = createSocket('udp4')
+  await new Promise<void>((resolve, reject) => udp.once('error', reject).bind(mixedPort, '127.0.0.1', resolve))
+  let udpOpen = true
+  cleanups.push(async () => { if (udpOpen) await new Promise<void>(resolve => udp.close(resolve)) })
+  const startResident = vi.fn<NonNullable<DesktopPlatformOptions['startResident']>>(async () => { throw new Error('Unexpected resident start') })
+  const spawned = vi.fn<NonNullable<DesktopPlatformOptions['spawn']>>(() => { throw new Error('Unexpected Core spawn') })
+  const { platform } = await fixture({ mixedPort, spawn: spawned,
+    ...(route === 'resident' ? { os: 'win32', sysproxyHelperPath: 'fake.exe', startResident } : {}),
+  })
+  await platform.writeFileAtomic('runtime.yaml', 'mode: direct')
+  await expect(platform.startCore()).rejects.toThrow(/mixed-port.*UDP/)
+  expect(spawned).not.toHaveBeenCalled()
+  expect(startResident).not.toHaveBeenCalled()
+  const tcp = createServer()
+  await new Promise<void>((resolve, reject) => tcp.once('error', reject).listen(mixedPort, '127.0.0.1', resolve))
+  await new Promise<void>(resolve => tcp.close(() => resolve()))
+  await new Promise<void>(resolve => udp.close(resolve))
+  udpOpen = false
+  await assertMixedPortAvailable(mixedPort)
+  await assertMixedPortAvailable(mixedPort)
+})
+
+test('direct API-ready Core without a mixed listener fails readiness and is stopped', async () => {
+  let platform: DesktopPlatform
+  let mixedPort: number
+  const result = await fixture({ spawn: fakeCore(() => platform, () => mixedPort, false, false), startTimeoutMs: 500 })
+  platform = result.platform
+  mixedPort = result.mixedPort
+  await platform.writeFileAtomic('runtime.yaml', 'mode: direct')
+  await expect(platform.startCore()).rejects.toThrow(/readiness timed out.*mixed-port/s)
+  expect(await platform.isCoreRunning()).toBe(false)
+  expect(await platform.readFile('core.pid')).toBeNull()
+})
+
+test('mixed listener readiness accepts password negotiation without sending credentials', async () => {
+  let platform: DesktopPlatform
+  let mixedPort: number
+  const result = await fixture({ spawn: fakeCore(() => platform, () => mixedPort, false, true, 2) })
+  platform = result.platform
+  mixedPort = result.mixedPort
+  await platform.writeFileAtomic('runtime.yaml', 'mode: direct')
+  await platform.startCore()
+  expect(await platform.isCoreRunning()).toBe(true)
+})
+
 test('startCore checks the latest mixed-port before spawning and never changes it', async () => {
   const server = createServer()
   await new Promise<void>((resolve, reject) => server.once('error', reject).listen(0, '127.0.0.1', resolve))
   const address = server.address()
   if (!address || typeof address === 'string') throw new Error('Missing port')
-  const spawned = vi.fn(fakeCore(() => platform))
+  const spawned = vi.fn<NonNullable<DesktopPlatformOptions['spawn']>>()
   const { platform } = await fixture({ mixedPort: () => address.port, spawn: spawned })
   try {
     await platform.applyRuntimeConfig('mode: direct')
@@ -157,14 +211,21 @@ test('startCore checks the latest mixed-port before spawning and never changes i
 
 test('start waits for readiness, writes pid and chmods socket; concurrent starts share one Core', async () => {
   let platform: DesktopPlatform
-  const spawned = vi.fn(fakeCore(() => platform))
+  let mixedPort: number
+  const spawned = vi.fn(fakeCore(() => platform, () => mixedPort))
   const fixtureResult = await fixture({ spawn: spawned })
   platform = fixtureResult.platform
+  mixedPort = fixtureResult.mixedPort
   const initial = platform.controlChannel()
   await platform.applyRuntimeConfig('mode: direct\n' + (initial.kind === 'pipe' ? `external-controller-pipe: ${JSON.stringify(initial.name)}\n` : ''))
   await Promise.all([platform.startCore(), platform.startCore()])
   expect(spawned).toHaveBeenCalledOnce()
   expect(await platform.isCoreRunning()).toBe(true)
+  await new Promise<void>((resolve, reject) => {
+    const socket = createConnection({ host: '127.0.0.1', port: mixedPort })
+    socket.once('connect', () => { socket.destroy(); resolve() })
+    socket.once('error', reject)
+  })
   expect(await platform.readFile('core.pid')).toMatch(/^\d+$/)
   const channel = platform.controlChannel()
   if (process.platform === 'win32') {
@@ -183,8 +244,10 @@ test('start waits for readiness, writes pid and chmods socket; concurrent starts
 
 test('Core that ignores SIGTERM is killed after the grace period', async () => {
   let platform: DesktopPlatform
-  const result = await fixture({ spawn: fakeCore(() => platform, true), stopTimeoutMs: 30 })
+  let mixedPort: number
+  const result = await fixture({ spawn: fakeCore(() => platform, () => mixedPort, true), stopTimeoutMs: 30 })
   platform = result.platform
+  mixedPort = result.mixedPort
   await platform.applyRuntimeConfig('mode: direct')
   await platform.startCore()
   const pid = Number(await platform.readFile('core.pid'))
