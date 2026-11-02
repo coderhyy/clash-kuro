@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = dirname(fileURLToPath(import.meta.url)), repo = resolve(root, '../../../..')
 const electron = join(repo, 'apps/desktop/node_modules/electron/dist/electron.exe')
+if (!existsSync(electron)) throw new Error('Missing pinned Electron runtime; run node apps/desktop/node_modules/electron/install.js before this fixture')
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 const read = file => existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : null
 if (process.argv[2] === '--child') {
@@ -49,7 +50,7 @@ if (process.argv[2] === '--child') {
     let error
     try {
       assert.equal(outerKilled, false)
-      assert.equal(code, 0, 'External watchdog rescue is an acceptance FAILURE')
+      assert.equal(code, 0, 'Supervised root failed; inspect output and Job report (rescue also fails acceptance)')
       assert.equal(supervisor.watchdogKilled, false)
       assert.equal(supervisor.lingeringChildren, false)
       assert.equal(supervisor.remaining, 0)

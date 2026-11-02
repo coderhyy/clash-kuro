@@ -235,3 +235,11 @@ Blocked by: 02, 07
 - `wininet-recovery` 新增仓库外 LAN/RAS 原样字段备份、Internet Settings 导出、只读 RunOnce 记录、全连接/逐项恢复前校验、严格 parser 和独占 writer 锁。旧 writer 的 Job 未确认清空时不恢复；日志缺失、锁遗留、外部变化均停止，不盲目 reg import。六个损坏快照及纯状态校验通过。最新只读备份 `C:\Users\DT-056\kuro-sysproxy-backups\wininet-1793590661881` 已验证，未执行 set/clear/restore 或通知调用。其他代理 GUI/Core 仍运行，因此暂不进行真实代理写入；服务本身与 GUI/Core 的写入竞争需区别判断。
 - Windows 全套 desktop 测试夹具改用真实 named pipe、系统临时目录、无提权 junction；POSIX 权限仍在 POSIX 校验，SIGTERM 忽略分支在 Windows 用定向假信号测试，未跳过失败用例。bundled mihomo 集成测试使用锁定版本、独立目录和仅本地回环请求，覆盖 traffic/logs、重启后 pipe 轮换及同一 transport 重连。本机 typecheck 与 151/151 desktop 测试通过，无跳过。cat mask 测试单独通过，完整运行改用两个 worker 避免进程争用，没有调高测试或关闭超时。
 - CI 改为 Windows 打包后执行全部 desktop 测试，不再只跑 helper 三文件；macOS 打包后强制跑 bundled Core 集成。CI 与产物核验结果另补。正式 resident 生命周期/IPC/Core 句柄交接、真实 WinINet 通知测试、恢复代次竞争，以及人工注销/关机仍未完成。goal 保持 active，不能提前标 complete。
+
+2026-11-02 (agent，协调模型补充，非真实会话验证):
+
+- 安全修复基线 `a92499b` 的 CI `41384542991` 已通过 Windows/macOS；下载产物 `C:\Users\DT-056\kuro-08-artifacts\run-41384542991`，确认 `resources/bin/kuro-sysproxy.exe` 为 x64 GUI，execFile/execFileSync 的 get 均能读 JSON，打包 Core 与锁定下载一致。这仍是 one-shot 基线，不是 resident 会话测试候选。
+- 原型修复了按注入故障标记选择自终止的缺陷：1900 ms 有限迟到操作先复现 timeout 却普通退出，改按实际结果判定不确定并自终止。随后增加独立隐藏原生窗口、私有测试消息、共用截止时间的 query 等待和重复事件拒绝递归等待。
+- 本机十四个策略场景符合预期：七个正常假清理、六个不确定后自终止、一个强制停假 Core；均无外部救援或 Job 遗留。普通等待与假同步通知互等后超时；原生 helper 消息感知等待完成假链路；窗口过程永久卡死仍由独立监督线程结束。两个外部救援负对照继续计为退出验收失败。清理 1500 ms、Core stop 至 2000 ms、确认至 2100 ms 均沿用原始绝对截止时间，不因事件续期；并非硬实时墙钟保证。
+- Windows CI 新增原型与救援负对照。首次 run `41387138363` 在启动 Electron 前因包内缺少 `dist/electron.exe` 报 ENOENT，非超时失败；已保留诊断产物并补显式执行锁定版本 Electron 的安装脚本，等待重试结果，不跳过用例或放宽时限。
+- 详细报告及命令在 `.scratch/mvp/prototypes/prestarted-helper-deadline/README.md`。未写代理、RunOnce，未投递真实会话消息或注销/关机；真实 WinINet 写入仍因其他代理程序运行而暂停。正式集成与人工验收未完成；ADR-0011、Status 不改，ADR-0013 仍为草案，不合并。

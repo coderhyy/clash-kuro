@@ -331,3 +331,11 @@ This is still only coordination-model evidence. No real WinINet message
 dependency, WM_QUERYENDSESSION delivery, Windows termination grace period,
 logoff or shutdown reliability has been established. No proxy or RunOnce
 settings were touched; competing proxy applications still prevent safe writes.
+
+First CI integration attempt (`41387138363`, commit `6031eba`) built the native
+fixture, but all carriers failed before Electron launch: the installed Electron
+package lacked `dist/electron.exe` (ENOENT). The watchdog reported root exit 1
+without rescue, not a shutdown timing failure. The downloaded results are in
+`out/ci-41387138363/`. CI now explicitly runs the pinned package's existing
+`install.js`; the runner fails fast if the runtime is still missing. No version
+or dependency manifest changed. The retry must pass before claiming CI coverage.
