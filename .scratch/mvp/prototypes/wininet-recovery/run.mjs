@@ -9,8 +9,8 @@ const root = dirname(fileURLToPath(import.meta.url))
 const exercise = process.argv.includes('--exercise')
 const prior = process.argv.find(x => x.startsWith('--restore='))?.slice(10)
 const resident = process.argv.find(x => x.startsWith('--resident='))?.slice(11)
-if (resident !== undefined && (!exercise || prior || !['plain', 'aware', 'recover'].includes(resident)))
-  throw new Error('--resident=plain|aware requires --exercise, never --restore')
+if (resident !== undefined && (!exercise || prior || !['plain', 'aware', 'recover', 'serve'].includes(resident)))
+  throw new Error('--resident=plain|aware|recover|serve requires --exercise, never --restore')
 const dir = prior ? resolve(prior) : join(homedir(), 'kuro-sysproxy-backups', `wininet-${Date.now()}`)
 mkdirSync(dir, { recursive: true })
 // A crashed controller leaves this lock in place: never infer writer death from a missing JS process.
@@ -31,7 +31,7 @@ const residentReport = join(dir, 'resident.json')
 const q = value => '"' + value.replace(/(\\*)"/g, '$1$1\\"').replace(/(\\+)$/, '$1$1') + '"'
 function supervised(label, args) {
   const report = join(dir, `${label}-${Date.now()}.supervisor.json`)
-  const exe = join(root, label === 'cycle' && resident ? (resident === 'recover' ? 'out/replay.exe' : 'out/resident.exe') : 'out/probe.exe')
+  const exe = join(root, label === 'cycle' && resident ? (resident === 'serve' ? 'out/serve.exe' : resident === 'recover' ? 'out/replay.exe' : 'out/resident.exe') : 'out/probe.exe')
   let failure, stdout = ''
   const mutating = label === 'cycle' || label === 'restore'
   if (mutating) { writerGone = false; restorationRequired = true }
@@ -97,11 +97,18 @@ if (exercise || prior) {
     assert(cycleEvidence?.connections >= 1, 'Missing per-connection set/clear verification')
     assert.equal(cycleEvidence.setFlags, 3)
     assert.equal(cycleEvidence.clearFlags, 1)
-    if (resident === 'recover') {
+    if (resident === 'recover' || resident === 'serve') {
       residentEvidence = JSON.parse(readFileSync(residentReport, 'utf8'))
       assert.equal(residentEvidence.ok, true)
       assert.equal(residentEvidence.timedOut, false)
-      assert.equal(residentEvidence.corePid, 0)
+      if (resident === 'serve') {
+        assert(residentEvidence.corePid > 0)
+        assert.notEqual(residentEvidence.corePid, cycle.data.rootPid)
+        assert.equal(cycleEvidence.privateRegistrationVerified, true)
+        assert(residentEvidence.triggerMask & 2)
+        assert.equal(residentEvidence.queryEvents, 0)
+        assert.equal(residentEvidence.endEvents, 0)
+      } else assert.equal(residentEvidence.corePid, 0)
       assert.equal(residentEvidence.coreGone, true)
       assert(residentEvidence.durationMs < 2350)
     } else if (resident) {
@@ -130,7 +137,8 @@ if (exercise || prior) {
     backup: dir, platform: process.platform, restoredAndVerified: true, runOnceUnchanged: true,
     cycleEvidence,
     residentEvidence,
-    scope: resident === 'recover' ? 'actual native recover engine with real WinINet and journal; registration replaced, no Core or OS session validation'
+    scope: resident === 'serve' ? 'actual native serve engine, IPC and real WinINet; fake Core, private registry key, no RunOnce or OS session validation'
+      : resident === 'recover' ? 'actual native recover engine with real WinINet and journal; registration replaced, no Core or OS session validation'
       : resident ? `real WinINet clear with ${resident} native query wait and fake Core; private trigger, not OS session validation`
       : 'shared one-shot WinINet operations, not resident notification/session validation' }, null, 2))
   console.log('Original LAN/RAS state verified after restoration; RunOnce was not modified')

@@ -32,7 +32,9 @@
 
 #define MAX_EXPECTED 8
 
+#ifndef RUNONCE_KEY
 #define RUNONCE_KEY L"Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce"
+#endif
 #define RUNONCE_VALUE L"ClashKuroSysProxyCleanup"
 // Run/RunOnce command lines longer than 260 characters are not executed.
 #define RUNONCE_MAX_COMMAND 260

@@ -182,3 +182,26 @@ enumeration buffers. Separately, production get/set/clear now report failure
 when RAS enumeration is incomplete; clear retains RunOnce. The native fake test
 in `apps/desktop/native/win/connections_test.c` reproduced the previous false
 success before the fix and never calls real mutation APIs on its test paths.
+# Actual serve-engine cycle
+
+`node .scratch/mvp/prototypes/wininet-recovery/run.mjs --exercise --resident=serve`
+is a mutating experiment intended for the isolated Windows CI runner, not an
+unattended run on a user's proxy workstation. The existing runner first exports
+Internet Settings and snapshots LAN/RAS through WinINet outside the repository.
+It requires unchanged baseline settings and no known competing proxy programs.
+
+The fixture uses the shipping resident engine, real framed IPC, real shared
+WinINet get/set/clear and journal logic. Only Core is a sleeping test process.
+The registration implementation is unchanged but its registry root is compiled
+as `HKCU\Software\ClashKuroWininetServeFixture`, never the actual RunOnce key.
+It refuses an existing fixture key/journal, checks the quoted recovery command
+after set, and checks deletion after clear. Successful tests remove their private
+key and empty journal; failed runs retain evidence rather than overwrite it.
+
+The driver checks flags=3 after set, sends duplicate CLOSE frames, then checks
+flags=1, verified shutdown and an empty journal. Core PID must differ from the
+owner. The external Job must be empty without rescue before the runner restores
+the original LAN/RAS settings. A rescue or failed assertion remains a failed
+experiment even after successful restoration. This tests operation/coordination,
+not actual RunOnce scheduling or OS session delivery. No session message is sent.
+

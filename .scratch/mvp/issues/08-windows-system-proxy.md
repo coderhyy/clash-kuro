@@ -393,3 +393,10 @@ Blocked by: 02, 07
 - Windows 全量桌面集成测试报 mixed-port 127.0.0.1:50280 EADDRINUSE；该 CI 记为失败，不算交付验收。现有栈只有 bind 回调，不能定位首次 start 或 restart。
 - 待区分的解释：释放的随机端口被本 fixture origin/其他进程重占；重启时连接/端口生命周期尚未结束；旧 Core 未完全退出。当前证据不足以指定根因，也不将故障归咎于 native 日志改动。
 - 仅补 fixture 阶段、mixed/origin 端口和 traffic 的错误上下文，保留原始 cause，并断言 origin 未重用 mixed-port。没有自动重试、端口轮换绕过或放宽等待门槛。
+
+2026-11-02 (agent，实际 resident serve/WinINet 组合验证入口):
+
+- CI 41414962583（9c64153）及 41414619865 均通过；41414184199 的端口占用失败仍保留，尚未凭后续通过认定根因已修复。
+- 增加隔离 CI 的 `--resident=serve`：实际 resident engine、真实 IPC 和 WinINet set/clear，假 Core；注册代码使用独立 HKCU 测试键，核验带引号的 recovery 命令写入/删除，不写真实 RunOnce。
+- 沿用仓库外 LAN/RAS 快照、注册表参考备份、状态保护与先确认 writer Job 清空再恢复的流程。重复 CLOSE、不复用外部救援为成功；明确不是 OS 会话事件或 RunOnce 调度验证。
+- 本机仅编译新 fixture，运行原有纯恢复条件/损坏快照检查和只读 get；全部通过。真实写入等待新隔离 CI，不在本机执行。
