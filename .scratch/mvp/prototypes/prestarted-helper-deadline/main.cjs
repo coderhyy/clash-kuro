@@ -3,6 +3,8 @@ const { app } = require('electron')
 const { spawn } = require('node:child_process')
 const fs = require('node:fs')
 const path = require('node:path')
+const closeFrame = Buffer.from([2, 0, 0, 0, 0, 0, 0, 0])
+const queryFrame = Buffer.concat([Buffer.from([1, 0, 0, 0, 12, 0, 0, 0]), Buffer.from('query\0', 'utf16le')])
 const opts = Object.fromEntries(process.argv.filter(x => x.startsWith('--probe-')).map(x => {
   const i = x.indexOf('='); return [x.slice(8, i), x.slice(i + 1)]
 }))
@@ -33,16 +35,18 @@ app.whenReady().then(() => {
       if (line === 'ready') {
         if (opts.case === 'window-stall') {
           record('stall-start')
-          helper.stdin.write('W')
+          helper.stdin.write(queryFrame)
           const end = performance.now() + 4000
           while (performance.now() < end) { /* Native window dispatch must not need JS. */ }
           record('stall-end')
         } else if (opts.case === 'ipc-before') helper.stdin.end()
-        else if (opts.case.startsWith('query-')) helper.stdin.write('W')
-        else helper.stdin.write('C')
+        else if (opts.case === 'ipc-partial') helper.stdin.end(closeFrame.subarray(0, 5))
+        else if (opts.case === 'ipc-invalid') helper.stdin.write(Buffer.from([3, 0, 0, 0, 0, 0, 0, 0]))
+        else if (opts.case.startsWith('query-')) helper.stdin.write(queryFrame)
+        else helper.stdin.write(closeFrame)
       }
       if (line === 'triggered') {
-        if (opts.case === 'repeat') setTimeout(() => { record('repeat-sent'); helper.stdin.write('CCCCCCC') }, 1200)
+        if (opts.case === 'repeat') setTimeout(() => { record('repeat-sent'); helper.stdin.write(Buffer.concat(Array(7).fill(closeFrame))) }, 1200)
         if (opts.case === 'electron-exit') { record('early-exit'); app.exit(0); return }
         if (opts.case === 'ipc-after') helper.stdin.end()
         if (opts.case === 'electron-hang-negative') {

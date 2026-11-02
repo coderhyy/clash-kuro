@@ -23,7 +23,7 @@ if (process.argv[2] === '--child') {
 } else {
   const negative = process.argv.includes('--watchdog-negative-control')
   const only = process.argv.find(x => x.startsWith('--case='))?.slice(7)
-  const names = ['normal', 'electron-stall', 'electron-exit', 'repeat', 'ipc-before', 'ipc-after',
+  const names = ['normal', 'electron-stall', 'electron-exit', 'repeat', 'ipc-before', 'ipc-after', 'ipc-partial', 'ipc-invalid',
     'operation-hang', 'late-operation', 'coordinator-hang', 'core-hang', 'window-stall',
     'query-plain', 'query-aware', 'query-handler-hang', 'operation-error']
   if (only && !names.includes(only)) throw new Error('Unknown case')

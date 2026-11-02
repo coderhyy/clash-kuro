@@ -382,3 +382,25 @@ Local coordination regression: `out/runs/1793596265913/results.json` contains
 15 policy outcomes, no watchdog rescue and no remaining children. A timeout
 or injected failure is still not successful proxy cleanup. Runtime routing,
 IPC, recovery generation and actual Core startup remain pending integration.
+
+## Private request framing (2026-11-02)
+
+The fixture's old C/W bytes now use the native `resident-protocol.h` boundary:
+8-byte little-endian kind/length header, at most 65536 payload bytes and 32
+UTF-16LE NUL-terminated arguments. TypeScript encoding lives in
+`apps/desktop/src/main/platform/resident-protocol.ts`. CLOSE has no payload;
+the independent native reader triggers shutdown directly, not via the worker
+queue. Invalid framing or a truncated frame followed by EOF closes the
+instance without resynchronizing. This is an inherited pipe, not a public
+listener. A partial frame without EOF can still block that reader; native
+window dispatch and shutdown supervision must remain independent of it.
+
+The fixture dispatches only its private query command, not production proxy
+requests. Native/TypeScript unit checks cover byte layout, empty argument
+values, invalid empty commands, unterminated data, excess argument/byte counts
+and distinct CLOSE framing. The fixture adds only two IPC policy cases:
+partial-frame disconnect and invalid opcode. All 17 policy cases satisfied
+their expected outcome locally in `out/runs/1793597535297/results.json`, with
+no rescue/remaining children. This proves framing and the existing fake
+coordination path, not complete resident RPC, production integration or real
+Windows session delivery. Local desktop typecheck and 160 tests passed.

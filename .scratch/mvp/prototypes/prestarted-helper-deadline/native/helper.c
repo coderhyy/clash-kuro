@@ -5,6 +5,9 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include "../../../../../apps/desktop/native/win/core-process.h"
+#ifndef KURO_AUTO_QUERY
+#include "../../../../../apps/desktop/native/win/resident-protocol.h"
+#endif
 
 static struct {
   HANDLE triggered, operation_start, operation_done, decision_ready, finished, report_start, report_done;
@@ -105,20 +108,35 @@ static DWORD WINAPI window_thread(void *unused) {
   }
   return 0;
 }
+#ifndef KURO_AUTO_QUERY
+static int read_exact(void *buffer, DWORD bytes) {
+  unsigned char *p = buffer;
+  while (bytes) {
+    DWORD count = 0;
+    if (!ReadFile(GetStdHandle(STD_INPUT_HANDLE), p, bytes, &count, NULL) || !count) return 0;
+    p += count; bytes -= count;
+  }
+  return 1;
+}
+#endif
 static DWORD WINAPI reader(void *unused) {
   (void)unused;
 #ifdef KURO_AUTO_QUERY
   /* Private test message only; never synthesize an OS session-end event. */
   return PostMessageW(s.window, WM_APP + 1, 0, 0) ? 0 : 1;
 #else
-  char byte; DWORD count;
-  while (ReadFile(GetStdHandle(STD_INPUT_HANDLE), &byte, 1, &count, NULL) && count) {
-    if (byte == 'C') trigger();
-    if (byte == 'W') {
+  unsigned char header[8];
+  wchar_t payload[KURO_REQUEST_BYTES / 2], *args[KURO_REQUEST_ARGS];
+  uint32_t kind, bytes; size_t count;
+  while (read_exact(header, sizeof header)) {
+    if (!kuro_request_header(header, &kind, &bytes)) break;
+    if (kind == 2) { trigger(); continue; }
+    if (!read_exact(payload, bytes) || !kuro_request_args(payload, bytes, args, &count)) break;
+    if (count == 1 && !wcscmp(args[0], L"query")) {
       if (!PostMessageW(s.window, WM_APP + 1, 0, 0)) return 1;
       if (WaitForSingleObject(s.triggered, 1000) != WAIT_OBJECT_0) return 2;
       ack("triggered\n", 10);
-    }
+    } else break;
   }
   InterlockedExchange(&s.eof, 1);
   trigger(); /* Losing the only controller closes this one-shot instance. No reconnect. */
