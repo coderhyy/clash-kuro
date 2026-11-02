@@ -229,6 +229,7 @@ function createWindowsSystemProxy(exec: Exec, options: SystemProxyOptions) {
       // Exit code 2 (partial failure) still carries a JSON report on stdout.
       if (typeof details.stdout === 'string' && details.stdout.trim()) stdout = details.stdout
       else {
+        if (args[0] !== 'get') { closing = true; uncertain = true }
         // Spawn refused (EACCES/EPERM, quarantined file, AppLocker) => security software or policy.
         const blocked = ['EACCES', 'EPERM', 'ENOENT', 'UNKNOWN'].includes(String(details.code))
         const message = `System Proxy helper could not run (${details.code ?? details.message}). ${manualHint(port)}`
@@ -237,9 +238,13 @@ function createWindowsSystemProxy(exec: Exec, options: SystemProxyOptions) {
     }
     let result: HelperResult
     try { result = JSON.parse(stdout) as HelperResult } catch (error) {
+      if (args[0] !== 'get') { closing = true; uncertain = true }
       throw new Error(`System Proxy helper returned invalid output: ${stdout.slice(0, 200)}`, { cause: error })
     }
-    if (typeof result !== 'object' || result === null || typeof result.ok !== 'boolean') throw new Error('System Proxy helper returned an unexpected result')
+    if (typeof result !== 'object' || result === null || typeof result.ok !== 'boolean') {
+      if (args[0] !== 'get') { closing = true; uncertain = true }
+      throw new Error('System Proxy helper returned an unexpected result')
+    }
     return result
   }
 
@@ -292,10 +297,12 @@ function createWindowsSystemProxy(exec: Exec, options: SystemProxyOptions) {
     let result: HelperResult
     try { result = await run(['clear', ...servers.flatMap((server) => ['--expected-server', server])]) } catch (error) {
       uncertain = true
+      closing = true
       throw error
     }
     if (!result.ok) {
       uncertain = true
+      closing = true
       throw failure(result)
     }
     uncertain = false

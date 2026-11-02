@@ -243,6 +243,25 @@ describe('Windows helper', () => {
     expect(exec).not.toHaveBeenCalled()
   })
 
+  test.each(['invalid JSON', '{}', '{"ok":false,"connections":[]}'])('uncertain mutation output closes writes: %s', async (stdout) => {
+    const exec = vi.fn<Exec>(async () => ({ stdout, stderr: '' }))
+    const { proxy } = win(exec)
+    await expect(proxy.clearSystemProxy()).rejects.toThrow()
+    exec.mockResolvedValue(ok({ command: 'clear', connections: [] }))
+    await proxy.clearSystemProxy()
+    await expect(proxy.setSystemProxy({ host: '127.0.0.1', port: 7890, bypass: [] })).rejects.toThrow(/uncertain state/)
+    expect(exec).toHaveBeenCalledTimes(2)
+  })
+
+  test.each(['invalid JSON', '{}'])('unverifiable set closes writes: %s', async (stdout) => {
+    const exec = vi.fn<Exec>(async () => ({ stdout, stderr: '' }))
+    const { proxy } = win(exec)
+    const settings = { host: '127.0.0.1', port: 7890, bypass: [] }
+    await expect(proxy.setSystemProxy(settings)).rejects.toThrow()
+    await expect(proxy.setSystemProxy(settings)).rejects.toThrow(/uncertain state/)
+    expect(exec).toHaveBeenCalledOnce()
+  })
+
   test('helper calls never overlap', async () => {
     let active = 0, peak = 0
     const exec = vi.fn<Exec>(async () => {
