@@ -46,12 +46,34 @@ int wmain(int argc, wchar_t **argv) {
   JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits = {0};
   limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
   if (!SetInformationJobObject(job, JobObjectExtendedLimitInformation, &limits, sizeof limits)) return 93;
-  STARTUPINFOW start = { .cb = sizeof start };
+  /* GUI children do not implicitly inherit console stdout. Never pass the Job handle. */
+  HANDLE streams[3];
+  DWORD stream_ids[] = { STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, STD_ERROR_HANDLE };
+  for (int i = 0; i < 3; ++i)
+    if (!DuplicateHandle(GetCurrentProcess(), GetStdHandle(stream_ids[i]), GetCurrentProcess(),
+                         &streams[i], 0, TRUE, DUPLICATE_SAME_ACCESS)) return 94;
+  STARTUPINFOEXW start = {0};
+  start.StartupInfo.cb = sizeof start;
+  start.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
+  start.StartupInfo.hStdInput = streams[0];
+  start.StartupInfo.hStdOutput = streams[1];
+  start.StartupInfo.hStdError = streams[2];
+  SIZE_T size = 0;
+  InitializeProcThreadAttributeList(NULL, 1, 0, &size);
+  start.lpAttributeList = HeapAlloc(GetProcessHeap(), 0, size);
+  if (!start.lpAttributeList || !InitializeProcThreadAttributeList(start.lpAttributeList, 1, 0, &size) ||
+      !UpdateProcThreadAttribute(start.lpAttributeList, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
+        streams, sizeof streams, NULL, NULL)) return 94;
   PROCESS_INFORMATION process = {0};
   wchar_t *command = _wcsdup(argv[4]);
-  if (!command || !CreateProcessW(argv[3], command, NULL, NULL, FALSE, CREATE_SUSPENDED,
-                                NULL, NULL, &start, &process)) return 94;
+  if (!command) return 94;
+  BOOL created = CreateProcessW(argv[3], command, NULL, NULL, TRUE,
+    CREATE_SUSPENDED | EXTENDED_STARTUPINFO_PRESENT, NULL, NULL, &start.StartupInfo, &process);
+  DeleteProcThreadAttributeList(start.lpAttributeList);
+  HeapFree(GetProcessHeap(), 0, start.lpAttributeList);
+  for (int i = 0; i < 3; ++i) CloseHandle(streams[i]);
   free(command);
+  if (!created) return 94;
   if (!AssignProcessToJobObject(job, process.hProcess)) {
     /* This exact process was created suspended by us; it cannot have children yet. */
     TerminateProcess(process.hProcess, 95);

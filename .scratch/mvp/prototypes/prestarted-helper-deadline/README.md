@@ -346,3 +346,15 @@ cases accepted, zero rescue/remaining processes; two negative controls remained
 unaccepted with the expected two rescues and no remaining Job members. Explicit
 installation of the pinned runtime resolved the launch failure; no test or
 timing threshold was relaxed.
+
+The guarded WinINet fixture now compiles this same coordinator with an explicit
+real-operation hook; the default build remains fake-only and checks its imports.
+An added `operation-error` case distinguishes a returned failure from timeout:
+it reports `failed`, keeps writes closed and self-terminates instead of claiming
+cleanup. The fifteen fake-policy cases passed locally in
+`out/runs/1793594498543/results.json`; the two rescue controls still failed exit
+acceptance in `out/runs/1793594831887-negative/results.json`. The shared test
+supervisor now explicitly allowlists only three standard handles for GUI-child
+output; it does not inherit the Job handle. See the adjacent `wininet-recovery`
+README for the read-only regression and the separately guarded real-operation
+experiment. Real hooks do not turn the fake-case results into WinINet evidence.
