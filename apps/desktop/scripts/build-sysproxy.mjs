@@ -31,6 +31,9 @@ try {
     const test = join(tmp, 'endpoint_test.exe')
     run(cc, [...warnings, '-mconsole', '-O2', join(src, 'endpoint_test.c'), '-o', test])
     run(test, [])
+    const connections = join(tmp, 'connections_test.exe')
+    run(cc, [...warnings, '-municode', '-mconsole', '-O2', '-static', join(src, 'connections_test.c'), '-lwininet', '-lrasapi32', '-ladvapi32', '-o', connections])
+    run(connections, [])
   }
   const res = join(tmp, 'kuro-sysproxy.res.o')
   run(windres, ['-I', src, '-O', 'coff', join(src, 'kuro-sysproxy.rc'), '-o', res])
