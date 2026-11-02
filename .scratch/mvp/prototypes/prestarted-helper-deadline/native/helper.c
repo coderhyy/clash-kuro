@@ -102,7 +102,8 @@ static DWORD WINAPI supervisor(void *unused) {
   }
   s.core_gone = WaitForSingleObject(s.core, 0) == WAIT_OBJECT_0;
   GetExitCodeProcess(s.core, &s.core_exit);
-  s.forced_self = s.operation_hang || s.coordinator_hang || !s.core_gone;
+  /* Uncertainty is a runtime outcome, not knowledge of the injected fault. */
+  s.forced_self = load(&s.decision) != 1 || !s.core_gone;
   s.end_at = GetTickCount64();
   SetEvent(s.report_start);
   /* Diagnostic filesystem I/O is outside shutdown work and cannot trap supervision. */
@@ -151,6 +152,7 @@ int wmain(int argc, wchar_t **argv) {
   s.report = argv[2];
   s.operation_hang = !wcscmp(argv[1], L"operation-hang") || !wcscmp(argv[1], L"repeat");
   s.operation_delay = !wcscmp(argv[1], L"electron-exit") ? 400 : 40;
+  if (!wcscmp(argv[1], L"late-operation")) s.operation_delay = 1900;
   s.coordinator_hang = !wcscmp(argv[1], L"coordinator-hang");
   s.rescue_negative = !wcscmp(argv[1], L"watchdog-negative");
   s.core_hang = !wcscmp(argv[1], L"core-hang");
