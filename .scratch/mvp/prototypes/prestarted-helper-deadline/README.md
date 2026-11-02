@@ -339,3 +339,10 @@ without rescue, not a shutdown timing failure. The downloaded results are in
 `out/ci-41387138363/`. CI now explicitly runs the pinned package's existing
 `install.js`; the runner fails fast if the runtime is still missing. No version
 or dependency manifest changed. The retry must pass before claiming CI coverage.
+
+Retry `41387678397` (`4649653`) passed both CI jobs. Downloaded
+`kuro-helper-coordination-evidence` into `out/ci-41387678397/`: fourteen policy
+cases accepted, zero rescue/remaining processes; two negative controls remained
+unaccepted with the expected two rescues and no remaining Job members. Explicit
+installation of the pinned runtime resolved the launch failure; no test or
+timing threshold was relaxed.

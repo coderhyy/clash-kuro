@@ -11,9 +11,21 @@ writes or deletes RunOnce. It does not start Core or send session messages.
 - Pure restoration-state guards and six malformed-backup cases passed.
 - Read-only LAN/RAS snapshots and exact baseline verification passed. Latest:
   `C:\Users\DT-056\kuro-sysproxy-backups\wininet-1793590661881`.
-- **No set, clear, notification or restore has been executed.** Other proxy
+- **No local set, clear, notification or restore has been executed.** Other proxy
   applications were running. Actual writes/restoration and prestarted WinINet
   notification behavior remain unverified; do not treat this as 2B success.
+
+The Windows CI job now also runs the guarded exercise on its own ephemeral
+runner, after all Core fixtures have exited. This is not the user's Windows
+10/11 desktop: a CI result must not substitute for target-machine notification
+or session evidence. No competitor check, backup, writer-exit gate or restoration
+check is bypassed. RunOnce is read again and compared after restoration; missing
+RunOnce keys are handled without creating them. Only the verified result summary
+is uploaded, not the raw registry export or baseline fields. The CI attempt has
+not yet completed at this checkpoint.
+
+The latest local read-only backup after this script change is
+`C:\Users\DT-056\kuro-sysproxy-backups\wininet-1793593360809`.
 
 ## Commands
 
