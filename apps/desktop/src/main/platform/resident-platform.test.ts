@@ -81,10 +81,23 @@ test('cleanup failure closes lifetime and repeated shutdown shares the same reje
 test('unexpected helper exit cannot turn shutdown into successful cleanup', async () => {
   const f = await fixture()
   await f.platform.startCore()
+  f.close.mockRejectedValue(new Error('native cleanup unverified (42)'))
   f.exit({ code: 42, signal: null })
   await Promise.resolve()
   await expect(f.platform.shutdown({ timeoutMs: 100 })).rejects.toThrow('unverified')
   await expect(f.platform.getSystemProxy()).rejects.toThrow()
+})
+
+test('native cleanup may finish before Electron handles exit; preserve its evidence without reopening writes', async () => {
+  const f = await fixture()
+  await f.platform.startCore()
+  f.exit({ code: 0, signal: null })
+  await Promise.resolve()
+  expect(await f.platform.isCoreRunning()).toBe(false)
+  await expect(f.platform.setSystemProxy({ host: '127.0.0.1', port: 7891, bypass: [] })).rejects.toThrow()
+  await expect(f.platform.shutdown({ timeoutMs: 100 })).resolves.toBeUndefined()
+  expect(f.close).toHaveBeenCalledTimes(1)
+  await expect(f.platform.startCore()).rejects.toThrow()
 })
 
 test('session hook never starts another helper or claims synchronous clear succeeded', async () => {

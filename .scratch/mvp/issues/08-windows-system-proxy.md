@@ -371,3 +371,10 @@ Blocked by: 02, 07
 - 本机在原型 out 下建立私有 TEMP junction，重现相同的收尾失败，并暴露原始 `Recovery directory must not traverse links`。这是可重复的路径别名反馈环；远端原始错误被旧测试遮蔽，尚不能断言远端根因已经证实。
 - 仅将集成测试 mkdtemp 创建的目录 realpath 后交给 Platform（与 recovery-helper 单测一致）；不修改生产目录安全校验。同一 TEMP junction 复测通过，Job 无救援/遗留。证据 `out/resident-platform-1793607168766/result.json`。
 - 本机 typecheck 与全量桌面 190/190 再次通过；等待新 CI 验证远端。未修改本机代理/RunOnce、ADR 或 Status，未启用 app resident 路由或执行会话实验。
+
+2026-11-02 (agent，绿色组合 CI 与先完成 native 清理的证据保留):
+
+- CI 41411540319 (`fb64c96`) Windows/macOS 全部通过；已下载协调证据，真实 Core/Platform 测试 rootExitCode=0、watchdogKilled=false、lingeringChildren=false、remaining=0。路径修正后的远端组合通过，不把前两次失败覆盖为成功。
+- 新回归发现 Platform 在 owner.exited 后丢弃 owner，导致 native 已成功清理时，后续 Electron shutdown 无法核验原 owner 的报告，误报 unverified。先在旧代码运行新增测试得到确定失败，再保留 owner 引用到 close 验证结束；退出后立即拒绝新 set，不根据 exit code 单独认定清理成功。
+- 非零退出/缺失成功证据仍由原 session.close 拒绝；不允许重开该不确定 Platform。191 项桌面测试及 typecheck 通过。
+- 真实 Core/假代理组合增加测试入口先调用 nativeOwner.close、待其实际退出后才调用 platform.shutdown，验证这一顺序仍能保留并核验成功证据。本机 `out/resident-platform-1793607558170/result.json` 通过，无救援/遗留。这是测试入口顺序，不是 OS 会话事件。

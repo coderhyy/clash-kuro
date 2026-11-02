@@ -295,7 +295,7 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
           void owner.exited.then(() => {
             if (resident === owner) {
               residentFailed = true
-              resident = undefined
+              // Keep the exact owner's final report for shutdown verification, even after native session cleanup.
             }
           })
           const deadline = Date.now() + (options.startTimeoutMs ?? 10_000)
@@ -370,6 +370,7 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
     },
     async setSystemProxy(settings) {
       if (shuttingDown) throw new Error('Platform is shutting down; System Proxy writes are closed')
+      if (residentFailed) throw new Error('Resident has exited; System Proxy writes are closed')
       await systemProxy.setSystemProxy(settings)
     },
     fetchText: options.fetchText ?? ((url, input) => fetchProfileText(url, {

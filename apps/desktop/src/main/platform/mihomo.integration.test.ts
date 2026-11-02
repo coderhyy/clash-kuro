@@ -27,13 +27,17 @@ test.skipIf(!existsSync(corePath) && process.env.KURO_REQUIRE_CORE !== '1')('bun
     await chmod(testCorePath, 0o700)
   }
   const fakeResident = process.env.KURO_RESIDENT_FAKE
+  let nativeOwner: Awaited<ReturnType<typeof startResidentSession>> | undefined
   if (fakeResident) {
     expect(process.platform).toBe('win32')
     expect(fakeResident).toBe(join(import.meta.dirname, '../../../../../.scratch/mvp/prototypes/prestarted-helper-deadline/out/resident-fake.exe'))
     expect(existsSync(fakeResident)).toBe(true)
   }
   const platform = createDesktopPlatform({ dataDir, corePath: testCorePath, mixedPort,
-    ...(fakeResident ? { sysproxyHelperPath: fakeResident, startResident: startResidentSession } : {}),
+    ...(fakeResident ? { sysproxyHelperPath: fakeResident, startResident: async (options: Parameters<typeof startResidentSession>[0]) => {
+      nativeOwner = await startResidentSession(options)
+      return nativeOwner
+    } } : {}),
   })
   const channel = platform.controlChannel()
   const directive = channel.kind === 'unix' ? 'external-controller-unix' : 'external-controller-pipe'
@@ -94,6 +98,9 @@ test.skipIf(!existsSync(corePath) && process.env.KURO_REQUIRE_CORE !== '1')('bun
     expect((await transport.request({ method: 'GET', path: '/version' })).status).toBe(200)
     await Promise.all([stream('/traffic', ['up', 'down']), stream('/logs?level=info', ['type', 'payload'])])
     if (fakeResident) {
+      // Test-entry trigger only: model native completion preceding Electron's shutdown callback.
+      await nativeOwner!.close()
+      expect(await platform.isCoreRunning()).toBe(false)
       const closing = platform.shutdown({ timeoutMs: 2500 })
       expect(platform.shutdown({ timeoutMs: 9000 })).toBe(closing)
       await closing
