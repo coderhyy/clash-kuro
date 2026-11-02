@@ -68,10 +68,13 @@ test.skipIf(!existsSync(corePath) && process.env.KURO_REQUIRE_CORE !== '1')('bun
     }, (error) => { if (error) { clear(); reject(error) } })
   })
   let failure: unknown
+  let phase = 'config'
   try {
+    expect(originAddress.port, 'Origin must not reuse the released mixed-port reservation').not.toBe(mixedPort)
     expect(await platform.applyRuntimeConfig(yaml)).toEqual({ ok: true })
     expect((await platform.applyRuntimeConfig('mixed-port: [\n')).ok).toBe(false)
     expect(await platform.readFile('runtime.yaml')).toBe(yaml)
+    phase = 'initial-start'
     await platform.startCore()
     if (fakeResident) await platform.setSystemProxy({ host: '127.0.0.1', port: mixedPort, bypass: [] })
     expect(await platform.isCoreRunning()).toBe(true)
@@ -86,16 +89,21 @@ test.skipIf(!existsSync(corePath) && process.env.KURO_REQUIRE_CORE !== '1')('bun
       },
       reapplySystemProxy: async () => {},
     })
+    phase = 'live-resume'
     await resume()
+    phase = 'first-streams'
     await Promise.all([stream('/traffic', ['up', 'down']), stream('/logs?level=info', ['type', 'payload'])])
+    phase = 'stop-before-restart'
     await platform.stopCore()
     expect(await platform.isCoreRunning()).toBe(false)
     expect(await platform.readFile('core.pid')).toBeNull()
+    phase = 'restart'
     await resume()
     expect(await platform.isCoreRunning()).toBe(true)
     if (fakeResident) await platform.setSystemProxy({ host: '127.0.0.1', port: mixedPort, bypass: [] })
     if (channel.kind === 'pipe') expect(platform.controlChannel()).not.toEqual(channel)
     expect((await transport.request({ method: 'GET', path: '/version' })).status).toBe(200)
+    phase = 'second-streams'
     await Promise.all([stream('/traffic', ['up', 'down']), stream('/logs?level=info', ['type', 'payload'])])
     if (fakeResident) {
       // Test-entry trigger only: model native completion preceding Electron's shutdown callback.
@@ -107,8 +115,8 @@ test.skipIf(!existsSync(corePath) && process.env.KURO_REQUIRE_CORE !== '1')('bun
       await expect(platform.setSystemProxy({ host: '127.0.0.1', port: mixedPort, bypass: [] })).rejects.toThrow()
     }
   } catch (error) {
-    failure = error
-    throw error
+    failure = new Error(`Core integration failed at ${phase}; mixedPort=${mixedPort}; originPort=${originAddress.port}; traffic=${trafficEvidence.join(', ')}`, { cause: error })
+    throw failure
   } finally {
     let stopError: unknown
     try { await platform.stopCore() } catch (error) { stopError = error }

@@ -387,3 +387,9 @@ Blocked by: 02, 07
 - 新报告回归首次暴露共享 `putf` 的 128-byte 静默截断，修为按所需长度完整格式化；不靠放宽测试避免错误。第二次暴露 fixture 将额外诊断字段与客户端刻意投影的可信协议字段整体比较，改为逐项核对全部协议字段并单独验证诊断字段，不扩大正式协议。
 - native 五场景回归通过，含 clear/set 卡死自身退出42、日志背压；无外部救援或遗留。证据 `out/resident-1793608356053`。真实 Core/假 WinINet Platform 组合再次通过，证据 `out/resident-platform-1793608365812/result.json`。未执行本机真实代理写入、RunOnce 修改或会话实验。
 - 本轮 typecheck 与桌面全量 191/191 通过；未放宽等待预算，未启用 app resident 路由。
+
+2026-11-02 (agent，CI 41414184199 端口占用失败):
+
+- Windows 全量桌面集成测试报 mixed-port 127.0.0.1:50280 EADDRINUSE；该 CI 记为失败，不算交付验收。现有栈只有 bind 回调，不能定位首次 start 或 restart。
+- 待区分的解释：释放的随机端口被本 fixture origin/其他进程重占；重启时连接/端口生命周期尚未结束；旧 Core 未完全退出。当前证据不足以指定根因，也不将故障归咎于 native 日志改动。
+- 仅补 fixture 阶段、mixed/origin 端口和 traffic 的错误上下文，保留原始 cause，并断言 origin 未重用 mixed-port。没有自动重试、端口轮换绕过或放宽等待门槛。
