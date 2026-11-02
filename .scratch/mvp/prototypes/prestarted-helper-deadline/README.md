@@ -437,3 +437,52 @@ window trigger for the new case; it now requires exactly one private query
 trigger. Neither failure was waived or a budget widened. This still uses fake
 operations/Core; the production native command dispatcher and Platform routing
 are not yet implemented, and no real session event was exercised.
+
+## Native resident dispatcher (2026-11-02, experimental; not routed by Platform)
+
+The shipping C source now has an opt-in `serve` entry. The existing app still
+uses one-shot commands. `resident.h` owns the hidden native window, independent
+pipe reader, serial operation worker, supervisor and bounded report attempt.
+It reuses the existing validated get/set/clear implementation; no reconnect,
+restart, administrator service or new dependency is introduced. The first close
+sets the admission bit and immutable tick deadline; repeated triggers do not renew
+it. Clear waits for any admitted set. Core termination follows clear completion
+or its 1500 ms timeout; the entire Core Job is checked through 2100 ms, including
+startup/publication races. Reporting gets only the remainder through 2200 ms.
+These are software budgets, not a hard wall-clock guarantee for kernel APIs.
+
+`native/resident_fake.c` compiles that actual dispatcher with all three operation
+hooks replaced: warmup, requests and shutdown clear. Its top-level CLI rejects
+one-shot commands; no fake test invokes WinINet or RunOnce. Core is a separate
+copy of that test executable. The supervisor owns its private noninherited Core
+Job; Electron does not own it. The external watchdog contains the exact test
+tree, but any rescue/leftover fails acceptance.
+
+Reproduce after `node .scratch/mvp/prototypes/prestarted-helper-deadline/build.mjs`:
+
+```powershell
+node .scratch/mvp/prototypes/prestarted-helper-deadline/resident-test.mjs
+```
+
+`out/resident-1793600817166/results.json`: all four policies observed. Normal
+and late-set cases exit 0 after successful fake clear; late-set asserts clear
+cannot overlap the active set. Clear-hang and set-hang explicitly report timeout
+and self-terminate with 42, not normal exit. All four confirm the fake Core Job
+is gone; no external rescue or leftover process. The 18 earlier Electron policy
+regressions also passed in `out/runs/1793600822028/results.json`.
+
+Native endpoint/protocol/enumeration/Core-ownership tests, restoration guards,
+read-only probe, typecheck and 167 desktop tests passed. An initial parallel
+desktop run timed out in the unrelated cat-mask test (7930 ms / 5000 ms limit);
+the unmodified full suite passed when rerun without concurrent native builds.
+No timeout threshold or assertion was removed.
+
+Not a deliverable session candidate yet: the client must validate final native
+shutdown evidence, Core startup stderr is currently discarded into NUL, and
+generation-safe recovery/stable RunOnce helper paths remain unresolved. The real
+resident entry has not run against local proxy settings. CI's older real WinINet
+bridge evidence does not validate this new entry or Windows session delivery.
+The report thread can be killed if logging or pipe output stalls; missing evidence
+must remain unknown, never success. Loader/kernel stalls cannot be ruled out by
+the in-process supervisor alone; the eventual parent also needs bounded exact-
+process handling. Do not replace the formal Platform route until these are closed.

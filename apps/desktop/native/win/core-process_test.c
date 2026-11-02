@@ -24,8 +24,8 @@ int wmain(int argc, wchar_t **argv) {
     _snwprintf(command, 33000, L"\"%ls\" --child %llu", exe, (unsigned long long)(uintptr_t)ready);
     _snwprintf(other_command, 33000, L"\"%ls\" --child 0", exe);
     PROCESS_INFORMATION core = {0}, other = {0};
-    assert(kuro_create_core(job, exe, command, NULL, &ready, 1, &core));
-    assert(kuro_create_core(other_job, exe, other_command, NULL, NULL, 0, &other));
+    assert(kuro_create_core(job, exe, command, NULL, &ready, 1, &core, NULL));
+    assert(kuro_create_core(other_job, exe, other_command, NULL, NULL, 0, &other, NULL));
     BOOL member = FALSE;
     assert(IsProcessInJob(core.hProcess, job, &member) && member);
     assert(IsProcessInJob(other.hProcess, job, &member) && !member);
@@ -47,7 +47,7 @@ int wmain(int argc, wchar_t **argv) {
   HANDLE job = kuro_core_job();
   PROCESS_INFORMATION missing = {0};
   wchar_t command[] = L"missing";
-  assert(!kuro_create_core(job, L"?:\\kuro-no-executable", command, NULL, NULL, 0, &missing));
+  assert(!kuro_create_core(job, L"?:\\kuro-no-executable", command, NULL, NULL, 0, &missing, NULL));
   assert(!missing.hProcess && !missing.hThread && GetLastError() != ERROR_SUCCESS);
   CloseHandle(job);
   puts("core-process: atomic membership, suspended/running job loss, isolation, failed creation passed");

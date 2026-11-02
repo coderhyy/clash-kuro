@@ -24,7 +24,7 @@ const windres = process.env.WINDRES || [cc.replace(/(clang|gcc)(\.exe)?$/, 'wind
 if (!windres) throw new Error('windres not found next to the compiler; set WINDRES')
 
 const run = (file, args) => execFileSync(file, args, { stdio: 'inherit' })
-const warnings = ['-Wall', '-Wextra', '-Werror']
+const warnings = ['-D_WIN32_WINNT=0x0A00', '-Wall', '-Wextra', '-Werror']
 const tmp = mkdtempSync(join(tmpdir(), 'kuro-sysproxy-'))
 try {
   if (process.argv.includes('--test')) {

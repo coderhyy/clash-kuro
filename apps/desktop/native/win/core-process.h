@@ -19,7 +19,8 @@ static HANDLE kuro_core_job(void) {
    Return suspended: publish the exact process handle before allowing Core to run.
    The caller must keep job alive through creation; on failure, never fall back to PID lookup. */
 static BOOL kuro_create_core(HANDLE job, const wchar_t *exe, wchar_t *command,
-    const wchar_t *cwd, HANDLE *inherited, SIZE_T inherited_count, PROCESS_INFORMATION *process) {
+    const wchar_t *cwd, HANDLE *inherited, SIZE_T inherited_count, PROCESS_INFORMATION *process,
+    const STARTUPINFOW *stdio) {
   if (!job || !exe || !command || !process || (inherited_count && !inherited)) {
     SetLastError(ERROR_INVALID_PARAMETER); return FALSE;
   }
@@ -28,6 +29,12 @@ static BOOL kuro_create_core(HANDLE job, const wchar_t *exe, wchar_t *command,
   DWORD count = inherited_count ? 2 : 1;
   InitializeProcThreadAttributeList(NULL, count, 0, &size);
   STARTUPINFOEXW si = {0}; si.StartupInfo.cb = sizeof si;
+  if (stdio) {
+    si.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
+    si.StartupInfo.hStdInput = stdio->hStdInput;
+    si.StartupInfo.hStdOutput = stdio->hStdOutput;
+    si.StartupInfo.hStdError = stdio->hStdError;
+  }
   si.lpAttributeList = HeapAlloc(GetProcessHeap(), 0, size);
   if (!si.lpAttributeList) { SetLastError(ERROR_NOT_ENOUGH_MEMORY); return FALSE; }
   BOOL initialized = InitializeProcThreadAttributeList(si.lpAttributeList, count, 0, &size);

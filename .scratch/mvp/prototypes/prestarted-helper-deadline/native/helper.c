@@ -236,7 +236,7 @@ static int launch_core(void) {
     (unsigned long long)(uintptr_t)s.stop_core, (unsigned long long)(uintptr_t)s.core_ready, s.core_hang);
   HANDLE inherited[] = { s.stop_core, s.core_ready };
   PROCESS_INFORMATION pi = {0};
-  BOOL ok = kuro_create_core(s.core_job, exe, command, NULL, inherited, 2, &pi);
+  BOOL ok = kuro_create_core(s.core_job, exe, command, NULL, inherited, 2, &pi, NULL);
   if (!ok) return 0;
   s.core = pi.hProcess; s.core_pid = pi.dwProcessId;
   DWORD resumed = ResumeThread(pi.hThread);

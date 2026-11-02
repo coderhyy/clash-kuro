@@ -41,10 +41,12 @@
 
 // Absolute path from --log (validated), or NULL.
 static const wchar_t *g_log;
+static int (*g_before_set)(const wchar_t *server);
 
 // ---- JSON output -------------------------------------------------------------------------
 
 typedef struct { char *data; size_t len, cap; } Buf;
+static Buf *g_capture;
 
 static void put(Buf *b, const char *s, size_t n) {
   if (b->len + n + 1 > b->cap) {
@@ -152,6 +154,7 @@ static void log_start(void) {
 // Writes the JSON result plus a newline to stdout and, with --log, to the log file.
 static void emit(Buf *b) {
   puts_(b, "\n");
+  if (g_capture) { put(g_capture, b->data, b->len); return; }
   HANDLE out = GetStdHandle(STD_OUTPUT_HANDLE);
   DWORD written;
   for (size_t done = 0; done < b->len; done += written) {
@@ -358,6 +361,7 @@ static int cmd_get(void) {
 
 // Shared operation entry points; isolated experiments must not modify recovery registration.
 static int set_connections(const wchar_t *server, const wchar_t *bypass, int manage_recovery) {
+  if (g_before_set && !g_before_set(server)) return usage(L"Resident endpoint/recovery admission failed");
   Connections c = connections();
   Buf b = {0};
   int ok = !c.rasError, any_set = 0;
@@ -460,7 +464,7 @@ static int clear_connections(const wchar_t **expected, int expected_count, int m
   return ok ? 0 : 2;
 }
 
-int wmain(int argc, wchar_t **argv) {
+static int command_main(int argc, wchar_t **argv) {
   if (argc < 2) return usage(L"Usage: kuro-sysproxy get | set --host H --port P [--bypass B] [--log F] | clear --expected-server H:P [--log F]");
   const wchar_t *command = argv[1], *host = NULL, *port = NULL, *bypass = L"", *log = NULL;
   const wchar_t *expected[MAX_EXPECTED];
@@ -501,4 +505,11 @@ int wmain(int argc, wchar_t **argv) {
     return clear_connections(expected, expected_count, 1);
   }
   return usage(L"Unknown command");
+}
+
+#include "resident.h"
+
+int wmain(int argc, wchar_t **argv) {
+  if (argc > 1 && !wcscmp(argv[1], L"serve")) return resident_main(argc, argv);
+  return command_main(argc, argv);
 }

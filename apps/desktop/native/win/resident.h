@@ -1,0 +1,246 @@
+/* One user process/Core lifetime. No reconnect, restart, elevation or service installation. */
+#include "core-process.h"
+#include "resident-protocol.h"
+
+#ifndef KURO_RESIDENT_EXEC
+#define KURO_RESIDENT_EXEC command_main
+#endif
+#ifndef KURO_RESIDENT_CLEAR
+#define KURO_RESIDENT_CLEAR clear_connections
+#endif
+#ifndef KURO_RESIDENT_WARM
+#define KURO_RESIDENT_WARM cmd_get
+#endif
+
+static struct {
+  HANDLE close, request, cleared, finished, report, reported, job, core, core_ready, core_started;
+  HWND window;
+  DWORD main_thread;
+  LONG core_pid;
+  LONG gate, closing, window_waiting;
+  ULONGLONG start;
+  LONG clear_ok;
+  int core_gone, timed_out;
+  const wchar_t *core_path, *data_dir;
+  wchar_t payload[KURO_REQUEST_BYTES / 2];
+  DWORD bytes;
+  wchar_t servers[MAX_EXPECTED][300];
+  int server_count;
+  Buf response;
+} resident;
+
+static LONG resident_load(LONG *p) { return InterlockedCompareExchange(p, 0, 0); }
+static DWORD resident_left(ULONGLONG deadline) {
+  ULONGLONG now = GetTickCount64();
+  return now < deadline ? (DWORD)(deadline - now) : 0;
+}
+static void resident_close(void) {
+  InterlockedOr(&resident.gate, 2);
+  InterlockedCompareExchange64((LONG64 *)&resident.start, (LONG64)GetTickCount64(), 0);
+  InterlockedExchange(&resident.closing, 1);
+  SetEvent(resident.close); /* Any caller may publish the first trigger; no single-owner handoff. */
+}
+static void resident_write(const char *data, size_t size) {
+  while (size) {
+    DWORD written = 0;
+    if (!WriteFile(GetStdHandle(STD_OUTPUT_HANDLE), data, (DWORD)size, &written, NULL) || !written) {
+      resident_close(); return;
+    }
+    data += written; size -= written;
+  }
+}
+static int resident_read(void *data, DWORD bytes) {
+  unsigned char *p = data;
+  while (bytes) {
+    DWORD count = 0;
+    if (!ReadFile(GetStdHandle(STD_INPUT_HANDLE), p, bytes, &count, NULL) || !count) return 0;
+    p += count; bytes -= count;
+  }
+  return 1;
+}
+static DWORD WINAPI resident_reader(void *unused) {
+  (void)unused;
+  unsigned char header[8]; uint32_t kind, bytes;
+  while (resident_read(header, sizeof header)) {
+    if (!kuro_request_header(header, &kind, &bytes)) break;
+    if (kind == 2) { resident_close(); continue; }
+    if (InterlockedCompareExchange(&resident.gate, 1, 0) != 0) break;
+    if (!resident_read(resident.payload, bytes)) break;
+    resident.bytes = bytes;
+    SetEvent(resident.request);
+  }
+  resident_close();
+  return 0;
+}
+static int resident_remember(const wchar_t *server) {
+  for (int i = 0; i < resident.server_count; ++i)
+    if (!wcscmp(server, resident.servers[i])) return 1;
+  if (resident.server_count == MAX_EXPECTED || !kuro_valid_server(server)) return 0;
+  wcscpy(resident.servers[resident.server_count++], server);
+  return 1;
+}
+static int resident_start_core(void) {
+  SECURITY_ATTRIBUTES sa = { sizeof sa, NULL, TRUE };
+  HANDLE nul = CreateFileW(L"NUL", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE,
+    &sa, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+  if (nul == INVALID_HANDLE_VALUE) return 0;
+  wchar_t command[2048];
+  _snwprintf(command, 2048, L"\"%ls\" -d \"%ls\\.\" -f \"%ls\\runtime.yaml\"",
+    resident.core_path, resident.data_dir, resident.data_dir);
+  STARTUPINFOW stdio = {0};
+  stdio.hStdInput = stdio.hStdOutput = stdio.hStdError = nul;
+  PROCESS_INFORMATION core = {0};
+  BOOL ok = kuro_create_core(resident.job, resident.core_path, command, resident.data_dir,
+    &nul, 1, &core, &stdio);
+  CloseHandle(nul);
+  if (!ok) return 0;
+  InterlockedExchange(&resident.core_pid, (LONG)core.dwProcessId);
+  InterlockedExchangePointer((PVOID volatile *)&resident.core, core.hProcess);
+  SetEvent(resident.core_ready);
+  DWORD resumed = ResumeThread(core.hThread);
+  CloseHandle(core.hThread);
+  return resumed != (DWORD)-1;
+}
+static DWORD WINAPI resident_worker(void *unused) {
+  (void)unused;
+  g_capture = &resident.response;
+  if (KURO_RESIDENT_WARM()) resident_close(); /* Initialize before shutdown; a failed warmup closes admission. */
+  resident.response.len = 0;
+  int started = !resident_load(&resident.closing) && resident_start_core();
+  SetEvent(resident.core_started);
+  if (!started) resident_close();
+  if (!resident_load(&resident.closing)) {
+    static const char ready[] = "{\"ready\":true,\"protocol\":1}\n";
+    resident_write(ready, sizeof ready - 1);
+  }
+  HANDLE events[] = {resident.close, resident.request};
+  for (;;) {
+    DWORD event = WaitForMultipleObjects(2, events, FALSE, INFINITE);
+    if (event != WAIT_OBJECT_0 + 1 || (resident_load(&resident.gate) & 2)) { resident_close(); break; }
+    wchar_t *args[KURO_REQUEST_ARGS + 1]; size_t count;
+    args[0] = L"kuro-sysproxy";
+    if (!kuro_request_args(resident.payload, resident.bytes, args + 1, &count)) { resident_close(); break; }
+    if (wcscmp(args[1], L"get") && wcscmp(args[1], L"set") && wcscmp(args[1], L"clear")) { resident_close(); break; }
+    int valid = 1;
+    for (size_t i = 2; i < count + 1; i += 2) {
+      if (i + 1 >= count + 1 || !wcscmp(args[i], L"--log")) { valid = 0; break; }
+    }
+    if (!valid) { resident_close(); break; }
+    // Only this CAS admits an operation. Close wins over a queued/partially-read request.
+    if (InterlockedCompareExchange(&resident.gate, 5, 1) != 1) { resident_close(); break; }
+    int mutating = wcscmp(args[1], L"get") != 0;
+    resident.response.len = 0;
+    int code = KURO_RESIDENT_EXEC((int)count + 1, args);
+    // The response owns its bytes; release the request slot before publishing it.
+    InterlockedAnd(&resident.gate, ~5L);
+    resident_write(resident.response.data, resident.response.len);
+    if (code && mutating) resident_close();
+  }
+  const wchar_t *expected[MAX_EXPECTED];
+  for (int i = 0; i < resident.server_count; ++i) expected[i] = resident.servers[i];
+  resident.response.len = 0;
+  InterlockedExchange(&resident.clear_ok, KURO_RESIDENT_CLEAR(expected, resident.server_count, 1) == 0);
+  SetEvent(resident.cleared);
+  return 0;
+}
+static DWORD WINAPI resident_report(void *unused) {
+  (void)unused;
+  WaitForSingleObject(resident.report, INFINITE);
+  Buf report = {0};
+  putf(&report, "{\"command\":\"shutdown\",\"ok\":%s,\"timedOut\":%s,\"coreGone\":%s,\"corePid\":%lu,\"durationMs\":%llu}\n",
+    resident_load(&resident.clear_ok) && !resident.timed_out && resident.core_gone ? "true" : "false",
+    resident.timed_out ? "true" : "false", resident.core_gone ? "true" : "false",
+    (unsigned long)resident_load(&resident.core_pid), GetTickCount64() - resident.start);
+  log_append(report.data, report.len);
+  resident_write(report.data, report.len);
+  free(report.data);
+  SetEvent(resident.reported);
+  return 0;
+}
+static DWORD WINAPI resident_supervisor(void *unused) {
+  (void)unused;
+  HANDLE startup[] = {resident.close, resident.core_ready};
+  if (WaitForMultipleObjects(2, startup, FALSE, INFINITE) == WAIT_OBJECT_0 + 1) {
+    HANDLE live[] = {resident.close, InterlockedCompareExchangePointer((PVOID volatile *)&resident.core, NULL, NULL)};
+    WaitForMultipleObjects(2, live, FALSE, INFINITE);
+    resident_close();
+  }
+  resident.timed_out = WaitForSingleObject(resident.cleared, resident_left(resident.start + 1500)) != WAIT_OBJECT_0;
+  // The Job exists before any Core creation, including a create/publication race.
+  TerminateJobObject(resident.job, 0);
+  // A root exit alone does not prove descendants are gone, or that startup cannot still create Core.
+  do {
+    JOBOBJECT_BASIC_ACCOUNTING_INFORMATION info = {0};
+    resident.core_gone = WaitForSingleObject(resident.core_started, 0) == WAIT_OBJECT_0 &&
+      QueryInformationJobObject(resident.job, JobObjectBasicAccountingInformation,
+      &info, sizeof info, NULL) && !info.ActiveProcesses;
+    if (resident.core_gone) break;
+    DWORD left = resident_left(resident.start + 2100);
+    if (!left) break;
+    // Catch a Core admitted after the first termination while startup was still in progress.
+    TerminateJobObject(resident.job, 0);
+    Sleep(left < 10 ? left : 10);
+  } while (1);
+  SetEvent(resident.finished);
+  SetEvent(resident.report);
+  DWORD logged = WaitForSingleObject(resident.reported, resident_left(resident.start + 2200));
+  if (resident.timed_out || !resident_load(&resident.clear_ok) || !resident.core_gone || logged != WAIT_OBJECT_0)
+    TerminateProcess(GetCurrentProcess(), 42);
+  PostThreadMessageW(resident.main_thread, WM_QUIT, 0, 0);
+  // A stalled native window must not strand the process after cleanup has finished.
+  WaitForSingleObject(GetCurrentProcess(), resident_left(resident.start + 2200));
+  TerminateProcess(GetCurrentProcess(), 43);
+  return 0;
+}
+static LRESULT CALLBACK resident_window(HWND window, UINT message, WPARAM w, LPARAM l) {
+  if (message == WM_QUERYENDSESSION || (message == WM_ENDSESSION && w)) {
+    resident_close();
+    if (!InterlockedCompareExchange(&resident.window_waiting, 1, 0)) {
+      while (WaitForSingleObject(resident.close, 0) == WAIT_OBJECT_0 && resident_left(resident.start + 2100)) {
+        DWORD waited = MsgWaitForMultipleObjectsEx(1, &resident.finished, resident_left(resident.start + 2100), QS_SENDMESSAGE, MWMO_INPUTAVAILABLE);
+        if (waited != WAIT_OBJECT_0 + 1) break;
+        MSG sent; PeekMessageW(&sent, NULL, 0, 0, PM_NOREMOVE);
+      }
+      InterlockedExchange(&resident.window_waiting, 0);
+    }
+    return message == WM_QUERYENDSESSION ? TRUE : 0;
+  }
+  return DefWindowProcW(window, message, w, l);
+}
+static int resident_main(int argc, wchar_t **argv) {
+  const wchar_t *log = NULL;
+  for (int i = 2; i < argc; i += 2) {
+    if (i + 1 >= argc) return usage(L"Missing serve option value");
+    if (!wcscmp(argv[i], L"--core") && !resident.core_path) resident.core_path = argv[i + 1];
+    else if (!wcscmp(argv[i], L"--data") && !resident.data_dir) resident.data_dir = argv[i + 1];
+    else if (!wcscmp(argv[i], L"--log") && !log) log = argv[i + 1];
+    else if (!wcscmp(argv[i], L"--expected-server") && resident_remember(argv[i + 1])) { }
+    else return usage(L"Invalid serve option");
+  }
+  if (!kuro_valid_log_path(resident.core_path) || !kuro_valid_log_path(resident.data_dir) ||
+      (log && !kuro_valid_log_path(log)) || !resident.server_count) return usage(L"serve requires absolute --core/--data and --expected-server");
+  g_log = log;
+  g_before_set = resident_remember;
+  resident.main_thread = GetCurrentThreadId();
+  resident.job = kuro_core_job();
+  if (!resident.job) return 3;
+#define RES_EVENT(field, manual) resident.field = CreateEventW(NULL, manual, FALSE, NULL); if (!resident.field) return 3
+  RES_EVENT(close, TRUE); RES_EVENT(request, FALSE); RES_EVENT(cleared, TRUE);
+  RES_EVENT(finished, TRUE); RES_EVENT(report, TRUE); RES_EVENT(reported, TRUE);
+  RES_EVENT(core_ready, TRUE); RES_EVENT(core_started, TRUE);
+#undef RES_EVENT
+  WNDCLASSW cls = {0}; cls.lpfnWndProc = resident_window; cls.hInstance = GetModuleHandleW(NULL);
+  cls.lpszClassName = L"ClashKuroResidentProxy";
+  if (!RegisterClassW(&cls)) return 3;
+  resident.window = CreateWindowExW(WS_EX_TOOLWINDOW, cls.lpszClassName, L"", WS_POPUP, 0, 0, 0, 0, NULL, NULL, cls.hInstance, NULL);
+  if (!resident.window) return 3;
+  LPTHREAD_START_ROUTINE starts[] = { resident_supervisor, resident_report, resident_worker, resident_reader };
+  for (unsigned i = 0; i < sizeof starts / sizeof *starts; ++i) {
+    HANDLE thread = CreateThread(NULL, 0, starts[i], NULL, 0, NULL);
+    if (!thread) { resident_close(); TerminateProcess(GetCurrentProcess(), 3); return 3; }
+    CloseHandle(thread);
+  }
+  MSG message;
+  while (GetMessageW(&message, NULL, 0, 0) > 0) { TranslateMessage(&message); DispatchMessageW(&message); }
+  return 0;
+}

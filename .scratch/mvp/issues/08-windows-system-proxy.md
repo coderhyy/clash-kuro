@@ -258,3 +258,10 @@ Blocked by: 02, 07
 - 普通退出此前仅关闭 Core 重启入口，仍允许新代理写入，且清理超时/失败被吞掉。现在首次 shutdown 同步关闭 Windows 写入入口，已排队但未开始写入的 set 也被拒绝；重复 shutdown 返回同一操作，不重置首次等待预算。代理尝试后仍请求停 Core，失败/超时不再冒充成功，并在 exit.log 记录 cleanup FAILED/state unknown。
 - Windows mutating helper 超时后也永久关闭本实例 set 入口；允许清理重试，但清理成功不会重新开放 set。修复 remembered 为空时误跳过不确定清理的分支。
 - 本地 typecheck 和 158 项桌面测试通过，覆盖不可验证的 helper 输出、重复退出、关闭后拒绝 set、队列中的 set、超时后的状态与清理重试。这里的 Promise 等待仅约束异步调用方，既不取消旧 native writer，也不是硬实时保证；旧 one-shot 会话路径尚未替换，不能据此安排或声称真实注销验收通过。resident IPC、原生终止证明和恢复代次仍需继续接入。
+
+2026-11-02 (agent，实际原生 resident 入口的假后端验证):
+
+- `6ce0909` 的 Windows CI `41396967795` 已通过。新增实验性 `serve` 分发入口，复用既有 get/set/clear 与端点校验；正式 Platform 尚不调用。原生 reader、串行 worker、监督线程与独立隐藏窗口分别处理请求、操作、预算和会话消息，不依赖 Electron JS 完成回调。
+- 对实际入口替换全部代理后端进行四项测试：正常清理、在途 set 完成后 clear、set 卡死、clear 卡死。前两项正常退出，后两项明确超时并自身终止 42；四项无外部救援或残留进程。结果 `prestarted-helper-deadline/out/resident-1793600817166/results.json`。补上 Core 启动竞态及整个 Core Job 清空检查，不仅检查根进程；重复关闭不续期。
+- 既有 18 项 Electron 协调回归通过。native 构建/单测、恢复安全检查、只读 probe、typecheck 通过；桌面测试首轮并行构建时 cat-mask 触发 5 秒超时，未改测试或预算，停止并行构建后完整重跑 167 项通过。这里是软件预算，不是硬实时保证。
+- 仍需补原生最终结果验证、Core 启动诊断、恢复代次/稳定路径，再切换正式调用和验证实际新入口。旧 CI 的真实 API 线程桥接不等于该入口已完成真实 WinINet 验收；更不等于注销/关机成功。本机没有代理写入或会话实验；ADR-0011、ADR-0013 草案状态及 issue Status 保持不变，不合并。
