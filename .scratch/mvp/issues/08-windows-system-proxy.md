@@ -243,3 +243,11 @@ Blocked by: 02, 07
 - 本机十四个策略场景符合预期：七个正常假清理、六个不确定后自终止、一个强制停假 Core；均无外部救援或 Job 遗留。普通等待与假同步通知互等后超时；原生 helper 消息感知等待完成假链路；窗口过程永久卡死仍由独立监督线程结束。两个外部救援负对照继续计为退出验收失败。清理 1500 ms、Core stop 至 2000 ms、确认至 2100 ms 均沿用原始绝对截止时间，不因事件续期；并非硬实时墙钟保证。
 - Windows CI 新增原型与救援负对照。首次 run `41387138363` 在启动 Electron 前因包内缺少 `dist/electron.exe` 报 ENOENT，非超时失败；已保留诊断产物并补显式执行锁定版本 Electron 的安装脚本，等待重试结果，不跳过用例或放宽时限。
 - 详细报告及命令在 `.scratch/mvp/prototypes/prestarted-helper-deadline/README.md`。未写代理、RunOnce，未投递真实会话消息或注销/关机；真实 WinINet 写入仍因其他代理程序运行而暂停。正式集成与人工验收未完成；ADR-0011、Status 不改，ADR-0013 仍为草案，不合并。
+
+2026-11-02 (agent，隔离 CI 的真实 WinINet 线程桥接):
+
+- 本机仍不做代理写入。改在独立 GitHub Windows Server 2025 runner 上使用仓库外备份和受控恢复，保留竞争进程检查、旧 writer Job 清空证明及恢复前状态核对，不改 RunOnce。恢复失败/拒绝时现在保留 writer 锁，不能仅因旧进程退出就继续写入。
+- CI `41388311489` 先通过共享 one-shot set/clear/恢复。加强逐连接 set/clear 后查询后，`41389190950` 因监督器未显式传递 GUI 子进程 stdout 导致证据解析失败；只读 get 在本机先复现、修复后三个标准句柄精确继承的回归通过，不继承 Job 句柄，没有删断言。
+- `3ea3673` 的 CI `41390975216` 全部通过：one-shot、原生普通等待、原生消息感知等待均查询到 flags 3→1、正确测试端点/bypass、保留 PAC，恢复原状态且 RunOnce 不变。每种只有一个 LAN，无实际 RAS。原生模式复用协调模型与共享 clear，假 Core 在 clear 决策后正常退出；没有外部救援。新增 API 返回失败用例记录 failed 而非 timeout，十五个假策略场景符合预期；两个救援负对照仍不通过退出验收。
+- 下载结果到 `.scratch/mvp/prototypes/wininet-recovery/out/ci-41390975216/`。记录的 clear 0 tick-ms 只表示 GetTickCount64 未跨 tick，不是瞬时完成或硬实时保证。真实 API 在该 runner 本轮未复现假同步通知的互等，不能推广为所有 WinINet/Windows/Electron 场景均无依赖。
+- 这是无 Electron 载体的真实 clear 线程桥接：正常设置后才启动协调阶段，使用私有 WM_APP 触发，非正式启动流程、非实际会话消息。正式 resident/Core 所有权接入、恢复代次竞争、本机通知行为及人工注销/关机仍待完成。详细范围、失败与复现见原型 README；goal 不得标 complete。

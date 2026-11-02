@@ -80,6 +80,34 @@ The controller now also retains its writer lock when restoration is required
 but failed/refused; an empty old Job alone is insufficient to resume writes.
 Pure tests reject rescued, nonzero, nonempty or incomplete exit evidence.
 
+## CI bridge result
+
+Run `41390975216` (`3ea3673`) passed both full CI jobs on 2026-11-02. The Windows
+job identifies its OS as Windows Server 2025, image `windows-2025-vs2026`.
+Downloaded summaries are in `out/ci-41390975216/`:
+
+| Mode | Connections | Set flags / clear flags | API set / clear observation | Result |
+| --- | --- | --- | --- | --- |
+| one-shot | 1 (LAN) | 3 / 1 | 16 / 0 tick-ms | Verified, restored |
+| native plain wait | 1 (LAN) | 3 / 1 | 0 / 0 tick-ms | Clear completed, fake Core exited normally, restored |
+| native aware wait | 1 (LAN) | 3 / 1 | 0 / 0 tick-ms | Clear completed, fake Core exited normally, restored |
+
+All three verified the endpoint, bypass and preserved PAC string and confirmed
+RunOnce unchanged. Both native-mode summaries contain `decision=cleared`, one
+operation/one Core stop, `coreGone=true`, `selfForced=false` and the original
+1500 ms clear deadline. Acceptance also requires the writer Job to be empty
+without external rescue before any restoration. **0 tick-ms means no clock tick
+elapsed in GetTickCount64, not instantaneous completion or a precision latency
+benchmark.** Source/event ordering, not equal coarse timestamps, establishes the
+clear-decision-before-Core-stop sequence.
+
+The synthetic plain-wait deadlock did not recur for these actual API calls on
+this runner. That neither establishes nor excludes a real notification
+dependency on other Windows versions, Electron windows, RAS, or session ending.
+No RAS connection was present, and there was no Electron carrier in this bridge.
+The user's desktop settings were never changed by these tests. The stdout defect
+from the preceding failed CI is now covered by a passing read-only regression.
+
 The latest local read-only backup after this script change is
 `C:\Users\DT-056\kuro-sysproxy-backups\wininet-1793593360809`.
 
