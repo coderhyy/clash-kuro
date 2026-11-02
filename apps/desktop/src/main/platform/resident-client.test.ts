@@ -20,6 +20,14 @@ process.stdin.on('data', chunk => {
     if (kind === 2) {
       if (++closes !== 1) process.exit(91);
       if (mode === 'hang') send({command:'get',ok:true}); // Late result cannot reopen admission.
+      if (mode.startsWith('report-')) {
+        const final = {command:'shutdown',ok:true,timedOut:mode==='report-invalid',coreGone:true,corePid:123,durationMs:40};
+        if (mode === 'report-truncated') process.stdout.write('{');
+        else {
+          send(final);
+          if (mode === 'report-duplicate') send(final);
+        }
+      }
       setTimeout(() => process.exit(0), 30);
     } else if (mode === 'bad') send({command:'wrong',ok:true});
     else if (mode === 'overflow') process.stdout.write('x'.repeat(1024 * 1024 + 1));
@@ -85,5 +93,19 @@ test('spawn failure rejects readiness and records that no writer process was cre
   await expect(client.ready).rejects.toThrow()
   expect(child.pid).toBeUndefined()
   await expect(client.exited).resolves.toEqual({ code: null, signal: null })
+  await expect(client.closed).resolves.toEqual({ code: null, signal: null, report: null })
   await expect(client.request(['set'])).rejects.toThrow('exited')
+})
+
+test.each(['report-valid', 'report-invalid', 'report-duplicate', 'report-truncated', 'normal'])('final evidence requires one consistent complete report after stdout drains: %s', async mode => {
+  await fixture(mode, async client => {
+    await client.ready
+    client.close()
+    const result = await client.closed
+    expect(result.code).toBe(0)
+    expect(result.report).toEqual(mode === 'report-valid'
+      ? { command: 'shutdown', ok: true, timedOut: false, coreGone: true, corePid: 123, durationMs: 40 }
+      : null)
+    await expect(client.request(['set'])).rejects.toThrow('exited')
+  })
 })

@@ -6,6 +6,11 @@
 
 static ULONG_PTR seen[256];
 static int seen_count;
+static HANDLE notifications;
+static void remember(ULONG_PTR pid) {
+  for (int i = 0; i < seen_count; ++i) if (seen[i] == pid) return;
+  if (seen_count < 256) seen[seen_count++] = pid;
+}
 static ULONG_PTR before_rescue[256];
 static DWORD before_count;
 static int before_valid;
@@ -28,13 +33,17 @@ static DWORD active_count(HANDLE job) {
   return info.ActiveProcesses;
 }
 static void record_members(HANDLE job) {
+  /* Snapshots alone miss a child that exits between polls. Subscribe before launch. */
+  for (int i = 0; i < 256; ++i) {
+    DWORD message; ULONG_PTR key; LPOVERLAPPED pid;
+    if (!GetQueuedCompletionStatus(notifications, &message, &key, &pid, 0)) break;
+    if (key == (ULONG_PTR)job && message == JOB_OBJECT_MSG_NEW_PROCESS) remember((ULONG_PTR)pid);
+  }
   BYTE bytes[sizeof(JOBOBJECT_BASIC_PROCESS_ID_LIST) + sizeof(ULONG_PTR) * 256];
   JOBOBJECT_BASIC_PROCESS_ID_LIST *list = (void *)bytes;
   if (!QueryInformationJobObject(job, JobObjectBasicProcessIdList, list, sizeof bytes, NULL)) return;
   for (DWORD i = 0; i < list->NumberOfProcessIdsInList; ++i) {
-    int found = 0;
-    for (int j = 0; j < seen_count; ++j) if (seen[j] == list->ProcessIdList[i]) found = 1;
-    if (!found && seen_count < 256) seen[seen_count++] = list->ProcessIdList[i];
+    remember(list->ProcessIdList[i]);
   }
 }
 int wmain(int argc, wchar_t **argv) {
@@ -46,6 +55,10 @@ int wmain(int argc, wchar_t **argv) {
   JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits = {0};
   limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
   if (!SetInformationJobObject(job, JobObjectExtendedLimitInformation, &limits, sizeof limits)) return 93;
+  notifications = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 1);
+  JOBOBJECT_ASSOCIATE_COMPLETION_PORT association = { job, notifications };
+  if (!notifications || !SetInformationJobObject(job, JobObjectAssociateCompletionPortInformation,
+      &association, sizeof association)) return 93;
   /* GUI children do not implicitly inherit console stdout. Never pass the Job handle. */
   HANDLE streams[3];
   DWORD stream_ids[] = { STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, STD_ERROR_HANDLE };
@@ -108,6 +121,7 @@ int wmain(int argc, wchar_t **argv) {
     while (active_count(job) && GetTickCount64() < until) Sleep(10);
   }
   DWORD remaining = active_count(job);
+  record_members(job);
   FILE *report = _wfopen(argv[2], L"wb");
   if (!report) return 97;
   fprintf(report, "{\"rootPid\":%lu,\"rootExitCode\":%lu,\"watchdogKilled\":%s,\"lingeringChildren\":%s,"
@@ -119,6 +133,6 @@ int wmain(int argc, wchar_t **argv) {
   fprintf(report, "],\"rescueSnapshotValid\":%s,\"pidsBeforeRescue\":[", before_valid ? "true" : "false");
   for (DWORD i = 0; i < before_count; ++i) fprintf(report, "%s%llu", i ? "," : "", (unsigned long long)before_rescue[i]);
   fprintf(report, "]}\n"); fclose(report);
-  CloseHandle(process.hProcess); CloseHandle(job);
+  CloseHandle(process.hProcess); CloseHandle(job); CloseHandle(notifications);
   return forced || lingering || remaining || code != 0 ? 1 : 0;
 }

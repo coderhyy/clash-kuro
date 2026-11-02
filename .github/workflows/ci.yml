@@ -84,7 +84,7 @@ jobs:
           name: kuro-helper-coordination-evidence
           path: |
             .scratch/mvp/prototypes/prestarted-helper-deadline/out/runs/*/results.json
-            .scratch/mvp/prototypes/prestarted-helper-deadline/out/resident-*/results.json
+            .scratch/mvp/prototypes/prestarted-helper-deadline/out/resident-*/**/*.json
           include-hidden-files: true
           if-no-files-found: warn
           retention-days: 7

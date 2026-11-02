@@ -477,8 +477,7 @@ desktop run timed out in the unrelated cat-mask test (7930 ms / 5000 ms limit);
 the unmodified full suite passed when rerun without concurrent native builds.
 No timeout threshold or assertion was removed.
 
-Not a deliverable session candidate yet: the client must validate final native
-shutdown evidence, Core startup stderr is currently discarded into NUL, and
+Not a deliverable session candidate yet: Core startup stderr is currently discarded into NUL, and
 generation-safe recovery/stable RunOnce helper paths remain unresolved. The real
 resident entry has not run against local proxy settings. CI's older real WinINet
 bridge evidence does not validate this new entry or Windows session delivery.
@@ -486,3 +485,26 @@ The report thread can be killed if logging or pipe output stalls; missing eviden
 must remain unknown, never success. Loader/kernel stalls cannot be ruled out by
 the in-process supervisor alone; the eventual parent also needs bounded exact-
 process handling. Do not replace the formal Platform route until these are closed.
+
+### Final report and CI evidence correction
+
+The client now exposes `closed` separately from `exited`: it waits for pipe drain
+and returns a single schema-validated shutdown report, or null for missing,
+truncated, duplicated, contradictory or corrupt output. Late replies cannot
+reopen writes. Callers must additionally require a successful process outcome and
+apply their own remaining deadline; `closed` is not an unbounded-wait permission.
+The actual native fixture compares this result against the separately written
+native log. Typecheck and 172 desktop tests passed.
+
+CI `41400437372` failed the exact Core PID observation assertion: the short-lived
+normal fake Core was absent from periodic Job snapshots. The assertion remains;
+the watchdog now subscribes to Job completion-port creation notifications before
+launch and drains them along with snapshots. Both sources only describe its own
+Job, not process-name matching. Notification delivery is not a hard real-time
+guarantee; missing required PID evidence still fails the test. Per-case native
+JSON evidence is now uploaded even when the aggregate suite fails.
+
+Local corrected runs: four native cases in `out/resident-1793601386532/`, all 18
+Electron policies in `out/runs/1793601391587/`, and two deliberately rejected rescue
+controls in `out/runs/1793601420523-negative/`. No budget was widened and no check
+was skipped. Windows CI revalidation is still required for this correction.

@@ -31,6 +31,7 @@ if (process.argv[2] === '--child') {
   await assert.rejects(client.request(['set']), /closing|exited/)
   const exit = await client.exited
   const report = JSON.parse(readFileSync(log, 'utf8'))
+  assert.deepEqual((await client.closed).report, report)
   const timeout = mode.endsWith('hang')
   assert.equal(exit.code, timeout ? 42 : 0)
   assert.equal(report.command, 'shutdown')
