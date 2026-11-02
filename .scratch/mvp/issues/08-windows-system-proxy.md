@@ -335,3 +335,8 @@ Blocked by: 02, 07
 - `startResidentSession` 组合“保留 helper 发布 → 旧记录验证恢复 → serve 启动”，前一步不确定不返回可写 session。重复 close 共用同一 Promise/首次预算，立即关闭请求入口；必须准确退出与原生报告均成功才算完成，超时 kill 请求不能冒充清理成功。
 - 实际 TS 组合已在 native 假后端跑通，包含复制到保留目录、recover、set、重复关闭、晚到 set 拒绝及清空 journal；typecheck 与五项 native 回归通过，无外部救援，证据 `prestarted-helper-deadline/out/resident-1793605150682/normal/session-result.json`。无真实代理/注册表操作。
 - 正式 Platform 尚未调用，必须先补 legacy 迁移准入，并保留 API readiness/pipe 轮换，不把 helper 握手当成 Core API 已就绪。人工会话验收未完成，ADR/Status 不改。
+
+2026-11-02 (agent，新 recover 的真实 API CI 实验准备):
+
+- 增加 `wininet-recovery/replay.c`，使用实际 native recover 引擎、真实 WinINet clear 和 journal，替换登记调用以保证 RunOnce 不变；无 Core、无会话消息。沿用仓库外 LAN/RAS 备份、端点固定验证、旧 writer Job 清空证明、受保护恢复和恢复后逐项核对。
+- 本机仅编译并通过恢复 guard/只读测试，不执行 --exercise。Windows CI 增加 `--exercise --resident=recover`，结果单独为 verified-recover.json；尚未取得 CI 结果，不能预报真实新入口已通过，更不能当作注销/关机证据。
