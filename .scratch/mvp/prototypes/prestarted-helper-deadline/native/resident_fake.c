@@ -18,10 +18,14 @@ static DWORD fake_unregister(void) { return ERROR_SUCCESS; }
 #undef wmain
 static int mode, setting, enabled;
 static int fake_exec(int argc, wchar_t **argv) {
-  (void)argc;
   Buf result = {0};
   if (!wcscmp(argv[1], L"set")) {
-    assert(g_before_set(L"127.0.0.1:7891"));
+    wchar_t endpoint[300];
+    assert(argc >= 6 && !wcscmp(argv[2], L"--host") && !wcscmp(argv[4], L"--port"));
+    assert(swprintf(endpoint, 300, L"%ls:%ls", argv[3], argv[5]) > 0);
+    assert(resident.server_count == 1);
+    assert(!wcscmp(endpoint, resident.servers[0]));
+    assert(g_before_set(endpoint));
     setting = 1;
     DWORD written;
     if (mode == 2 || mode == 3)
@@ -39,7 +43,7 @@ static int fake_exec(int argc, wchar_t **argv) {
 }
 static int fake_clear(const wchar_t **expected, int count, int recovery) {
   (void)recovery;
-  assert(count == 1 && !wcscmp(expected[0], L"127.0.0.1:7891"));
+  assert(count == 1 && kuro_valid_server(expected[0]));
   assert(!setting); /* Clear must not overlap or precede the in-flight set's completion. */
   if (mode == 1) Sleep(INFINITE);
   enabled = 0;

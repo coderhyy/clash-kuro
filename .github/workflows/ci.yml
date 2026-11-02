@@ -74,6 +74,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node .scratch/mvp/prototypes/prestarted-helper-deadline/resident-test.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            node .scratch/mvp/prototypes/prestarted-helper-deadline/platform-test.mjs
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node .scratch/mvp/prototypes/prestarted-helper-deadline/test.mjs --watchdog-negative-control
           if ($LASTEXITCODE -ne 1) { throw 'Rescued fixtures must fail exit acceptance' }
           node -e "const r=require('./.scratch/mvp/prototypes/prestarted-helper-deadline/out/negative.json'); const a=require('node:assert/strict'); a.equal(r.accepted,false); a.equal(r.negativeControlsObserved,true)"

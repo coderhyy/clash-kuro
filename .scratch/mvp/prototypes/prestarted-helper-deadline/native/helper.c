@@ -31,7 +31,8 @@ static struct {
 static LONG load(LONG *p) { return InterlockedCompareExchange(p, 0, 0); }
 static ULONGLONG epoch(void) {
   FILETIME ft; ULARGE_INTEGER value;
-  GetSystemTimeAsFileTime(&ft); value.LowPart = ft.dwLowDateTime; value.HighPart = ft.dwHighDateTime;
+  /* Compare with JS Date.now without a coarse system-tick timestamp preceding the trigger. */
+  GetSystemTimePreciseAsFileTime(&ft); value.LowPart = ft.dwLowDateTime; value.HighPart = ft.dwHighDateTime;
   return value.QuadPart / 10000 - 11644473600000ULL;
 }
 static DWORD left(ULONGLONG end) {

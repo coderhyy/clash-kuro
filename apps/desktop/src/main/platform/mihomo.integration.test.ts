@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, test } from 'vitest'
 import { createDesktopPlatform, createResumeHandler, createSocketTransport } from './index'
+import { startResidentSession } from './resident-session'
 
 const corePath = join(import.meta.dirname, '../../../resources/core', `${process.platform}-${process.arch}`, process.platform === 'win32' ? 'mihomo.exe' : 'mihomo')
 
@@ -25,7 +26,15 @@ test.skipIf(!existsSync(corePath) && process.env.KURO_REQUIRE_CORE !== '1')('bun
     await copyFile(corePath, testCorePath)
     await chmod(testCorePath, 0o700)
   }
-  const platform = createDesktopPlatform({ dataDir, corePath: testCorePath, mixedPort })
+  const fakeResident = process.env.KURO_RESIDENT_FAKE
+  if (fakeResident) {
+    expect(process.platform).toBe('win32')
+    expect(fakeResident).toBe(join(import.meta.dirname, '../../../../../.scratch/mvp/prototypes/prestarted-helper-deadline/out/resident-fake.exe'))
+    expect(existsSync(fakeResident)).toBe(true)
+  }
+  const platform = createDesktopPlatform({ dataDir, corePath: testCorePath, mixedPort,
+    ...(fakeResident ? { sysproxyHelperPath: fakeResident, startResident: startResidentSession } : {}),
+  })
   const channel = platform.controlChannel()
   const directive = channel.kind === 'unix' ? 'external-controller-unix' : 'external-controller-pipe'
   const endpoint = channel.kind === 'unix' ? channel.path : channel.name
@@ -59,6 +68,7 @@ test.skipIf(!existsSync(corePath) && process.env.KURO_REQUIRE_CORE !== '1')('bun
     expect((await platform.applyRuntimeConfig('mixed-port: [\n')).ok).toBe(false)
     expect(await platform.readFile('runtime.yaml')).toBe(yaml)
     await platform.startCore()
+    if (fakeResident) await platform.setSystemProxy({ host: '127.0.0.1', port: mixedPort, bypass: [] })
     expect(await platform.isCoreRunning()).toBe(true)
     if (channel.kind === 'unix') expect((await lstat(channel.path)).mode & 0o777).toBe(0o600)
     const version = await transport.request({ method: 'GET', path: '/version' })
@@ -78,9 +88,16 @@ test.skipIf(!existsSync(corePath) && process.env.KURO_REQUIRE_CORE !== '1')('bun
     expect(await platform.readFile('core.pid')).toBeNull()
     await resume()
     expect(await platform.isCoreRunning()).toBe(true)
+    if (fakeResident) await platform.setSystemProxy({ host: '127.0.0.1', port: mixedPort, bypass: [] })
     if (channel.kind === 'pipe') expect(platform.controlChannel()).not.toEqual(channel)
     expect((await transport.request({ method: 'GET', path: '/version' })).status).toBe(200)
     await Promise.all([stream('/traffic', ['up', 'down']), stream('/logs?level=info', ['type', 'payload'])])
+    if (fakeResident) {
+      const closing = platform.shutdown({ timeoutMs: 2500 })
+      expect(platform.shutdown({ timeoutMs: 9000 })).toBe(closing)
+      await closing
+      await expect(platform.setSystemProxy({ host: '127.0.0.1', port: mixedPort, bypass: [] })).rejects.toThrow()
+    }
   } finally {
     await platform.stopCore()
     origin.closeAllConnections()

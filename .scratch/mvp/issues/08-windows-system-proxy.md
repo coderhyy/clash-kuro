@@ -354,3 +354,12 @@ Blocked by: 02, 07
 - 每次 owner 关闭使旧代理适配器 generation 失效；重新启动建立新的适配器，旧排队操作不能跨代写到新 owner。启动过程新增 AbortSignal 检查：异步部署/恢复结束后若已关闭，不再生成新 serve；已生成的 owner 接到关闭请求。
 - 本机 typecheck、桌面 190 项单测通过（新增 7 项 Platform 假 owner 测试）。actual native fake engine 回归覆盖挂起/迟到返回/日志阻塞及真实 session abort，强杀救援不计通过。无本机真实代理写入。
 - 这不是正式应用整体验收：app 创建 Platform 的入口未传 startResident，legacy RunOnce 迁移门禁完成前不启用；尚需真实 Core/Platform 组合与人工会话验证。ADR-0011 不改，ADR-0013 保持草案，Status 不改。
+
+2026-11-02 (agent，resident Platform + bundled Core 组合验证):
+
+- 新增 `prestarted-helper-deadline/platform-test.mjs`，使用现有 Job watchdog 启动现有 mihomo 集成测试；真实 Platform/session/native resident 引擎与 bundled Core 组合，仅 WinINet/恢复登记替换为编译期假操作。本机 `out/resident-platform-1793606532880/result.json` 证明正常退出、watchdogKilled=false、lingeringChildren=false、remaining=0。
+- 验证 config 校验、Core API 就绪、traffic/logs 两类流、停止后重启与 pipe 轮换、第二次写入、共享 shutdown Promise 和关闭后拒绝写入。未读写真实代理或 RunOnce，未投递真实会话事件。CI 新增同一入口。
+- CI 41409572805 保留为失败：window-stall 时间断言发现 native startEpochMs=1793606305287、JS stall-start=1793606305288，相差 -1ms；报告实际完成、无救援/遗留。native 使用粗粒度 GetSystemTimeAsFileTime；改为 GetSystemTimePreciseAsFileTime，不删除断言、不放宽预算。源码先记录 stall-start 再发送触发，修复后本机完整 18 场景通过；墙钟受校时影响仍不是硬实时证明。
+- 新 runner 首次因假定 vitest 位于 desktop/node_modules 失败，改为从 desktop package.json 解析已安装依赖；未新增依赖。actual native fake engine 5 场景回归通过。
+- 本机桌面测试与忙等故障注入并行时 cat-glyph 发生 5s 超时（189/190）；不改无关测试或放宽超时，改为故障注入结束后独立重跑并如实记录结果。
+- 独立重跑桌面测试 190/190 通过，typecheck 通过。此次不修改 ADR/Status，不启用正式 app resident 入口，不将组合测试计作真实 WinINet 或注销/关机验收。
