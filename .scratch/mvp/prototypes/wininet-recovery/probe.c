@@ -117,6 +117,18 @@ static int restore(const Backup *backup, const wchar_t *endpoint) {
   putf(&report, ",\"ok\":%s}", ok ? "true" : "false"); emit(&report); free(report.data);
   return ok ? 0 : 2;
 }
+static int verify_fixture(const Backup *backup, const wchar_t *endpoint, DWORD flags) {
+  if (!preflight(backup, endpoint)) return 0;
+  for (DWORD i = 0; i < backup->count; ++i) {
+    ConnState now = {0};
+    int ok = !query(backup->rows[i].name, &now) && now.flags == flags &&
+      equal_text(now.server, endpoint) && equal_text(now.bypass, TEST_BYPASS) &&
+      equal_text(now.pac, backup->rows[i].pac);
+    release(&now);
+    if (!ok) return 0;
+  }
+  return 1;
+}
 int wmain(int argc, wchar_t **argv) {
   if (argc == 2 && !wcscmp(argv[1], L"self-test")) {
     ConnState base = { NULL, 9, L"other:3128", L"baseline", L"http://example.invalid/a.pac" };
@@ -145,7 +157,18 @@ int wmain(int argc, wchar_t **argv) {
   if (!wcscmp(argv[1], L"restore")) return restore(&backup, argv[3]);
   if (wcscmp(argv[1], L"cycle") || !preflight(&backup, NULL)) return usage(L"STOP: baseline changed before experiment");
   // Restoration is a SEPARATE supervised invocation, only after this writer's Job is empty.
+  ULONGLONG started = GetTickCount64();
   if (set_connections(argv[3], TEST_BYPASS, 0)) return 2;
+  ULONGLONG set_ms = GetTickCount64() - started;
+  if (!verify_fixture(&backup, argv[3], 3)) return usage(L"Set returned success but queried fixture state differs");
   const wchar_t *expected[] = { argv[3] };
-  return clear_connections(expected, 1, 0);
+  started = GetTickCount64();
+  if (clear_connections(expected, 1, 0)) return 2;
+  ULONGLONG clear_ms = GetTickCount64() - started;
+  if (!verify_fixture(&backup, argv[3], 1)) return usage(L"Clear returned success but queried fixture state differs");
+  Buf report = {0};
+  putf(&report, "{\"command\":\"cycle-verified\",\"connections\":%lu,\"setFlags\":3,\"clearFlags\":1,"
+    "\"setMs\":%llu,\"clearMs\":%llu}", backup.count, set_ms, clear_ms);
+  emit(&report); free(report.data);
+  return 0;
 }
