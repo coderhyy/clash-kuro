@@ -13,7 +13,7 @@
 #endif
 
 static struct {
-  HANDLE close, request, cleared, finished, report, reported, job, core, core_ready, core_started;
+  HANDLE close, request, cleared, finished, report, reported, job, core, core_ready, core_started, core_output_done;
   HWND window;
   DWORD main_thread;
   LONG core_pid;
@@ -79,20 +79,48 @@ static int resident_remember(const wchar_t *server) {
   wcscpy(resident.servers[resident.server_count++], server);
   return 1;
 }
+static DWORD WINAPI resident_core_output(void *input) {
+  char bytes[4096]; DWORD count;
+  while (ReadFile(input, bytes, sizeof bytes, &count, NULL) && count) {
+    DWORD offset = 0;
+    while (offset < count) {
+      DWORD written;
+      if (!WriteFile(GetStdHandle(STD_ERROR_HANDLE), bytes + offset, count - offset, &written, NULL) || !written) {
+        CloseHandle(input); SetEvent(resident.core_output_done); return 0;
+      }
+      offset += written;
+    }
+  }
+  CloseHandle(input);
+  SetEvent(resident.core_output_done);
+  return 0;
+}
 static int resident_start_core(void) {
   SECURITY_ATTRIBUTES sa = { sizeof sa, NULL, TRUE };
   HANDLE nul = CreateFileW(L"NUL", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE,
     &sa, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
   if (nul == INVALID_HANDLE_VALUE) return 0;
+  HANDLE output = NULL, writer = NULL;
+  if (!CreatePipe(&output, &writer, &sa, 0)) { CloseHandle(nul); return 0; }
+  if (!SetHandleInformation(output, HANDLE_FLAG_INHERIT, 0)) {
+    CloseHandle(output); CloseHandle(writer); CloseHandle(nul); return 0;
+  }
+  // Diagnostics may block their own thread, never the operation worker or shutdown supervisor.
+  ResetEvent(resident.core_output_done);
+  HANDLE drain = CreateThread(NULL, 0, resident_core_output, output, 0, NULL);
+  if (!drain) { SetEvent(resident.core_output_done); CloseHandle(output); CloseHandle(writer); CloseHandle(nul); return 0; }
+  CloseHandle(drain);
   wchar_t command[2048];
   _snwprintf(command, 2048, L"\"%ls\" -d \"%ls\\.\" -f \"%ls\\runtime.yaml\"",
     resident.core_path, resident.data_dir, resident.data_dir);
   STARTUPINFOW stdio = {0};
-  stdio.hStdInput = stdio.hStdOutput = stdio.hStdError = nul;
+  stdio.hStdInput = nul;
+  stdio.hStdOutput = stdio.hStdError = writer;
+  HANDLE inherited[] = { nul, writer };
   PROCESS_INFORMATION core = {0};
   BOOL ok = kuro_create_core(resident.job, resident.core_path, command, resident.data_dir,
-    &nul, 1, &core, &stdio);
-  CloseHandle(nul);
+    inherited, 2, &core, &stdio);
+  CloseHandle(nul); CloseHandle(writer);
   if (!ok) return 0;
   InterlockedExchange(&resident.core_pid, (LONG)core.dwProcessId);
   InterlockedExchangePointer((PVOID volatile *)&resident.core, core.hProcess);
@@ -181,6 +209,8 @@ static DWORD WINAPI resident_supervisor(void *unused) {
     TerminateJobObject(resident.job, 0);
     Sleep(left < 10 ? left : 10);
   } while (1);
+  // Preserve startup failures when possible, but never extend the original Core/exit deadline for logs.
+  WaitForSingleObject(resident.core_output_done, resident_left(resident.start + 2100));
   SetEvent(resident.finished);
   SetEvent(resident.report);
   DWORD logged = WaitForSingleObject(resident.reported, resident_left(resident.start + 2200));
@@ -228,6 +258,7 @@ static int resident_main(int argc, wchar_t **argv) {
   RES_EVENT(close, TRUE); RES_EVENT(request, FALSE); RES_EVENT(cleared, TRUE);
   RES_EVENT(finished, TRUE); RES_EVENT(report, TRUE); RES_EVENT(reported, TRUE);
   RES_EVENT(core_ready, TRUE); RES_EVENT(core_started, TRUE);
+  RES_EVENT(core_output_done, TRUE); SetEvent(resident.core_output_done);
 #undef RES_EVENT
   WNDCLASSW cls = {0}; cls.lpfnWndProc = resident_window; cls.hInstance = GetModuleHandleW(NULL);
   cls.lpszClassName = L"ClashKuroResidentProxy";

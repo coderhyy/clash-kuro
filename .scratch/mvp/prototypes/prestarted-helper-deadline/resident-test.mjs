@@ -14,9 +14,21 @@ if (process.argv[2] === '--child') {
   const client = residentClient(child)
   let marker = ''
   let entered
+  let coreStarted
+  const coreStart = new Promise(resolve => { coreStarted = resolve })
   const setEntered = new Promise(resolve => { entered = resolve })
-  child.stderr.on('data', data => { marker += data; if (marker.includes('set-start\n')) entered() })
+  child.stderr.on('data', data => {
+    marker += data
+    if (marker.includes('set-start\n')) entered()
+    if (marker.includes('fake-core-start\n')) coreStarted()
+  })
   await client.ready
+  await coreStart
+  if (mode !== 'diagnostics-stall') assert(client.diagnostics().includes('fake-core-start'))
+  if (mode === 'diagnostics-stall') {
+    child.stderr.pause()
+    await new Promise(resolve => setTimeout(resolve, 50)) // Fill only the fixture's diagnostic pipes before close.
+  }
   assert.equal(JSON.parse((await client.request(['get'])).stdout).flags, 1)
   const setting = client.request(['set', '--host', '127.0.0.1', '--port', '7891']).then(() => 'done', () => 'rejected')
   if (mode === 'late-set' || mode === 'set-hang') {
@@ -30,8 +42,10 @@ if (process.argv[2] === '--child') {
   }
   await assert.rejects(client.request(['set']), /closing|exited/)
   const exit = await client.exited
+  child.stderr.resume()
   const report = JSON.parse(readFileSync(log, 'utf8'))
   assert.deepEqual((await client.closed).report, report)
+  if (mode === 'diagnostics-stall') assert.equal(Buffer.byteLength(client.diagnostics()), 16 * 1024)
   const timeout = mode.endsWith('hang')
   assert.equal(exit.code, timeout ? 42 : 0)
   assert.equal(report.command, 'shutdown')
@@ -43,13 +57,14 @@ if (process.argv[2] === '--child') {
   assert(report.durationMs < 2350)
   if (timeout) assert(report.durationMs >= 1490)
   if (mode === 'late-set') assert(report.durationMs >= 300)
+  if (mode === 'diagnostics-stall') assert(report.durationMs >= 2000)
   writeFileSync(join(dir, 'result.json'), JSON.stringify({ mode, pid: child.pid, exit, report }))
 } else {
   const run = join(root, 'out', `resident-${Date.now()}`)
   mkdirSync(run, { recursive: true })
   const quote = s => '"' + s.replace(/(\\*)"/g, '$1$1\\"').replace(/(\\+)$/, '$1$1') + '"'
   const results = []
-  for (const mode of ['normal', 'late-set', 'clear-hang', 'set-hang']) {
+  for (const mode of ['normal', 'late-set', 'clear-hang', 'set-hang', 'diagnostics-stall']) {
     const dir = join(run, mode); mkdirSync(dir)
     const command = [process.execPath, fileURLToPath(import.meta.url), '--child', mode, dir].map(quote).join(' ')
     const watchdog = spawn(join(root, 'out/watchdog.exe'), ['8000', join(dir, 'supervisor.json'), process.execPath, command],

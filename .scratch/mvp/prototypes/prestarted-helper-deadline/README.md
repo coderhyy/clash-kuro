@@ -477,7 +477,7 @@ desktop run timed out in the unrelated cat-mask test (7930 ms / 5000 ms limit);
 the unmodified full suite passed when rerun without concurrent native builds.
 No timeout threshold or assertion was removed.
 
-Not a deliverable session candidate yet: Core startup stderr is currently discarded into NUL, and
+Not a deliverable session candidate yet:
 generation-safe recovery/stable RunOnce helper paths remain unresolved. The real
 resident entry has not run against local proxy settings. CI's older real WinINet
 bridge evidence does not validate this new entry or Windows session delivery.
@@ -508,3 +508,32 @@ Local corrected runs: four native cases in `out/resident-1793601386532/`, all 18
 Electron policies in `out/runs/1793601391587/`, and two deliberately rejected rescue
 controls in `out/runs/1793601420523-negative/`. No budget was widened and no check
 was skipped. Windows CI revalidation is still required for this correction.
+
+### Core startup diagnostics (2026-11-02)
+
+CI `41401279966` verified the preceding correction on `92ffe4f`; the packaged
+GUI helper and both evidence artifacts were downloaded and checked. The app
+still does not call `serve`.
+
+Core stdout/stderr now share a private pipe, forwarded on a separate native
+thread to helper stderr. Only the write end and NUL stdin are inherited by Core,
+not the read end or Job. The client continuously drains diagnostics and retains
+only the last 16 KiB. Native shutdown allows the drain only the remainder of the
+existing 2100 ms Core deadline; blocked logging never gains another deadline.
+Diagnostics are best-effort and may be truncated if the recipient stops reading.
+
+`out/resident-1793602534167/results.json` adds a fifth test: fake Core floods
+stderr while the recipient deliberately pauses reading. Cleanup and Core stop
+still complete, the helper exits normally within the existing observation gate,
+and no watchdog or leftover process is accepted. Native Core startup markers
+also verify the new pipe path. Typecheck and 173 desktop tests passed.
+
+Failures retained: the first flood fixture also wrote its artificial set-start
+marker into the deliberately blocked stderr pipe, so it never reached close and
+needed external rescue (`out/resident-1793602402362/`); that run fails acceptance.
+Only preemption fixtures now emit that marker. The next run incorrectly required
+the startup marker to remain in a bounded tail after flooding; it now verifies
+marker delivery separately and asserts the tail's 16 KiB cap. No timing limit was
+changed. The unrelated named-pipe `/logs` integration timed out twice; added
+origin-hit/HTTP-error evidence without changing timeouts or assertions. Subsequent
+isolated/full runs passed, but that intermittent timeout's cause is not proven.

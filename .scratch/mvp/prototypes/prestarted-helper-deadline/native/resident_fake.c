@@ -20,7 +20,8 @@ static int fake_exec(int argc, wchar_t **argv) {
     assert(g_before_set(L"127.0.0.1:7891"));
     setting = 1;
     DWORD written;
-    WriteFile(GetStdHandle(STD_ERROR_HANDLE), "set-start\n", 10, &written, NULL);
+    if (mode == 2 || mode == 3)
+      WriteFile(GetStdHandle(STD_ERROR_HANDLE), "set-start\n", 10, &written, NULL);
     if (mode == 3) Sleep(INFINITE);
     if (mode == 2) Sleep(400);
     enabled = 1; setting = 0;
@@ -41,7 +42,15 @@ static int fake_clear(const wchar_t **expected, int count, int recovery) {
   return 0;
 }
 int wmain(int argc, wchar_t **argv) {
-  if (argc > 1 && !wcscmp(argv[1], L"-d")) { Sleep(INFINITE); return 99; }
+  if (argc > 1 && !wcscmp(argv[1], L"-d")) {
+    DWORD written;
+    WriteFile(GetStdHandle(STD_ERROR_HANDLE), "fake-core-start\n", 16, &written, NULL);
+    if (argc > 2 && wcsstr(argv[2], L"diagnostics-stall")) {
+      char noise[4096]; memset(noise, 'x', sizeof noise);
+      while (WriteFile(GetStdHandle(STD_ERROR_HANDLE), noise, sizeof noise, &written, NULL)) { }
+    }
+    Sleep(INFINITE); return 99;
+  }
   if (argc < 2 || wcscmp(argv[1], L"serve")) return 98; /* Never expose the real one-shot CLI. */
   for (int i = 2; i + 1 < argc; i += 2) if (!wcscmp(argv[i], L"--data")) {
     const wchar_t *name = wcsrchr(argv[i + 1], L'\\'); name = name ? name + 1 : argv[i + 1];

@@ -32,6 +32,9 @@ process.stdin.on('data', chunk => {
     } else if (mode === 'bad') send({command:'wrong',ok:true});
     else if (mode === 'overflow') process.stdout.write('x'.repeat(1024 * 1024 + 1));
     else if (mode === 'eof') { process.stdout.end(); setTimeout(() => process.exit(0), 100); }
+    else if (mode === 'diagnostics') {
+      process.stderr.write('x'.repeat(32768) + 'core-start-error', () => send({command,ok:true}));
+    }
     else if (mode !== 'hang') send({command,ok:true});
   }
 });
@@ -84,6 +87,17 @@ test('startup deadline closes an unready child instead of allowing requests', as
   await fixture('no-ready', async client => {
     await expect(client.ready).rejects.toThrow('timed out')
     await expect(client.request(['set'])).rejects.toThrow(/closing|exited/)
+  })
+})
+
+test('Core diagnostics are drained, bounded, and separate from JSON responses', async () => {
+  await fixture('diagnostics', async client => {
+    await client.ready
+    await client.request(['get'])
+    client.close()
+    await client.closed
+    expect(Buffer.byteLength(client.diagnostics())).toBe(16 * 1024)
+    expect(client.diagnostics().endsWith('core-start-error')).toBe(true)
   })
 })
 

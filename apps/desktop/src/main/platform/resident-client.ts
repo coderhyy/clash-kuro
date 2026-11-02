@@ -13,6 +13,7 @@ export function residentClient(child: ChildProcessWithoutNullStreams, timeoutMs 
   let buffer = ''
   let report: ShutdownReport | null = null
   let invalidOutput = false
+  let diagnostics = Buffer.alloc(0)
   const decoder = new StringDecoder('utf8')
   let readyResolve!: () => void
   let readyReject!: (error: Error) => void
@@ -41,7 +42,9 @@ export function residentClient(child: ChildProcessWithoutNullStreams, timeoutMs 
   child.stdout?.on('error', error => badOutput(error.message))
   child.stderr?.on('error', error => close(error))
   // Never let unread diagnostics block a native worker; bounded reports arrive on stdout.
-  child.stderr?.resume()
+  child.stderr?.on('data', (chunk: Buffer) => {
+    diagnostics = Buffer.from(Buffer.concat([diagnostics, chunk]).subarray(-16 * 1024))
+  })
   child.on('error', error => close(error))
   let finishClosed!: (value: { code: number | null; signal: NodeJS.Signals | null; report: ShutdownReport | null }) => void
   // exit alone does not mean stdout has drained; final evidence is available only after close.
@@ -113,6 +116,7 @@ export function residentClient(child: ChildProcessWithoutNullStreams, timeoutMs 
   if (!child.stdin || !child.stdout || !child.stderr) close(new Error('Resident helper pipes unavailable'))
   return {
     ready, exited, closed, close,
+    diagnostics: () => diagnostics.toString('utf8'),
     request(args: readonly string[]): Promise<{ stdout: string; stderr: string }> {
       if (state !== 'ready') return Promise.reject(new Error(`Resident helper cannot accept writes (${state})`))
       let frame: Buffer

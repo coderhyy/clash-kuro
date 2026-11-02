@@ -30,21 +30,24 @@ test.skipIf(!existsSync(corePath) && process.env.KURO_REQUIRE_CORE !== '1')('bun
   const directive = channel.kind === 'unix' ? 'external-controller-unix' : 'external-controller-pipe'
   const endpoint = channel.kind === 'unix' ? channel.path : channel.name
   const yaml = `mixed-port: ${mixedPort}\nallow-lan: false\nmode: direct\nlog-level: info\n${directive}: ${JSON.stringify(endpoint)}\n`
-  const origin = createHttpServer((_req, res) => res.end('local test origin'))
+  let originHits = 0
+  const origin = createHttpServer((_req, res) => { originHits++; res.end('local test origin') })
   await new Promise<void>((resolve, reject) => origin.once('error', reject).listen(0, '127.0.0.1', resolve))
   const originAddress = origin.address()
   if (!originAddress || typeof originAddress === 'string') throw new Error('Missing origin port')
   // Generate only loopback traffic; do not depend on external connectivity or the user's System Proxy.
+  const trafficEvidence: string[] = []
+  const record = (value: string) => { trafficEvidence.push(value); if (trafficEvidence.length > 5) trafficEvidence.shift() }
   const stimulate = () => {
-    const req = request({ host: '127.0.0.1', port: mixedPort, path: `http://127.0.0.1:${originAddress.port}/`, agent: false }, res => res.resume())
+    const req = request({ host: '127.0.0.1', port: mixedPort, path: `http://127.0.0.1:${originAddress.port}/`, agent: false }, res => { record(`HTTP ${res.statusCode}`); res.resume() })
     req.setTimeout(500, () => req.destroy())
-    req.on('error', () => {})
+    req.on('error', error => record(error.message))
     req.end()
   }
   const transport = createSocketTransport(() => platform.controlChannel())
   const stream = async (path: string, keys: string[]) => new Promise<void>((resolve, reject) => {
     const clear = () => { clearTimeout(timer); clearInterval(traffic); handle.close() }
-    const timer = setTimeout(() => { clear(); reject(new Error(`${path} stream timed out`)) }, 5_000)
+    const timer = setTimeout(() => { clear(); reject(new Error(`${path} stream timed out; originHits=${originHits}; traffic=${trafficEvidence.join(', ')}`)) }, 5_000)
     const traffic = setInterval(stimulate, 100)
     const handle = transport.stream(path, (data) => {
       try { for (const key of keys) expect(data).toHaveProperty(key); clear(); resolve() }
