@@ -8,7 +8,7 @@ const actual = JSON.parse(readFileSync(join(repo, 'apps/desktop/node_modules/ele
 const expected = JSON.parse(readFileSync(join(repo, 'apps/desktop/package.json'))).devDependencies.electron
 if (process.platform !== 'win32' || process.arch !== 'x64' || actual !== expected || actual !== '45.1.0') throw new Error('Require project Windows x64 Electron 45.1.0')
 mkdirSync(join(root, 'out'), { recursive: true })
-const common = ['-static', '-O2', '-Wall', '-Wextra', '-Werror', '-municode']
+const common = ['-D_WIN32_WINNT=0x0A00', '-static', '-O2', '-Wall', '-Wextra', '-Werror', '-municode']
 for (const [source, target] of [['native/helper.c', 'helper'], ['native/watchdog.c', 'watchdog']]) {
   execFileSync('gcc', [...common, join(root, source), '-o', join(root, `out/${target}.exe`)], { stdio: 'inherit', timeout: 60000 })
 }

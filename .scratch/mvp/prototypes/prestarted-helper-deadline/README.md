@@ -358,3 +358,27 @@ supervisor now explicitly allowlists only three standard handles for GUI-child
 output; it does not inherit the Job handle. See the adjacent `wininet-recovery`
 README for the read-only regression and the separately guarded real-operation
 experiment. Real hooks do not turn the fake-case results into WinINet evidence.
+# Core ownership integration seam (2026-11-02)
+
+The fixture now consumes `apps/desktop/native/win/core-process.h`, the native
+creation primitive intended for the draft resident implementation. A private,
+noninherited KILL_ON_JOB_CLOSE Job is assigned atomically using the Windows 10+
+PROC_THREAD_ATTRIBUTE_JOB_LIST creation attribute. Core is born suspended;
+the helper publishes the exact process handle before resuming it. There is no
+create-then-assign gap or PID reopening. The external fixture Job remains owned
+by the external watchdog; Electron owns neither the helper's Core Job nor the
+watchdog Job. This does not yet wire the production TypeScript Platform to it.
+
+`node apps/desktop/scripts/build-sysproxy.mjs --test` also runs the native
+core-process test. It verifies membership before resume, kills the Core by
+closing its owning Job both before and after resume, and checks a separate
+owned test process survives. It checks creation failure leaves no process
+handle. The test's own timeout is failure, not an accepted exit. No real Core
+or proxy operation is involved. The first compilation exposed the SDK's
+Windows-version guard for JOB_LIST; the relevant builds now explicitly target
+Windows 10 rather than replacing atomic admission with an unsafe fallback.
+
+Local coordination regression: `out/runs/1793596265913/results.json` contains
+15 policy outcomes, no watchdog rescue and no remaining children. A timeout
+or injected failure is still not successful proxy cleanup. Runtime routing,
+IPC, recovery generation and actual Core startup remain pending integration.

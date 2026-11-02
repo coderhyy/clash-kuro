@@ -34,6 +34,10 @@ try {
     const connections = join(tmp, 'connections_test.exe')
     run(cc, [...warnings, '-municode', '-mconsole', '-O2', '-static', join(src, 'connections_test.c'), '-lwininet', '-lrasapi32', '-ladvapi32', '-o', connections])
     run(connections, [])
+    const coreProcess = join(tmp, 'core-process_test.exe')
+    run(cc, [...warnings, '-D_WIN32_WINNT=0x0A00', '-municode', '-mconsole', '-O2', '-static', join(src, 'core-process_test.c'), '-o', coreProcess])
+    // Killing this exact test parent closes its private Jobs; a rescue still throws/fails the build.
+    execFileSync(coreProcess, [], { stdio: 'inherit', timeout: 10_000 })
   }
   const res = join(tmp, 'kuro-sysproxy.res.o')
   run(windres, ['-I', src, '-O', 'coff', join(src, 'kuro-sysproxy.rc'), '-o', res])
