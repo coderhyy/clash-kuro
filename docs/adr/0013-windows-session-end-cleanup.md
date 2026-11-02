@@ -11,6 +11,8 @@
 - 新增价值是进程死亡后的存续和地址空间隔离；专用窗口线程 Node-API 也可能绕过 JS 卡死，因此不能把 JS 卡死独立性说成 helper 独有优势。当前尚未实现正式 resident 协议、原生会话窗口或正式 Core 句柄交接。RunOnce 代次竞争及更新/卸载路径仍是必须处理的边界。
 - 已建立仓库外 LAN/RAS 备份、严格状态校验及旧 writer Job 确认退出后恢复的工具；只执行了只读快照和纯逻辑故障测试。检测到其他代理程序运行时拒绝真实写入。下一步须先完成安全的真实 WinINet/通知实验，再决定正式集成，不能从协调模型直接推导注销可靠性。
 
+补充协调模型证据（仍非架构接受）：独立 helper 原型增加了隐藏原生窗口及共用原始截止时间的 query 等待；只通过私有测试消息触发。普通等待与模拟同步通知互等后超时，helper 原生线程的消息感知等待能完成假操作并拒绝递归等待。窗口过程永久卡死时，监督线程仍能先报告不确定、停止准确的假 Core，再自终止；没有使用外部救援。这与在 Electron 内泵入任意 JS 的被否决方案不同，但不证明真实 WinINet 有相同依赖，也不证明真实会话期间的存续。正式 resident/Core 集成、真实 WinINet 和人工会话验证仍未完成。
+
 证据及复现命令：`.scratch/mvp/prototypes/electron-deadline/README.md`、`prestarted-helper-deadline/README.md`、`wininet-recovery/README.md`（后两者同属该 prototypes 目录）。以下是早期 one-shot 兜底草案，不代表当前方案已经获准或问题已解决。
 
 spec 要求退出、关机、注销时先关 System Proxy 再停 Core，带超时，不阻塞关机。Windows 上，注销和关机做不到“每次都在会话结束前关掉”：ADR-0011 不允许原生模块，关代理只能启动 `kuro-sysproxy.exe`，而注销开始后新启动的 helper 在 DLL 初始化阶段就被系统结束。实测 4 次注销都失败：GUI 子系统改动前是 0xC0000142（STATUS_DLL_INIT_FAILED），改动后是 0xC000026B（STATUS_DLL_INIT_FAILED_LOGOFF），clash-verge-rev #5018 在关机时也遇到 0xC0000142。
