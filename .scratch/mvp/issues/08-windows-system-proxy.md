@@ -329,3 +329,9 @@ Blocked by: 02, 07
 
 - 新增 `recoverResident`，为正式启动接入准备：仅当准确子进程退出、stdout 排空、最终报告 ok 且无 timeout/Core 后才返回成功。调用方固定预算到期只请求终止该 child，并拒绝为未知状态，不能以 kill 请求成功作为写入许可，不重试/查 PID。
 - 六项单测验证成功、缺失/矛盾/错误报告及预算超时；typecheck 通过。实际 native 假后端也加载正式 TS wrapper，验证恢复旧记录后为空，证据 `prestarted-helper-deadline/out/resident-1793605003668/`。无本机代理/注册表写入。该 wrapper 尚未由正式 Platform 调用，legacy 迁移和会话验收仍未完成。
+
+2026-11-02 (agent，组合完整 resident 生命周期):
+
+- `startResidentSession` 组合“保留 helper 发布 → 旧记录验证恢复 → serve 启动”，前一步不确定不返回可写 session。重复 close 共用同一 Promise/首次预算，立即关闭请求入口；必须准确退出与原生报告均成功才算完成，超时 kill 请求不能冒充清理成功。
+- 实际 TS 组合已在 native 假后端跑通，包含复制到保留目录、recover、set、重复关闭、晚到 set 拒绝及清空 journal；typecheck 与五项 native 回归通过，无外部救援，证据 `prestarted-helper-deadline/out/resident-1793605150682/normal/session-result.json`。无真实代理/注册表操作。
+- 正式 Platform 尚未调用，必须先补 legacy 迁移准入，并保留 API readiness/pipe 轮换，不把 helper 握手当成 Core API 已就绪。人工会话验收未完成，ADR/Status 不改。

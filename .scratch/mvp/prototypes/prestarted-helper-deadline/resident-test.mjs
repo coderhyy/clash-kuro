@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 const root = dirname(fileURLToPath(import.meta.url))
 const { residentClient } = createRequire(import.meta.url)('./out/client.cjs')
 const { recoverResident } = createRequire(import.meta.url)('./out/recovery.cjs')
+const { startResidentSession } = createRequire(import.meta.url)('./out/session.cjs')
 if (process.argv[2] === '--child') {
   const [mode, dir] = process.argv.slice(3)
   const recoveryEvidence = []
@@ -107,6 +108,18 @@ if (process.argv[2] === '--child') {
     recoveryEvidence.push({ scenario: 'production-wrapper-recovery', report: JSON.parse(readFileSync(join(dir, 'wrapper-recovery.json'))) })
   }
   writeFileSync(join(dir, 'result.json'), JSON.stringify({ mode, pid: child.pid, exit, report, recoveryEvidence }))
+  if (mode === 'normal') {
+    const session = await startResidentSession({ helper: exe, recoveryDirectory: join(dir, 'retained'),
+      dataDir: dir, core: exe, server: '127.0.0.1:7891', log: join(dir, 'session.json') })
+    assert.equal(JSON.parse((await session.request(['set', '--host', '127.0.0.1', '--port', '7891'])).stdout).ok, true)
+    const first = session.close()
+    assert.equal(session.close(), first)
+    await assert.rejects(session.request(['set']))
+    await first
+    assert.equal(statSync(session.journal).size, 0)
+    assert.notEqual(session.helper, exe)
+    writeFileSync(join(dir, 'session-result.json'), JSON.stringify({ helper: session.helper, journalEmpty: true, verifiedExit: true }))
+  }
 } else {
   const run = join(root, 'out', `resident-${Date.now()}`)
   mkdirSync(run, { recursive: true })

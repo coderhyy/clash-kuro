@@ -11,6 +11,8 @@ mkdirSync(join(root, 'out'), { recursive: true })
 execFileSync('bun', ['build', join(repo, 'apps/desktop/src/main/platform/resident-client.ts'),
   '--target=node', '--format=cjs', `--outfile=${join(root, 'out/client.cjs')}`], { stdio: 'inherit', timeout: 60000 })
 const common = ['-D_WIN32_WINNT=0x0A00', '-static', '-O2', '-Wall', '-Wextra', '-Werror', '-municode']
+execFileSync('bun', ['build', join(repo, 'apps/desktop/src/main/platform/resident-session.ts'),
+  '--target=node', '--format=cjs', `--outfile=${join(root, 'out/session.cjs')}`], { stdio: 'inherit', timeout: 60000 })
 execFileSync('bun', ['build', join(repo, 'apps/desktop/src/main/platform/resident-recovery.ts'),
   '--target=node', '--format=cjs', `--outfile=${join(root, 'out/recovery.cjs')}`], { stdio: 'inherit', timeout: 60000 })
 for (const [source, target] of [['native/helper.c', 'helper'], ['native/watchdog.c', 'watchdog']]) {

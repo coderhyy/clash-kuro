@@ -186,3 +186,22 @@ creation/value writes/deletes and absent keys. Native fake-backend tests replace
 registration too, never touching the real registry. The one-shot implementation
 remains unchanged. These changes do not handle already-launched legacy cleanup;
 migration gating and app deployment/routing remain mandatory before enablement.
+
+## Session composition
+
+`startResidentSession` now composes immutable helper publication, verified prior
+recovery, then native `serve` startup. No session is returned if prior recovery
+or startup is uncertain. The returned close operation closes admission immediately,
+shares one promise/deadline across repeats, and requires final native evidence plus
+actual exit. Its 2500 ms parent wait cannot turn a kill request into success; native
+1500/2100/2200 budgets remain unchanged. Startup failures also close the exact child.
+
+The normal native fixture runs this actual TS composition against the fake binary,
+including publication to a separate retained directory, empty-journal replay,
+fake set, repeated identical close promise, rejected late set and empty journal
+after verified exit. `out/resident-1793605150682/normal/session-result.json` records
+the result; the same external Job checks the complete added process tree.
+
+The formal Platform still does not call this composition: legacy migration must
+be enforced at its admission boundary, and API readiness/pipe rotation must remain
+in Platform rather than being inferred from the helper's process handshake.
