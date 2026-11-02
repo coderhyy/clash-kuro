@@ -23,7 +23,7 @@ if (process.argv[2] === '--child') {
   const negative = process.argv.includes('--watchdog-negative-control')
   const only = process.argv.find(x => x.startsWith('--case='))?.slice(7)
   const names = ['normal', 'electron-stall', 'electron-exit', 'repeat', 'ipc-before', 'ipc-after',
-    'operation-hang', 'late-operation', 'coordinator-hang', 'core-hang']
+    'operation-hang', 'late-operation', 'coordinator-hang', 'core-hang', 'window-stall']
   if (only && !names.includes(only)) throw new Error('Unknown case')
   const cases = negative ? ['watchdog-negative', 'electron-hang-negative'] : only ? [only] : names
   const run = join(root, 'out/runs', `${Date.now()}${negative ? '-negative' : ''}`)
@@ -58,6 +58,7 @@ if (process.argv[2] === '--child') {
       assert(supervisor.observedPids.includes(helper.pid), 'Detached helper escaped test containment')
       assert(supervisor.observedPids.includes(helper.corePid), 'Fake Core escaped test containment')
       assert.equal(helper.stops, 1)
+      assert.equal(helper.windowTriggers, name === 'window-stall' ? 1 : 0)
       assert.equal(helper.deadlineMs, 1500)
       assert.equal(helper.coreGone, true)
       assert(helper.stopMs >= helper.decisionMs)
@@ -81,10 +82,11 @@ if (process.argv[2] === '--child') {
         assert(carrier.events.some(x => x.event === 'early-exit'))
         assert(helper.reportEpochMs > read(join(dir, 'host.json')).electronExitedAt)
       }
-      if (name === 'electron-stall') {
+      if (name === 'electron-stall' || name === 'window-stall') {
         const began = carrier.events.find(x => x.event === 'stall-start').at
         const ended = carrier.events.find(x => x.event === 'stall-end').at
         assert(helper.reportEpochMs > began && helper.reportEpochMs < ended)
+        if (name === 'window-stall') assert(helper.startEpochMs >= began)
       }
     } catch (caught) { error = caught.stack }
     const independentBeforeRescue = name === 'electron-hang-negative' &&

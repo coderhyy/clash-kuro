@@ -31,7 +31,13 @@ app.whenReady().then(() => {
       const i = buffer.indexOf('\n'), line = buffer.slice(0, i); buffer = buffer.slice(i + 1)
       record(line)
       if (line === 'ready') {
-        if (opts.case === 'ipc-before') helper.stdin.end()
+        if (opts.case === 'window-stall') {
+          record('stall-start')
+          helper.stdin.write('W')
+          const end = performance.now() + 4000
+          while (performance.now() < end) { /* Native window dispatch must not need JS. */ }
+          record('stall-end')
+        } else if (opts.case === 'ipc-before') helper.stdin.end()
         else helper.stdin.write('C')
       }
       if (line === 'triggered') {
