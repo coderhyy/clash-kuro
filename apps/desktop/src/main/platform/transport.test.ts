@@ -1,7 +1,8 @@
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { createServer, type RequestListener, type Server } from 'node:http'
 import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import type { Socket } from 'node:net'
 import { afterEach, expect, test, vi } from 'vitest'
 import { createSocketTransport } from './transport'
@@ -10,8 +11,8 @@ const cleanups: Array<() => Promise<void>> = []
 afterEach(async () => { for (const cleanup of cleanups.splice(0)) await cleanup() })
 
 async function fixture(handler?: RequestListener) {
-  const dir = await mkdtemp('/tmp/kuro-transport-')
-  const path = join(dir, 'api.sock')
+  const dir = await mkdtemp(join(process.platform === 'win32' ? tmpdir() : '/tmp', 'kuro-transport-'))
+  const path = process.platform === 'win32' ? `\\\\.\\pipe\\kuro-test-${randomUUID()}` : join(dir, 'api.sock')
   const server = createServer(handler)
   const sockets = new Set<Socket>()
   server.on('connection', (socket) => { sockets.add(socket); socket.on('close', () => sockets.delete(socket)) })
@@ -21,7 +22,8 @@ async function fixture(handler?: RequestListener) {
     await new Promise<void>((resolve) => server.close(() => resolve()))
     await rm(dir, { recursive: true, force: true })
   })
-  return { server, transport: createSocketTransport({ kind: 'unix', path }, { timeoutMs: 150 }) }
+  const channel = process.platform === 'win32' ? { kind: 'pipe' as const, name: path } : { kind: 'unix' as const, path }
+  return { server, transport: createSocketTransport(channel, { timeoutMs: 150 }) }
 }
 
 function upgrade(server: Server, payload: Buffer, onData?: (data: Buffer, socket: Socket) => void, invalidAccept = false) {
@@ -57,7 +59,7 @@ test('rejects malformed JSON and request timeouts', async () => {
 })
 
 test('named pipe channels use socketPath too', async () => {
-  // A unix socket stands in for a pipe in this host-independent routing test.
+  // Windows exercises a real named pipe; POSIX uses a unix socket for the routing contract.
   const { server } = await fixture((_req, res) => res.end('{"version":"test"}'))
   const name = server.address() as string
   expect(await createSocketTransport({ kind: 'pipe', name }).request({ method: 'GET', path: '/version' }))

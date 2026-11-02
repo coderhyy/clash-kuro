@@ -2,7 +2,8 @@ import { spawn } from 'node:child_process'
 import { EventEmitter } from 'node:events'
 import { lstat, mkdtemp, readdir, rm, symlink } from 'node:fs/promises'
 import { createServer } from 'node:net'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
+import { tmpdir } from 'node:os'
 import { afterEach, expect, test, vi } from 'vitest'
 import { assertMixedPortAvailable, createDesktopPlatform, type DesktopPlatform, type DesktopPlatformOptions, type Exec } from './index'
 
@@ -22,10 +23,10 @@ async function freePort(): Promise<number> {
 }
 
 async function fixture(extra: Partial<DesktopPlatformOptions> = {}) {
-  const dataDir = await mkdtemp('/tmp/kuro-platform-')
+  const dataDir = await mkdtemp(join(process.platform === 'win32' ? tmpdir() : '/tmp', 'kuro-platform-'))
   const exec = vi.fn<Exec>(async () => ({ stdout: '', stderr: '' }))
   const platform = createDesktopPlatform({ dataDir, corePath: process.execPath, mixedPort: await freePort(), exec, ...extra })
-  cleanups.push(async () => { await rm(dataDir, { force: true, recursive: true }) })
+  cleanups.push(async () => { await rm(dataDir, { force: true, recursive: true, maxRetries: 10, retryDelay: 20 }) })
   cleanups.push(() => platform.stopCore())
   return { platform, dataDir, exec }
 }
@@ -49,7 +50,7 @@ test('atomic files stay inside dataDir, replace old content and clean temp files
   await platform.writeFileAtomic('profiles/a.yaml', 'second')
   expect(await platform.readFile('profiles/a.yaml')).toBe('second')
   expect(await readdir(join(dataDir, 'profiles'))).toEqual(['a.yaml'])
-  expect((await lstat(join(dataDir, 'profiles/a.yaml'))).mode & 0o777).toBe(0o600)
+  if (process.platform !== 'win32') expect((await lstat(join(dataDir, 'profiles/a.yaml'))).mode & 0o777).toBe(0o600)
   await platform.removeFile('profiles/a.yaml')
   await platform.removeFile('profiles/a.yaml')
   expect(await platform.readFile('profiles/a.yaml')).toBeNull()
@@ -70,8 +71,9 @@ test.each(['../outside', 'a/../outside', '/etc/passwd', 'C:\\Windows\\file', '\\
 
 test('rejects symlink escapes in both parents and final file', async () => {
   const { platform, dataDir } = await fixture()
-  await symlink('/tmp', join(dataDir, 'escape'))
-  await symlink('/etc/passwd', join(dataDir, 'file'))
+  // Junctions exercise both reparse-point positions without requiring Windows symlink privilege.
+  await symlink(process.platform === 'win32' ? tmpdir() : '/tmp', join(dataDir, 'escape'), process.platform === 'win32' ? 'junction' : 'dir')
+  await symlink(process.platform === 'win32' ? tmpdir() : '/etc/passwd', join(dataDir, 'file'), process.platform === 'win32' ? 'junction' : 'file')
   for (const name of ['escape/kuro-should-not-exist', 'file']) {
     await expect(platform.readFile(name)).rejects.toThrow('Symlinks')
     await expect(platform.writeFileAtomic(name, 'no')).rejects.toThrow('Symlinks')
@@ -92,10 +94,10 @@ test('validates a private temp config before rename and preserves old runtime on
 })
 
 test('shortens a long unix path inside dataDir or gives an actionable error', () => {
-  const dataDir = '/tmp/' + 'x'.repeat(92)
-  const platform = createDesktopPlatform({ dataDir, corePath: '/unused', mixedPort: 17890 })
+  const dataDir = join(resolve('/tmp'), 'x'.repeat(92))
+  const platform = createDesktopPlatform({ dataDir, corePath: '/unused', mixedPort: 17890, os: 'darwin' })
   expect(platform.controlChannel()).toEqual({ kind: 'unix', path: join(dataDir, 'c') })
-  expect(() => createDesktopPlatform({ dataDir: '/tmp/' + 'x'.repeat(110), corePath: '/unused', mixedPort: 17890 })).toThrow('shorter userData')
+  expect(() => createDesktopPlatform({ dataDir: join(resolve('/tmp'), 'x'.repeat(110)), corePath: '/unused', mixedPort: 17890, os: 'darwin' })).toThrow('shorter userData')
 })
 
 test('Windows channels are randomized and never expose TCP', () => {
@@ -154,15 +156,20 @@ test('start waits for readiness, writes pid and chmods socket; concurrent starts
   const spawned = vi.fn(fakeCore(() => platform))
   const fixtureResult = await fixture({ spawn: spawned })
   platform = fixtureResult.platform
-  await platform.applyRuntimeConfig('mode: direct')
+  const initial = platform.controlChannel()
+  await platform.applyRuntimeConfig('mode: direct\n' + (initial.kind === 'pipe' ? `external-controller-pipe: ${JSON.stringify(initial.name)}\n` : ''))
   await Promise.all([platform.startCore(), platform.startCore()])
   expect(spawned).toHaveBeenCalledOnce()
   expect(await platform.isCoreRunning()).toBe(true)
   expect(await platform.readFile('core.pid')).toMatch(/^\d+$/)
   const channel = platform.controlChannel()
-  if (channel.kind !== 'unix') throw new Error('Expected unix')
-  expect((await lstat(channel.path)).mode & 0o777).toBe(0o600)
-  expect((await lstat(fixtureResult.dataDir)).mode & 0o777).toBe(0o700)
+  if (process.platform === 'win32') {
+    expect(channel.kind).toBe('pipe')
+  } else {
+    if (channel.kind !== 'unix') throw new Error('Expected unix')
+    expect((await lstat(channel.path)).mode & 0o777).toBe(0o600)
+    expect((await lstat(fixtureResult.dataDir)).mode & 0o777).toBe(0o700)
+  }
   await platform.stopCore()
   expect(await platform.isCoreRunning()).toBe(false)
   expect(await platform.readFile('core.pid')).toBeNull()
@@ -177,7 +184,12 @@ test('Core that ignores SIGTERM is killed after the grace period', async () => {
   await platform.applyRuntimeConfig('mode: direct')
   await platform.startCore()
   const pid = Number(await platform.readFile('core.pid'))
+  const kill = process.kill.bind(process)
+  // Windows SIGTERM is unconditional termination; simulate an ignored first request for this branch test.
+  const signals = process.platform === 'win32' ? vi.spyOn(process, 'kill').mockImplementation((target, signal) =>
+    target === pid && signal === 'SIGTERM' ? true : kill(target, signal)) : undefined
   await platform.stopCore()
+  if (signals) expect(signals).toHaveBeenCalledWith(pid, 'SIGKILL')
   expect(() => process.kill(pid, 0)).toThrow()
   expect(await platform.readFile('core.pid')).toBeNull()
 })

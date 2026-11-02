@@ -9,7 +9,7 @@
     "build": "electron-vite build",
     "package": "node scripts/fetch-core.mjs darwin-arm64 && electron-vite build && electron-builder --mac",
     "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run --passWithNoTests --maxWorkers=2",
     "fetch-core": "node scripts/fetch-core.mjs",
     "build-sysproxy": "node scripts/build-sysproxy.mjs --test",
     "icons": "electron scripts/make-icons.mjs",
