@@ -25,7 +25,7 @@ static struct {
   int operation_hang, coordinator_hang, rescue_negative, core_hang;
   DWORD operation_delay;
   int core_forced, core_gone, forced_self;
-  int query_plain, operation_notify, notification_hang;
+  int query_plain, operation_notify, notification_hang, rpc_client;
 } s;
 
 static LONG load(LONG *p) { return InterlockedCompareExchange(p, 0, 0); }
@@ -135,7 +135,10 @@ static DWORD WINAPI reader(void *unused) {
     if (count == 1 && !wcscmp(args[0], L"query")) {
       if (!PostMessageW(s.window, WM_APP + 1, 0, 0)) return 1;
       if (WaitForSingleObject(s.triggered, 1000) != WAIT_OBJECT_0) return 2;
-      ack("triggered\n", 10);
+      if (s.rpc_client) {
+        static const char reply[] = "{\"command\":\"query\",\"ok\":true}\n";
+        ack(reply, sizeof reply - 1);
+      } else ack("triggered\n", 10);
     } else break;
   }
   InterlockedExchange(&s.eof, 1);
@@ -254,6 +257,7 @@ int KURO_COORDINATION_MAIN(int argc, wchar_t **argv) {
   }
   if (argc != 3) return 91;
   s.report = argv[2];
+  s.rpc_client = !wcscmp(argv[1], L"rpc-client");
   s.operation_hang = !wcscmp(argv[1], L"operation-hang") || !wcscmp(argv[1], L"repeat");
   s.operation_error = !wcscmp(argv[1], L"operation-error") ? 2 : 0;
   s.operation_delay = !wcscmp(argv[1], L"electron-exit") ? 400 : 40;
@@ -292,7 +296,10 @@ int KURO_COORDINATION_MAIN(int argc, wchar_t **argv) {
   if (!thread) return 95;
   CloseHandle(thread);
 #ifndef KURO_AUTO_QUERY
-  ack("ready\n", 6);
+  if (s.rpc_client) {
+    static const char ready[] = "{\"ready\":true,\"protocol\":1}\n";
+    ack(ready, sizeof ready - 1);
+  } else ack("ready\n", 6);
 #endif
   WaitForSingleObject(s.triggered, INFINITE);
   if (s.coordinator_hang || s.rescue_negative) Sleep(INFINITE);

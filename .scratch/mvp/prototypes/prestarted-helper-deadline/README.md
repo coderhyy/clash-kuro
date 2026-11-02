@@ -404,3 +404,36 @@ their expected outcome locally in `out/runs/1793597535297/results.json`, with
 no rescue/remaining children. This proves framing and the existing fake
 coordination path, not complete resident RPC, production integration or real
 Windows session delivery. Local desktop typecheck and 160 tests passed.
+
+## Process client (2026-11-02)
+
+`apps/desktop/src/main/platform/resident-client.ts` owns the private pipe
+protocol for one already-created process: versioned readiness, one outstanding
+correlated response, bounded UTF-8 buffering, startup/request timeouts and an
+irreversible closed state. Timeout, malformed/mismatched output or broken
+pipes reject the outstanding request, send one CLOSE frame and end stdin.
+Late replies cannot reopen admission. There is no reconnect/automatic restart.
+`close()` is only a trigger, not evidence that cleanup happened. `exited`
+settles from the tracked process exit (or confirmed spawn failure), not pipe
+EOF. The eventual Platform integration must bound its wait using the original
+shutdown deadline; it must not await this promise indefinitely or restore
+settings before the old writer is confirmed gone.
+Exit alone, even code 0, is not a proxy-cleanup report; production must also
+validate the native cleanup/Core outcome.
+
+The `rpc-client` fixture bundles this actual module using the already-installed
+Bun and runs it in Electron 45.1.0 against the native fake helper. It handshakes,
+requests a private native query, receives its correlated result, closes, then
+waits for process exit. All 18 coordination policy cases met their expected
+outcome in `out/runs/1793598633463/results.json`, with no rescue/remaining
+processes; both rescue negative controls remain rejected. Desktop client tests
+also cover hung requests/late replies, output overflow/mismatch/EOF, readiness
+timeout, spawn failure and attaching after exit. Typecheck and 167 tests passed.
+
+The first native integration attempt correctly rejected the carrier's ignored
+stderr (the client requires three pipe streams). The carrier now supplies a
+drained stderr pipe. A second failure exposed the old assertion expecting no
+window trigger for the new case; it now requires exactly one private query
+trigger. Neither failure was waived or a budget widened. This still uses fake
+operations/Core; the production native command dispatcher and Platform routing
+are not yet implemented, and no real session event was exercised.

@@ -21,9 +21,25 @@ app.whenReady().then(() => {
   if (process.versions.electron !== '45.1.0') throw new Error('Unexpected Electron')
   const helper = spawn(path.join(__dirname, 'out/helper.exe'), [opts.case, path.join(opts.dir, 'helper.json')],
     // Detach from the Electron/libuv child-lifetime job, NOT from the external test Job.
-    { detached: true, windowsHide: true, stdio: ['pipe', 'pipe', 'ignore'] })
+    { detached: true, windowsHide: true, stdio: ['pipe', 'pipe', opts.case === 'rpc-client' ? 'pipe' : 'ignore'] })
   state.helperPid = helper.pid
   record('spawned')
+  if (opts.case === 'rpc-client') {
+    const { residentClient } = require('./out/client.cjs')
+    const client = residentClient(helper)
+    client.ready.then(async () => {
+      record('ready')
+      const response = JSON.parse((await client.request(['query'])).stdout)
+      if (response.command !== 'query' || response.ok !== true) throw new Error('Unexpected native response')
+      record('triggered')
+      client.close()
+      const result = await client.exited
+      state.helperExit = result
+      record('helper-exit')
+      app.exit(result.code === 0 ? 0 : 2)
+    }).catch(error => { record(`client-error:${error.message}`); app.exit(2) })
+    return
+  }
   helper.stdin.on('error', error => record(`stdin-error:${error.code}`))
   helper.on('error', error => { record(`spawn-error:${error.code}`); app.exit(2) })
   let buffer = ''

@@ -25,7 +25,7 @@ if (process.argv[2] === '--child') {
   const only = process.argv.find(x => x.startsWith('--case='))?.slice(7)
   const names = ['normal', 'electron-stall', 'electron-exit', 'repeat', 'ipc-before', 'ipc-after', 'ipc-partial', 'ipc-invalid',
     'operation-hang', 'late-operation', 'coordinator-hang', 'core-hang', 'window-stall',
-    'query-plain', 'query-aware', 'query-handler-hang', 'operation-error']
+    'query-plain', 'query-aware', 'query-handler-hang', 'operation-error', 'rpc-client']
   if (only && !names.includes(only)) throw new Error('Unknown case')
   const cases = negative ? ['watchdog-negative', 'electron-hang-negative'] : only ? [only] : names
   const run = join(root, 'out/runs', `${Date.now()}${negative ? '-negative' : ''}`)
@@ -60,7 +60,7 @@ if (process.argv[2] === '--child') {
       assert(supervisor.observedPids.includes(helper.pid), 'Detached helper escaped test containment')
       assert(supervisor.observedPids.includes(helper.corePid), 'Fake Core escaped test containment')
       assert.equal(helper.stops, 1)
-      assert.equal(helper.windowTriggers, name === 'query-aware' ? 2 : name === 'window-stall' || name.startsWith('query-') ? 1 : 0)
+      assert.equal(helper.windowTriggers, name === 'query-aware' ? 2 : name === 'window-stall' || name === 'rpc-client' || name.startsWith('query-') ? 1 : 0)
       assert.equal(helper.nestedQueries, name === 'query-aware' ? 1 : 0)
       if (name === 'query-aware' || name === 'query-handler-hang') assert.equal(helper.notificationInWait, 1)
       assert.equal(helper.deadlineMs, 1500)
