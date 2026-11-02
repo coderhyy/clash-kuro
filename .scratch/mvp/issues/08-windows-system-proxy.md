@@ -340,3 +340,9 @@ Blocked by: 02, 07
 
 - 增加 `wininet-recovery/replay.c`，使用实际 native recover 引擎、真实 WinINet clear 和 journal，替换登记调用以保证 RunOnce 不变；无 Core、无会话消息。沿用仓库外 LAN/RAS 备份、端点固定验证、旧 writer Job 清空证明、受保护恢复和恢复后逐项核对。
 - 本机仅编译并通过恢复 guard/只读测试，不执行 --exercise。Windows CI 增加 `--exercise --resident=recover`，结果单独为 verified-recover.json；尚未取得 CI 结果，不能预报真实新入口已通过，更不能当作注销/关机证据。
+
+2026-11-02 (agent，新 recover 真实 WinINet 证据):
+
+- `078201b` 的 CI `41408156606` Windows/macOS 全部通过。下载 `wininet-recovery/out/ci-41408156606/verified-recover.json`，实际 native recover 引擎及 journal 对 1 个 LAN 查询到 flags 3→1，原设置恢复后验证成功；RunOnce 未变。
+- 最终报告 ok=true、timedOut=false、coreGone=true、corePid=0。durationMs=0 是 GetTickCount64 未跨 tick，不能解释为即时完成或硬实时保证。该实验替换登记调用、无 Core、无真实会话消息；未覆盖 RAS，也不证明正式 app 全链路或注销前清理成功。
+- 这是新恢复入口的真实 API 证据，区别于此前 plain/aware 桥接；正式 Platform/legacy 迁移与人工会话验收仍未完成。goal 保持 active，不改 ADR/Status，不合并。
