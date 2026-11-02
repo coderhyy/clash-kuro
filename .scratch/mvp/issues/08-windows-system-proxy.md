@@ -363,3 +363,11 @@ Blocked by: 02, 07
 - 新 runner 首次因假定 vitest 位于 desktop/node_modules 失败，改为从 desktop package.json 解析已安装依赖；未新增依赖。actual native fake engine 5 场景回归通过。
 - 本机桌面测试与忙等故障注入并行时 cat-glyph 发生 5s 超时（189/190）；不改无关测试或放宽超时，改为故障注入结束后独立重跑并如实记录结果。
 - 独立重跑桌面测试 190/190 通过，typecheck 通过。此次不修改 ADR/Status，不启用正式 app resident 入口，不将组合测试计作真实 WinINet 或注销/关机验收。
+
+2026-11-02 (agent，CI 41410619618 失败及测试路径诊断):
+
+- 该 CI 的协调场景通过（包括上轮 window-stall）；真实 Core/Platform 组合测试启动阶段失败。原始错误被 finally 中的 stop 错误覆盖，只看到 cleanup unverified。保留该 CI 为失败，不算验收通过。
+- 测试收尾改为保留原始错误及 stop 错误；停止未确认时保留目录而不删除，仍关闭测试自己的 HTTP origin。上传证据增加 test.log，避免后续只剩通用退出失败。
+- 本机在原型 out 下建立私有 TEMP junction，重现相同的收尾失败，并暴露原始 `Recovery directory must not traverse links`。这是可重复的路径别名反馈环；远端原始错误被旧测试遮蔽，尚不能断言远端根因已经证实。
+- 仅将集成测试 mkdtemp 创建的目录 realpath 后交给 Platform（与 recovery-helper 单测一致）；不修改生产目录安全校验。同一 TEMP junction 复测通过，Job 无救援/遗留。证据 `out/resident-platform-1793607168766/result.json`。
+- 本机 typecheck 与全量桌面 190/190 再次通过；等待新 CI 验证远端。未修改本机代理/RunOnce、ADR 或 Status，未启用 app resident 路由或执行会话实验。

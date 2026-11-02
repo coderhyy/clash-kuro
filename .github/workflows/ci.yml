@@ -87,6 +87,7 @@ jobs:
           path: |
             .scratch/mvp/prototypes/prestarted-helper-deadline/out/runs/*/results.json
             .scratch/mvp/prototypes/prestarted-helper-deadline/out/resident-*/**/*.json
+              .scratch/mvp/prototypes/prestarted-helper-deadline/out/resident-*/**/*.log
           include-hidden-files: true
           if-no-files-found: warn
           retention-days: 7

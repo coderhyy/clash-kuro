@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { chmod, copyFile, lstat, mkdtemp, rm } from 'node:fs/promises'
+import { chmod, copyFile, lstat, mkdtemp, realpath, rm } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { createServer as createHttpServer, request } from 'node:http'
 import { tmpdir } from 'node:os'
@@ -12,7 +12,7 @@ const corePath = join(import.meta.dirname, '../../../resources/core', `${process
 
 test.skipIf(!existsSync(corePath) && process.env.KURO_REQUIRE_CORE !== '1')('bundled mihomo validates config, streams traffic/logs and reconnects after channel rotation', async () => {
   expect(existsSync(corePath), 'Run scripts/fetch-core.mjs for this host before integration tests').toBe(true)
-  const dataDir = await mkdtemp(join(process.platform === 'win32' ? tmpdir() : '/tmp', 'kuro-mihomo-'))
+  const dataDir = await realpath(await mkdtemp(join(process.platform === 'win32' ? tmpdir() : '/tmp', 'kuro-mihomo-')))
   const server = createServer()
   await new Promise<void>((resolve, reject) => server.once('error', reject).listen(0, '127.0.0.1', resolve))
   const address = server.address()
@@ -63,6 +63,7 @@ test.skipIf(!existsSync(corePath) && process.env.KURO_REQUIRE_CORE !== '1')('bun
       catch (error) { clear(); reject(error) }
     }, (error) => { if (error) { clear(); reject(error) } })
   })
+  let failure: unknown
   try {
     expect(await platform.applyRuntimeConfig(yaml)).toEqual({ ok: true })
     expect((await platform.applyRuntimeConfig('mixed-port: [\n')).ok).toBe(false)
@@ -98,10 +99,15 @@ test.skipIf(!existsSync(corePath) && process.env.KURO_REQUIRE_CORE !== '1')('bun
       await closing
       await expect(platform.setSystemProxy({ host: '127.0.0.1', port: mixedPort, bypass: [] })).rejects.toThrow()
     }
+  } catch (error) {
+    failure = error
+    throw error
   } finally {
-    await platform.stopCore()
+    let stopError: unknown
+    try { await platform.stopCore() } catch (error) { stopError = error }
     origin.closeAllConnections()
     await new Promise<void>((resolve) => origin.close(() => resolve()))
+    if (stopError) throw new AggregateError(failure ? [failure, stopError] : [stopError], `Core stop unverified; retained fixture ${dataDir}`)
     await rm(dataDir, { force: true, recursive: true, maxRetries: 10, retryDelay: 20 })
   }
 }, 20_000)
