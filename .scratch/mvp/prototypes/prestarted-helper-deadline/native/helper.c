@@ -1,4 +1,4 @@
-/* THROWAWAY: fake operations/Core only; no WinINet, registry or session messages. */
+/* THROWAWAY: fake operations/Core only; no WinINet or registry operations. */
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <stdio.h>
@@ -8,8 +8,10 @@
 static struct {
   HANDLE triggered, operation_start, operation_done, decision_ready, finished, report_start, report_done;
   HANDLE stop_core, core_ready, core;
+  HANDLE window_ready;
+  HWND window;
   const wchar_t *report;
-  LONG closing, triggers, eof, decision, operations, stops, coordinator_done;
+  LONG closing, triggers, eof, decision, operations, stops, coordinator_done, window_triggers;
   ULONGLONG start, deadline, operation_at, decided_at, stop_at, end_at;
   ULONGLONG start_epoch;
   DWORD core_pid, core_exit;
@@ -32,20 +34,57 @@ static void ack(const char *text, DWORD length) {
   DWORD written;
   WriteFile(GetStdHandle(STD_OUTPUT_HANDLE), text, length, &written, NULL);
 }
-static void trigger(void) {
+static int begin_close(void) {
   InterlockedIncrement(&s.triggers);
-  if (InterlockedCompareExchange(&s.closing, 1, 0)) return;
+  if (InterlockedCompareExchange(&s.closing, 1, 0)) return 0;
   s.start = GetTickCount64(); s.deadline = s.start + 1500;
   s.start_epoch = epoch();
   SetEvent(s.triggered);
+  return 1;
+}
+static void trigger(void) {
   /* A blocked/broken acknowledgement cannot block the supervisor or coordinator. */
-  ack("triggered\n", 10);
+  if (begin_close()) ack("triggered\n", 10);
+}
+static LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
+  /* Routing scaffold only: returning does NOT establish survival during real logoff. */
+  if (message == WM_APP + 1 || message == WM_QUERYENDSESSION ||
+      (message == WM_ENDSESSION && wparam)) {
+    InterlockedIncrement(&s.window_triggers);
+    begin_close(); /* No IPC, logging, wait or JS on the window thread. */
+    return message == WM_QUERYENDSESSION ? TRUE : 0;
+  }
+  return DefWindowProcW(window, message, wparam, lparam);
+}
+static DWORD WINAPI window_thread(void *unused) {
+  (void)unused;
+  WNDCLASSW cls = {0};
+  cls.lpfnWndProc = window_proc;
+  cls.hInstance = GetModuleHandleW(NULL);
+  cls.lpszClassName = L"KuroIsolatedHelperProbe";
+  if (!RegisterClassW(&cls)) { SetEvent(s.window_ready); return 1; }
+  /* Hidden top-level window, not HWND_MESSAGE (which misses broadcast sessions). */
+  s.window = CreateWindowExW(WS_EX_TOOLWINDOW, cls.lpszClassName, L"", WS_POPUP,
+    0, 0, 0, 0, NULL, NULL, cls.hInstance, NULL);
+  SetEvent(s.window_ready);
+  if (!s.window) return 2;
+  MSG message;
+  while (GetMessageW(&message, NULL, 0, 0) > 0) {
+    TranslateMessage(&message);
+    DispatchMessageW(&message);
+  }
+  return 0;
 }
 static DWORD WINAPI reader(void *unused) {
   (void)unused;
   char byte; DWORD count;
   while (ReadFile(GetStdHandle(STD_INPUT_HANDLE), &byte, 1, &count, NULL) && count) {
     if (byte == 'C') trigger();
+    if (byte == 'W') {
+      if (!PostMessageW(s.window, WM_APP + 1, 0, 0)) return 1;
+      if (WaitForSingleObject(s.triggered, 1000) != WAIT_OBJECT_0) return 2;
+      ack("triggered\n", 10);
+    }
   }
   InterlockedExchange(&s.eof, 1);
   trigger(); /* Losing the only controller closes this one-shot instance. No reconnect. */
@@ -67,12 +106,12 @@ static DWORD WINAPI write_report(void *unused) {
   FILE *f = _wfopen(s.report, L"wb");
   if (!f) return 1;
   fprintf(f, "{\"pid\":%lu,\"corePid\":%lu,\"decision\":\"%s\","
-    "\"triggers\":%ld,\"operations\":%ld,\"stops\":%ld,\"eof\":%ld,"
+    "\"triggers\":%ld,\"operations\":%ld,\"stops\":%ld,\"eof\":%ld,\"windowTriggers\":%ld,"
     "\"decisionMs\":%llu,\"stopMs\":%llu,\"endMs\":%llu,"
     "\"deadlineMs\":%llu,\"startEpochMs\":%llu,\"reportEpochMs\":%llu,\"coreGone\":%s,\"coreForced\":%s,"
     "\"coreExit\":%lu,\"selfForced\":%s,\"coordinatorDone\":%ld}\n",
     GetCurrentProcessId(), s.core_pid, load(&s.decision) == 1 ? "cleared" : "timeout",
-    load(&s.triggers), load(&s.operations), load(&s.stops), load(&s.eof),
+    load(&s.triggers), load(&s.operations), load(&s.stops), load(&s.eof), load(&s.window_triggers),
     s.decided_at - s.start, s.stop_at - s.start, s.end_at - s.start,
     s.deadline - s.start, s.start_epoch, epoch(), s.core_gone ? "true" : "false", s.core_forced ? "true" : "false",
     s.core_exit, s.forced_self ? "true" : "false", load(&s.coordinator_done));
@@ -159,7 +198,12 @@ int wmain(int argc, wchar_t **argv) {
 #define EVENT(name) s.name = CreateEventW(NULL, TRUE, FALSE, NULL); if (!s.name) return 92
   EVENT(triggered); EVENT(operation_start); EVENT(operation_done); EVENT(decision_ready);
   EVENT(finished); EVENT(report_start); EVENT(report_done);
+  EVENT(window_ready);
 #undef EVENT
+  HANDLE window = CreateThread(NULL, 0, window_thread, NULL, 0, NULL);
+  if (!window) return 98;
+  CloseHandle(window);
+  if (WaitForSingleObject(s.window_ready, 3000) != WAIT_OBJECT_0 || !s.window) return 99;
   if (!launch_core()) return 93;
   HANDLE thread = CreateThread(NULL, 0, operation, NULL, 0, NULL);
   if (!thread) return 96;
