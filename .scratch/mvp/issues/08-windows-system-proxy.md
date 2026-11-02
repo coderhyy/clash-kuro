@@ -406,3 +406,9 @@ Blocked by: 02, 07
 - CI 41415780940（72920ac）Windows/macOS 全部通过。已下载 `out/ci-41415780940/verified-serve.json`：实际 resident IPC set/clear、单个 LAN flags 3→1、私有注册键命令写入/删除通过；helper PID 5928、假 Core PID 2876，清理报告 ok=true/timedOut=false/coreGone=true，观测 durationMs=16。备份恢复后逐项验证通过，真实 RunOnce 未改变。
 - 该 runner 只有一个 LAN，无 RAS 样本；触发来自 IPC（triggerMask=2，queryEvents/endEvents=0）。此结果不证明 Windows 10/11 注销/关机可靠性，也不将 16ms 视作硬实时保证。成功结果依赖外部 Job 无救援且确认已空；恢复发生在此之后。
 - 只读登录枚举探针追加仅数量统计：25 个 LSA session，14 个可读且属于当前用户，11 个无法分类；证据 `prestarted-helper-deadline/out/logon-probe-1793609544869/result.json`。不能把无法分类当作不存在，因此拒绝将“枚举全部旧登录并等待消失”直接用作自动迁移放行条件。不请求管理员权限解决此限制，继续收敛受控迁移边界。
+
+2026-11-02 (agent，迁移决策边界):
+
+- f86dfe7 的 CI 41416565226 全部通过，draft PR 仍 OPEN/draft。ADR-0013 补充最新实现与测试边界，保持草案；ADR-0011/issue Status 不变。
+- 未把旧 RunOnce 安全迁移简化成“删值后等一会儿”或“当前登录不同”。普通用户完整登录枚举无法分类的记录，使这一自动放行路径证据不足；不继续堆叠相同快照探针。
+- 请求确定是否接受一次性受控迁移窗口：旧版本及其写入者停止后备份、清理、退役旧条目，由用户手动重启，之后核验才启用新 owner。此前不要求用户现在重启、不触碰本机设置；若接受，再实现配套门禁、before/after 和失败恢复后集中交付。该取舍影响升级体验，不代表接受最终 helper 架构。
