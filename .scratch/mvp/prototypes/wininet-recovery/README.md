@@ -21,8 +21,24 @@ runner, after all Core fixtures have exited. This is not the user's Windows
 or session evidence. No competitor check, backup, writer-exit gate or restoration
 check is bypassed. RunOnce is read again and compared after restoration; missing
 RunOnce keys are handled without creating them. Only the verified result summary
-is uploaded, not the raw registry export or baseline fields. The CI attempt has
-not yet completed at this checkpoint.
+is uploaded, not the raw registry export or baseline fields.
+
+CI `41388311489` (`4716fa8`) passed the actual WinINet cycle and restoration,
+along with both full CI jobs. Downloaded `kuro-wininet-recovery-evidence` to
+`out/ci-41388311489/verified.json`: `restoredAndVerified=true` and
+`runOnceUnchanged=true`. The runner's outside-repository backup was
+`C:\Users\runneradmin\kuro-sysproxy-backups\wininet-1793593619146`.
+This proves the shared one-shot API path and restored final state on that
+runner, not the resident thread/window notification path or target-machine RAS
+connections. No claim of a 1500 ms operation budget is made for this fixture.
+
+The follow-up tightens this evidence: after set and after clear, query every
+enumerated connection and require flags 3/1 respectively, the fixture endpoint
+and bypass, and the preserved PAC string. API success alone is insufficient.
+The summary includes the number of connections and observed set/clear timings
+(including notifications, excluding subsequent verification). The updated
+verification still needs its own CI result; local builds and parser/state-guard
+tests do not exercise proxy writes.
 
 The latest local read-only backup after this script change is
 `C:\Users\DT-056\kuro-sysproxy-backups\wininet-1793593360809`.

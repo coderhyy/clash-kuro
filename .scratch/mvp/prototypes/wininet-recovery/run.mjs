@@ -39,7 +39,7 @@ function supervised(label, args) {
   const data = JSON.parse(readFileSync(report, 'utf8'))
   assert.equal(data.remaining, 0, 'STOP: an old writer might still be alive; no restore')
   if (mutating) writerGone = true
-  return { data, failure }
+  return { data, failure, stdout }
 }
 function must(label, args) {
   const result = supervised(label, args)
@@ -70,6 +70,7 @@ if (!prior) {
 console.log(`${prior ? 'Requested guarded restoration from' : 'Verified read-only backup'}: ${dir}`)
 if (exercise || prior) {
   competitors()
+  let cycleEvidence = null
   if (prior) must('restore', ['restore', snapshot, endpoint])
   else {
     // External rescue is a failed experiment, even if safe restoration subsequently succeeds.
@@ -79,6 +80,11 @@ if (exercise || prior) {
     must('restore', ['restore', snapshot, endpoint])
     if (cycle.failure || cycle.data.rootExitCode !== 0 || cycle.data.watchdogKilled || cycle.data.lingeringChildren)
       throw new Error('Experiment failed; original settings were restored, not an accepted result', { cause: cycle.failure })
+    cycleEvidence = cycle.stdout.trim().split(/\r?\n/).map(line => JSON.parse(line))
+      .find(item => item.command === 'cycle-verified')
+    assert(cycleEvidence?.connections >= 1, 'Missing per-connection set/clear verification')
+    assert.equal(cycleEvidence.setFlags, 3)
+    assert.equal(cycleEvidence.clearFlags, 1)
   }
   must('restored-verify', ['verify', snapshot])
   assert.deepEqual(JSON.parse(readRunOnce())?.ClashKuroSysProxyCleanup ?? null,
@@ -86,6 +92,7 @@ if (exercise || prior) {
     'RunOnce differs from backup; do not overwrite externally changed recovery settings')
   writeFileSync(join(root, 'out/verified.json'), JSON.stringify({ at: new Date().toISOString(),
     backup: dir, platform: process.platform, restoredAndVerified: true, runOnceUnchanged: true,
+    cycleEvidence,
     scope: 'shared one-shot WinINet operations, not resident notification/session validation' }, null, 2))
   console.log('Original LAN/RAS state verified after restoration; RunOnce was not modified')
 } else console.log('Read-only mode: no proxy write, no notification, no RunOnce change')
