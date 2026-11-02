@@ -174,10 +174,11 @@ static DWORD WINAPI resident_worker(void *unused) {
     int mutating = wcscmp(args[1], L"get") != 0;
     resident.response.len = 0;
     int code = KURO_RESIDENT_EXEC((int)count + 1, args);
+    // Close admission before publishing a failed mutation; a fast client may immediately retry.
+    if (code && mutating) resident_close();
     // The response owns its bytes; release the request slot before publishing it.
     InterlockedAnd(&resident.gate, ~5L);
     resident_write(resident.response.data, resident.response.len);
-    if (code && mutating) resident_close();
   }
 cleanup:;
   const wchar_t *expected[MAX_EXPECTED];

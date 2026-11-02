@@ -319,3 +319,8 @@ Blocked by: 02, 07
 - 实验性 resident 的准入现按“端点集合刷盘 → 新 RunOnce 登记成功 → set”执行，所有 resident 请求不再管理 legacy 单端点条目；成功关闭/recover 在持有独占期间 reset 并删除新版独立值 `ClashKuroResidentCleanup`。登记/删除失败明确失败。
 - 新命令为带引号的保留 exe 路径加 `recover`；从 exe 同目录推导 recovery.bin，拒绝登记到不同 journal，避免命令行重复长路径超过 RunOnce 限制。无参数 recover 自动写 `%APPDATA%\Clash Kuro\data\runonce.log`；显式 --recovery/--log 仍用于测试工具。不会把 legacy 值当成新版值删除。
 - 假注册表单测覆盖命令引用、同目录限制、创建/写入/删除拒绝及不存在键；actual resident 假后端也替换登记调用，未写本机注册表或真实代理。共享 native 构建及五项 fake 回归通过。旧版已启动清理的迁移竞争尚未解决，正式 app 仍未切换，不能宣称最终验收完成。
+
+2026-11-02 (agent，失败响应前关闭准入):
+
+- 修复实验性 resident 的失败时序：原来先发布失败响应、再关闭写入口，快速客户端可能插入下一条 set；现在 native 在发布前关闭，TS 客户端收到 mutating ok=false 也在消费者继续前关闭。失败 get 不因此关闭写入口。
+- 新单测验证收到失败 set 后立即重试被拒绝；typecheck、14 项客户端测试及五项 native 假后端回归通过。证据 `prestarted-helper-deadline/out/resident-1793604785900/`，无真实代理写入。稳定路径 fixture 的前次 CI 失败与 canonical 临时目录修正已保留，最新 CI 仍待确认；正式集成和人工验收未完成。

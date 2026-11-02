@@ -106,6 +106,7 @@ export function residentClient(child: ChildProcessWithoutNullStreams, timeoutMs 
         const result = pending; pending = undefined
         state = 'ready'; clearTimeout(timer)
         result.resolve({ stdout: line + '\n', stderr: '' })
+        if (value.ok === false && result.command !== 'get') close(new Error('Resident mutation failed; writes closed'))
       } else { badOutput('Unexpected resident helper response'); return }
     }
   })

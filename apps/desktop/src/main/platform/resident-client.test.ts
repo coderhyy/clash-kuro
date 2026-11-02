@@ -32,6 +32,7 @@ process.stdin.on('data', chunk => {
     } else if (mode === 'bad') send({command:'wrong',ok:true});
     else if (mode === 'overflow') process.stdout.write('x'.repeat(1024 * 1024 + 1));
     else if (mode === 'eof') { process.stdout.end(); setTimeout(() => process.exit(0), 100); }
+    else if (mode === 'mutation-failure') send({command,ok:false});
     else if (mode === 'diagnostics') {
       process.stderr.write('x'.repeat(32768) + 'core-start-error', () => send({command,ok:true}));
     }
@@ -98,6 +99,14 @@ test('Core diagnostics are drained, bounded, and separate from JSON responses', 
     await client.closed
     expect(Buffer.byteLength(client.diagnostics())).toBe(16 * 1024)
     expect(client.diagnostics().endsWith('core-start-error')).toBe(true)
+  })
+})
+
+test('a failed mutation closes admission before the response consumer can enqueue another set', async () => {
+  await fixture('mutation-failure', async client => {
+    await client.ready
+    expect(JSON.parse((await client.request(['set'])).stdout).ok).toBe(false)
+    await expect(client.request(['set'])).rejects.toThrow(/closing|exited/)
   })
 })
 
