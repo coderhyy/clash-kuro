@@ -324,3 +324,8 @@ Blocked by: 02, 07
 
 - 修复实验性 resident 的失败时序：原来先发布失败响应、再关闭写入口，快速客户端可能插入下一条 set；现在 native 在发布前关闭，TS 客户端收到 mutating ok=false 也在消费者继续前关闭。失败 get 不因此关闭写入口。
 - 新单测验证收到失败 set 后立即重试被拒绝；typecheck、14 项客户端测试及五项 native 假后端回归通过。证据 `prestarted-helper-deadline/out/resident-1793604785900/`，无真实代理写入。稳定路径 fixture 的前次 CI 失败与 canonical 临时目录修正已保留，最新 CI 仍待确认；正式集成和人工验收未完成。
+
+2026-11-02 (agent，恢复调用方准入边界):
+
+- 新增 `recoverResident`，为正式启动接入准备：仅当准确子进程退出、stdout 排空、最终报告 ok 且无 timeout/Core 后才返回成功。调用方固定预算到期只请求终止该 child，并拒绝为未知状态，不能以 kill 请求成功作为写入许可，不重试/查 PID。
+- 六项单测验证成功、缺失/矛盾/错误报告及预算超时；typecheck 通过。实际 native 假后端也加载正式 TS wrapper，验证恢复旧记录后为空，证据 `prestarted-helper-deadline/out/resident-1793605003668/`。无本机代理/注册表写入。该 wrapper 尚未由正式 Platform 调用，legacy 迁移和会话验收仍未完成。

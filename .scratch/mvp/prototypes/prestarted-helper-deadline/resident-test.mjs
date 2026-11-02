@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 const root = dirname(fileURLToPath(import.meta.url))
 const { residentClient } = createRequire(import.meta.url)('./out/client.cjs')
+const { recoverResident } = createRequire(import.meta.url)('./out/recovery.cjs')
 if (process.argv[2] === '--child') {
   const [mode, dir] = process.argv.slice(3)
   const recoveryEvidence = []
@@ -100,6 +101,10 @@ if (process.argv[2] === '--child') {
     assert.equal(statSync(join(dir, 'recovery.bin')).size, 0)
     assert(!recovery.diagnostics().includes('fake-core-start'))
     recoveryEvidence.push({ scenario: 'recovery-clear-resets-journal', ...recovered })
+    writeFileSync(join(dir, 'recovery.bin'), retained)
+    await recoverResident(exe, join(dir, 'recovery.bin'), join(dir, 'wrapper-recovery.json'))
+    assert.equal(statSync(join(dir, 'recovery.bin')).size, 0)
+    recoveryEvidence.push({ scenario: 'production-wrapper-recovery', report: JSON.parse(readFileSync(join(dir, 'wrapper-recovery.json'))) })
   }
   writeFileSync(join(dir, 'result.json'), JSON.stringify({ mode, pid: child.pid, exit, report, recoveryEvidence }))
 } else {
