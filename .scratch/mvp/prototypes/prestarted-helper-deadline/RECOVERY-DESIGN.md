@@ -165,3 +165,24 @@ This utility is not yet called from app startup. Keep deployment, journal path a
 native registration consistent in the integration; do not point RunOnce back into
 an uninstallable application version. No automatic garbage collection is permitted
 until all pending recovery references and writers can be ruled out.
+
+## Native registration integration
+
+Resident set admission now appends/flushes the endpoint union, then successfully
+registers `ClashKuroResidentCleanup`, then allows mutation. Resident requests no
+longer write/delete the legacy single-endpoint registration. Successful shutdown
+or replay resets the journal and deletes only the new value under exclusive
+ownership; registration/deletion failure remains explicit failure.
+
+The new command is `"<retained executable>" recover`. The executable infers the
+adjacent `recovery.bin`; registration rejects any different supplied journal path.
+Bare recover logs to `%APPDATA%\Clash Kuro\data\runonce.log`. This removes repeated
+long paths from the 260-character RunOnce command while preserving diagnostics.
+Explicit `recover --recovery ... [--log ...]` remains available for test/recovery
+tools. The new command's length is checked before registry access.
+
+Fake registry tests cover quoting, same-directory journal matching, denied key
+creation/value writes/deletes and absent keys. Native fake-backend tests replace
+registration too, never touching the real registry. The one-shot implementation
+remains unchanged. These changes do not handle already-launched legacy cleanup;
+migration gating and app deployment/routing remain mandatory before enablement.

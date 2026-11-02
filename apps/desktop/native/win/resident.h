@@ -2,6 +2,11 @@
 #include "core-process.h"
 #include "resident-protocol.h"
 #include "recovery-journal.h"
+#include "recovery-registration.h"
+#ifndef KURO_RECOVERY_REGISTER
+#define KURO_RECOVERY_REGISTER kuro_recovery_register
+#define KURO_RECOVERY_UNREGISTER kuro_recovery_unregister
+#endif
 
 #ifndef KURO_RESIDENT_EXEC
 #define KURO_RESIDENT_EXEC command_main
@@ -22,7 +27,7 @@ static struct {
   ULONGLONG start;
   LONG clear_ok;
   int core_gone, timed_out, recovery_only;
-  const wchar_t *core_path, *data_dir;
+  const wchar_t *core_path, *data_dir, *recovery_path;
   wchar_t payload[KURO_REQUEST_BYTES / 2];
   DWORD bytes;
   wchar_t servers[MAX_EXPECTED][300];
@@ -82,7 +87,8 @@ static int resident_remember(const wchar_t *server) {
 }
 static int resident_admit(const wchar_t *server) {
   // Persist the union before a new endpoint can reach WinINet; the lock survives all timeout paths.
-  return !kuro_recovery_admit(resident.recovery, server) && resident_remember(server);
+  return !kuro_recovery_admit(resident.recovery, server) &&
+    !KURO_RECOVERY_REGISTER(resident.recovery_path) && resident_remember(server);
 }
 static DWORD WINAPI resident_core_output(void *input) {
   char bytes[4096]; DWORD count;
@@ -177,8 +183,9 @@ cleanup:;
   const wchar_t *expected[MAX_EXPECTED];
   for (int i = 0; i < resident.server_count; ++i) expected[i] = resident.servers[i];
   resident.response.len = 0;
-  int cleared = !resident.server_count || KURO_RESIDENT_CLEAR(expected, resident.server_count, !resident.recovery_only) == 0;
+  int cleared = !resident.server_count || KURO_RESIDENT_CLEAR(expected, resident.server_count, 0) == 0;
   if (cleared && kuro_recovery_reset_after_clear(resident.recovery)) cleared = 0;
+  if (cleared && KURO_RECOVERY_UNREGISTER()) cleared = 0;
   InterlockedExchange(&resident.clear_ok, cleared);
   SetEvent(resident.cleared);
   return 0;
@@ -252,6 +259,15 @@ static LRESULT CALLBACK resident_window(HWND window, UINT message, WPARAM w, LPA
 static int resident_main(int argc, wchar_t **argv) {
   resident.recovery_only = argc > 1 && !wcscmp(argv[1], L"recover");
   const wchar_t *log = NULL, *recovery_path = NULL;
+  wchar_t default_exe[MAX_PATH], default_journal[MAX_PATH], default_log[MAX_PATH];
+  if (resident.recovery_only && argc == 2) {
+    if (kuro_recovery_paths(default_exe, default_journal)) return usage(L"Recovery path unavailable");
+    recovery_path = default_journal;
+    DWORD length = GetEnvironmentVariableW(L"APPDATA", default_log, MAX_PATH);
+    if (!length || length + 35 >= MAX_PATH) return usage(L"Recovery log path unavailable");
+    wcscat(default_log, L"\\Clash Kuro\\data\\runonce.log");
+    log = default_log;
+  }
   for (int i = 2; i < argc; i += 2) {
     if (i + 1 >= argc) return usage(L"Missing serve option value");
     if (!wcscmp(argv[i], L"--core") && !resident.core_path) resident.core_path = argv[i + 1];
@@ -266,6 +282,7 @@ static int resident_main(int argc, wchar_t **argv) {
       !kuro_valid_log_path(recovery_path) || (log && !kuro_valid_log_path(log)))
     return usage(L"serve requires --core/--data/--recovery/--expected-server; recover permits only --recovery/--log");
   g_log = log;
+  resident.recovery_path = recovery_path;
   resident.recovery = kuro_recovery_lock(recovery_path);
   if (resident.recovery == INVALID_HANDLE_VALUE) return usage(L"Recovery ownership unavailable; no writes admitted");
   KuroRecoveryState prior;
@@ -275,6 +292,7 @@ static int resident_main(int argc, wchar_t **argv) {
   // Until migration/replay is implemented, never start a new owner over unresolved prior settings.
   if (prior.count && !resident.recovery_only) return usage(L"Prior recovery pending; new Core and proxy writes refused");
   g_before_set = resident_admit;
+  g_manage_recovery = 0; /* Resident registration is independent of the legacy endpoint-only value. */
   resident.main_thread = GetCurrentThreadId();
   resident.job = kuro_core_job();
   if (!resident.job) return 3;

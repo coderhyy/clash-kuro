@@ -313,3 +313,9 @@ Blocked by: 02, 07
 - 新增尚未由 app 调用的 `prepareRecoveryHelper`：在调用方选定的可信用户目录保留按内容散列命名的 helper，先完整写入并 sync，再以硬链接发布，不覆盖已有版本、不自动删除旧版本；已存在文件必须逐字节匹配，目录路径穿过链接则拒绝。硬链接不受支持时失败，不降级为不安全覆盖。
 - 三项私有临时文件测试覆盖并发发布、应用源文件删除后保留恢复副本、更新保留旧版本、篡改拒绝及临时文件清理、相对路径和 junction/symlink 拒绝。使用惰性文本夹具，无 exe 启动、代理或注册表写入。typecheck 与此前完整 175 项测试通过，随后新增的链接目录拒绝专项也通过。
 - 仍需将部署目录、native recover 和 RunOnce 登记接成同一生命周期；此工具不是针对同用户恶意并发篡改的安全边界，也不能据此声称更新/卸载恢复问题已全部解决。正式 app 未切换，ADR/Status 不变。
+
+2026-11-02 (agent，新版恢复登记接入):
+
+- 实验性 resident 的准入现按“端点集合刷盘 → 新 RunOnce 登记成功 → set”执行，所有 resident 请求不再管理 legacy 单端点条目；成功关闭/recover 在持有独占期间 reset 并删除新版独立值 `ClashKuroResidentCleanup`。登记/删除失败明确失败。
+- 新命令为带引号的保留 exe 路径加 `recover`；从 exe 同目录推导 recovery.bin，拒绝登记到不同 journal，避免命令行重复长路径超过 RunOnce 限制。无参数 recover 自动写 `%APPDATA%\Clash Kuro\data\runonce.log`；显式 --recovery/--log 仍用于测试工具。不会把 legacy 值当成新版值删除。
+- 假注册表单测覆盖命令引用、同目录限制、创建/写入/删除拒绝及不存在键；actual resident 假后端也替换登记调用，未写本机注册表或真实代理。共享 native 构建及五项 fake 回归通过。旧版已启动清理的迁移竞争尚未解决，正式 app 仍未切换，不能宣称最终验收完成。

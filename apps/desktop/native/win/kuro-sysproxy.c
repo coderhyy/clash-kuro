@@ -42,6 +42,7 @@
 // Absolute path from --log (validated), or NULL.
 static const wchar_t *g_log;
 static int (*g_before_set)(const wchar_t *server);
+static int g_manage_recovery = 1;
 
 // ---- JSON output -------------------------------------------------------------------------
 
@@ -497,12 +498,12 @@ static int command_main(int argc, wchar_t **argv) {
     wchar_t server[300];
     _snwprintf(server, sizeof server / sizeof *server, L"%ls:%u", host, p);
     server[299] = 0;
-    return set_connections(server, bypass, 1);
+    return set_connections(server, bypass, g_manage_recovery);
   }
   if (!wcscmp(command, L"clear")) {
     if (!expected_count || host || port) return usage(L"clear requires --expected-server");
     for (int i = 0; i < expected_count; i++) if (!kuro_valid_server(expected[i])) return usage(L"Invalid --expected-server");
-    return clear_connections(expected, expected_count, 1);
+    return clear_connections(expected, expected_count, g_manage_recovery);
   }
   return usage(L"Unknown command");
 }

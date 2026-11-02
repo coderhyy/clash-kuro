@@ -6,6 +6,10 @@
 static int fake_exec(int argc, wchar_t **argv);
 static int fake_clear(const wchar_t **expected, int count, int recovery);
 static int fake_warm(void) { return 0; }
+static DWORD fake_register(const wchar_t *path) { (void)path; return ERROR_SUCCESS; }
+static DWORD fake_unregister(void) { return ERROR_SUCCESS; }
+#define KURO_RECOVERY_REGISTER fake_register
+#define KURO_RECOVERY_UNREGISTER fake_unregister
 #define KURO_RESIDENT_EXEC fake_exec
 #define KURO_RESIDENT_CLEAR fake_clear
 #define KURO_RESIDENT_WARM fake_warm
