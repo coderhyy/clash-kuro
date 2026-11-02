@@ -251,3 +251,10 @@ Blocked by: 02, 07
 - `3ea3673` 的 CI `41390975216` 全部通过：one-shot、原生普通等待、原生消息感知等待均查询到 flags 3→1、正确测试端点/bypass、保留 PAC，恢复原状态且 RunOnce 不变。每种只有一个 LAN，无实际 RAS。原生模式复用协调模型与共享 clear，假 Core 在 clear 决策后正常退出；没有外部救援。新增 API 返回失败用例记录 failed 而非 timeout，十五个假策略场景符合预期；两个救援负对照仍不通过退出验收。
 - 下载结果到 `.scratch/mvp/prototypes/wininet-recovery/out/ci-41390975216/`。记录的 clear 0 tick-ms 只表示 GetTickCount64 未跨 tick，不是瞬时完成或硬实时保证。真实 API 在该 runner 本轮未复现假同步通知的互等，不能推广为所有 WinINet/Windows/Electron 场景均无依赖。
 - 这是无 Electron 载体的真实 clear 线程桥接：正常设置后才启动协调阶段，使用私有 WM_APP 触发，非正式启动流程、非实际会话消息。正式 resident/Core 所有权接入、恢复代次竞争、本机通知行为及人工注销/关机仍待完成。详细范围、失败与复现见原型 README；goal 不得标 complete。
+
+2026-11-02 (agent，正式退出入口的状态约束):
+
+- Core 原生所有权基础 `72ef6bc` 的 CI `41392779316` 已通过；创建时原子加入私有 Job、暂停后交接准确句柄，已接入隔离协调载体，尚未切换正式 Platform 的 Core 启动。
+- 普通退出此前仅关闭 Core 重启入口，仍允许新代理写入，且清理超时/失败被吞掉。现在首次 shutdown 同步关闭 Windows 写入入口，已排队但未开始写入的 set 也被拒绝；重复 shutdown 返回同一操作，不重置首次等待预算。代理尝试后仍请求停 Core，失败/超时不再冒充成功，并在 exit.log 记录 cleanup FAILED/state unknown。
+- Windows mutating helper 超时后也永久关闭本实例 set 入口；允许清理重试，但清理成功不会重新开放 set。修复 remembered 为空时误跳过不确定清理的分支。
+- 本地 typecheck 和 153 项桌面测试通过，覆盖重复退出、关闭后拒绝 set、队列中的 set、超时后的状态与清理重试。这里的 Promise 等待仅约束异步调用方，既不取消旧 native writer，也不是硬实时保证；旧 one-shot 会话路径尚未替换，不能据此安排或声称真实注销验收通过。resident IPC、原生终止证明和恢复代次仍需继续接入。

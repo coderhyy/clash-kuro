@@ -245,7 +245,7 @@ test('shutdown clears proxy before Core, even on permission error, and prevents 
   const order: string[] = []
   vi.spyOn(platform, 'clearSystemProxy').mockImplementation(async () => { order.push('proxy'); throw new Error('denied') })
   vi.spyOn(platform, 'stopCore').mockImplementation(async () => { order.push('core') })
-  await platform.shutdown({ timeoutMs: 100 })
+  await expect(platform.shutdown({ timeoutMs: 100 })).rejects.toThrow('denied')
   expect(order).toEqual(['proxy', 'core'])
   await expect(platform.startCore()).rejects.toThrow('shutting down')
 })
@@ -255,9 +255,23 @@ test('a hanging proxy cleanup still attempts Core cleanup within the shutdown bu
   vi.spyOn(platform, 'clearSystemProxy').mockImplementation(() => new Promise(() => {}))
   const stop = vi.spyOn(platform, 'stopCore').mockImplementation(() => new Promise(() => {}))
   const start = Date.now()
-  await platform.shutdown({ timeoutMs: 60 })
+  await expect(platform.shutdown({ timeoutMs: 60 })).rejects.toThrow('state unknown')
   expect(stop).toHaveBeenCalledOnce()
   expect(Date.now() - start).toBeLessThan(300)
+})
+
+test('repeated shutdown shares its first operation and closes proxy writes permanently', async () => {
+  const { platform, exec } = await fixture({ os: 'win32' })
+  const clear = vi.spyOn(platform, 'clearSystemProxy').mockImplementation(() => new Promise(() => {}))
+  vi.spyOn(platform, 'stopCore').mockResolvedValue()
+  const first = platform.shutdown({ timeoutMs: 40 })
+  const outcome = expect(first).rejects.toThrow('state unknown')
+  expect(platform.shutdown({ timeoutMs: 9000 })).toBe(first)
+  await expect(platform.setSystemProxy({ host: '127.0.0.1', port: 7890, bypass: [] })).rejects.toThrow('writes are closed')
+  await outcome
+  expect(clear).toHaveBeenCalledOnce()
+  await expect(platform.setSystemProxy({ host: '127.0.0.1', port: 7890, bypass: [] })).rejects.toThrow('writes are closed')
+  expect(exec).not.toHaveBeenCalled()
 })
 
 test('an injected fetchText can use Electron networking without importing Electron', async () => {

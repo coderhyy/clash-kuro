@@ -77,6 +77,9 @@ async function main(): Promise<void> {
       scheduler.stop()
       app_.dispose()
       await platform.shutdown({ timeoutMs: SHUTDOWN_TIMEOUT_MS })
+      logExit('cleanup completed')
+    } catch (error) {
+      logExit(`cleanup FAILED; state may be unknown: ${error instanceof Error ? error.message : String(error)}`)
     } finally {
       logExit(`exit done in ${Date.now() - started} ms`)
       app.exit(0)

@@ -124,6 +124,16 @@ describe('Windows helper', () => {
   const tick = () => new Promise((resolve) => setTimeout(resolve, 0))
   const cleared = JSON.stringify({ ok: true, command: 'clear', connections: [{ name: null, status: 'cleared' }] })
 
+  test('ordinary shutdown rejects a set already queued but not started', async () => {
+    const exec = vi.fn<Exec>()
+    const { proxy } = win(exec)
+    const pending = proxy.setSystemProxy({ host: '127.0.0.1', port: 7890, bypass: [] })
+    if (!('beginShutdown' in proxy)) throw new Error('Expected Windows proxy')
+    proxy.beginShutdown()
+    await expect(pending).rejects.toThrow(/logoff\/shutdown/)
+    expect(exec).not.toHaveBeenCalled()
+  })
+
   test('set passes argv (no shell string), remembers the endpoint first', async () => {
     const exec = vi.fn<Exec>(async () => ok({ command: 'set', connections: [{ name: null, status: 'set' }, { name: '公司 VPN', status: 'set' }] }))
     const { proxy, saved } = win(exec)
@@ -217,6 +227,13 @@ describe('Windows helper', () => {
     const exec = vi.fn<Exec>(async () => { throw Object.assign(new Error('timed out'), { killed: true, signal: 'SIGTERM' }) })
     const { proxy } = win(exec)
     await expect(proxy.clearSystemProxy()).rejects.toBeInstanceOf(SystemProxyUnknownStateError)
+    await expect(proxy.setSystemProxy({ host: '127.0.0.1', port: 7890, bypass: [] })).rejects.toThrow(/logoff\/shutdown/)
+    expect(exec).toHaveBeenCalledOnce()
+    // A closed write gate must not hide a failed cleanup just because memory started empty.
+    exec.mockResolvedValue(ok({ command: 'clear', connections: [{ name: null, status: 'cleared' }] }))
+    await proxy.clearSystemProxy()
+    expect(exec).toHaveBeenCalledTimes(2)
+    await expect(proxy.setSystemProxy({ host: '127.0.0.1', port: 7890, bypass: [] })).rejects.toThrow(/logoff\/shutdown/)
   })
 
   test('rejects bypass entries containing the Windows list separator', async () => {

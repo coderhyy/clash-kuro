@@ -102,6 +102,7 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
   let child: ChildProcess | undefined
   let queue: Promise<unknown> = Promise.resolve()
   let shuttingDown = false
+  let shutdown: Promise<void> | undefined
   const serialize = <T>(operation: () => Promise<T>): Promise<T> => {
     const result = queue.then(operation)
     queue = result.catch(() => {})
@@ -283,6 +284,10 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
     controlChannel: () => ({ ...channel }),
     ...systemProxy,
     ...createLaunchAtLogin({ os, app: options.loginItemApp }),
+    async setSystemProxy(settings) {
+      if (shuttingDown) throw new Error('Platform is shutting down; System Proxy writes are closed')
+      await systemProxy.setSystemProxy(settings)
+    },
     fetchText: options.fetchText ?? ((url, input) => fetchProfileText(url, {
       ...input, userAgent: input.userAgent || options.userAgent || options.appProcessName || 'Clash Kuro', mixedPort: port(),
     })),
@@ -290,26 +295,31 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
       options.powerMonitor?.on('resume', listener)
       return () => { options.powerMonitor?.removeListener('resume', listener) }
     },
-    async shutdown({ timeoutMs }) {
+    shutdown({ timeoutMs }) {
+      if (shutdown) return shutdown
+      if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) return Promise.reject(new Error('Invalid shutdown budget'))
       shuttingDown = true
-      let timer: ReturnType<typeof setTimeout> | undefined
-      const cleanup = async () => {
-        let proxyTimer: ReturnType<typeof setTimeout> | undefined
-        try {
-          await Promise.race([
-            platform.clearSystemProxy(),
-            new Promise<void>((resolve) => { proxyTimer = setTimeout(resolve, Math.max(0, timeoutMs / 2)) }),
-          ])
-        } catch { /* A permissions failure must not prevent Core cleanup. */ }
-        finally { clearTimeout(proxyTimer) }
-        await platform.stopCore()
+      if ('beginShutdown' in systemProxy) systemProxy.beginShutdown()
+      const started = performance.now()
+      const within = async (operation: () => Promise<void>, deadline: number, name: string) => {
+        let timer: ReturnType<typeof setTimeout> | undefined
+        try { await Promise.race([
+          Promise.resolve().then(operation),
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(() => reject(new Error(`${name} deadline exceeded; state unknown`)), Math.max(0, deadline - performance.now()))
+          }),
+        ]) } finally { clearTimeout(timer) }
       }
-      try {
-        await Promise.race([
-          cleanup().catch(() => {}),
-          new Promise<void>((resolve) => { timer = setTimeout(resolve, Math.max(0, timeoutMs)) }),
-        ])
-      } finally { clearTimeout(timer) }
+      shutdown = (async () => {
+        const errors: unknown[] = []
+        // Waiting is bounded, not cancellation: the resident owner must settle/terminate native writers.
+        try { await within(() => platform.clearSystemProxy(), started + timeoutMs / 2, 'Proxy cleanup') }
+        catch (error) { errors.push(error) }
+        try { await within(() => platform.stopCore(), started + timeoutMs, 'Core stop') }
+        catch (error) { errors.push(error) }
+        if (errors.length) throw new AggregateError(errors, `Shutdown incomplete: ${errors.map(errorText).join('; ')}`)
+      })()
+      return shutdown
     },
   }
   return platform

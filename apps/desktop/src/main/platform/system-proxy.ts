@@ -204,7 +204,7 @@ function createWindowsSystemProxy(exec: Exec, options: SystemProxyOptions) {
   let remembered: string | null | undefined
   // A clear that failed leaves the proxy state unknown even when nothing is remembered.
   let uncertain = false
-  // Set once a session-end clear ran: later sets are refused so nothing re-enables the proxy.
+  // Irreversible per instance: shutdown or uncertain mutation closes later sets.
   let closing = false
   let setRunning = false
   // One helper at a time: overlapping set/clear would race on the same per-connection settings.
@@ -223,6 +223,7 @@ function createWindowsSystemProxy(exec: Exec, options: SystemProxyOptions) {
     } catch (error) {
       const details = error as NodeJS.ErrnoException & { stdout?: string; killed?: boolean; signal?: string | null }
       if (details.killed || details.code === 'ETIMEDOUT' || details.signal === 'SIGTERM') {
+        if (args[0] !== 'get') { closing = true; uncertain = true }
         throw new SystemProxyUnknownStateError(`System Proxy helper timed out; the proxy may be partially changed. ${manualHint(port)}`, { cause: error })
       }
       // Exit code 2 (partial failure) still carries a JSON report on stdout.
@@ -345,6 +346,7 @@ function createWindowsSystemProxy(exec: Exec, options: SystemProxyOptions) {
   }
 
   return {
+    beginShutdown() { closing = true },
     getSystemProxy: () => serialize(async (): Promise<SystemProxySettings | null> => {
       const result = await run(['get'])
       const lan = result.connections?.find((connection) => connection.name === null)
@@ -354,7 +356,7 @@ function createWindowsSystemProxy(exec: Exec, options: SystemProxyOptions) {
       return endpoint && { ...endpoint, bypass: (lan.bypass ?? '').split(';').map((entry) => entry.trim()).filter(Boolean) }
     }),
     setSystemProxy: (settings: SystemProxySettings) => serialize(async (): Promise<void> => {
-      if (closing) throw new Error('System Proxy is being cleared for logoff/shutdown')
+      if (closing) throw new Error('System Proxy writes are closed for logoff/shutdown or uncertain state')
       if (!validSettings(settings) || settings.bypass.some((entry) => entry.includes(';'))) throw new Error('Invalid System Proxy settings')
       const server = `${settings.host}:${settings.port}`
       // WinINet rejects the whole bypass list (error 87) on a bare IPv6 literal such as ::1; it needs [::1].
@@ -362,7 +364,7 @@ function createWindowsSystemProxy(exec: Exec, options: SystemProxyOptions) {
       // Remember before writing, so a crash mid-write is still cleaned up on next start.
       await remember(server)
       // A session-end clear may have run while the memory file was being written.
-      if (closing) throw new Error('System Proxy is being cleared for logoff/shutdown')
+      if (closing) throw new Error('System Proxy writes are closed for logoff/shutdown or uncertain state')
       let result: HelperResult
       setRunning = true
       try {
@@ -381,7 +383,7 @@ function createWindowsSystemProxy(exec: Exec, options: SystemProxyOptions) {
     }),
     clearSystemProxy: () => serialize(async () => {
       // Already cleared synchronously at session end: don't start another helper while Windows shuts down.
-      if (closing && remembered === null) return
+      if (closing && remembered === null && !uncertain) return
       await clear(await expectedServers())
     }),
     cleanupStaleSystemProxy: (port: number) => serialize(async () => clear(await expectedServers(port))),
