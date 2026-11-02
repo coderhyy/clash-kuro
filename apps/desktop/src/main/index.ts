@@ -1,6 +1,6 @@
 import { app, BaseWindow, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, powerMonitor, shell, Tray, type IpcMainEvent, type IpcMainInvokeEvent } from 'electron'
 import { appendFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { createMihomoClient } from '@kuro/api'
@@ -12,6 +12,7 @@ import { checkForUpdate } from './app/release-check'
 import { installGeoData } from './app/geo'
 import { watchSessionEnd } from './app/session-end'
 import { guardMigrationStartup } from './app/migration-startup'
+import { runMigrationCommand } from './app/migration-command'
 import { IPC, type BackupResult, type StreamKind } from './ipc-channels'
 import { trayIcon } from './tray-icon'
 import { t } from '../shared/i18n'
@@ -21,9 +22,13 @@ const RELEASE_REPO = process.env.KURO_RELEASE_REPO ?? 'coderhyy/clash-kuro'
 const SHUTDOWN_TIMEOUT_MS = 3_000
 // Hard limit for the synchronous helper run inside a session-end handler; the helper is killed after this.
 const SESSION_END_CLEAR_TIMEOUT_MS = 1_500
+const migrationRequested = process.argv.some(arg => /^--(?:proxy-migration|backup-directory|expected-server|confirm-controlled-restart)/.test(arg))
 
 if (!app.requestSingleInstanceLock()) {
-  app.quit()
+  if (migrationRequested) {
+    console.error('Migration refused: another Kuro instance holds the app lock; no migration command executed')
+    app.exit(1)
+  } else app.quit()
 } else {
   void main()
 }
@@ -43,9 +48,26 @@ async function main(): Promise<void> {
     ? app.isPackaged ? join(process.resourcesPath, 'bin', 'kuro-sysproxy.exe') : join(app.getAppPath(), 'resources', 'win', 'x64', 'kuro-sysproxy.exe')
     : undefined
   const dataDir = join(app.getPath('userData'), 'data')
-  try { await guardMigrationStartup(dataDir) }
+  try {
+    if (migrationRequested && !sysproxyHelperPath) throw new Error('System Proxy migration requires Windows')
+    if (sysproxyHelperPath) {
+      const result = await runMigrationCommand({ args: process.argv, dataDir, helperPath: sysproxyHelperPath,
+        collectorPath: app.isPackaged ? join(process.resourcesPath, 'bin', 'collect-migration-evidence.ps1')
+          : join(app.getAppPath(), 'scripts', 'collect-migration-evidence.ps1'),
+        installationRoot: dirname(process.execPath),
+        ...(app.isPackaged ? {} : { repoRoot: resolve(app.getAppPath(), '../..') }) })
+      if (result.handled) {
+        console.log(JSON.stringify(result))
+        app.exit(0)
+        return
+      }
+    }
+    await guardMigrationStartup(dataDir)
+  }
   catch (error) {
-    dialog.showErrorBox('System Proxy migration blocked', error instanceof Error ? error.message : String(error))
+    const message = error instanceof Error ? error.message : String(error)
+    if (migrationRequested) console.error(JSON.stringify({ ok: false, residentEnabled: false, message }))
+    else dialog.showErrorBox('System Proxy migration blocked', message)
     app.exit(1)
     return
   }

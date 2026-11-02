@@ -1,7 +1,7 @@
 // Build the Windows System Proxy helper (issue 08) into resources/win/<arch>/kuro-sysproxy.exe.
 // Usage: node scripts/build-sysproxy.mjs [--test]
 // Compiler: $CC if set, else the first of x86_64-w64-mingw32-clang/-gcc, gcc, clang on PATH (mingw-w64).
-// --test also builds and runs the endpoint parser unit test.
+// --test also builds and runs the native unit tests.
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -34,6 +34,10 @@ try {
     const protocol = join(tmp, 'resident-protocol_test.exe')
     run(cc, [...warnings, '-mconsole', '-O2', '-static', join(src, 'resident-protocol_test.c'), '-o', protocol])
     run(protocol, [])
+    const owner = join(tmp, 'resident-owner.test.exe')
+    run(cc, [...warnings, '-municode', '-mconsole', '-O2', '-static', join(src, 'resident-owner.test.c'), '-ladvapi32', '-lshell32', '-lole32', '-luuid', '-o', owner])
+    // The test's private Job/watchdog bounds exact children; rescue fails the build.
+    execFileSync(owner, [], { stdio: 'inherit', timeout: 10_000 })
     const recoveryLock = join(tmp, 'recovery-lock_test.exe')
     run(cc, [...warnings, '-municode', '-mconsole', '-O2', '-static', join(src, 'recovery-lock_test.c'), '-o', recoveryLock])
     execFileSync(recoveryLock, [], { stdio: 'inherit', timeout: 10_000 })

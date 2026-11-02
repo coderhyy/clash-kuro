@@ -380,3 +380,28 @@ or OS networking hard real-time, or establish an atomic reservation handoff.
   `out/resident-1793630965197`. Real Core through the fake resident Platform then
   passed **1/1**, `out/resident-platform-1793630981218`. No real proxy or RunOnce
   writes occurred on this machine. New CI remains required.
+
+## Migration command/admission staging checkpoint (2026-11-02)
+
+- CI `41469260599` completed successfully for exact commit
+  `cf54ea512b619436ea9d255d90db93e2719c1e30`, Windows and macOS. Downloaded
+  artifact/archive/build stamp/helper/collector verification is recorded in
+  `ARTIFACT-cf54ea5.md`. It is intermediate evidence, not a manual candidate.
+- The subsequent uncached integrated run at 23:47:17 passed all 8 tasks;
+  desktop **424/424**, 28 files, no skips, with real Core and actual read-only
+  boot/checkpoint collection required. Explicit prepare/check commands are
+  wired before Platform construction, but were exercised only with fake
+  commands and private filesystem fixtures. No real preparation was run.
+- Native owner tests add private-namespace cross-process exclusion, recursive
+  acquisition rejection, abandonment and access-error coverage. Native unit
+  suite passed; the ownership primitive is not yet wired into the shipping
+  resident engine. Local-drive recovery-root restriction still needs integrated
+  path/provenance tests before it is admission evidence.
+- Rebuilt protocol-1 regression engine remains **8/8**, with no rescue or
+  leftovers, `out/resident-1793634509460`; real Core through that fake engine
+  **1/1**, `out/resident-platform-1793634526612`. The new protocol-2 client
+  tests use fake pipes, not native protocol-2 replay or real System Proxy.
+- Replay prerequisites are now distinct from successful-recovery permission;
+  no caller may manufacture `priorRecovery: verified` just to enter replay.
+  Native same-owner reservation/replay and durable provenance integration are
+  still required. No new Restart/session instructions or activation granted.

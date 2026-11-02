@@ -1,15 +1,33 @@
 import type { ChildProcessWithoutNullStreams } from 'node:child_process'
 import { StringDecoder } from 'node:string_decoder'
-import { residentClose, residentRequest } from './resident-protocol'
+import { residentAdmission, residentClose, residentRequest } from './resident-protocol'
 
 type ShutdownReport = { command: 'shutdown'; ok: boolean; timedOut: boolean; coreGone: boolean; corePid: number; durationMs: number }
+export interface ResidentReservation {
+  pid: number; nonce: string; userSid: string; helperDigest: string; journalDigest: string
+  priorEndpoints: readonly string[]
+}
+export type AuthorizeResident = (reservation: Readonly<ResidentReservation>) => Promise<{ receiptDigest: string; evidenceDigest: string }>
+
+function reservation(value: Record<string, unknown>, pid: number | undefined): Readonly<ResidentReservation> {
+  if (!pid || value.pid !== pid || typeof value.userSid !== 'string' ||
+      !/^S-1-5-21-\d+-\d+-\d+-\d+$/.test(value.userSid) ||
+      ![value.nonce, value.helperDigest, value.journalDigest].every(field => typeof field === 'string' && /^[a-f0-9]{64}$/.test(field)) ||
+      !Array.isArray(value.priorEndpoints) || value.priorEndpoints.length > 8 ||
+      new Set(value.priorEndpoints).size !== value.priorEndpoints.length ||
+      value.priorEndpoints.some(endpoint => typeof endpoint !== 'string' || !/^127\.0\.0\.1:[1-9]\d{0,4}$/.test(endpoint) ||
+        Number(endpoint.split(':')[1]) > 65535)) throw new Error('Invalid native reservation identity or journal inventory')
+  return Object.freeze({ pid, userSid: value.userSid, nonce: value.nonce as string, helperDigest: value.helperDigest as string,
+    journalDigest: value.journalDigest as string, priorEndpoints: Object.freeze([...value.priorEndpoints]) as readonly string[] })
+}
 
 /** One prestarted process, one outstanding command. Lifecycle supervision remains native.
  * close() sends a trigger; only exited proves that this process can no longer write proxy settings.
  */
-export function residentClient(child: ChildProcessWithoutNullStreams, timeoutMs = 10_000) {
+export function residentClient(child: ChildProcessWithoutNullStreams, timeoutMs = 10_000, authorize?: AuthorizeResident) {
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new Error('Invalid resident request timeout')
   let state: 'starting' | 'ready' | 'busy' | 'closing' | 'exited' = 'starting'
+  let admission: 'unreserved' | 'checking' | 'sent' = 'unreserved'
   let buffer = ''
   let report: ShutdownReport | null = null
   let invalidOutput = false
@@ -80,7 +98,7 @@ export function residentClient(child: ChildProcessWithoutNullStreams, timeoutMs 
       const newline = buffer.indexOf('\n')
       if (newline < 0) break
       const line = buffer.slice(0, newline); buffer = buffer.slice(newline + 1)
-      let value: { ready?: unknown; protocol?: unknown; command?: unknown; ok?: unknown; timedOut?: unknown; coreGone?: unknown; corePid?: unknown; durationMs?: unknown }
+      let value: Record<string, unknown>
       try {
         value = JSON.parse(line)
         if (!value || typeof value !== 'object') throw new Error('Not an object')
@@ -100,7 +118,20 @@ export function residentClient(child: ChildProcessWithoutNullStreams, timeoutMs 
         if (!['get', 'set', 'clear'].includes(String(value.command)) || typeof value.ok !== 'boolean') {
           badOutput('Unexpected late response'); return
         }
-      } else if (state === 'starting' && value.ready === true && value.protocol === 1) {
+      } else if (state === 'starting' && value.reserved === true && value.protocol === 2 && authorize && admission === 'unreserved') {
+        let held: Readonly<ResidentReservation>
+        try { held = reservation(value, child.pid) } catch (error) { badOutput(String(error)); return }
+        admission = 'checking'
+        // Keep the original startup timer running; neither observation nor admission renews it.
+        void Promise.resolve().then(() => authorize(held)).then(proof => {
+          if (state !== 'starting' || admission !== 'checking') return
+          const frame = residentAdmission(held.nonce, held.journalDigest, proof.receiptDigest, proof.evidenceDigest)
+          admission = 'sent'
+          child.stdin.write(frame)
+        }).catch(error => close(error instanceof Error ? error : new Error(String(error))))
+      } else if (state === 'starting' && value.ready === true && (
+        (!authorize && value.protocol === 1) ||
+        (authorize && admission === 'sent' && value.protocol === 2 && value.recoveryVerified === true))) {
         state = 'ready'; clearTimeout(timer); readyResolve()
       } else if (state === 'busy' && pending && value.command === pending.command && typeof value.ok === 'boolean') {
         const result = pending; pending = undefined

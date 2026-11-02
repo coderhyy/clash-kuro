@@ -442,3 +442,12 @@ Blocked by: 02, 07
 - 增加准备回执的磁盘复核：manifest、备份清单、每个文件和当前 helper 都重新计算摘要；准备结束也复读，损坏/改动/别名/越界清单不通过。回执复核本身不授予 replay 或 resident 权限，app 仍然 fail-closed。
 - 发现并实际复现原生监督线程延迟后的错误成功：clear 超过 1600ms，旧实现仍报 `ok=true/timedOut=false` 并清空日志。现在以完整 cleanup 的原生完成时间校验原来的 1500ms 截止时间，迟到不再 reset/unregister；故障用例报 exit42、`timedOut=true`，保留 608 字节 journal，不靠看门狗救援。1500/2100/2200ms 预算未变；阻塞中的 OS 调用仍不可取消，后续步骤检查不构成硬实时保证。
 - 22:38:37 最终本地无缓存整合：8/8 task、桌面 **335/335**、26 文件、零跳过，包含实际只读 boot 采集与真实 Core。修复 Turbo 未透传测试开关的问题；之前 334/335 的只读 probe skip 不算该项验证通过。原生单测通过，重建后的假操作 resident **8/8**、真实 Core＋假 resident Platform **1/1**，均无救援/遗留进程；证据目录见 `CORE-FAILURE.md`。仍未完成正向 admission、同一原生所有权下的 replay→serve，以及人工会话验证；不交付重启指令，不改变 ADR/Status，不合并。
+
+### 2026-11-02 - Migration entry and admission staging (not delivery)
+
+- CI 41469260599 passed Windows/macOS for cf54ea512b619436ea9d255d90db93e2719c1e30. Intermediate artifact identity, helper x64 GUI PE, collector and Core hashes were independently checked; see ../prototypes/prestarted-helper-deadline/ARTIFACT-cf54ea5.md. This is not a Restart/session-test candidate.
+- Explicit prepare/check command handling now precedes Platform creation; ordinary startup retains the marker blocker and resident remains disabled. Preparation backups must be outside installation/repository/data. Read-only check rehashes disk evidence again after collection; it never grants native ownership or enables resident.
+- Separate replay-prerequisite policy avoids claiming successful recovery before attempting replay. Protocol-2 client fake-pipe tests require exact child identity, single-use reservation commitment and verified replay readiness; pending/late/failed authorization never admits requests or renews startup time.
+- Native per-user ownership primitive was tested in private namespaces (contention, same-thread recursion, abandonment and failures); it is not yet integrated into shipping replay. Remaining native admission/provenance work is not declared complete.
+- Local uncached integrated typecheck/tests: 8/8 tasks, desktop 424/424 with real Core and read-only boot probe, zero skips. Native unit tests and rebuilt protocol-1 fake resident 8/8 passed; real Core/fake resident Platform 1/1 passed with no external rescue/leftovers. These do not substitute for native protocol-2 integration, final CI or manual sessions.
+- No local proxy/RunOnce mutations, resident activation, Restart, logoff or shutdown. ADR-0011 unchanged, ADR-0013 remains draft, Status unchanged, no merge. Continue toward one final verified delivery revision before user operations.

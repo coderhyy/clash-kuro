@@ -2,7 +2,7 @@
  * not accepted from an app setting or a user-supplied "migrated" boolean.
  * This module alone does not grant admission or prove Windows boot identity.
  */
-export interface MigrationEvidence {
+export interface MigrationReplayEvidence {
   prepared: {
     userSid: string
     boot: string
@@ -17,16 +17,20 @@ export interface MigrationEvidence {
     helperDigest: string
     legacyRegistration: 'absent' | 'present' | 'unknown'
     writerOwnership: 'exclusive' | 'busy' | 'unknown'
-    priorRecovery: 'verified' | 'failed' | 'unknown'
     legacyProcesses: 'absent' | 'present' | 'unknown'
   }
+}
+
+export interface MigrationEvidence extends MigrationReplayEvidence {
+  observed: MigrationReplayEvidence['observed'] & { priorRecovery: 'verified' | 'failed' | 'unknown' }
 }
 
 const digest = /^[a-f0-9]{64}$/
 const sid = /^S-1-5-21-\d+-\d+-\d+-\d+$/
 const endpoint = /^127\.0\.0\.1:([1-9]\d{0,4})$/
 
-export function checkMigrationEvidence(evidence: MigrationEvidence): void {
+/** Permission to attempt replay, not permission to start Core or set a proxy. */
+export function checkMigrationReplayEvidence(evidence: MigrationReplayEvidence): void {
   const { prepared, observed } = evidence
   if (!sid.test(prepared.userSid) || prepared.userSid !== observed.userSid)
     throw new Error('Migration user identity mismatch')
@@ -44,5 +48,9 @@ export function checkMigrationEvidence(evidence: MigrationEvidence): void {
   if (observed.legacyRegistration !== 'absent') throw new Error('Legacy RunOnce not retired')
   if (observed.legacyProcesses !== 'absent') throw new Error('Legacy writer still present or uninspectable')
   if (observed.writerOwnership !== 'exclusive') throw new Error('Recovery ownership unavailable')
-  if (observed.priorRecovery !== 'verified') throw new Error('Prior recovery not verified')
+}
+
+export function checkMigrationEvidence(evidence: MigrationEvidence): void {
+  checkMigrationReplayEvidence(evidence)
+  if (evidence.observed.priorRecovery !== 'verified') throw new Error('Prior recovery not verified')
 }

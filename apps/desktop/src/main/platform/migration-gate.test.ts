@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { checkMigrationEvidence, type MigrationEvidence } from './migration-gate'
+import { checkMigrationEvidence, checkMigrationReplayEvidence, type MigrationEvidence } from './migration-gate'
 
 function evidence(): MigrationEvidence {
   return {
@@ -15,6 +15,33 @@ test('policy accepts all verified conditions without rewriting evidence', () => 
   const value = evidence(), before = structuredClone(value)
   expect(() => checkMigrationEvidence(value)).not.toThrow()
   expect(value).toEqual(before)
+})
+
+test('replay permission does not claim recovery has already completed', () => {
+  for (const priorRecovery of ['unknown', 'failed'] as const) {
+    const value = evidence()
+    value.observed.priorRecovery = priorRecovery
+    const before = structuredClone(value)
+    expect(() => checkMigrationReplayEvidence(value)).not.toThrow()
+    expect(() => checkMigrationEvidence(value)).toThrow('Prior recovery not verified')
+    expect(value).toEqual(before)
+  }
+})
+
+test('replay still requires exclusive ownership and all non-recovery prerequisites', () => {
+  for (const field of ['legacyRegistration', 'legacyProcesses', 'writerOwnership'] as const) {
+    for (const result of ['unknown', field === 'writerOwnership' ? 'busy' : 'present']) {
+      const value = evidence()
+      Object.assign(value.observed, { [field]: result })
+      expect(() => checkMigrationReplayEvidence(value)).toThrow()
+    }
+  }
+  for (const patch of [{ boot: 'collector-boot-a' }, { helperDigest: 'c'.repeat(64) },
+    { backupDigest: 'c'.repeat(64) }, { userSid: '' }]) {
+    const value = evidence()
+    Object.assign(value.observed, patch)
+    expect(() => checkMigrationReplayEvidence(value)).toThrow()
+  }
 })
 
 test('same boot, wrong identity, changed helper and changed backup all block', () => {
