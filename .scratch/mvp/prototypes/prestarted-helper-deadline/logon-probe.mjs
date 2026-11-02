@@ -12,6 +12,7 @@ execFileSync('gcc', ['-D_WIN32_WINNT=0x0A00', '-static', '-O2', '-Wall', '-Wextr
   join(root, 'native/logon_probe.c'), '-lsecur32', '-ladvapi32', '-o', exe], { timeout: 60000, stdio: 'inherit' })
 const text = execFileSync(exe, [], { timeout: 5000, encoding: 'utf8', windowsHide: true })
 const rows = text.trim().split(/\r?\n/).map(line => JSON.parse(line))
-if (rows.length !== 2 || !rows[0].validIdentity) throw new Error('Invalid identity evidence')
+if (rows.length !== 3 || !rows[0].validIdentity || rows[2].total !== rows[2].readable + rows[2].unknown)
+  throw new Error('Invalid identity evidence')
 writeFileSync(join(out, 'result.json'), JSON.stringify({ readOnly: true, rows }, null, 2) + '\n')
 console.log(text + out)

@@ -226,3 +226,10 @@ LUID and logon creation time available, while a synthetic unallocated LUID retur
 NTSTATUS 0xC000005F / Win32 1312. This establishes API availability only: it does
 not prove old processes/queued legacy RunOnce commands cannot survive or race a
 new owner, and is not sufficient by itself to authorize proxy writes.
+
+The extended read-only probe also enumerates LSA sessions and emits counts only
+(no account names or other users' identity records). Local evidence
+`out/logon-probe-1793609544869/result.json` has 25 sessions, 14 readable same-user
+records and 11 unclassifiable records. This rejects using a supposedly complete
+ordinary-user logon inventory as an automatic migration barrier. Unclassifiable
+is not absent, and granting elevation is not an acceptable workaround here.

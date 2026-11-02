@@ -204,4 +204,3 @@ owner. The external Job must be empty without rescue before the runner restores
 the original LAN/RAS settings. A rescue or failed assertion remains a failed
 experiment even after successful restoration. This tests operation/coordination,
 not actual RunOnce scheduling or OS session delivery. No session message is sent.
-

@@ -400,3 +400,9 @@ Blocked by: 02, 07
 - 增加隔离 CI 的 `--resident=serve`：实际 resident engine、真实 IPC 和 WinINet set/clear，假 Core；注册代码使用独立 HKCU 测试键，核验带引号的 recovery 命令写入/删除，不写真实 RunOnce。
 - 沿用仓库外 LAN/RAS 快照、注册表参考备份、状态保护与先确认 writer Job 清空再恢复的流程。重复 CLOSE、不复用外部救援为成功；明确不是 OS 会话事件或 RunOnce 调度验证。
 - 本机仅编译新 fixture，运行原有纯恢复条件/损坏快照检查和只读 get；全部通过。真实写入等待新隔离 CI，不在本机执行。
+
+2026-11-02 (agent，实际 serve/WinINet CI 通过及登录枚举边界):
+
+- CI 41415780940（72920ac）Windows/macOS 全部通过。已下载 `out/ci-41415780940/verified-serve.json`：实际 resident IPC set/clear、单个 LAN flags 3→1、私有注册键命令写入/删除通过；helper PID 5928、假 Core PID 2876，清理报告 ok=true/timedOut=false/coreGone=true，观测 durationMs=16。备份恢复后逐项验证通过，真实 RunOnce 未改变。
+- 该 runner 只有一个 LAN，无 RAS 样本；触发来自 IPC（triggerMask=2，queryEvents/endEvents=0）。此结果不证明 Windows 10/11 注销/关机可靠性，也不将 16ms 视作硬实时保证。成功结果依赖外部 Job 无救援且确认已空；恢复发生在此之后。
+- 只读登录枚举探针追加仅数量统计：25 个 LSA session，14 个可读且属于当前用户，11 个无法分类；证据 `prestarted-helper-deadline/out/logon-probe-1793609544869/result.json`。不能把无法分类当作不存在，因此拒绝将“枚举全部旧登录并等待消失”直接用作自动迁移放行条件。不请求管理员权限解决此限制，继续收敛受控迁移边界。
