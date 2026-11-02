@@ -592,3 +592,27 @@ real Core/fake resident Platform passed 1/1 at
 out/resident-platform-1793643625891. Neither used rescue or left processes.
 These local results do not predeclare the next CI successful. No local proxy,
 RunOnce, old-helper replacement or session operation occurred.
+
+### CI 41499917232: autonomous fixture alias, reproduced locally
+
+macOS passed. Windows passed the desktop suite, base coordination, wrapper
+regressions and the first 58 native scenarios, then autonomous recovery exited
+1 before mutation. Its downloaded watchdog report shows rootExitCode=1,
+watchdogKilled=false, lingeringChildren=false, remaining=0, processMs=219.
+Raw failure and reports: out/ci-41499917232-failed.log and
+out/ci-41499917232-evidence. The whole CI run remains failed.
+
+The native fixture runner was a third caller that still passed raw TEMP paths.
+Its fake root was normalized, but its retained executable launch path was not;
+the production recovery-only check correctly rejected that mismatched spelling.
+On this machine, a private TEMP directory's 8.3 alias reproduced the same
+autonomous exit1 after the same preceding scenarios. The failed local watchdog
+reports no rescue/leftovers and processMs=594. See out/short-temp.json,
+out/admission-short-path-red.log and out/admission-short-path-red-watchdog.json.
+
+Changing only fixture base creation to promises realpath made all 65 scenarios
+pass under the same short-TEMP condition, including autonomous recovery and its
+negative cases (out/admission-short-path-green.log). No production path guard,
+budget or assertion was relaxed. Assertions now include helper protocol output
+on failure. This is a fixture correction, not evidence that initial app
+migration or real session cleanup has become safe.

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { spawn, execFileSync } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync, existsSync, symlinkSync } from 'node:fs'
+import { realpath } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -234,7 +235,7 @@ async function scenario(name, base) {
   }
   const code = await second.closed
   const failure = /(?:late|hung|fail)$/.test(name) || ['wrong-receipt', 'duplicate'].includes(name)
-  assert.equal(code, failure ? 42 : 0, `${name}: ${second.trace()}`)
+  assert.equal(code, failure ? 42 : 0, `${name}: ${JSON.stringify(second.lines())} ${second.trace()}`)
   const shutdown = second.lines().find(line => line.command === 'shutdown')
   assert(shutdown && shutdown.durationMs < 2200, `shutdown exceeded original budget: ${JSON.stringify(shutdown)}`)
   if (name === 'close-replay') assert(shutdown.cleanupDurationMs >= 550 && shutdown.cleanupDurationMs < 1500)
@@ -260,7 +261,7 @@ if (process.argv[2] === '--child') {
   const flags = ['-D_WIN32_WINNT=0x0A00', '-municode', '-mconsole', '-O2', '-static', '-Wall', '-Wextra', '-Werror']
   execFileSync(process.env.CC ?? 'gcc', [...flags, join(native, 'admission_fake.c'), '-ladvapi32', '-lshell32', '-lole32', '-luuid', '-o', helper], { stdio: 'inherit', timeout: 60000 })
   execFileSync(process.env.CC ?? 'gcc', [...flags, join(native, 'watchdog.c'), '-o', join(out, 'admission-watchdog.exe')], { stdio: 'inherit', timeout: 60000 })
-  const base = mkdtempSync(join(tmpdir(), 'kuro-admission-'))
+  const base = await realpath(mkdtempSync(join(tmpdir(), 'kuro-admission-')))
   process.env.KURO_ADMISSION_TEST_NAMESPACE = randomUUID()
   const cases = ['initial', 'shutdown-unregister-fail', 'shutdown-unregister-hung', 'no-admit', 'eof', 'contention', 'malformed', 'bad-nonce', 'bad-journal', 'zero-proof', 'exec-before-admit',
     'seed-replay', 'seed-bound', 'seed-close', 'seed-eof', 'seed-query', 'seed-deny', 'seed-overflow', 'seed-duplicate', 'seed-invalid', 'seed-autonomous-denied',
