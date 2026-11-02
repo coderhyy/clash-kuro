@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { createRequire } from 'node:module'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 const root = dirname(fileURLToPath(import.meta.url))
@@ -9,8 +9,11 @@ const { residentClient } = createRequire(import.meta.url)('./out/client.cjs')
 if (process.argv[2] === '--child') {
   const [mode, dir] = process.argv.slice(3)
   const exe = join(root, 'out/resident-fake.exe'), log = join(dir, 'helper.json')
-  const child = spawn(exe, ['serve', '--core', exe, '--data', dir, '--log', log,
-    '--expected-server', '127.0.0.1:7891'], { detached: true, windowsHide: true, stdio: 'pipe' })
+  const args = ['serve', '--core', exe, '--data', dir, '--log', log,
+    '--recovery', join(dir, 'recovery.bin'),
+    '--expected-server', '127.0.0.1:7891']
+  const launch = () => spawn(exe, args, { detached: true, windowsHide: true, stdio: 'pipe' })
+  const child = launch()
   const client = residentClient(child)
   let marker = ''
   let entered
@@ -47,6 +50,7 @@ if (process.argv[2] === '--child') {
   assert.deepEqual((await client.closed).report, report)
   if (mode === 'diagnostics-stall') assert.equal(Buffer.byteLength(client.diagnostics()), 16 * 1024)
   const timeout = mode.endsWith('hang')
+  assert.equal(statSync(join(dir, 'recovery.bin')).size, timeout ? 608 : 0)
   assert.equal(exit.code, timeout ? 42 : 0)
   assert.equal(report.command, 'shutdown')
   assert.equal(report.ok, !timeout)
@@ -58,6 +62,14 @@ if (process.argv[2] === '--child') {
   if (timeout) assert(report.durationMs >= 1490)
   if (mode === 'late-set') assert(report.durationMs >= 300)
   if (mode === 'diagnostics-stall') assert(report.durationMs >= 2000)
+  if (timeout) {
+    const retained = readFileSync(join(dir, 'recovery.bin'))
+    const retry = residentClient(launch())
+    await assert.rejects(retry.ready)
+    assert.equal((await retry.closed).code, 1)
+    assert.deepEqual(readFileSync(join(dir, 'recovery.bin')), retained)
+    assert(!retry.diagnostics().includes('fake-core-start'))
+  }
   writeFileSync(join(dir, 'result.json'), JSON.stringify({ mode, pid: child.pid, exit, report }))
 } else {
   const run = join(root, 'out', `resident-${Date.now()}`)

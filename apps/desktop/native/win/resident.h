@@ -1,6 +1,7 @@
 /* One user process/Core lifetime. No reconnect, restart, elevation or service installation. */
 #include "core-process.h"
 #include "resident-protocol.h"
+#include "recovery-journal.h"
 
 #ifndef KURO_RESIDENT_EXEC
 #define KURO_RESIDENT_EXEC command_main
@@ -13,7 +14,7 @@
 #endif
 
 static struct {
-  HANDLE close, request, cleared, finished, report, reported, job, core, core_ready, core_started, core_output_done;
+  HANDLE close, request, cleared, finished, report, reported, job, core, core_ready, core_started, core_output_done, recovery;
   HWND window;
   DWORD main_thread;
   LONG core_pid;
@@ -78,6 +79,10 @@ static int resident_remember(const wchar_t *server) {
   if (resident.server_count == MAX_EXPECTED || !kuro_valid_server(server)) return 0;
   wcscpy(resident.servers[resident.server_count++], server);
   return 1;
+}
+static int resident_admit(const wchar_t *server) {
+  // Persist the union before a new endpoint can reach WinINet; the lock survives all timeout paths.
+  return !kuro_recovery_admit(resident.recovery, server) && resident_remember(server);
 }
 static DWORD WINAPI resident_core_output(void *input) {
   char bytes[4096]; DWORD count;
@@ -167,7 +172,9 @@ static DWORD WINAPI resident_worker(void *unused) {
   const wchar_t *expected[MAX_EXPECTED];
   for (int i = 0; i < resident.server_count; ++i) expected[i] = resident.servers[i];
   resident.response.len = 0;
-  InterlockedExchange(&resident.clear_ok, KURO_RESIDENT_CLEAR(expected, resident.server_count, 1) == 0);
+  int cleared = KURO_RESIDENT_CLEAR(expected, resident.server_count, 1) == 0;
+  if (cleared && kuro_recovery_reset_after_clear(resident.recovery)) cleared = 0;
+  InterlockedExchange(&resident.clear_ok, cleared);
   SetEvent(resident.cleared);
   return 0;
 }
@@ -238,19 +245,29 @@ static LRESULT CALLBACK resident_window(HWND window, UINT message, WPARAM w, LPA
   return DefWindowProcW(window, message, w, l);
 }
 static int resident_main(int argc, wchar_t **argv) {
-  const wchar_t *log = NULL;
+  const wchar_t *log = NULL, *recovery_path = NULL;
   for (int i = 2; i < argc; i += 2) {
     if (i + 1 >= argc) return usage(L"Missing serve option value");
     if (!wcscmp(argv[i], L"--core") && !resident.core_path) resident.core_path = argv[i + 1];
     else if (!wcscmp(argv[i], L"--data") && !resident.data_dir) resident.data_dir = argv[i + 1];
     else if (!wcscmp(argv[i], L"--log") && !log) log = argv[i + 1];
+    else if (!wcscmp(argv[i], L"--recovery") && !recovery_path) recovery_path = argv[i + 1];
     else if (!wcscmp(argv[i], L"--expected-server") && resident_remember(argv[i + 1])) { }
     else return usage(L"Invalid serve option");
   }
   if (!kuro_valid_log_path(resident.core_path) || !kuro_valid_log_path(resident.data_dir) ||
-      (log && !kuro_valid_log_path(log)) || !resident.server_count) return usage(L"serve requires absolute --core/--data and --expected-server");
+      !kuro_valid_log_path(recovery_path) || (log && !kuro_valid_log_path(log)) || !resident.server_count)
+    return usage(L"serve requires absolute --core/--data/--recovery and --expected-server");
   g_log = log;
-  g_before_set = resident_remember;
+  resident.recovery = kuro_recovery_lock(recovery_path);
+  if (resident.recovery == INVALID_HANDLE_VALUE) return usage(L"Recovery ownership unavailable; no writes admitted");
+  KuroRecoveryState prior;
+  if (kuro_recovery_read(resident.recovery, &prior)) return usage(L"Invalid recovery journal; manual review required");
+  for (unsigned i = 0; i < prior.count; ++i)
+    if (!resident_remember(prior.servers[i])) return usage(L"Recovery endpoint capacity exceeded");
+  // Until migration/replay is implemented, never start a new owner over unresolved prior settings.
+  if (prior.count) return usage(L"Prior recovery pending; new Core and proxy writes refused");
+  g_before_set = resident_admit;
   resident.main_thread = GetCurrentThreadId();
   resident.job = kuro_core_job();
   if (!resident.job) return 3;

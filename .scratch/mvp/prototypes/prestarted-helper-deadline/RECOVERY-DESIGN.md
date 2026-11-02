@@ -101,3 +101,23 @@ with A and B preserved, deduplication, capacity refusal, invalid endpoints, torn
 and corrupted records, and verified-clear reset mechanics. It never invokes the
 included shipping entry or WinINet/registry APIs. Not yet wired into resident;
 RunOnce registration, migration and stable executable location remain required.
+
+## Resident admission integration
+
+The experimental `serve` entry now requires an absolute `--recovery` file and
+holds its exclusive handle until process exit, including self-termination paths.
+Its validated set hook appends/flushes the endpoint before WinINet admission.
+Shutdown resets the journal only after clear succeeds; a reset failure also makes
+shutdown unsuccessful. The fake backend uses exactly this hook and real private
+file I/O, while still replacing all proxy operations.
+
+Normal/late-set/diagnostic-stall cases verify an empty journal after clear. Both
+hang cases verify a retained 608-byte record; an immediate new helper invocation
+must reject readiness, exit 1, preserve identical bytes, and emit no fake Core
+startup marker. The whole test remains inside the exact external Job; rescue fails.
+
+Unresolved prior records currently reject startup before creating Core. This is a
+temporary integration guard, not the final recovery behavior. Do not enable this
+route in the app until bounded recovery replay, stable registration and legacy
+migration are implemented. The existing one-shot RunOnce path is unchanged and
+does not gain this lock simply because `serve` uses it.
