@@ -77,3 +77,27 @@ also verify noninheritance and denial of deletion while held. An external test
 rescue fails rather than being counted as ownership success. Filesystem syscall
 latency is not a hard realtime bound. There is no production lock acquisition yet;
 this alone does not fix the RunOnce race or protect against legacy helpers.
+
+## Endpoint journal
+
+`recovery-journal.h` uses that same exclusively held file as an append-only list
+of at most eight distinct endpoints. Each versioned fixed-size UTF-16 record has
+a checksum; admission reads/validates the entire file, appends only missing
+endpoints and flushes before returning success. A proposed B never overwrites A.
+The caller must still register a stable recovery command successfully before
+touching proxy settings. Re-admitting an existing endpoint also flushes: a prior
+flush error cannot silently become a successful mutation admission.
+
+The only truncation API is explicitly named `reset_after_clear`; integration must
+call it only after verified clear of the entire recorded set. Malformed, torn,
+oversized, duplicate or unknown-version records refuse admission. This trades
+availability for safety: corrupt records need conservative recovery/manual review,
+not automatic reset. The checksum detects accidental damage, not malicious edits
+by another process with the same user's filesystem privileges. Flush success is
+an OS persistence acknowledgement, not a guarantee against all hardware faults.
+
+`recovery-journal_test.c` exercises actual private temporary files, close/reopen
+with A and B preserved, deduplication, capacity refusal, invalid endpoints, torn
+and corrupted records, and verified-clear reset mechanics. It never invokes the
+included shipping entry or WinINet/registry APIs. Not yet wired into resident;
+RunOnce registration, migration and stable executable location remain required.
