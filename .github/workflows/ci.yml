@@ -21,6 +21,11 @@ jobs:
       - name: Package dmg (ad-hoc signed, not notarized; ADR-0010)
         working-directory: apps/desktop
         run: bun run package
+      - name: Bundled Core integration (no System Proxy writes)
+        working-directory: apps/desktop
+        env:
+          KURO_REQUIRE_CORE: '1'
+        run: bunx vitest run src/main/platform/mihomo.integration.test.ts --maxWorkers=2
       - uses: actions/upload-artifact@v7
         with:
           name: kuro-macos-arm64
@@ -36,11 +41,70 @@ jobs:
           bun-version: 1.4.4
       - run: bun install --frozen-lockfile
       - run: bunx turbo typecheck
-      # shortcut: desktop tests use unix sockets and POSIX signals; port them when issue 08 lands.
       - run: bunx turbo test --filter=!@kuro/desktop
-      - name: Package (unsigned, no System Proxy helper yet; see issue 08)
+      - name: Install mingw-w64 (System Proxy helper compiler)
+        id: msys2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          install: mingw-w64-ucrt-x86_64-gcc
+      # Package in pwsh, not the msys2 shell: msys2's GNU tar shadows Windows bsdtar and cannot unzip the Core.
+      # ucrt64\bin has gcc/windres but no tar.
+      - name: Package (unsigned, ADR-0010; builds kuro-sysproxy.exe first)
         working-directory: apps/desktop
-        run: bun run package:win
+        shell: pwsh
+        run: |
+          $env:PATH = "${{ steps.msys2.outputs.msys2-location }}\ucrt64\bin;$env:PATH"
+          bun run package:win
+      - name: All desktop tests (real named pipes and bundled Core; no System Proxy writes)
+        working-directory: apps/desktop
+        env:
+          KURO_REQUIRE_CORE: '1'
+        run: bun run test
+      - name: Isolated helper coordination and rescue controls (fake operations only)
+        shell: pwsh
+        run: |
+          $env:PATH = "${{ steps.msys2.outputs.msys2-location }}\ucrt64\bin;$env:PATH"
+          $env:OBJDUMP = 'objdump'
+          node apps/desktop/node_modules/electron/install.js
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node .scratch/mvp/prototypes/prestarted-helper-deadline/build.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node .scratch/mvp/prototypes/prestarted-helper-deadline/test.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node .scratch/mvp/prototypes/prestarted-helper-deadline/test.mjs --watchdog-negative-control
+          if ($LASTEXITCODE -ne 1) { throw 'Rescued fixtures must fail exit acceptance' }
+          node -e "const r=require('./.scratch/mvp/prototypes/prestarted-helper-deadline/out/negative.json'); const a=require('node:assert/strict'); a.equal(r.accepted,false); a.equal(r.negativeControlsObserved,true)"
+      - name: Preserve helper coordination evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: kuro-helper-coordination-evidence
+          path: .scratch/mvp/prototypes/prestarted-helper-deadline/out/runs/*/results.json
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Guarded real WinINet cycle (isolated runner only; backup and restore)
+        shell: pwsh
+        run: |
+          $env:PATH = "${{ steps.msys2.outputs.msys2-location }}\ucrt64\bin;$env:PATH"
+          node .scratch/mvp/prototypes/wininet-recovery/build.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node .scratch/mvp/prototypes/wininet-recovery/test.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node .scratch/mvp/prototypes/wininet-recovery/run.mjs --exercise
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node .scratch/mvp/prototypes/wininet-recovery/run.mjs --exercise --resident=plain
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node .scratch/mvp/prototypes/wininet-recovery/run.mjs --exercise --resident=aware
+      - name: Preserve verified WinINet result (no registry exports)
+        uses: actions/upload-artifact@v7
+        with:
+          name: kuro-wininet-recovery-evidence
+          path: .scratch/mvp/prototypes/wininet-recovery/out/verified*.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
       - uses: actions/upload-artifact@v7
         with:
           name: kuro-windows-x64

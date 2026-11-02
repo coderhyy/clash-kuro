@@ -28,3 +28,7 @@ dmg:
 win:
   target: dir
   icon: build/icon.ico
+  # System Proxy helper (issue 08); built by scripts/build-sysproxy.mjs, outside app.asar.
+  extraResources:
+    - from: resources/win/x64/kuro-sysproxy.exe
+      to: bin/kuro-sysproxy.exe

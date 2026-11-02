@@ -299,3 +299,13 @@ test('traffic and logs are events: Core streams open only while subscribed and C
   expect(transport.openStreams('/logs')).toBe(0)
   offLogs()
 })
+
+test('a failing System Proxy probe (e.g. helper blocked) does not prevent startup', async () => {
+  const platform = new FakePlatform()
+  platform.getSystemProxy = async () => { throw new Error('spawn EPERM') }
+  const app = await createAppStore({
+    platform, client: createMihomoClient(new FakeTransport()),
+    buildRuntimeConfig: vi.fn(() => ''), refreshProfile: vi.fn(async (profile) => profile),
+  })
+  expect(app.store.getState().systemProxy).toEqual({ enabled: false })
+})

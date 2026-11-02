@@ -1,4 +1,5 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, powerMonitor, shell, Tray, type IpcMainEvent, type IpcMainInvokeEvent } from 'electron'
+import { app, BaseWindow, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, powerMonitor, shell, Tray, type IpcMainEvent, type IpcMainInvokeEvent } from 'electron'
+import { appendFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { createMihomoClient } from '@kuro/api'
 import { buildTrayMenu, createAppStore, type AppStore, type CommandName } from '@kuro/state'
@@ -7,12 +8,15 @@ import { createProfileSource } from './app/profiles'
 import { createUpdateScheduler } from './app/scheduler'
 import { checkForUpdate } from './app/release-check'
 import { installGeoData } from './app/geo'
+import { watchSessionEnd } from './app/session-end'
 import { IPC, type StreamKind } from './ipc-channels'
 import { trayIcon } from './tray-icon'
 
 // KURO_RELEASE_REPO=owner/name overrides the release source (e.g. for forks).
 const RELEASE_REPO = process.env.KURO_RELEASE_REPO ?? 'coderhyy/clash-kuro'
 const SHUTDOWN_TIMEOUT_MS = 3_000
+// Hard limit for the synchronous helper run inside a session-end handler; the helper is killed after this.
+const SESSION_END_CLEAR_TIMEOUT_MS = 1_500
 
 const trayLabels: Record<string, string> = {
   'mode.rule': '规则模式', 'mode.global': '全局模式', 'mode.direct': '直连模式',
@@ -36,12 +40,15 @@ async function main(): Promise<void> {
   const resources = app.isPackaged ? join(process.resourcesPath, 'core') : join(app.getAppPath(), 'resources', 'core', `${process.platform}-${process.arch}`)
   const geoDir = app.isPackaged ? join(process.resourcesPath, 'core', 'geo') : join(app.getAppPath(), 'resources', 'core', 'geo')
   const corePath = join(resources, process.platform === 'win32' ? 'mihomo.exe' : 'mihomo')
+  const sysproxyHelperPath = process.platform === 'win32'
+    ? app.isPackaged ? join(process.resourcesPath, 'bin', 'kuro-sysproxy.exe') : join(app.getAppPath(), 'resources', 'win', 'x64', 'kuro-sysproxy.exe')
+    : undefined
   const dataDir = join(app.getPath('userData'), 'data')
   const userAgent = `ClashKuro/${app.getVersion()} (clash.meta)`
 
   let store: AppStore | undefined
   const platform = createDesktopPlatform({
-    dataDir, corePath, userAgent, powerMonitor,
+    dataDir, corePath, sysproxyHelperPath, userAgent, powerMonitor,
     mixedPort: () => store?.store.getState().settings.mixedPort ?? 7890
   })
   const client = createMihomoClient(createSocketTransport(() => platform.controlChannel()))
@@ -58,13 +65,24 @@ async function main(): Promise<void> {
   let tray: Tray | null = null
   let quitting = false
 
-  async function exit(): Promise<void> {
+  // One line per exit step, so logoff/shutdown cleanup can be checked after the next login.
+  function logExit(line: string): void {
+    try { appendFileSync(join(dataDir, 'exit.log'), `${new Date().toISOString()} ${line}\n`) } catch { /* diagnostics only */ }
+  }
+
+  async function exit(trigger = 'quit'): Promise<void> {
     if (quitting) return
     quitting = true
-    scheduler.stop()
-    app_.dispose()
-    await platform.shutdown({ timeoutMs: SHUTDOWN_TIMEOUT_MS })
-    app.exit(0)
+    const started = Date.now()
+    logExit(`exit start (${trigger})`)
+    try {
+      scheduler.stop()
+      app_.dispose()
+      await platform.shutdown({ timeoutMs: SHUTDOWN_TIMEOUT_MS })
+    } finally {
+      logExit(`exit done in ${Date.now() - started} ms`)
+      app.exit(0)
+    }
   }
 
   function showWindow(): void {
@@ -195,11 +213,23 @@ async function main(): Promise<void> {
   app.on('activate', showWindow)
   app.on('window-all-closed', () => { /* Tray Mode: keep running. */ })
   app.on('before-quit', (event) => {
-    if (quitting) return
+    // exit() always ends in app.exit(), which skips before-quit; a quit that arrives mid-cleanup must wait for it.
     event.preventDefault()
     void exit()
   })
+  // macOS/Linux only; Windows never emits powerMonitor 'shutdown'.
   powerMonitor.on('shutdown', () => void exit())
+  // Windows logoff/shutdown arrives as BaseWindow events. Tray Mode has no main window, so a hidden window
+  // that lives as long as the app receives them. The proxy is cleared synchronously inside the handler
+  // (session-end may be followed by process termination), then Core is stopped by exit(). Never preventDefault.
+  if (process.platform === 'win32') {
+    const sessionWindow = new BaseWindow({ show: false, width: 1, height: 1, skipTaskbar: true, focusable: false, title: 'Clash Kuro session' })
+    watchSessionEnd(sessionWindow, {
+      clearSystemProxySync: () => platform.clearSystemProxySync({ timeoutMs: SESSION_END_CLEAR_TIMEOUT_MS }),
+      exit: (phase) => void exit(phase),
+      log: logExit,
+    })
+  }
 
   showWindow()
   if (app_.store.getState().activeProfileId) {

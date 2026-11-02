@@ -251,7 +251,8 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
     }
   }
 
-  const currentProxy = await platform.getSystemProxy()
+  // A blocked or failing System Proxy probe must not prevent the app from starting.
+  const currentProxy = await platform.getSystemProxy().catch(() => null)
   if (currentProxy?.host === '127.0.0.1' && currentProxy.port === initial.settings.mixedPort) change({ systemProxy: { enabled: true } })
   if (running) await syncProxies()
   let pending: Promise<unknown> = Promise.resolve()
