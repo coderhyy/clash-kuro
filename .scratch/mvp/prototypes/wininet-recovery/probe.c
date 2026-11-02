@@ -129,7 +129,10 @@ static int verify_fixture(const Backup *backup, const wchar_t *endpoint, DWORD f
   }
   return 1;
 }
-int wmain(int argc, wchar_t **argv) {
+#ifndef KURO_BACKUP_MAIN
+#define KURO_BACKUP_MAIN wmain
+#endif
+int KURO_BACKUP_MAIN(int argc, wchar_t **argv) {
   if (argc == 2 && !wcscmp(argv[1], L"self-test")) {
     ConnState base = { NULL, 9, L"other:3128", L"baseline", L"http://example.invalid/a.pac" };
     ConnState now = base;

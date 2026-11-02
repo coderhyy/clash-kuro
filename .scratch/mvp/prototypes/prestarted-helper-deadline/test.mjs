@@ -25,7 +25,7 @@ if (process.argv[2] === '--child') {
   const only = process.argv.find(x => x.startsWith('--case='))?.slice(7)
   const names = ['normal', 'electron-stall', 'electron-exit', 'repeat', 'ipc-before', 'ipc-after',
     'operation-hang', 'late-operation', 'coordinator-hang', 'core-hang', 'window-stall',
-    'query-plain', 'query-aware', 'query-handler-hang']
+    'query-plain', 'query-aware', 'query-handler-hang', 'operation-error']
   if (only && !names.includes(only)) throw new Error('Unknown case')
   const cases = negative ? ['watchdog-negative', 'electron-hang-negative'] : only ? [only] : names
   const run = join(root, 'out/runs', `${Date.now()}${negative ? '-negative' : ''}`)
@@ -67,13 +67,14 @@ if (process.argv[2] === '--child') {
       assert.equal(helper.coreGone, true)
       assert(helper.stopMs >= helper.decisionMs)
       assert(helper.endMs < 2350, 'Observed policy exit work overrun (not a hard guarantee)')
-      const uncertain = ['operation-hang', 'late-operation', 'coordinator-hang', 'repeat', 'query-plain', 'query-handler-hang'].includes(name)
-      assert.equal(helper.decision, uncertain ? 'timeout' : 'cleared')
+      const uncertain = ['operation-hang', 'late-operation', 'coordinator-hang', 'repeat', 'query-plain', 'query-handler-hang', 'operation-error'].includes(name)
+      assert.equal(helper.decision, name === 'operation-error' ? 'failed' : uncertain ? 'timeout' : 'cleared')
+      assert.equal(helper.operationError, name === 'operation-error' ? 2 : 0)
       assert.equal(helper.operations, name === 'coordinator-hang' ? 0 : 1)
       assert.equal(helper.selfForced, uncertain)
       assert.equal(helper.coreForced, name === 'core-hang')
       assert.equal(helper.coreExit, name === 'core-hang' ? 41 : 0)
-      if (uncertain) assert(helper.decisionMs >= 1490 && helper.decisionMs < 1750)
+      if (uncertain && name !== 'operation-error') assert(helper.decisionMs >= 1490 && helper.decisionMs < 1750)
       if (name === 'repeat') {
         assert.equal(helper.triggers, 8)
         const first = carrier.events.find(x => x.event === 'triggered').at

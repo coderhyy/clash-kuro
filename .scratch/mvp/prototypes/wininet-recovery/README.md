@@ -40,6 +40,46 @@ The summary includes the number of connections and observed set/clear timings
 verification still needs its own CI result; local builds and parser/state-guard
 tests do not exercise proxy writes.
 
+## Supervised output defect and native-thread bridge
+
+CI `41389190950` failed while parsing the new evidence, after guarded restoration:
+stdout was empty. The supervisor did not explicitly pass standard handles to a
+GUI child. A local **read-only get** regression reproduced the missing JSON.
+It now duplicates and allowlists only stdin/stdout/stderr with STARTUPINFOEX;
+the Job handle remains private. Rebuilding made that regression pass. No state
+assertion was removed, and the failed CI run remains failed.
+
+`resident.c` now bridges the same shipping clear function into the already
+tested helper coordination model. It first verifies a fresh baseline and sets
+the isolated endpoint without recovery registration. It then creates the native
+window/threads and fake Core, and posts a private WM_APP trigger. Real clear
+and its WinINet notifications run on the worker; the native window uses either
+plain or message-aware waiting. The same 1500 ms deadline, Core stop ordering,
+supervisor, exact Core handle and uncertain-process exit remain in use. An API
+failure is reported as `failed`, not falsely called a timeout or success.
+
+This is deliberately not production startup or a full resident protocol: setup
+set precedes the coordination phase, there is no Electron carrier in this bridge,
+and no OS session event is synthesized. It tests real WinINet clear against the
+native wait model, not real session delivery/survival or an unresponsive Electron
+window. The synthetic Electron cases remain separate evidence.
+
+After building, the write commands are:
+
+```powershell
+node .scratch/mvp/prototypes/wininet-recovery/run.mjs --exercise --resident=plain
+node .scratch/mvp/prototypes/wininet-recovery/run.mjs --exercise --resident=aware
+```
+
+These are enabled on the isolated CI runner; **do not run locally while the
+other proxy applications are present**. Both keep the existing outside-repo
+backup, competitor checks, whole-writer-Job exit gate and guarded restoration.
+Each successful summary contains the native shutdown report and post-operation
+state evidence. An uncertain result fails the fixture even if restoration works.
+The controller now also retains its writer lock when restoration is required
+but failed/refused; an empty old Job alone is insufficient to resume writes.
+Pure tests reject rescued, nonzero, nonempty or incomplete exit evidence.
+
 The latest local read-only backup after this script change is
 `C:\Users\DT-056\kuro-sysproxy-backups\wininet-1793593360809`.
 

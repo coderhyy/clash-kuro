@@ -4,13 +4,18 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync, unlinkSync } from '
 import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { cleanExit } from './exit-evidence.mjs'
 const root = dirname(fileURLToPath(import.meta.url))
 const exercise = process.argv.includes('--exercise')
 const prior = process.argv.find(x => x.startsWith('--restore='))?.slice(10)
+const resident = process.argv.find(x => x.startsWith('--resident='))?.slice(11)
+if (resident !== undefined && (!exercise || prior || !['plain', 'aware'].includes(resident)))
+  throw new Error('--resident=plain|aware requires --exercise, never --restore')
 const dir = prior ? resolve(prior) : join(homedir(), 'kuro-sysproxy-backups', `wininet-${Date.now()}`)
 mkdirSync(dir, { recursive: true })
 // A crashed controller leaves this lock in place: never infer writer death from a missing JS process.
 let writerGone = true
+let restorationRequired = false
 if (exercise || prior) {
   const base = join(homedir(), 'kuro-sysproxy-backups')
   mkdirSync(base, { recursive: true })
@@ -18,17 +23,18 @@ if (exercise || prior) {
   const owner = JSON.stringify({ pid: process.pid, at: Date.now(), backup: dir })
   writeFileSync(lock, owner, { flag: 'wx' })
   process.on('exit', () => {
-    if (writerGone && existsSync(lock) && readFileSync(lock, 'utf8') === owner) unlinkSync(lock)
+    if (writerGone && !restorationRequired && existsSync(lock) && readFileSync(lock, 'utf8') === owner) unlinkSync(lock)
   })
 }
 const snapshot = join(dir, 'lan-ras.bin'), endpoint = '127.0.0.1:48967'
+const residentReport = join(dir, 'resident.json')
 const q = value => '"' + value.replace(/(\\*)"/g, '$1$1\\"').replace(/(\\+)$/, '$1$1') + '"'
 function supervised(label, args) {
   const report = join(dir, `${label}-${Date.now()}.supervisor.json`)
-  const exe = join(root, 'out/probe.exe')
+  const exe = join(root, label === 'cycle' && resident ? 'out/resident.exe' : 'out/probe.exe')
   let failure, stdout = ''
   const mutating = label === 'cycle' || label === 'restore'
-  if (mutating) writerGone = false
+  if (mutating) { writerGone = false; restorationRequired = true }
   try {
     stdout = execFileSync(join(root, 'out/watchdog.exe'), ['10000', report, exe, [exe, ...args].map(q).join(' ')],
       { timeout: 16000, windowsHide: true, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
@@ -39,11 +45,13 @@ function supervised(label, args) {
   const data = JSON.parse(readFileSync(report, 'utf8'))
   assert.equal(data.remaining, 0, 'STOP: an old writer might still be alive; no restore')
   if (mutating) writerGone = true
-  return { data, failure, stdout }
+  const result = { data, failure, stdout }
+  if (label === 'restore' && cleanExit(result)) restorationRequired = false
+  return result
 }
 function must(label, args) {
   const result = supervised(label, args)
-  if (result.failure || result.data.rootExitCode !== 0 || result.data.watchdogKilled || result.data.lingeringChildren)
+  if (!cleanExit(result))
     throw new Error(`${label} failed; retain backup ${dir}`, { cause: result.failure })
 }
 function competitors() {
@@ -71,28 +79,51 @@ console.log(`${prior ? 'Requested guarded restoration from' : 'Verified read-onl
 if (exercise || prior) {
   competitors()
   let cycleEvidence = null
+  let residentEvidence = null
   if (prior) must('restore', ['restore', snapshot, endpoint])
   else {
     // External rescue is a failed experiment, even if safe restoration subsequently succeeds.
-    const cycle = supervised('cycle', ['cycle', snapshot, endpoint])
+    const cycle = supervised('cycle', resident
+      ? ['resident-cycle', snapshot, endpoint, residentReport, resident]
+      : ['cycle', snapshot, endpoint])
     competitors()
     must('post-cycle-snapshot', ['snapshot', join(dir, 'post-cycle.bin')])
     must('restore', ['restore', snapshot, endpoint])
-    if (cycle.failure || cycle.data.rootExitCode !== 0 || cycle.data.watchdogKilled || cycle.data.lingeringChildren)
+    if (!cleanExit(cycle))
       throw new Error('Experiment failed; original settings were restored, not an accepted result', { cause: cycle.failure })
-    cycleEvidence = cycle.stdout.trim().split(/\r?\n/).map(line => JSON.parse(line))
+    cycleEvidence = cycle.stdout.trim().split(/\r?\n/).filter(line => line.trim())
+      .map(line => JSON.parse(line))
       .find(item => item.command === 'cycle-verified')
     assert(cycleEvidence?.connections >= 1, 'Missing per-connection set/clear verification')
     assert.equal(cycleEvidence.setFlags, 3)
     assert.equal(cycleEvidence.clearFlags, 1)
+    if (resident) {
+      residentEvidence = JSON.parse(readFileSync(residentReport, 'utf8'))
+      assert.equal(residentEvidence.pid, cycle.data.rootPid)
+      assert.equal(residentEvidence.decision, 'cleared')
+      assert.equal(residentEvidence.operationError, 0)
+      assert.equal(residentEvidence.operations, 1)
+      assert.equal(residentEvidence.stops, 1)
+      assert.equal(residentEvidence.windowTriggers, 1)
+      assert.equal(residentEvidence.deadlineMs, 1500)
+      assert(residentEvidence.stopMs >= residentEvidence.decisionMs)
+      assert(residentEvidence.decisionMs < 1750, 'Observed clear wait exceeded threshold; not a hard-real-time claim')
+      assert(residentEvidence.endMs < 2350, 'Observed complete shutdown work exceeded threshold')
+      assert.equal(residentEvidence.coreGone, true)
+      assert.equal(residentEvidence.coreExit, 0)
+      assert.equal(residentEvidence.coreForced, false)
+      assert.equal(residentEvidence.selfForced, false)
+    }
   }
   must('restored-verify', ['verify', snapshot])
   assert.deepEqual(JSON.parse(readRunOnce())?.ClashKuroSysProxyCleanup ?? null,
     JSON.parse(readFileSync(join(dir, 'runonce-readonly.json'), 'utf8'))?.ClashKuroSysProxyCleanup ?? null,
     'RunOnce differs from backup; do not overwrite externally changed recovery settings')
-  writeFileSync(join(root, 'out/verified.json'), JSON.stringify({ at: new Date().toISOString(),
+  writeFileSync(join(root, resident ? `out/verified-${resident}.json` : 'out/verified.json'), JSON.stringify({ at: new Date().toISOString(),
     backup: dir, platform: process.platform, restoredAndVerified: true, runOnceUnchanged: true,
     cycleEvidence,
-    scope: 'shared one-shot WinINet operations, not resident notification/session validation' }, null, 2))
+    residentEvidence,
+    scope: resident ? `real WinINet clear with ${resident} native query wait and fake Core; private trigger, not OS session validation`
+      : 'shared one-shot WinINet operations, not resident notification/session validation' }, null, 2))
   console.log('Original LAN/RAS state verified after restoration; RunOnce was not modified')
 } else console.log('Read-only mode: no proxy write, no notification, no RunOnce change')

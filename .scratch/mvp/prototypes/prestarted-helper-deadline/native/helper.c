@@ -1,4 +1,4 @@
-/* THROWAWAY: fake operations/Core only; no WinINet or registry operations. */
+/* THROWAWAY: fake operations/Core by default; real hook only in the separate guarded fixture. */
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <stdio.h>
@@ -14,6 +14,7 @@ static struct {
   const wchar_t *report;
   LONG closing, triggers, eof, decision, operations, stops, coordinator_done, window_triggers;
   LONG window_waiting, nested_queries, notification_in_wait;
+  LONG operation_error;
   ULONGLONG start, deadline, operation_at, decided_at, stop_at, end_at;
   ULONGLONG start_epoch;
   DWORD core_pid, core_exit;
@@ -33,10 +34,12 @@ static DWORD left(ULONGLONG end) {
   ULONGLONG now = GetTickCount64();
   return end > now ? (DWORD)(end - now) : 0;
 }
+#ifndef KURO_AUTO_QUERY
 static void ack(const char *text, DWORD length) {
   DWORD written;
   WriteFile(GetStdHandle(STD_OUTPUT_HANDLE), text, length, &written, NULL);
 }
+#endif
 static int begin_close(void) {
   InterlockedIncrement(&s.triggers);
   if (InterlockedCompareExchange(&s.closing, 1, 0)) return 0;
@@ -45,10 +48,12 @@ static int begin_close(void) {
   SetEvent(s.triggered);
   return 1;
 }
+#ifndef KURO_AUTO_QUERY
 static void trigger(void) {
   /* A blocked/broken acknowledgement cannot block the supervisor or coordinator. */
   if (begin_close()) ack("triggered\n", 10);
 }
+#endif
 static LRESULT CALLBACK window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
   if (message == WM_APP + 2) {
     if (load(&s.window_waiting)) InterlockedIncrement(&s.notification_in_wait);
@@ -101,6 +106,10 @@ static DWORD WINAPI window_thread(void *unused) {
 }
 static DWORD WINAPI reader(void *unused) {
   (void)unused;
+#ifdef KURO_AUTO_QUERY
+  /* Private test message only; never synthesize an OS session-end event. */
+  return PostMessageW(s.window, WM_APP + 1, 0, 0) ? 0 : 1;
+#else
   char byte; DWORD count;
   while (ReadFile(GetStdHandle(STD_INPUT_HANDLE), &byte, 1, &count, NULL) && count) {
     if (byte == 'C') trigger();
@@ -113,12 +122,16 @@ static DWORD WINAPI reader(void *unused) {
   InterlockedExchange(&s.eof, 1);
   trigger(); /* Losing the only controller closes this one-shot instance. No reconnect. */
   return 0;
+#endif
 }
 static DWORD WINAPI operation(void *unused) {
   (void)unused;
   WaitForSingleObject(s.operation_start, INFINITE);
   InterlockedIncrement(&s.operations);
   if (s.operation_hang) Sleep(INFINITE);
+#ifdef KURO_REAL_OPERATION
+  InterlockedExchange(&s.operation_error, KURO_REAL_OPERATION());
+#else
   Sleep(s.operation_delay);
   if (s.operation_notify) {
     DWORD_PTR result;
@@ -126,6 +139,7 @@ static DWORD WINAPI operation(void *unused) {
       SendMessageTimeoutW(s.window, WM_APP + 1, 0, 0, SMTO_BLOCK | SMTO_ABORTIFHUNG, 3000, &result);
     if (!SendMessageTimeoutW(s.window, WM_APP + 2, 0, 0, SMTO_BLOCK | SMTO_ABORTIFHUNG, 3000, &result)) return 1;
   }
+#endif
   s.operation_at = GetTickCount64();
   SetEvent(s.operation_done);
   return 0;
@@ -137,13 +151,13 @@ static DWORD WINAPI write_report(void *unused) {
   if (!f) return 1;
   fprintf(f, "{\"pid\":%lu,\"corePid\":%lu,\"decision\":\"%s\","
     "\"triggers\":%ld,\"operations\":%ld,\"stops\":%ld,\"eof\":%ld,\"windowTriggers\":%ld,"
-    "\"nestedQueries\":%ld,\"notificationInWait\":%ld,"
+    "\"nestedQueries\":%ld,\"notificationInWait\":%ld,\"operationError\":%ld,"
     "\"decisionMs\":%llu,\"stopMs\":%llu,\"endMs\":%llu,"
     "\"deadlineMs\":%llu,\"startEpochMs\":%llu,\"reportEpochMs\":%llu,\"coreGone\":%s,\"coreForced\":%s,"
     "\"coreExit\":%lu,\"selfForced\":%s,\"coordinatorDone\":%ld}\n",
-    GetCurrentProcessId(), s.core_pid, load(&s.decision) == 1 ? "cleared" : "timeout",
+    GetCurrentProcessId(), s.core_pid, load(&s.decision) == 1 ? "cleared" : load(&s.decision) == 3 ? "failed" : "timeout",
     load(&s.triggers), load(&s.operations), load(&s.stops), load(&s.eof), load(&s.window_triggers),
-    load(&s.nested_queries), load(&s.notification_in_wait),
+    load(&s.nested_queries), load(&s.notification_in_wait), load(&s.operation_error),
     s.decided_at - s.start, s.stop_at - s.start, s.end_at - s.start,
     s.deadline - s.start, s.start_epoch, epoch(), s.core_gone ? "true" : "false", s.core_forced ? "true" : "false",
     s.core_exit, s.forced_self ? "true" : "false", load(&s.coordinator_done));
@@ -212,7 +226,10 @@ static int launch_core(void) {
   CloseHandle(pi.hThread); s.core = pi.hProcess; s.core_pid = pi.dwProcessId;
   return WaitForSingleObject(s.core_ready, 3000) == WAIT_OBJECT_0;
 }
-int wmain(int argc, wchar_t **argv) {
+#ifndef KURO_COORDINATION_MAIN
+#define KURO_COORDINATION_MAIN wmain
+#endif
+int KURO_COORDINATION_MAIN(int argc, wchar_t **argv) {
   if (argc == 5 && !wcscmp(argv[1], L"--core")) {
     HANDLE stop = (HANDLE)(uintptr_t)_wcstoui64(argv[2], NULL, 10);
     HANDLE ready = (HANDLE)(uintptr_t)_wcstoui64(argv[3], NULL, 10);
@@ -223,6 +240,7 @@ int wmain(int argc, wchar_t **argv) {
   if (argc != 3) return 91;
   s.report = argv[2];
   s.operation_hang = !wcscmp(argv[1], L"operation-hang") || !wcscmp(argv[1], L"repeat");
+  s.operation_error = !wcscmp(argv[1], L"operation-error") ? 2 : 0;
   s.operation_delay = !wcscmp(argv[1], L"electron-exit") ? 400 : 40;
   if (!wcscmp(argv[1], L"late-operation")) s.operation_delay = 1900;
   s.coordinator_hang = !wcscmp(argv[1], L"coordinator-hang");
@@ -231,6 +249,10 @@ int wmain(int argc, wchar_t **argv) {
   s.query_plain = !wcscmp(argv[1], L"query-plain");
   s.notification_hang = !wcscmp(argv[1], L"query-handler-hang");
   s.operation_notify = s.query_plain || s.notification_hang || !wcscmp(argv[1], L"query-aware");
+#ifdef KURO_REAL_OPERATION
+  s.query_plain = !wcscmp(argv[1], L"real-plain");
+  s.operation_notify = 0;
+#endif
 #define EVENT(name) s.name = CreateEventW(NULL, TRUE, FALSE, NULL); if (!s.name) return 92
   EVENT(triggered); EVENT(operation_start); EVENT(operation_done); EVENT(decision_ready);
   EVENT(finished); EVENT(report_start); EVENT(report_done);
@@ -254,14 +276,16 @@ int wmain(int argc, wchar_t **argv) {
   thread = CreateThread(NULL, 0, reader, NULL, 0, NULL);
   if (!thread) return 95;
   CloseHandle(thread);
+#ifndef KURO_AUTO_QUERY
   ack("ready\n", 6);
+#endif
   WaitForSingleObject(s.triggered, INFINITE);
   if (s.coordinator_hang || s.rescue_negative) Sleep(INFINITE);
   SetEvent(s.operation_start);
   DWORD waited = WaitForSingleObject(s.operation_done, left(s.deadline));
   int success = waited == WAIT_OBJECT_0 && s.operation_at <= s.deadline;
   /* Publish before signalling; after a supervisor timeout the outcome stays uncertain. */
-  InterlockedCompareExchange(&s.decision, success ? 1 : 2, 0);
+  InterlockedCompareExchange(&s.decision, success ? (load(&s.operation_error) ? 3 : 1) : 2, 0);
   InterlockedExchange(&s.coordinator_done, 1);
   SetEvent(s.decision_ready);
   WaitForSingleObject(s.finished, INFINITE); /* Supervisor owns exit if main/worker cannot finish. */
