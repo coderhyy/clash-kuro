@@ -52,13 +52,15 @@ function competitors() {
   { timeout: 10000, windowsHide: true, encoding: 'utf8' }).trim()
   if (output) throw new Error(`STOP: other proxy processes must exit before writes or restoration: ${output}`)
 }
+function readRunOnce() {
+  return execFileSync('powershell.exe', ['-NoProfile', '-Command',
+    '$ErrorActionPreference="Stop"; $key="HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce"; if (Test-Path -LiteralPath $key) { Get-ItemProperty -LiteralPath $key | Select-Object ClashKuroSysProxyCleanup | ConvertTo-Json -Compress } else { "null" }'],
+  { timeout: 10000, windowsHide: true, encoding: 'utf8' }).trim() || 'null'
+}
 if (!prior) {
   execFileSync('reg.exe', ['export', 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings', join(dir, 'internet-settings.reg')],
     { timeout: 10000, windowsHide: true, stdio: 'pipe' })
-  const runOnce = execFileSync('powershell.exe', ['-NoProfile', '-Command',
-    'Get-ItemProperty -LiteralPath "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce" -ErrorAction SilentlyContinue | Select-Object ClashKuroSysProxyCleanup | ConvertTo-Json -Compress'],
-  { timeout: 10000, windowsHide: true, encoding: 'utf8' })
-  writeFileSync(join(dir, 'runonce-readonly.json'), runOnce || 'null')
+  writeFileSync(join(dir, 'runonce-readonly.json'), readRunOnce())
   must('snapshot', ['snapshot', snapshot])
   must('verify', ['verify', snapshot])
   writeFileSync(join(dir, 'manifest.json'), JSON.stringify({ at: new Date().toISOString(), endpoint, snapshot,
@@ -75,8 +77,15 @@ if (exercise || prior) {
     competitors()
     must('post-cycle-snapshot', ['snapshot', join(dir, 'post-cycle.bin')])
     must('restore', ['restore', snapshot, endpoint])
-    if (cycle.failure) throw new Error('Experiment failed; original settings were restored, not an accepted result', { cause: cycle.failure })
+    if (cycle.failure || cycle.data.rootExitCode !== 0 || cycle.data.watchdogKilled || cycle.data.lingeringChildren)
+      throw new Error('Experiment failed; original settings were restored, not an accepted result', { cause: cycle.failure })
   }
   must('restored-verify', ['verify', snapshot])
+  assert.deepEqual(JSON.parse(readRunOnce())?.ClashKuroSysProxyCleanup ?? null,
+    JSON.parse(readFileSync(join(dir, 'runonce-readonly.json'), 'utf8'))?.ClashKuroSysProxyCleanup ?? null,
+    'RunOnce differs from backup; do not overwrite externally changed recovery settings')
+  writeFileSync(join(root, 'out/verified.json'), JSON.stringify({ at: new Date().toISOString(),
+    backup: dir, platform: process.platform, restoredAndVerified: true, runOnceUnchanged: true,
+    scope: 'shared one-shot WinINet operations, not resident notification/session validation' }, null, 2))
   console.log('Original LAN/RAS state verified after restoration; RunOnce was not modified')
 } else console.log('Read-only mode: no proxy write, no notification, no RunOnce change')

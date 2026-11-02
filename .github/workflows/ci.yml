@@ -84,6 +84,23 @@ jobs:
           include-hidden-files: true
           if-no-files-found: warn
           retention-days: 7
+      - name: Guarded real WinINet cycle (isolated runner only; backup and restore)
+        shell: pwsh
+        run: |
+          $env:PATH = "${{ steps.msys2.outputs.msys2-location }}\ucrt64\bin;$env:PATH"
+          node .scratch/mvp/prototypes/wininet-recovery/build.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node .scratch/mvp/prototypes/wininet-recovery/test.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node .scratch/mvp/prototypes/wininet-recovery/run.mjs --exercise
+      - name: Preserve verified WinINet result (no registry exports)
+        uses: actions/upload-artifact@v7
+        with:
+          name: kuro-wininet-recovery-evidence
+          path: .scratch/mvp/prototypes/wininet-recovery/out/verified.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
       - uses: actions/upload-artifact@v7
         with:
           name: kuro-windows-x64
