@@ -275,6 +275,8 @@ static void finish(Buf *b, const Connections *c, int ok) {
     put_error(b, c->rasError, NULL);
   }
   putf(b, ",\"ok\":%s}", ok ? "true" : "false");
+  free(c->names);
+  free(c->ras);
 }
 
 // ---- RunOnce fallback --------------------------------------------------------------------
@@ -325,7 +327,7 @@ static void put_runonce(Buf *b, const char *action, DWORD error) {
 static int cmd_get(void) {
   Connections c = connections();
   Buf b = {0};
-  int ok = 1;
+  int ok = !c.rasError;
   puts_(&b, "{\"command\":\"get\",\"connections\":[");
   for (DWORD i = 0; i < c.count; i++) {
     if (i) puts_(&b, ",");
@@ -350,13 +352,15 @@ static int cmd_get(void) {
   puts_(&b, "]");
   finish(&b, &c, ok);
   emit(&b);
+  free(b.data);
   return ok ? 0 : 2;
 }
 
-static int cmd_set(const wchar_t *server, const wchar_t *bypass) {
+// Shared operation entry points; isolated experiments must not modify recovery registration.
+static int set_connections(const wchar_t *server, const wchar_t *bypass, int manage_recovery) {
   Connections c = connections();
   Buf b = {0};
-  int ok = 1, any_set = 0;
+  int ok = !c.rasError, any_set = 0;
   puts_(&b, "{\"command\":\"set\",\"connections\":[");
   for (DWORD i = 0; i < c.count; i++) {
     if (i) puts_(&b, ",");
@@ -390,7 +394,7 @@ static int cmd_set(const wchar_t *server, const wchar_t *bypass) {
   }
   puts_(&b, "]");
   // Also after a partial set: some connection now carries our endpoint until the caller rolls back.
-  if (any_set) {
+  if (any_set && manage_recovery) {
     int log_omitted = 0;
     put_runonce(&b, "written", runonce_set(server, &log_omitted));
     if (log_omitted) puts_(&b, ",\"runOnceLogOmitted\":true");
@@ -398,13 +402,15 @@ static int cmd_set(const wchar_t *server, const wchar_t *bypass) {
   notify(&b, &ok);
   finish(&b, &c, ok);
   emit(&b);
+  free(b.data);
   return ok ? 0 : 2;
 }
 
-static int cmd_clear(const wchar_t **expected, int expected_count) {
+static int clear_connections(const wchar_t **expected, int expected_count, int manage_recovery) {
   Connections c = connections();
   Buf b = {0};
-  int ok = 1, changed = 0;
+  // Unknown RAS state is not a successful clear, even when LAN is already direct.
+  int ok = !c.rasError, changed = 0;
   puts_(&b, "{\"command\":\"clear\",\"connections\":[");
   for (DWORD i = 0; i < c.count; i++) {
     if (i) puts_(&b, ",");
@@ -447,9 +453,10 @@ static int cmd_clear(const wchar_t **expected, int expected_count) {
   if (changed) notify(&b, &ok);
   // Nothing of ours is left (cleared, notOurs or unchanged everywhere): the logon fallback is no longer needed.
   // On failure the entry stays, so the next logon retries.
-  if (ok) put_runonce(&b, "deleted", runonce_delete());
+  if (ok && manage_recovery) put_runonce(&b, "deleted", runonce_delete());
   finish(&b, &c, ok);
   emit(&b);
+  free(b.data);
   return ok ? 0 : 2;
 }
 
@@ -486,12 +493,12 @@ int wmain(int argc, wchar_t **argv) {
     wchar_t server[300];
     _snwprintf(server, sizeof server / sizeof *server, L"%ls:%u", host, p);
     server[299] = 0;
-    return cmd_set(server, bypass);
+    return set_connections(server, bypass, 1);
   }
   if (!wcscmp(command, L"clear")) {
     if (!expected_count || host || port) return usage(L"clear requires --expected-server");
     for (int i = 0; i < expected_count; i++) if (!kuro_valid_server(expected[i])) return usage(L"Invalid --expected-server");
-    return cmd_clear(expected, expected_count);
+    return clear_connections(expected, expected_count, 1);
   }
   return usage(L"Unknown command");
 }
