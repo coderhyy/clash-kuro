@@ -307,3 +307,9 @@ Blocked by: 02, 07
 - 增加 `recover --recovery <绝对路径> [--log ...]`，复用 native 窗口、worker、report/supervisor，不启动 Core、不开放 IPC/set。取得独占后读取端点集合，调用已有 clear/notOurs；成功 reset，超时保留。不会删除 legacy RunOnce，尚未登记到 RunOnce 或由 app 自动调用。
 - 假后端实测活跃所有者拒绝恢复、超时所有者退出后恢复成功、恢复自身卡死则 timeout/退出 42 并保留完全相同记录；无外部救援/遗留，记录 `prestarted-helper-deadline/out/resident-1793604030489/`。native 构建与原有五项策略通过。
 - 等待预算在参数/独占文件初始化后开始，不覆盖 OS 进程创建/文件系统调用的任意延迟，不是硬实时保证。真实 API replay、稳定部署登记、legacy 迁移和人工会话仍待完成；本机无代理写入，不改 ADR/Status，不合并。
+
+2026-11-02 (agent，恢复 helper 稳定部署基础):
+
+- 新增尚未由 app 调用的 `prepareRecoveryHelper`：在调用方选定的可信用户目录保留按内容散列命名的 helper，先完整写入并 sync，再以硬链接发布，不覆盖已有版本、不自动删除旧版本；已存在文件必须逐字节匹配，目录路径穿过链接则拒绝。硬链接不受支持时失败，不降级为不安全覆盖。
+- 三项私有临时文件测试覆盖并发发布、应用源文件删除后保留恢复副本、更新保留旧版本、篡改拒绝及临时文件清理、相对路径和 junction/symlink 拒绝。使用惰性文本夹具，无 exe 启动、代理或注册表写入。typecheck 与此前完整 175 项测试通过，随后新增的链接目录拒绝专项也通过。
+- 仍需将部署目录、native recover 和 RunOnce 登记接成同一生命周期；此工具不是针对同用户恶意并发篡改的安全边界，也不能据此声称更新/卸载恢复问题已全部解决。正式 app 未切换，ADR/Status 不变。

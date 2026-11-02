@@ -143,3 +143,25 @@ creation or filesystem calls. This is a software shutdown/replay wait bound, not
 a universal whole-process wall-clock guarantee. The standalone entry is not yet
 registered with RunOnce or called automatically by the app. Stable deployment,
 registration, legacy migration and true API replay evidence are still required.
+
+## Recovery executable deployment
+
+`prepareRecoveryHelper(source, directory)` publishes a content-addressed copy into
+a caller-selected trusted per-user directory outside the versioned installation.
+It writes and syncs a private temporary file, then creates a hard link to publish
+complete bytes without replacing an existing version. Existing destinations must
+match byte-for-byte; old versions are never removed here. Unsupported hard links
+fail rather than falling back to unsafe replacement. The final directory and its
+canonical path must not traverse links. This is not protection against a malicious
+same-user process changing the directory concurrently.
+
+Tests use inert text files, not executable launches: concurrent publication,
+source deletion after deployment, retention across upgrades, tampered destination
+refusal without overwriting, temporary cleanup, relative paths and linked-directory
+refusal. Three targeted tests pass; typecheck and the preceding 175-test full run
+also passed (the linked-directory test was added afterward).
+
+This utility is not yet called from app startup. Keep deployment, journal path and
+native registration consistent in the integration; do not point RunOnce back into
+an uninstallable application version. No automatic garbage collection is permitted
+until all pending recovery references and writers can be ruled out.
