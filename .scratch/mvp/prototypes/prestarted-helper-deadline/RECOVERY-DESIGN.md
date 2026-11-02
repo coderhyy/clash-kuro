@@ -60,3 +60,20 @@ delayed legacy logon command is still possible.
 Do not add an administrator service, automatic helper restart or generic proxy
 manager. Validate these transitions with fake persistence/operations first; local
 real proxy writes remain prohibited while competing proxy programs are active.
+
+## Implemented primitive (not yet wired into resident)
+
+`apps/desktop/native/win/recovery-lock.h` opens the stable lock file with no
+sharing, no inheritance and no retry loop. The owner must keep the handle until
+all its possible writes have ended; an operation timeout alone is not permission
+to close it. File deletion/replacement is denied while held. Final-component
+reparse points/directories are rejected; the caller must select a trusted local
+per-user directory, not a network share or attacker-controlled parent junction.
+
+`recovery-lock_test.c`, included in `build-sysproxy.mjs --test`, uses only a private
+temporary file. An exact child verifies contention; another acquires ownership
+and terminates itself without cleanup, after which acquisition succeeds. Tests
+also verify noninheritance and denial of deletion while held. An external test
+rescue fails rather than being counted as ownership success. Filesystem syscall
+latency is not a hard realtime bound. There is no production lock acquisition yet;
+this alone does not fix the RunOnce race or protect against legacy helpers.
