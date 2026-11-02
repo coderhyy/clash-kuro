@@ -2,13 +2,19 @@
 
 Date: 2026-11-02. Decision: **DENY production admission; evidence collection only.**
 
+Implementation update (2026-11-03): the collector now requires `-Helper` and reads
+the same native 64-bit clock through the verified helper's read-only `boot-clock`
+command, rather than compiling a C# assembly on every invocation. It requests
+only `LastBootUpTime` from CIM. The 10-second command budget and evidence contract
+are unchanged; this removes measured collection overhead, not the admission hold.
+
 ## Bounded uptime implementation update (2026-11-02)
 
 This update changes evidence collection/validation only. No resident activation, migration preparation, native ownership protocol, proxy clear, RunOnce mutation/execution, Core/port use, or Restart is authorized by it. The research snapshot below is historical: its BootType and ten-second reset-oracle findings are addressed by replacing those oracles, not by establishing the missing provider contracts. Its wider production-admission warning still applies.
 
 ### Version 2 evidence contract
 
-- Collect native `GetTickCount64` via P/Invoke as `ulong` and serialize `uptimeMs` directly to invariant-culture decimal text. The parser accepts only canonical unsigned decimal strings in `[0, 18446744073709551615]`; JavaScript compares them with `BigInt`, never `Number`, signed/32-bit arithmetic, CIM time subtraction, or a substituted .NET/Node uptime API. Microsoft documents milliseconds since system start, including sleep/hibernation. Timer quantization can yield equality; equality denies. [S12][S13]
+- Collect native `GetTickCount64` as an unsigned 64-bit value and serialize `uptimeMs` directly to decimal text. The parser accepts only canonical unsigned decimal strings in `[0, 18446744073709551615]`; JavaScript compares them with `BigInt`, never `Number`, signed/32-bit arithmetic, CIM time subtraction, or a substituted .NET/Node uptime API. Microsoft documents milliseconds since system start, including sleep/hibernation. Timer quantization can yield equality; equality denies. [S12][S13]
 - Read `MachineGuid` from the read-only 64-bit `HKLM\SOFTWARE\Microsoft\Cryptography` view, require a nonempty D-format GUID, normalize it to lowercase D format, then hash its UTF-8 bytes with SHA-256. `machineGuidSha256` and current-user SID must match the persisted baseline. Missing, inaccessible, malformed, or changed identity denies; there is no computer-name/SID-only fallback. This is a local Windows-installation fingerprint, not a documented physical-machine identity or a clone/tamper-proof credential.
 - Require evidence `version: 2`, both new fields, and known structural keys. Old version-1 evidence or version-2 data missing fields denies: no inferred baseline or automatic old-receipt acceptance. EventData fields remain opaque string-valued corroboration, so absent/unrecognized `BootType` strings are not guessed or interpreted. Unsupported structural fields, invalid uint64 values, malformed timestamps, and future collection/CIM/kernel StartTime values deny.
 - Collect both RunOnce values explicitly: `legacyRunOnce` for `ClashKuroSysProxyCleanup` and `nativeRunOnce` for `ClashKuroResidentCleanup`. Explicit `null` means absent; a missing/invalid native field, including the earlier v2 contract without this field, denies. Any present native value (even empty) is unsupported initial migration state: preparation rejects it before helper/registry commands and rechecks every collection. It does not execute, retire, or delete that native registration, and preserves the preparing marker rather than publishing a prepared receipt.

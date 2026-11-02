@@ -25,6 +25,16 @@ test.skipIf(process.platform !== 'win32' || !existsSync(helper))('helper get ret
   expect(json.connections[0]).toMatchObject({ name: null, flags: expect.any(Number) })
 })
 
+test.skipIf(process.platform !== 'win32')('native boot clock returns decimal uint64 without runtime compilation', async () => {
+  const first = await run(['boot-clock'])
+  const second = await run(['boot-clock'])
+  expect(first.code).toBe(0)
+  expect(first.json).toMatchObject({ command: 'boot-clock', ok: true, uptimeMs: expect.stringMatching(/^\d+$/) })
+  expect(second.code).toBe(0)
+  expect(BigInt(second.json.uptimeMs)).toBeGreaterThanOrEqual(BigInt(first.json.uptimeMs))
+  expect((await run(['boot-clock', '--unexpected'])).code).toBe(1)
+})
+
 test.skipIf(process.platform !== 'win32')('resident paths are native user-scoped identities, not a writable admission command', async () => {
   const result = await run(['resident-paths'])
   expect(result.code).toBe(0)

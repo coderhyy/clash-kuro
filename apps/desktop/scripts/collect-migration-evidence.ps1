@@ -1,4 +1,4 @@
-param([long]$CheckpointRecord = 0)
+param([Parameter(Mandatory=$true)][string]$Helper, [long]$CheckpointRecord = 0)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 # Read only. Missing native uptime, machine identity, System log or CIM evidence denies comparison.
@@ -14,13 +14,6 @@ function Event-Evidence($Event, [bool]$IncludeFields = $false) {
   return @{ record = $Event.RecordId; digest = $digest; fields = $fields }
 }
 try {
-  Add-Type -TypeDefinition @'
-using System.Runtime.InteropServices;
-public static class KuroMigrationClock {
-  [DllImport("kernel32.dll", ExactSpelling = true)]
-  public static extern ulong GetTickCount64();
-}
-'@
   $machineKey = [Microsoft.Win32.RegistryKey]::OpenBaseKey(
     [Microsoft.Win32.RegistryHive]::LocalMachine, [Microsoft.Win32.RegistryView]::Registry64)
   try {
@@ -46,7 +39,7 @@ public static class KuroMigrationClock {
     $old = Get-WinEvent -LogName System -FilterXPath "*[System[EventRecordID=$CheckpointRecord]]" -MaxEvents 1
     $checkpoint = Event-Evidence $old
   }
-  $os = Get-CimInstance Win32_OperatingSystem
+  $os = Get-CimInstance Win32_OperatingSystem -Property LastBootUpTime
   $legacyKey = 'Registry::HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\RunOnce'
   $legacy = $null; $native = $null
   if (Test-Path -LiteralPath $legacyKey) {
@@ -59,7 +52,15 @@ public static class KuroMigrationClock {
   # Include every 64-hex name conservatively; false positives are intentional, absence is not ownership proof.
   $writers = @(Get-Process | Where-Object { $_.ProcessName -in @('Clash Kuro', 'kuro-sysproxy', 'mihomo', 'clash-verge', 'Fiddler', 'Fiddler Everywhere') -or $_.ProcessName -match '^[a-f0-9]{64}$' } |
     ForEach-Object { @{ pid = $_.Id; name = $_.ProcessName } })
-  $uptime = [KuroMigrationClock]::GetTickCount64().ToString([Globalization.CultureInfo]::InvariantCulture)
+  # Use the already verified helper; do not compile a C# assembly for every collection.
+  # The pipeline also makes Windows PowerShell wait for this GUI-subsystem executable.
+  $clockOutput = & $Helper 'boot-clock' | Out-String
+  if ($LASTEXITCODE -ne 0) { throw 'Native uptime command failed' }
+  $clock = $clockOutput | ConvertFrom-Json
+  if ($clock.command -isnot [string] -or $clock.command -ne 'boot-clock' -or $clock.ok -isnot [bool] -or $clock.ok -ne $true -or $clock.uptimeMs -isnot [string] -or $clock.uptimeMs -notmatch '^\d+$') {
+    throw 'Native uptime evidence unavailable'
+  }
+  $uptime = $clock.uptimeMs
   @{
     version = 2; userSid = $sid; machineGuidSha256 = $machineDigest; uptimeMs = $uptime
     collectedAt = [DateTime]::UtcNow.ToString('o')

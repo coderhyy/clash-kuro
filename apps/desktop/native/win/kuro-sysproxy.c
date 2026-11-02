@@ -558,6 +558,13 @@ int wmain(int argc, wchar_t **argv) {
     puts_(&result, "}"); emit(&result); free(result.data);
     return 0;
   }
+  if (argc > 1 && !wcscmp(argv[1], L"boot-clock")) {
+    if (argc != 2) return usage(L"Invalid boot clock arguments");
+    Buf result = {0};
+    putf(&result, "{\"command\":\"boot-clock\",\"ok\":true,\"uptimeMs\":\"%llu\"}", (unsigned long long)GetTickCount64());
+    emit(&result); free(result.data);
+    return 0;
+  }
   if (argc > 1 && !wcscmp(argv[1], L"publish-migration")) {
     if (argc != 8 || wcscmp(argv[2], L"--source") || wcscmp(argv[4], L"--destination") ||
         wcscmp(argv[6], L"--replace") || (wcscmp(argv[7], L"yes") && wcscmp(argv[7], L"no")) ||

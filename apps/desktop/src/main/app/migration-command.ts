@@ -94,7 +94,7 @@ export async function runMigrationCommand(options: MigrationCommandOptions): Pro
   const command = parseMigrationCommand(options.args)
   if (!command) return { handled: false }
   const exec = options.exec ?? execCommand
-  const source = options.collect ?? ((checkpoint?: number) => collectBootEvidence(options.collectorPath, checkpoint, exec))
+  const source = options.collect ?? ((checkpoint?: number) => collectBootEvidence(options.collectorPath, options.helperPath, checkpoint, exec))
   const collect: MigrationPreparationOptions['collect'] = async checkpoint => {
     const evidence = parseBootEvidence(await source(checkpoint))
     // Only this pre-Platform coordinator is exempt; names and caller-supplied PIDs cannot exempt other writers.

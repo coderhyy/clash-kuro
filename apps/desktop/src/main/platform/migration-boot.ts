@@ -1,3 +1,4 @@
+import type { ExecFileException } from 'node:child_process'
 import { execCommand, type Exec } from './system-proxy'
 
 interface BootEvent { record: number; digest: string; fields: Record<string, string> }
@@ -81,11 +82,16 @@ export function verifyRestart(baseline: BootEvidence, observed: BootEvidence): s
   return `${observed.kernel.record}:${observed.kernel.digest}`
 }
 
-export async function collectBootEvidence(script: string, checkpoint?: number, exec: Exec = execCommand): Promise<BootEvidence> {
+export async function collectBootEvidence(script: string, helper: string, checkpoint?: number, exec: Exec = execCommand): Promise<BootEvidence> {
   if (checkpoint !== undefined && (!Number.isSafeInteger(checkpoint) || checkpoint <= 0)) throw new Error('Invalid checkpoint record')
-  const args = ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', script]
+  const args = ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', script, '-Helper', helper]
   if (checkpoint !== undefined) args.push('-CheckpointRecord', String(checkpoint))
-  const { stdout, stderr } = await exec('powershell.exe', args)
+  const began = performance.now()
+  const { stdout, stderr } = await exec('powershell.exe', args).catch(error => {
+    const failure = error as ExecFileException | undefined
+    throw new Error(`Migration collector failed after ${Math.round(performance.now() - began)} ms ` +
+      `(code=${failure?.code}, signal=${failure?.signal}, killed=${failure?.killed}): ${failure?.message ?? 'unknown failure'}`, { cause: error })
+  })
   if (stderr.trim()) throw new Error('Migration collector reported diagnostics; evidence unverified')
   return parseBootEvidence(JSON.parse(stdout.replace(/^\uFEFF/, '')))
 }

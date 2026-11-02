@@ -103,7 +103,7 @@ async function fixture() {
   const exec = vi.fn<NonNullable<MigrationCommandOptions['exec']>>(async (file, args) => {
     if (faults.exec === file) throw new Error('fake execution failure')
     if (file === 'powershell.exe' && args.includes('-File')) {
-      expect(args).toEqual(['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', collectorPath,
+      expect(args).toEqual(['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', collectorPath, '-Helper', helperPath,
         ...(state.restarted ? ['-CheckpointRecord', '105'] : [])])
       return { stdout: JSON.stringify(await collect(state.restarted ? 105 : undefined)), stderr: '' }
     }
@@ -285,7 +285,7 @@ test('default collection uses injected exec for read-only collector and excludes
   expect(await runMigrationCommand({ ...f.options, args: checkArgs, collect: undefined }))
     .toMatchObject({ handled: true, command: 'check', residentEnabled: false })
   expect(f.exec).toHaveBeenCalledExactlyOnceWith('powershell.exe', [
-    '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', f.options.collectorPath, '-CheckpointRecord', '105'])
+    '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', f.options.collectorPath, '-Helper', f.options.helperPath, '-CheckpointRecord', '105'])
 })
 
 test.each(['helper', 'collector', 'app', 'manifest', 'backup', 'marker'])(

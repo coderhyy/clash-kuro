@@ -148,22 +148,26 @@ test('initial migration screen rejects either registration and hash-named writer
 
 test('collector invokes only the read-only script and rejects query, diagnostics and contract failures', async () => {
   const exec = vi.fn().mockResolvedValue({ stdout: '\ufeff' + JSON.stringify(restarted()), stderr: '' })
-  expect(await collectBootEvidence('collector.ps1', 100, exec)).toEqual(restarted())
-  expect(exec).toHaveBeenCalledExactlyOnceWith('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', 'collector.ps1', '-CheckpointRecord', '100'])
-  await expect(collectBootEvidence('collector.ps1', -1, exec)).rejects.toThrow()
+  expect(await collectBootEvidence('collector.ps1', 'helper.exe', 100, exec)).toEqual(restarted())
+  expect(exec).toHaveBeenCalledExactlyOnceWith('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', 'collector.ps1', '-Helper', 'helper.exe', '-CheckpointRecord', '100'])
+  await expect(collectBootEvidence('collector.ps1', 'helper.exe', -1, exec)).rejects.toThrow()
   expect(exec).toHaveBeenCalledTimes(1)
-  await expect(collectBootEvidence('collector.ps1', 100, async () => { throw new Error('access denied') })).rejects.toThrow('access denied')
+  await expect(collectBootEvidence('collector.ps1', 'helper.exe', 100, async () => { throw new Error('access denied') })).rejects.toThrow('access denied')
+  const timeout = Object.assign(new Error('collector timeout'), { code: 'ETIMEDOUT', signal: 'SIGTERM', killed: true })
+  await expect(collectBootEvidence('collector.ps1', 'helper.exe', 100, async () => { throw timeout }))
+    .rejects.toThrow('code=ETIMEDOUT, signal=SIGTERM, killed=true')
   for (const result of [{ stdout: '', stderr: '' }, { stdout: JSON.stringify(evidence()), stderr: 'warning' },
     { stdout: JSON.stringify({ ...restarted(), uptimeMs: 60000 }), stderr: '' }])
-    await expect(collectBootEvidence('collector.ps1', 100, async () => result)).rejects.toThrow()
+    await expect(collectBootEvidence('collector.ps1', 'helper.exe', 100, async () => result)).rejects.toThrow()
 })
 
 test.skipIf(process.platform !== 'win32' || process.env.KURO_READ_ONLY_BOOT_EVIDENCE !== '1')(
   'opt-in actual read-only collection preserves checkpoint and denies same-run reset', async () => {
     vi.restoreAllMocks()
     const script = fileURLToPath(new URL('../../../scripts/collect-migration-evidence.ps1', import.meta.url))
-    const baseline = await collectBootEvidence(script)
-    const observed = await collectBootEvidence(script, baseline.newest.record)
+    const helper = fileURLToPath(new URL('../../../resources/win/x64/kuro-sysproxy.exe', import.meta.url))
+    const baseline = await collectBootEvidence(script, helper)
+    const observed = await collectBootEvidence(script, helper, baseline.newest.record)
     expect(observed.checkpoint?.digest).toBe(baseline.newest.digest)
     expect(observed.machineGuidSha256).toBe(baseline.machineGuidSha256)
     expect(BigInt(observed.uptimeMs)).toBeGreaterThanOrEqual(BigInt(baseline.uptimeMs))

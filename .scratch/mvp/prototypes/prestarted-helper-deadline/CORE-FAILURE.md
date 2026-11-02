@@ -616,3 +616,45 @@ negative cases (out/admission-short-path-green.log). No production path guard,
 budget or assertion was relaxed. Assertions now include helper protocol output
 on failure. This is a fixture correction, not evidence that initial app
 migration or real session cleanup has become safe.
+
+### CI 41502533486: read-only process failures and collection overhead
+
+Windows failed the port-inventory beforeAll (netsh excludedportrange/tcp) and
+the actual read-only PowerShell collector (10027ms); 555 passed / 1 failed /
+35 skipped is not full acceptance. macOS passed. The old error messages omitted
+exit/signal/killed metadata, so the exact CI cause remains unproven. Raw output:
+out/ci-41502533486-failed.log. This run was not blindly retried.
+
+Both paths now retain child failure metadata and elapsed time. The four netsh
+reads are sequential with the same 5-second per-command limit. All 24 local
+read-only probes succeeded: concurrent per-command156-227ms versus sequential
+86-147ms; sequential total387-500ms exceeded concurrent total182-252ms. These
+measurements support avoiding overlapping interpreter overhead, not a claim
+that the original CI failure was reproduced. Actual TCP/UDP reservation and
+all excluded/dynamic range checks remain; four new tests cover serialization,
+range retention and failure diagnostics.
+
+A local instrumented collector spent1395ms before machine-identity access
+(including runtime C# compilation), and964ms querying all CIM OS properties.
+It now reads the same uint64 uptime from the verified helper's boot-clock
+command, passes its explicit bound path, and requests only LastBootUpTime.
+No runtime compiler is started; the outer10-second budget is unchanged.
+The subsequent quiet sample reached the native-clock read at1041ms and completed
+it at1214ms; this is an observation, not a guaranteed CI latency improvement.
+Private profiles: out/collector-profile.log and
+out/collector-profile-native-clock.log (local identity JSON is not published).
+
+The first focused run caught Windows PowerShell not awaiting the GUI helper,
+plus an old mock-argument assertion (out/collector-focused.log). An explicit
+Out-String pipeline now waits for stdout/exit, and all caller assertions retain
+the exact Helper argument. The initial boot-clock regression failure remains
+in out/boot-clock-red.log. Actual collection and same-boot denial then passed.
+
+Final uncached integration after these edits: 8/8 tasks, desktop596/596 in32
+files with zero skips, core89/api12/state36, including real Core and read-only
+boot evidence (out/integration-20261103-readonly-cost.log). Native units passed;
+private admission65/65 passed at out/admission-final-readonly-cost.log without
+rescue/leftovers. CI and same-head artifact verification remain separate.
+Post-build wrapper regressions also passed8/8 at out/resident-1793646523326;
+real Core/fake resident Platform passed1/1 at out/resident-platform-1793646539008,
+again without rescue or leftovers. These are not real session experiments.

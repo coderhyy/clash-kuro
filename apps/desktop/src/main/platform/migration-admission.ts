@@ -31,7 +31,7 @@ function verifyReservation(reservation: Readonly<ResidentReservation>): void {
  */
 export function createInitialMigrationAuthorizer(options: InitialMigrationAdmissionOptions): AuthorizeResident {
   const load = options.loadReceipt ?? readPreparedMigration
-  const collect = options.collect ?? ((checkpoint?: number) => collectBootEvidence(options.collectorPath, checkpoint))
+  const collect = options.collect ?? ((checkpoint?: number) => collectBootEvidence(options.collectorPath, options.helperPath, checkpoint))
   return async reservation => {
     if (options.confirmControlledRestart !== true) throw new Error('Explicit controlled Restart confirmation is required')
     verifyReservation(reservation)
@@ -77,7 +77,7 @@ export function createInitialMigrationAuthorizer(options: InitialMigrationAdmiss
 export function createMigrationAuthorizer(options: InitialMigrationAdmissionOptions & { retainedHelper: string }): AuthorizeResident {
   const initial = createInitialMigrationAuthorizer(options)
   const load = options.loadReceipt ?? readPreparedMigration
-  const collect = options.collect ?? (() => collectBootEvidence(options.collectorPath))
+  const collect = options.collect ?? (() => collectBootEvidence(options.collectorPath, options.helperPath))
   return async reservation => {
     if (reservation.admissionReceiptDigest === null) return initial(reservation)
     verifyReservation(reservation)

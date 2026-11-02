@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process'
+import { execFile, type ExecFileException } from 'node:child_process'
 import { randomInt } from 'node:crypto'
 import { createSocket } from 'node:dgram'
 import { createServer } from 'node:net'
@@ -6,17 +6,31 @@ import { promisify } from 'node:util'
 
 let excluded: Promise<readonly (readonly [number, number])[]> | undefined
 function exclusions() {
-  return excluded ??= process.platform !== 'win32' ? Promise.resolve([]) : Promise.all(['tcp', 'udp'].map(async protocol => {
-    const read = (kind: string) => promisify(execFile)('netsh.exe', ['int', 'ipv4', 'show', kind, `protocol=${protocol}`],
-      { windowsHide: true, timeout: 5000, maxBuffer: 128 * 1024 })
-    const [{ stdout }, dynamic] = await Promise.all([read('excludedportrange'), read('dynamicport')])
-    const range = [...dynamic.stdout.matchAll(/[:：]\s*(\d+)\s*$/gm)].map(match => Number(match[1]))
-    if (range.length !== 2 || range[0]! < 1 || range[1]! < 1 || range[0]! + range[1]! > 65536)
-      throw new Error(`Unknown Windows ${protocol} dynamic port inventory`)
-    // Avoid outgoing ephemeral clients claiming a just-released listener address during restart.
-    return [...stdout.matchAll(/^\s*(\d+)\s+(\d+)\s*\*?\s*$/gm)].map(match => [Number(match[1]), Number(match[2])] as const)
-      .concat([[range[0]!, range[0]! + range[1]! - 1]])
-  })).then(lists => lists.flat())
+  return excluded ??= process.platform !== 'win32' ? Promise.resolve([]) : (async () => {
+    const ranges: (readonly [number, number])[] = []
+    for (const protocol of ['tcp', 'udp']) {
+      const read = async (kind: string) => {
+        const args = ['int', 'ipv4', 'show', kind, `protocol=${protocol}`]
+        const started = performance.now()
+        try {
+          return await promisify(execFile)('netsh.exe', args, { windowsHide: true, timeout: 5000, maxBuffer: 128 * 1024 })
+        } catch (error) {
+          const failure = error as ExecFileException
+          throw new Error(`Windows test port inventory failed: netsh.exe ${args.join(' ')} (code=${failure.code ?? 'null'}, signal=${failure.signal ?? 'null'}, killed=${failure.killed ?? 'unknown'}, elapsedMs=${Math.round(performance.now() - started)}, timeoutMs=5000)\n${failure.message}`, { cause: error })
+        }
+      }
+      // Overlapping netsh launches add per-command overhead; keep each read's own 5s budget.
+      const { stdout } = await read('excludedportrange')
+      const dynamic = await read('dynamicport')
+      const range = [...dynamic.stdout.matchAll(/[:：]\s*(\d+)\s*$/gm)].map(match => Number(match[1]))
+      if (range.length !== 2 || range[0]! < 1 || range[1]! < 1 || range[0]! + range[1]! > 65536)
+        throw new Error(`Unknown Windows ${protocol} dynamic port inventory`)
+      // Avoid outgoing ephemeral clients claiming a just-released listener address during restart.
+      ranges.push(...[...stdout.matchAll(/^\s*(\d+)\s+(\d+)\s*\*?\s*$/gm)].map(match => [Number(match[1]), Number(match[2])] as const),
+        [range[0]!, range[0]! + range[1]! - 1])
+    }
+    return ranges
+  })()
 }
 
 /** Test-only resource allocation, before any Core/test action. Never retries a failed test or startup. */
