@@ -24,6 +24,7 @@ static struct {
   DWORD main_thread;
   LONG core_pid;
   LONG gate, closing, window_waiting;
+  LONG triggers, query_events, end_events, session_flags;
   ULONGLONG start;
   LONG clear_ok;
   int core_gone, timed_out, recovery_only;
@@ -40,12 +41,16 @@ static DWORD resident_left(ULONGLONG deadline) {
   ULONGLONG now = GetTickCount64();
   return now < deadline ? (DWORD)(deadline - now) : 0;
 }
-static void resident_close(void) {
+enum { RES_CLOSE_FAILURE = 1, RES_CLOSE_IPC = 2, RES_CLOSE_EOF = 4,
+  RES_CLOSE_CORE = 8, RES_CLOSE_QUERY = 16, RES_CLOSE_END = 32, RES_CLOSE_RECOVER = 64 };
+static void resident_close_reason(LONG reason) {
+  InterlockedOr(&resident.triggers, reason);
   InterlockedOr(&resident.gate, 2);
   InterlockedCompareExchange64((LONG64 *)&resident.start, (LONG64)GetTickCount64(), 0);
   InterlockedExchange(&resident.closing, 1);
   SetEvent(resident.close); /* Any caller may publish the first trigger; no single-owner handoff. */
 }
+static void resident_close(void) { resident_close_reason(RES_CLOSE_FAILURE); }
 static void resident_write(const char *data, size_t size) {
   while (size) {
     DWORD written = 0;
@@ -69,13 +74,13 @@ static DWORD WINAPI resident_reader(void *unused) {
   unsigned char header[8]; uint32_t kind, bytes;
   while (resident_read(header, sizeof header)) {
     if (!kuro_request_header(header, &kind, &bytes)) break;
-    if (kind == 2) { resident_close(); continue; }
+    if (kind == 2) { resident_close_reason(RES_CLOSE_IPC); continue; }
     if (InterlockedCompareExchange(&resident.gate, 1, 0) != 0) break;
     if (!resident_read(resident.payload, bytes)) break;
     resident.bytes = bytes;
     SetEvent(resident.request);
   }
-  resident_close();
+  resident_close_reason(RES_CLOSE_EOF);
   return 0;
 }
 static int resident_remember(const wchar_t *server) {
@@ -159,7 +164,9 @@ static DWORD WINAPI resident_worker(void *unused) {
   HANDLE events[] = {resident.close, resident.request};
   for (;;) {
     DWORD event = WaitForMultipleObjects(2, events, FALSE, INFINITE);
-    if (event != WAIT_OBJECT_0 + 1 || (resident_load(&resident.gate) & 2)) { resident_close(); break; }
+    if (event != WAIT_OBJECT_0 + 1 || (resident_load(&resident.gate) & 2)) {
+      resident_close_reason(event == WAIT_FAILED ? RES_CLOSE_FAILURE : 0); break;
+    }
     wchar_t *args[KURO_REQUEST_ARGS + 1]; size_t count;
     args[0] = L"kuro-sysproxy";
     if (!kuro_request_args(resident.payload, resident.bytes, args + 1, &count)) { resident_close(); break; }
@@ -195,10 +202,16 @@ static DWORD WINAPI resident_report(void *unused) {
   (void)unused;
   WaitForSingleObject(resident.report, INFINITE);
   Buf report = {0};
-  putf(&report, "{\"command\":\"shutdown\",\"ok\":%s,\"timedOut\":%s,\"coreGone\":%s,\"corePid\":%lu,\"durationMs\":%llu}\n",
+  SYSTEMTIME time; GetSystemTime(&time);
+  putf(&report, "{\"command\":\"shutdown\",\"ok\":%s,\"timedOut\":%s,\"coreGone\":%s,\"corePid\":%lu,\"durationMs\":%llu,"
+    "\"pid\":%lu,\"timestamp\":\"%04u-%02u-%02uT%02u:%02u:%02u.%03uZ\","
+    "\"triggerMask\":%lu,\"queryEvents\":%lu,\"endEvents\":%lu,\"sessionFlags\":%lu}\n",
     resident_load(&resident.clear_ok) && !resident.timed_out && resident.core_gone ? "true" : "false",
     resident.timed_out ? "true" : "false", resident.core_gone ? "true" : "false",
-    (unsigned long)resident_load(&resident.core_pid), GetTickCount64() - resident.start);
+    (unsigned long)resident_load(&resident.core_pid), GetTickCount64() - resident.start,
+    GetCurrentProcessId(), time.wYear, time.wMonth, time.wDay, time.wHour, time.wMinute, time.wSecond, time.wMilliseconds,
+    (unsigned long)resident_load(&resident.triggers), (unsigned long)resident_load(&resident.query_events),
+    (unsigned long)resident_load(&resident.end_events), (unsigned long)resident_load(&resident.session_flags));
   log_append(report.data, report.len);
   resident_write(report.data, report.len);
   free(report.data);
@@ -210,8 +223,8 @@ static DWORD WINAPI resident_supervisor(void *unused) {
   HANDLE startup[] = {resident.close, resident.core_ready};
   if (WaitForMultipleObjects(2, startup, FALSE, INFINITE) == WAIT_OBJECT_0 + 1) {
     HANDLE live[] = {resident.close, InterlockedCompareExchangePointer((PVOID volatile *)&resident.core, NULL, NULL)};
-    WaitForMultipleObjects(2, live, FALSE, INFINITE);
-    resident_close();
+    DWORD event = WaitForMultipleObjects(2, live, FALSE, INFINITE);
+    resident_close_reason(event == WAIT_OBJECT_0 + 1 ? RES_CLOSE_CORE : 0);
   }
   resident.timed_out = WaitForSingleObject(resident.cleared, resident_left(resident.start + 1500)) != WAIT_OBJECT_0;
   // The Job exists before any Core creation, including a create/publication race.
@@ -244,7 +257,9 @@ static DWORD WINAPI resident_supervisor(void *unused) {
 }
 static LRESULT CALLBACK resident_window(HWND window, UINT message, WPARAM w, LPARAM l) {
   if (message == WM_QUERYENDSESSION || (message == WM_ENDSESSION && w)) {
-    resident_close();
+    InterlockedIncrement(message == WM_QUERYENDSESSION ? &resident.query_events : &resident.end_events);
+    InterlockedOr(&resident.session_flags, (LONG)l);
+    resident_close_reason(message == WM_QUERYENDSESSION ? RES_CLOSE_QUERY : RES_CLOSE_END);
     if (!InterlockedCompareExchange(&resident.window_waiting, 1, 0)) {
       while (WaitForSingleObject(resident.close, 0) == WAIT_OBJECT_0 && resident_left(resident.start + 2100)) {
         DWORD waited = MsgWaitForMultipleObjectsEx(1, &resident.finished, resident_left(resident.start + 2100), QS_SENDMESSAGE, MWMO_INPUTAVAILABLE);
@@ -308,7 +323,7 @@ static int resident_main(int argc, wchar_t **argv) {
   if (!RegisterClassW(&cls)) return 3;
   resident.window = CreateWindowExW(WS_EX_TOOLWINDOW, cls.lpszClassName, L"", WS_POPUP, 0, 0, 0, 0, NULL, NULL, cls.hInstance, NULL);
   if (!resident.window) return 3;
-  if (resident.recovery_only) resident_close();
+  if (resident.recovery_only) resident_close_reason(RES_CLOSE_RECOVER);
   LPTHREAD_START_ROUTINE starts[] = { resident_supervisor, resident_report, resident_worker, resident_reader };
   unsigned threads = resident.recovery_only ? 3 : sizeof starts / sizeof *starts;
   for (unsigned i = 0; i < threads; ++i) {

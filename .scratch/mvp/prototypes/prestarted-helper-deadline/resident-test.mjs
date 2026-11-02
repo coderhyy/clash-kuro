@@ -59,12 +59,20 @@ if (process.argv[2] === '--child') {
   const exit = await client.exited
   child.stderr.resume()
   const report = JSON.parse(readFileSync(log, 'utf8'))
-  assert.deepEqual((await client.closed).report, report)
+  const acceptedReport = (await client.closed).report
+  assert(acceptedReport)
+  for (const [key, value] of Object.entries(acceptedReport)) assert.deepEqual(report[key], value)
   if (mode === 'diagnostics-stall') assert.equal(Buffer.byteLength(client.diagnostics()), 16 * 1024)
   const timeout = mode.endsWith('hang')
   assert.equal(statSync(join(dir, 'recovery.bin')).size, timeout ? 608 : 0)
   assert.equal(exit.code, timeout ? 42 : 0)
   assert.equal(report.command, 'shutdown')
+  assert.equal(report.pid, child.pid)
+  assert(Number.isFinite(Date.parse(report.timestamp)))
+  assert(report.triggerMask & 2, 'IPC close trigger must be preserved')
+  assert.equal(report.queryEvents, 0, 'No real or synthetic session events in this fixture')
+  assert.equal(report.endEvents, 0)
+  assert.equal(report.sessionFlags, 0)
   assert.equal(report.ok, !timeout)
   assert.equal(report.timedOut, timeout)
   assert.equal(report.coreGone, true)
@@ -105,7 +113,9 @@ if (process.argv[2] === '--child') {
     writeFileSync(join(dir, 'recovery.bin'), retained)
     await recoverResident(exe, join(dir, 'recovery.bin'), join(dir, 'wrapper-recovery.json'))
     assert.equal(statSync(join(dir, 'recovery.bin')).size, 0)
-    recoveryEvidence.push({ scenario: 'production-wrapper-recovery', report: JSON.parse(readFileSync(join(dir, 'wrapper-recovery.json'))) })
+    const replayReport = JSON.parse(readFileSync(join(dir, 'wrapper-recovery.json')))
+    assert(replayReport.triggerMask & 64, 'Recovery trigger must be distinguishable from session cleanup')
+    recoveryEvidence.push({ scenario: 'production-wrapper-recovery', report: replayReport })
   }
   writeFileSync(join(dir, 'result.json'), JSON.stringify({ mode, pid: child.pid, exit, report, recoveryEvidence }))
   if (mode === 'normal') {

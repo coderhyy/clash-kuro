@@ -378,3 +378,12 @@ Blocked by: 02, 07
 - 新回归发现 Platform 在 owner.exited 后丢弃 owner，导致 native 已成功清理时，后续 Electron shutdown 无法核验原 owner 的报告，误报 unverified。先在旧代码运行新增测试得到确定失败，再保留 owner 引用到 close 验证结束；退出后立即拒绝新 set，不根据 exit code 单独认定清理成功。
 - 非零退出/缺失成功证据仍由原 session.close 拒绝；不允许重开该不确定 Platform。191 项桌面测试及 typecheck 通过。
 - 真实 Core/假代理组合增加测试入口先调用 nativeOwner.close、待其实际退出后才调用 platform.shutdown，验证这一顺序仍能保留并核验成功证据。本机 `out/resident-platform-1793607558170/result.json` 通过，无救援/遗留。这是测试入口顺序，不是 OS 会话事件。
+
+2026-11-02 (agent，迁移门禁只读探针与 native 诊断):
+
+- `f637484` 的 CI 41412352668 Windows/macOS 均通过。已下载前一绿色 run 41411540319 的产物，核验 `C:\Users\DT-056\kuro-08-artifacts\run-41411540319\resources\bin\kuro-sysproxy.exe`：42496 bytes，SHA256 `EA5CD0587FD2331B3D44E4BFB45BB4BFDE7F0443337D50CE951F78E4F139B061`，PE x64/GUI subsystem。该 app 尚未启用 resident，不能作为新方案人工会话验收产物。
+- 普通用户只读 Token/LSA 探针能够读取自身 AuthenticationId 与 LogonTime；合成未分配 LUID 返回 0xC000005F / 1312。证据 `out/logon-probe-1793608070020/result.json`。此结果只证明 API 在本机可用，不能证明旧 RunOnce 已取走的命令或旧进程不可能再执行；迁移门禁仍未解除。
+- native 最终报告增加 UTC 时间、helper PID、触发位图、query/session-end 次数及 flags；事件入口仅更新原子计数，不增加同步文件日志。日志仍由独立报告线程写入，不能延长监督线程预算；报告缺失仍是不确定结果。
+- 新报告回归首次暴露共享 `putf` 的 128-byte 静默截断，修为按所需长度完整格式化；不靠放宽测试避免错误。第二次暴露 fixture 将额外诊断字段与客户端刻意投影的可信协议字段整体比较，改为逐项核对全部协议字段并单独验证诊断字段，不扩大正式协议。
+- native 五场景回归通过，含 clear/set 卡死自身退出42、日志背压；无外部救援或遗留。证据 `out/resident-1793608356053`。真实 Core/假 WinINet Platform 组合再次通过，证据 `out/resident-platform-1793608365812/result.json`。未执行本机真实代理写入、RunOnce 修改或会话实验。
+- 本轮 typecheck 与桌面全量 191/191 通过；未放宽等待预算，未启用 app resident 路由。

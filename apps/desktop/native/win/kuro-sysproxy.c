@@ -71,7 +71,16 @@ static void putf(Buf *b, const char *fmt, ...) {
   va_start(ap, fmt);
   int n = vsnprintf(tmp, sizeof tmp, fmt, ap);
   va_end(ap);
-  if (n > 0) put(b, tmp, (size_t)n < sizeof tmp ? (size_t)n : sizeof tmp - 1);
+  if (n < 0) ExitProcess(3);
+  if ((size_t)n < sizeof tmp) { put(b, tmp, (size_t)n); return; }
+  char *full = malloc((size_t)n + 1);
+  if (!full) ExitProcess(3);
+  va_start(ap, fmt);
+  int written = vsnprintf(full, (size_t)n + 1, fmt, ap);
+  va_end(ap);
+  if (written != n) ExitProcess(3);
+  put(b, full, (size_t)n);
+  free(full);
 }
 
 static void put_json_string(Buf *b, const wchar_t *w) {

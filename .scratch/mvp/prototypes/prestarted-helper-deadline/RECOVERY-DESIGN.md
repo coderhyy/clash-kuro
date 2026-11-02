@@ -202,6 +202,27 @@ fake set, repeated identical close promise, rejected late set and empty journal
 after verified exit. `out/resident-1793605150682/normal/session-result.json` records
 the result; the same external Job checks the complete added process tree.
 
-The formal Platform still does not call this composition: legacy migration must
-be enforced at its admission boundary, and API readiness/pipe rotation must remain
-in Platform rather than being inferred from the helper's process handshake.
+The experimental Platform option now calls this composition and retains Core API
+readiness and pipe rotation. App startup does not enable it yet: legacy migration
+must be enforced before admitting a new owner. The helper handshake alone is not
+Core readiness.
+
+## Diagnostic evidence and migration probe
+
+Shutdown reports carry UTC report time, helper PID, elapsed monotonic duration,
+session message counters and a trigger bit mask: 1 internal failure, 2 IPC close,
+4 reader ended (EOF or invalid input), 8 Core exit, 16 query-session-end,
+32 session-end, 64 recovery replay. Multiple bits can be set; this is an observed
+trigger set, not a total ordering or proof that every later message was received.
+The counters are captured at report time. Reporting stays on its separate thread;
+blocked logging cannot extend the supervisor deadline. Missing reports remain
+unknown outcomes, never inferred success.
+
+`node .scratch/mvp/prototypes/prestarted-helper-deadline/logon-probe.mjs` compiles
+and runs a read-only token/LSA identity probe with a five-second process timeout.
+It does not enumerate users, change proxy/registry state or trigger session events.
+Local evidence `out/logon-probe-1793608070020/result.json` shows own authentication
+LUID and logon creation time available, while a synthetic unallocated LUID returns
+NTSTATUS 0xC000005F / Win32 1312. This establishes API availability only: it does
+not prove old processes/queued legacy RunOnce commands cannot survive or race a
+new owner, and is not sufficient by itself to authorize proxy writes.
