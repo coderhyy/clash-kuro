@@ -1,11 +1,11 @@
-import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, readdir, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, test } from 'vitest'
 import { prepareRecoveryHelper } from './recovery-helper'
 
 test('recovery deployment survives app removal and concurrent publication without replacing old bytes', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'kuro-recovery-deploy-'))
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'kuro-recovery-deploy-')))
   try {
     const source = join(root, 'app.exe'), directory = join(root, 'retained')
     await writeFile(source, 'fake-helper-v1')
@@ -31,7 +31,7 @@ test('recovery deployment rejects relative paths before filesystem mutation', as
 })
 
 test('recovery deployment refuses a linked directory instead of publishing through it', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'kuro-recovery-link-'))
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'kuro-recovery-link-')))
   try {
     const source = join(root, 'fake.exe'), target = join(root, 'target'), alias = join(root, 'alias')
     await writeFile(source, 'fake')
