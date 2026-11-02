@@ -2,7 +2,50 @@
 
 Date: 2026-11-02. Decision: **DENY production admission; evidence collection only.**
 
-## Scope and conclusion
+## Bounded uptime implementation update (2026-11-02)
+
+This update changes evidence collection/validation only. No resident activation, migration preparation, native ownership protocol, proxy clear, RunOnce mutation/execution, Core/port use, or Restart is authorized by it. The research snapshot below is historical: its BootType and ten-second reset-oracle findings are addressed by replacing those oracles, not by establishing the missing provider contracts. Its wider production-admission warning still applies.
+
+### Version 2 evidence contract
+
+- Collect native `GetTickCount64` via P/Invoke as `ulong` and serialize `uptimeMs` directly to invariant-culture decimal text. The parser accepts only canonical unsigned decimal strings in `[0, 18446744073709551615]`; JavaScript compares them with `BigInt`, never `Number`, signed/32-bit arithmetic, CIM time subtraction, or a substituted .NET/Node uptime API. Microsoft documents milliseconds since system start, including sleep/hibernation. Timer quantization can yield equality; equality denies. [S12][S13]
+- Read `MachineGuid` from the read-only 64-bit `HKLM\SOFTWARE\Microsoft\Cryptography` view, require a nonempty D-format GUID, normalize it to lowercase D format, then hash its UTF-8 bytes with SHA-256. `machineGuidSha256` and current-user SID must match the persisted baseline. Missing, inaccessible, malformed, or changed identity denies; there is no computer-name/SID-only fallback. This is a local Windows-installation fingerprint, not a documented physical-machine identity or a clone/tamper-proof credential.
+- Require evidence `version: 2`, both new fields, and known structural keys. Old version-1 evidence or version-2 data missing fields denies: no inferred baseline or automatic old-receipt acceptance. EventData fields remain opaque string-valued corroboration, so absent/unrecognized `BootType` strings are not guessed or interpreted. Unsupported structural fields, invalid uint64 values, malformed timestamps, and future collection/CIM/kernel StartTime values deny.
+- Collect both RunOnce values explicitly: `legacyRunOnce` for `ClashKuroSysProxyCleanup` and `nativeRunOnce` for `ClashKuroResidentCleanup`. Explicit `null` means absent; a missing/invalid native field, including the earlier v2 contract without this field, denies. Any present native value (even empty) is unsupported initial migration state: preparation rejects it before helper/registry commands and rechecks every collection. It does not execute, retire, or delete that native registration, and preserves the preparing marker rather than publishing a prepared receipt.
+- The process-name screen conservatively includes every 64-hex process name, case-insensitively, to cover content-addressed retained executables. False positives intentionally deny. Neither name-screen absence nor absent registration proves exclusion of queued, renamed, or future writers. `verifyNoKnownLegacyWriters` is an initial-migration screen only; later active native recovery needs a separate ownership/admission policy, not an unconditional invocation of this screen.
+
+### Reset comparison and manual prerequisite
+
+The baseline MUST be the completed preparation receipt's **`after`** checkpoint, captured after successful clear/readback and legacy registration retirement, not the initial receipt `before`, an informal uptime observation, or an arbitrarily supplied value. This bounded change does not implement a trusted receipt loader or an admission coordinator: the comparison API still takes evidence, and its caller must enforce that provenance. Preparation retains its event/CIM continuity checks and additionally requires matching machine identity and nondecreasing uint64 uptime across all three samples, including pre-clear to final. Equal same-boot samples remain valid because of timer quantization; a decrease denies even if wall/event metadata is unchanged.
+
+The sole reset witness is **fresh `uptimeMs` < completed-preparation `uptimeMs`**, on the same bound installation/account. Equal or larger fresh uptime denies even when event records and boot wall times look newer. A legitimate Restart followed by enough delay for new uptime to reach the old baseline is an accepted false negative; retain denial, without wall-time, event-type, class-90, timeout, or user-boolean fallback.
+
+The human must explicitly perform and separately attest the controlled manual **Restart** after preparation. Uptime cannot attest user intent or identify one particular Restart; the verifier's success is not that attestation and does not admit a writer. Sleep/hibernation/logoff are not accepted substitutes under this controlled procedure. [S5][S12][S13]
+
+Preserve the System checkpoint record/digest, require newer Kernel-General/Kernel-Boot records and a changed kernel fingerprint, and retain the event/CIM data as corroboration. Wall timestamps remain syntax/future/collection-order sanity checks, not reset identities. There is no required `BootType=0`, changed CIM boot timestamp, kernel start later than the baseline wall clock, or ten-second CIM/kernel agreement. Clock adjustments can therefore still cause conservative sanity-check denial, but cannot supply a successful reset witness. Log access failure, checkpoint loss/replacement, stale records, and inconsistent inventory deny with no log clearing or weakened-check retry.
+
+### Trust limits and separate ownership boundary
+
+- The collector and completed-preparation receipt/backup bindings must be trusted. Shape checks, decimal text, and hashes do not authenticate a caller-supplied JSON bundle or prevent replay. A future coordinator still needs fresh collection and validated durable preparation provenance.
+- Cloned installations can share MachineGuid; administrators, kernel tampering, or VM snapshot rollback can defeat the identity/counter model. A hashed GUID does not repair those limits. Missing/changed GUID fails safely, including after an installation identity change. Do not claim adversarial-machine or unique-boot proof.
+- Counter wrap is theoretically possible for uint64 milliseconds (roughly 584 million years). Microsoft also documents an approximately 49-day tick/interrupt-time advance on checked/debug Windows builds. This is not a universal attestation scheme across arbitrary platforms/builds, snapshot histories, or counter faults. [S12][S13]
+- The collector retains event XML SHA-256 values and selected fields, not original XML. Raw XML/provider-envelope preservation remains outside this bounded change; no complete log continuity or authenticated-event claim is made.
+- Reset evidence says nothing about the current recovery writer. Native journal ownership must still be acquired before replay, admission must precede every replay/cleanup write, and the same owner must retain that lock through resident operation. The existing recovery-then-serve gap and autonomous recovery authorization are not fixed here; production activation stays denied.
+
+### Initial uptime-only validation
+
+- Scoped fake-evidence/pure-gate Vitest run: **39 passed, 1 skipped**, two test files. The skipped case is the opt-in live collector; the preparation suite was not executed.
+- Separate opt-in read-only collector run: **1 passed, 35 skipped**. Two same-run native samples parsed successfully, retained the checkpoint fingerprint, matched the hashed machine identity, had nondecreasing uptime, and were denied by the reset verifier. No counter/identity values are published here. This is not a positive Restart experiment.
+- Desktop `tsconfig.node.json` and `tsconfig.web.json`: both typechecks passed with `--noEmit`. PowerShell parser-only syntax validation passed.
+- No preparation, helper/clear execution, RunOnce write, Core/port operation, actual Restart, activation, ADR/status change, or commit was performed. Real controlled-Restart behavior and supported-client coverage remain unverified.
+
+### Native-state follow-up validation
+
+- Scoped boot/preparation/gate run: **115 passed, 2 skipped**, three test files. Preparation used only fake Exec/collector backends and private temporary fixture files. The actual write-through preparation case and opt-in live collector were excluded; no real preparation/helper/clear/registry operation ran.
+- Both desktop node/web `--noEmit` typechecks passed. PowerShell syntax validation passed; the actual collector's extracted writer predicate passed eight fake process-name cases, including upper/lowercase 64-hex matches and 63/65-character/nonhex negatives. The collector and `Get-Process` were not executed for that check.
+- The earlier live collection exercised the uptime-only contract; no live collection was rerun for this follow-up. No real proxy/RunOnce mutation, native retirement, Core/port operation, or Restart was performed. Existing main-agent realpath/junction test changes were retained.
+
+## Original research scope and conclusion
 
 Read only the two requested implementation files and public documentation. No collector execution, local event/CIM queries, tests, builds, installs, app activation, proxy/RunOnce writes, logoff, restart, or commits were performed for this research. This document is the only file written. Other implementation, integration, delivery, and recovery work is outside this review.
 
@@ -10,7 +53,7 @@ The candidate can provide **corroborating evidence for a controlled, explicitly 
 
 Keep class-90 `BootIdentifier` excluded. This investigation found no primary-source contract establishing either per-reboot uniqueness **or its asserted equivalence to the BCD OS-loader identifier**. Do not replace one unsupported interpretation with the other.
 
-Main reports two live read-only collections, 10/10 collector/policy tests, a same-boot denial with latest Kernel-General 12 dated 2026-10-15 and latest Kernel-Boot 27 type 2, and startup guards that deny experimental activation. These are user-supplied results, not executions or independently verified app changes in this research. They support collection/denial behavior, not a successful controlled-Restart comparison. No admission path is endorsed here.
+Main reports two live read-only collections, 10/10 collector/policy tests, a same-boot denial with latest Kernel-General 12 dated 2026-10-15 and latest Kernel-Boot 27 type 2, and startup guards that deny experimental activation. These are main-agent-reported results, not executions or independently verified app changes in the original research. They support collection/denial behavior, not a successful controlled-Restart comparison. No admission path is endorsed here.
 
 ## What the primary sources establish
 
@@ -26,7 +69,7 @@ Main reports two live read-only collections, 10/10 collector/policy tests, a sam
 
 Search scope: the public NT-query reference; Microsoft BCD identifier documentation; Microsoft event-log, CIM, time, and restart references listed below; and Microsoft Learn search for `SystemBootEnvironmentInformation`, `BootIdentifier`, `Kernel-Boot BootType`, and `Kernel-General StartTime`. The first two exact-term searches returned no results. The Kernel-Boot search surfaced community reports, not a provider contract. This is a bounded **not-established** result, not a claim that no relevant source exists anywhere. No secondary reverse-engineering claim is promoted to a Microsoft guarantee.
 
-## Ordered implementation findings
+## Original implementation findings (historical snapshot)
 
 These are limits on a future admission claim, not claims that the current denied prototype already enables the resident. References describe the inspected snapshot; Main is editing concurrently.
 
@@ -114,3 +157,5 @@ All sources accessed 2026-11-02. Source conclusions are limited to the cited mat
 - [S9: Get-WinEvent](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.diagnostics/get-winevent?view=powershell-7.5): newest-to-oldest default ordering, filtering, possible non-administrator access failures. This is the current PowerShell reference, not proof of all Windows PowerShell 5.1/provider behavior used by `powershell.exe`.
 - [S10: System Time](https://learn.microsoft.com/en-us/windows/win32/sysinfo/system-time): system time can be adjusted forward or backward; not an elapsed-time ordering guarantee.
 - [S11: SystemPropertiesType](https://learn.microsoft.com/en-us/windows/win32/wes/eventschema-systempropertiestype-complextype): provider/event identity, version, time, record number, channel, computer, and optional correlation properties. Existence in the schema does not guarantee that a usable boot correlation ID is emitted.
+- [S12: Native uptime API](https://learn.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-gettickcount64): unsigned 64-bit milliseconds since system start, typical 10-16 ms resolution, and the checked/debug-build tick-count warning.
+- [S13: Interrupt time](https://learn.microsoft.com/en-us/windows/win32/sysinfo/interrupt-time): elapsed-time counters versus adjustable system time; explicitly directs callers to the native tick-count API for elapsed time including sleep or hibernation.

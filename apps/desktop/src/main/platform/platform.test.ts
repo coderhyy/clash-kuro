@@ -5,7 +5,7 @@ import { chmod, lstat, mkdir, mkdtemp, readdir, readFile, rm, symlink } from 'no
 import { createConnection, createServer } from 'node:net'
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
-import { afterEach, expect, test, vi } from 'vitest'
+import { afterEach, beforeAll, expect, test, vi } from 'vitest'
 import { createMihomoClient } from '@kuro/api'
 import { FakeTransport } from '@kuro/api/fake'
 import { createAppStore, type Backup } from '@kuro/state'
@@ -14,6 +14,10 @@ import { assertMixedPortAvailable, createDesktopPlatform, type DesktopPlatform, 
 import { reserveTestPort } from './test-ports'
 
 const cleanups: Array<() => Promise<void>> = []
+beforeAll(async () => {
+  const reservation = await reserveTestPort()
+  await reservation.release()
+})
 afterEach(async () => {
   vi.restoreAllMocks()
   for (const cleanup of cleanups.splice(0).reverse()) await cleanup()

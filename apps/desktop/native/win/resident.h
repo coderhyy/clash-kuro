@@ -25,7 +25,7 @@ static struct {
   LONG core_pid;
   LONG gate, closing, window_waiting;
   LONG triggers, query_events, end_events, session_flags;
-  ULONGLONG start;
+  ULONGLONG start, cleanup_completed;
   LONG clear_ok;
   int core_gone, timed_out, recovery_only;
   const wchar_t *core_path, *data_dir, *recovery_path;
@@ -193,10 +193,14 @@ cleanup:;
   resident.response.len = 0;
   // RunOnce discourages key edits during invocation: failed replay retains the journal for app/manual
   // recovery, not a guaranteed next-logon retry. Do not self-register another invocation here.
-  int cleared = !resident.server_count || KURO_RESIDENT_CLEAR(expected, resident.server_count, 0) == 0;
-  if (cleared && kuro_recovery_reset_after_clear(resident.recovery)) cleared = 0;
-  if (cleared && KURO_RECOVERY_UNREGISTER()) cleared = 0;
-  InterlockedExchange(&resident.clear_ok, cleared);
+  const ULONGLONG deadline = resident.start + 1500;
+  int cleared = resident_left(deadline) &&
+    (!resident.server_count || KURO_RESIDENT_CLEAR(expected, resident.server_count, 0) == 0);
+  if (cleared) cleared = resident_left(deadline) && !kuro_recovery_reset_after_clear(resident.recovery);
+  if (cleared) cleared = resident_left(deadline) && !KURO_RECOVERY_UNREGISTER();
+  ULONGLONG completed = GetTickCount64();
+  InterlockedExchange(&resident.clear_ok, cleared && completed < deadline);
+  InterlockedExchange64((LONG64 *)&resident.cleanup_completed, (LONG64)completed);
   SetEvent(resident.cleared);
   return 0;
 }
@@ -205,12 +209,15 @@ static DWORD WINAPI resident_report(void *unused) {
   WaitForSingleObject(resident.report, INFINITE);
   Buf report = {0};
   SYSTEMTIME time; GetSystemTime(&time);
-  putf(&report, "{\"command\":\"shutdown\",\"ok\":%s,\"timedOut\":%s,\"coreGone\":%s,\"corePid\":%lu,\"durationMs\":%llu,"
+  ULONGLONG completed = (ULONGLONG)InterlockedCompareExchange64((LONG64 *)&resident.cleanup_completed, 0, 0);
+  char cleanup_duration[32] = "null";
+  if (completed) snprintf(cleanup_duration, sizeof cleanup_duration, "%llu", completed - resident.start);
+  putf(&report, "{\"command\":\"shutdown\",\"ok\":%s,\"timedOut\":%s,\"coreGone\":%s,\"corePid\":%lu,\"durationMs\":%llu,\"cleanupDurationMs\":%s,"
     "\"pid\":%lu,\"timestamp\":\"%04u-%02u-%02uT%02u:%02u:%02u.%03uZ\","
     "\"triggerMask\":%lu,\"queryEvents\":%lu,\"endEvents\":%lu,\"sessionFlags\":%lu}\n",
     resident_load(&resident.clear_ok) && !resident.timed_out && resident.core_gone ? "true" : "false",
     resident.timed_out ? "true" : "false", resident.core_gone ? "true" : "false",
-    (unsigned long)resident_load(&resident.core_pid), GetTickCount64() - resident.start,
+    (unsigned long)resident_load(&resident.core_pid), GetTickCount64() - resident.start, cleanup_duration,
     GetCurrentProcessId(), time.wYear, time.wMonth, time.wDay, time.wHour, time.wMinute, time.wSecond, time.wMilliseconds,
     (unsigned long)resident_load(&resident.triggers), (unsigned long)resident_load(&resident.query_events),
     (unsigned long)resident_load(&resident.end_events), (unsigned long)resident_load(&resident.session_flags));
@@ -229,6 +236,9 @@ static DWORD WINAPI resident_supervisor(void *unused) {
     resident_close_reason(event == WAIT_OBJECT_0 + 1 ? RES_CLOSE_CORE : 0);
   }
   resident.timed_out = WaitForSingleObject(resident.cleared, resident_left(resident.start + 1500)) != WAIT_OBJECT_0;
+  // A delayed supervisor can observe a signaled event whose work completed after the deadline.
+  ULONGLONG completed = (ULONGLONG)InterlockedCompareExchange64((LONG64 *)&resident.cleanup_completed, 0, 0);
+  if (!completed || completed >= resident.start + 1500) resident.timed_out = 1;
   // The Job exists before any Core creation, including a create/publication race.
   TerminateJobObject(resident.job, 0);
   // A root exit alone does not prove descendants are gone, or that startup cannot still create Core.

@@ -1,7 +1,12 @@
 import { createServer } from 'node:net'
 import { createSocket } from 'node:dgram'
-import { expect, test } from 'vitest'
+import { beforeAll, expect, test } from 'vitest'
 import { reserveTestPort } from './test-ports'
+
+beforeAll(async () => {
+  const reservation = await reserveTestPort()
+  await reservation.release()
+})
 
 test('allocator holds both protocols, reports occupied candidates and releases without retrying test work', async () => {
   const busy = await reserveTestPort(), next = await reserveTestPort()

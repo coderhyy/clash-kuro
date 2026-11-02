@@ -3,6 +3,6 @@
   "tasks": {
     "build": { "dependsOn": ["^build"], "outputs": ["out/**", "dist/**"] },
     "typecheck": { "dependsOn": ["^typecheck"] },
-    "test": { "dependsOn": ["^typecheck"] }
+    "test": { "dependsOn": ["^typecheck"], "env": ["KURO_REQUIRE_CORE", "KURO_READ_ONLY_BOOT_EVIDENCE"] }
   }
 }

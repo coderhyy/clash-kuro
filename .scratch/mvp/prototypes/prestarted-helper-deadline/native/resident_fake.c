@@ -8,18 +8,32 @@ static int fake_clear(const wchar_t **expected, int count, int recovery);
 static int fake_warm(void) { return 0; }
 static DWORD fake_register(const wchar_t *path);
 static DWORD fake_unregister(void);
+static DWORD fake_wait(HANDLE handle, DWORD milliseconds);
 #define KURO_RECOVERY_REGISTER fake_register
 #define KURO_RECOVERY_UNREGISTER fake_unregister
 #define KURO_RESIDENT_EXEC fake_exec
 #define KURO_RESIDENT_CLEAR fake_clear
 #define KURO_RESIDENT_WARM fake_warm
+#define WaitForSingleObject fake_wait
 #define wmain helper_entry
 #include "../../../../../apps/desktop/native/win/kuro-sysproxy.c"
 #undef wmain
+#undef WaitForSingleObject
 static int mode, setting, enabled;
 static void fake_trace(const char *message) {
   DWORD written;
   WriteFile(GetStdHandle(STD_ERROR_HANDLE), message, (DWORD)strlen(message), &written, NULL);
+}
+static DWORD fake_wait(HANDLE handle, DWORD milliseconds) {
+  if (mode == 7 && handle == resident.cleared) {
+    fake_trace("supervisor-delayed\n");
+    /* Model a descheduled supervisor observing an already-signaled late completion. */
+    DWORD result = WaitForSingleObject(handle, INFINITE);
+    assert(GetTickCount64() >= resident.start + 1600);
+    fake_trace("supervisor-resumed\n");
+    return result;
+  }
+  return WaitForSingleObject(handle, milliseconds);
 }
 static DWORD fake_register(const wchar_t *path) {
   (void)path;
@@ -31,7 +45,7 @@ static DWORD fake_register(const wchar_t *path) {
   return ERROR_SUCCESS;
 }
 static DWORD fake_unregister(void) {
-  if (resident.recovery_only) fake_trace("unregister\n");
+  if (resident.recovery_only || mode == 7) fake_trace("unregister\n");
   return ERROR_SUCCESS;
 }
 static int fake_exec(int argc, wchar_t **argv) {
@@ -65,6 +79,12 @@ static int fake_clear(const wchar_t **expected, int count, int recovery) {
   if (resident.recovery_only) fake_trace("clear-start\n");
   if (mode == 4) return 1;
   if (mode == 1) Sleep(INFINITE);
+  if (mode == 7) {
+    fake_trace("late-clear-start\n");
+    DWORD left;
+    while ((left = resident_left(resident.start + 1600))) Sleep(left);
+    fake_trace("late-clear-return\n");
+  }
   enabled = 0;
   return 0;
 }
@@ -88,7 +108,8 @@ int wmain(int argc, wchar_t **argv) {
   for (int i = 2; i + 1 < argc; i += 2) if (!wcscmp(argv[i], L"--data")) {
     const wchar_t *name = wcsrchr(argv[i + 1], L'\\'); name = name ? name + 1 : argv[i + 1];
     mode = !wcscmp(name, L"clear-hang") || !wcscmp(name, L"replay-registration") ? 1 :
-      !wcscmp(name, L"late-set") ? 2 : !wcscmp(name, L"set-hang") ? 3 : !wcscmp(name, L"register-hang") ? 6 : 0;
+      !wcscmp(name, L"late-set") ? 2 : !wcscmp(name, L"set-hang") ? 3 : !wcscmp(name, L"register-hang") ? 6 :
+      !wcscmp(name, L"late-clear") ? 7 : 0;
   }
   return helper_entry(argc, argv);
 }

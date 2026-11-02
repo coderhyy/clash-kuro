@@ -354,3 +354,29 @@ or OS networking hard real-time, or establish an atomic reservation handoff.
   all 8 tasks; desktop **266/266**, 26 files, Core required, no skips, 21:18:30
   local. This includes the preparation worker's 54 fake-command cases and is not
   a claim of real migration or session verification.
+- CI `41454369038` / `8a6cc45` failed: preparation fixtures used macOS `/tmp`
+  aliases and Windows `RUNNER~1` short paths, correctly refused by canonical-path
+  admission. Fixture roots now use `realpath`; a junction/symlink regression
+  retains production rejection. Raw CI output is retained in
+  `out/ci-41454369038-failed.log`.
+- The first Windows filesystem test also exhausted its 5s test limit while its
+  shared fixture initialized four read-only netsh inventory commands. Inventory
+  initialization now runs in suite setup; no Core or cleanup deadline changed.
+- Local full integration at 21:42:40 failed (267 passed / 1 failed): the existing
+  86px cat-mask test took 7402ms against 5000ms. This is not a passing run; raw
+  output is `out/local-214240-failed.log`. Separate glyph optimization must retain
+  all tested pixels, dimensions and assertions, without increasing its timeout.
+- The glyph failure was fixed by replacing per-edge array destructuring with
+  indexed reads. All six complete mask hashes (18/36/86px, open/closed) match;
+  the original 86px assertion remains. Standalone median pair time fell from
+  2339.69ms to 85.67ms; the integrated four-test glyph file took 377ms.
+- At 22:38:37 the final uncached workspace run passed all 8 tasks and desktop
+  **335/335**, 26 files, no skips. Both real Core integration and the actual
+  read-only boot/checkpoint probe ran. Turbo now explicitly passes both required
+  test flags; the previous 334-pass/1-skip run was not the live probe acceptance.
+- The independently built native parser/lock/journal/registration/connection/Core
+  tests passed. Rebuilt shared fake engine passed **8/8**, including late clear
+  with a delayed supervisor, with no rescue or leftover children:
+  `out/resident-1793630965197`. Real Core through the fake resident Platform then
+  passed **1/1**, `out/resident-platform-1793630981218`. No real proxy or RunOnce
+  writes occurred on this machine. New CI remains required.

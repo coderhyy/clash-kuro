@@ -2,7 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createServer } from 'node:net'
-import { afterEach, expect, test, vi } from 'vitest'
+import { afterEach, beforeAll, expect, test, vi } from 'vitest'
 import { createDesktopPlatform } from './index'
 import type { startResidentSession } from './resident-session'
 import { reserveTestPort } from './test-ports'
@@ -11,6 +11,10 @@ vi.mock('./transport', () => ({ createSocketTransport: vi.fn(() => ({
   request: vi.fn(async () => ({ status: 200 })),
 })) }))
 const cleanups: Array<() => Promise<void>> = []
+beforeAll(async () => {
+  const reservation = await reserveTestPort()
+  await reservation.release()
+})
 afterEach(async () => { for (const cleanup of cleanups.splice(0)) await cleanup() })
 
 async function fixture(listenMixed = true, reply: 'ready' | 'silent' | 'invalid' = 'ready') {

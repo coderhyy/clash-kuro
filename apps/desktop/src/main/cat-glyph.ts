@@ -36,7 +36,8 @@ function inside(polys: Polygon[], x: number, y: number): boolean {
   let hit = false
   for (const p of polys) {
     for (let a = 0, b = p.length - 1; a < p.length; b = a++) {
-      const [xa, ya] = p[a]!, [xb, yb] = p[b]!
+      const pa = p[a]!, pb = p[b]!
+      const xa = pa[0], ya = pa[1], xb = pb[0], yb = pb[1]
       if (ya > y !== yb > y && x < ((xb - xa) * (y - ya)) / (yb - ya) + xa) hit = !hit
     }
   }

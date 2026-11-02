@@ -1,17 +1,18 @@
 import { createHash } from 'node:crypto'
-import { lstat, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { lstat, mkdir, mkdtemp, readFile, realpath, rename, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, isAbsolute, join, relative, sep } from 'node:path'
 import { afterEach, expect, test } from 'vitest'
 import { guardMigrationStartup } from '../app/migration-startup'
 import type { BootEvidence } from './migration-boot'
 import { prepareProxyMigration, type MigrationPreparationOptions } from './migration-preparation'
+import { readPreparedMigration } from './migration-receipt'
 import { execCommand, type Exec } from './system-proxy'
 
 const roots: string[] = []
 afterEach(async () => {
   for (const root of roots.splice(0)) {
-    if (!root.startsWith(join(tmpdir(), 'kuro-preparation-'))) throw new Error('Unsafe test cleanup path')
+    if (!root.startsWith(join(await realpath(tmpdir()), 'kuro-preparation-'))) throw new Error('Unsafe test cleanup path')
     await rm(root, { recursive: true, force: true })
   }
 })
@@ -47,7 +48,7 @@ test.skipIf(process.platform !== 'win32')('actual write-through marker publicati
 }, 15_000)
 
 async function fixture() {
-  const root = await mkdtemp(join(tmpdir(), 'kuro-preparation-'))
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'kuro-preparation-')))
   roots.push(root)
   const dataDir = join(root, 'data'), currentDir = join(root, 'current'), oldDir = join(root, 'old')
   for (const dir of [dataDir, currentDir, oldDir]) await mkdir(dir)
@@ -129,12 +130,13 @@ async function fixture() {
     const index = ++state.collects
     if (index === 3) { expect(state.cleared).toBe(true); expect(state.gets).toBe(3) }
     const evidence: BootEvidence = {
-      version: 1, userSid: 'S-1-5-21-1-2-3-1001', collectedAt: `2026-11-02T00:00:0${index}Z`,
+      version: 2, userSid: 'S-1-5-21-1-2-3-1001', machineGuidSha256: 'e'.repeat(64), uptimeMs: String(86400000 + index * 1000),
+      collectedAt: `2026-11-02T00:00:0${index}Z`,
       lastBootUpTime: '2026-11-01T00:00:00Z', newest: { record: 100, digest: 'a'.repeat(64), fields: {} },
       kernel: { record: 80, digest: 'b'.repeat(64), fields: { StartTime: '2026-11-01T00:00:02Z' } },
       boot: { record: 79, digest: 'c'.repeat(64), fields: { BootType: '0' } },
       checkpoint: checkpoint === undefined ? null : { record: checkpoint, digest: 'a'.repeat(64), fields: {} },
-      legacyRunOnce: state.cleared ? null : command, knownWriters: [],
+      legacyRunOnce: state.cleared ? null : command, nativeRunOnce: null, knownWriters: [],
     }
     await faults.collect?.(index, evidence)
     return evidence
@@ -148,6 +150,61 @@ async function fixture() {
   const clears = () => calls.filter(call => call.file === helperPath && call.args[0] === 'clear')
   return { options, root, marker, legacyPath, command, faults, state, calls, blocked, clears }
 }
+
+test('canonical fixture paths do not weaken rejection of aliased migration directories', async () => {
+  const f = await fixture()
+  const alias = join(f.root, 'alias')
+  await symlink(f.options.dataDir, alias, process.platform === 'win32' ? 'junction' : 'dir')
+  await expect(prepareProxyMigration({ ...f.options, dataDir: alias })).rejects.toThrow('links or aliases')
+  expect(f.calls).toHaveLength(0)
+  await expect(lstat(f.marker)).rejects.toMatchObject({ code: 'ENOENT' })
+})
+
+test('prepared disk evidence is rehashed without executing helper or authorizing admission', async () => {
+  const f = await fixture()
+  const prepared = await prepareProxyMigration(f.options)
+  const commands = f.calls.length
+  expect(await readPreparedMigration(f.options.dataDir, f.options.helperPath)).toEqual(prepared)
+  expect(f.calls).toHaveLength(commands)
+  await expect(guardMigrationStartup(f.options.dataDir, { os: 'win32', args: [] })).rejects.toThrow('legacy startup is blocked')
+})
+
+test.each(['before-get.json', 'after-get.json', 'current-helper.exe', 'legacy-helper.exe',
+  'internet-settings.reg', 'manifest.json', 'deployed-helper', 'incomplete-marker', 'helper-binding',
+  'manifest-binding', 'inventory-traversal', 'missing-file', 'backup-alias'])(
+  'disk receipt verification rejects %s without new commands', async fault => {
+    const f = await fixture()
+    await prepareProxyMigration(f.options)
+    const commands = f.calls.length
+    const receipt = JSON.parse(await readFile(f.marker, 'utf8'))
+    const backup = f.options.backupDirectory
+    if (fault === 'deployed-helper') await writeFile(f.options.helperPath, 'changed executable')
+    else if (fault === 'incomplete-marker') {
+      receipt.state = 'preparing'
+      await writeFile(f.marker, JSON.stringify(receipt))
+    } else if (fault === 'helper-binding') {
+      receipt.helperPath = f.legacyPath
+      await writeFile(f.marker, JSON.stringify(receipt))
+    } else if (fault === 'manifest-binding' || fault === 'inventory-traversal') {
+      const manifestPath = join(backup, 'manifest.json')
+      const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
+      if (fault === 'manifest-binding') manifest.id = '00000000-0000-4000-8000-000000000000'
+      else manifest.files['../outside'] = 'a'.repeat(64)
+      const raw = JSON.stringify(manifest)
+      await writeFile(manifestPath, raw)
+      receipt.backupDigest = sha(raw)
+      await writeFile(f.marker, JSON.stringify(receipt))
+    } else if (fault === 'missing-file') await rm(join(backup, 'after-get.json'))
+    else if (fault === 'backup-alias') {
+      const alias = join(f.root, 'backup-alias')
+      await symlink(backup, alias, process.platform === 'win32' ? 'junction' : 'dir')
+      receipt.backupDirectory = alias
+      await writeFile(f.marker, JSON.stringify(receipt))
+    } else await writeFile(join(backup, fault), 'corrupted evidence')
+    await expect(readPreparedMigration(f.options.dataDir, f.options.helperPath)).rejects.toThrow()
+    expect(f.calls).toHaveLength(commands)
+    await expect(guardMigrationStartup(f.options.dataDir, { os: 'win32', args: [] })).rejects.toThrow('legacy startup is blocked')
+  })
 
 test('durable outside-data raw LAN/RAS, registry, command and both helpers precede clear; final boot binds receipt', async () => {
   const f = await fixture()
@@ -239,6 +296,82 @@ test.each(['writers', 'empty-command', 'extra-command', 'trailing-newline', 'unk
     expect(f.calls.some(call => call.file === f.options.helperPath || call.file === f.legacyPath || call.file === 'reg.exe')).toBe(false)
     await f.blocked()
   })
+
+test.each(['registered', 'empty', 'missing', 'invalid', 'lower-hash-writer', 'upper-hash-writer'] as const)(
+  'unsupported native preflight %s denies before helper/registry calls and preserves evidence', async failure => {
+    const f = await fixture()
+    const command = `"${join(f.root, `${'a'.repeat(64)}.exe`)}" recover`
+    let captured: BootEvidence | undefined
+    f.faults.collect = (_index, evidence) => {
+      if (failure === 'registered') evidence.nativeRunOnce = command
+      if (failure === 'empty') evidence.nativeRunOnce = ''
+      if (failure === 'missing') Reflect.deleteProperty(evidence, 'nativeRunOnce')
+      if (failure === 'invalid') Object.assign(evidence, { nativeRunOnce: 0 })
+      if (failure === 'lower-hash-writer') evidence.knownWriters = [{ pid: 123, name: 'a'.repeat(64) }]
+      if (failure === 'upper-hash-writer') evidence.knownWriters = [{ pid: 123, name: 'A'.repeat(64) }]
+      captured = evidence
+    }
+    await expect(prepareProxyMigration(f.options)).rejects.toThrow()
+    expect(f.calls.map(call => call.file)).toEqual(['powershell.exe']) // Fake marker publication only.
+    expect(f.state).toEqual({ gets: 0, collects: 1, cleared: false })
+    if (failure === 'registered') expect(captured?.nativeRunOnce).toBe(command)
+    if (failure === 'empty') expect(captured?.nativeRunOnce).toBe('')
+    await expect(lstat(f.options.backupDirectory)).rejects.toMatchObject({ code: 'ENOENT' })
+    await f.blocked()
+  })
+
+test.each([2, 3])('native registration appearing at collection %s blocks preparation without retirement', async index => {
+  const f = await fixture()
+  const command = `"${join(f.root, `${'a'.repeat(64)}.exe`)}" recover`
+  let captured: BootEvidence | undefined
+  f.faults.collect = (current, evidence) => {
+    if (current !== index) return
+    evidence.nativeRunOnce = command
+    captured = evidence
+  }
+  await expect(prepareProxyMigration(f.options)).rejects.toThrow('Native recovery registration exists')
+  expect(captured?.nativeRunOnce).toBe(command)
+  expect(f.clears()).toHaveLength(index === 2 ? 0 : 1)
+  expect(JSON.parse(await readFile(join(f.options.backupDirectory, 'before-boot.json'), 'utf8')).nativeRunOnce).toBeNull()
+  await f.blocked()
+})
+
+test.each([
+  { index: 2, fault: 'machine' }, { index: 3, fault: 'machine' },
+  { index: 2, fault: 'uptime' }, { index: 3, fault: 'uptime' },
+])('same-boot $fault change at collection $index denies even with unchanged wall/event identity', async ({ index, fault }) => {
+  const f = await fixture()
+  f.faults.collect = (current, evidence) => {
+    if (current !== index) return
+    if (fault === 'machine') evidence.machineGuidSha256 = 'f'.repeat(64)
+    else evidence.uptimeMs = '1'
+  }
+  await expect(prepareProxyMigration(f.options)).rejects.toThrow('Identity or boot continuity changed')
+  expect(f.clears()).toHaveLength(index === 2 ? 0 : 1)
+  await f.blocked()
+})
+
+test('final uptime cannot regress below pre-clear uptime even while exceeding the initial baseline', async () => {
+  const f = await fixture()
+  f.faults.collect = (index, evidence) => {
+    if (index === 2) evidence.uptimeMs = '9007199254740993'
+    if (index === 3) evidence.uptimeMs = '9007199254740992'
+  }
+  await expect(prepareProxyMigration(f.options)).rejects.toThrow('Identity or boot continuity changed')
+  expect(f.clears()).toHaveLength(1)
+  await f.blocked()
+})
+
+test.each(['86400000', '9007199254740993'])('same-boot quantized uptime equality %s remains valid preparation evidence', async uptimeMs => {
+  const f = await fixture()
+  f.faults.collect = (_index, evidence) => { evidence.uptimeMs = uptimeMs }
+  const receipt = await prepareProxyMigration(f.options)
+  expect(receipt.before.uptimeMs).toBe(uptimeMs)
+  expect(receipt.after.uptimeMs).toBe(uptimeMs)
+  expect(receipt.after.machineGuidSha256).toBe(receipt.before.machineGuidSha256)
+  expect(receipt.before.nativeRunOnce).toBeNull()
+  expect(receipt.after.nativeRunOnce).toBeNull()
+})
 
 test.each(['writers', 'command', 'helper', 'backup', 'proxy'] as const)('recheck catches %s changing during backup', async failure => {
   const f = await fixture()

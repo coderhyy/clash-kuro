@@ -27,6 +27,7 @@ jobs:
         working-directory: apps/desktop
         env:
           KURO_REQUIRE_CORE: '1'
+          KURO_READ_ONLY_BOOT_EVIDENCE: '1'
         run: bunx vitest run src/main/platform/mihomo.integration.test.ts --maxWorkers=2
       - uses: actions/upload-artifact@v7
         with:

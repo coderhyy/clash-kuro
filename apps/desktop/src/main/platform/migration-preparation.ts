@@ -3,6 +3,7 @@ import { lstat, mkdir, open, readFile, realpath } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { parseBootEvidence, verifyNoKnownLegacyWriters, type BootEvidence } from './migration-boot'
 import { parseWindowsProxyServer, type Exec } from './system-proxy'
+import { readPreparedMigration } from './migration-receipt'
 
 export interface PreparedMigrationReceipt {
   version: 1
@@ -134,8 +135,9 @@ async function durableFile(exec: Exec, path: string, bytes: Buffer, replace = fa
   if (!(await readFile(path)).equals(bytes)) throw new Error('Durable migration file readback differs')
 }
 
-function sameBoot(before: BootEvidence, after: BootEvidence): void {
-  if (after.userSid !== before.userSid || after.lastBootUpTime !== before.lastBootUpTime ||
+function sameBoot(before: BootEvidence, after: BootEvidence, previous: BootEvidence = before): void {
+  if (after.userSid !== before.userSid || after.machineGuidSha256 !== before.machineGuidSha256 ||
+      BigInt(after.uptimeMs) < BigInt(previous.uptimeMs) || after.lastBootUpTime !== before.lastBootUpTime ||
       after.kernel.record !== before.kernel.record || after.kernel.digest !== before.kernel.digest ||
       after.boot.record !== before.boot.record || after.boot.digest !== before.boot.digest ||
       after.checkpoint?.record !== before.newest.record || after.checkpoint.digest !== before.newest.digest ||
@@ -170,7 +172,12 @@ export async function prepareProxyMigration(options: MigrationPreparationOptions
         stat.nlink !== 1n || !(await readFile(marker)).equals(preparing)) throw new Error('Migration preparing marker changed')
   }
 
-  const collect = async (checkpoint?: number) => structuredClone(parseBootEvidence(await options.collect(checkpoint)))
+  const collect = async (checkpoint?: number) => {
+    const evidence = structuredClone(parseBootEvidence(await options.collect(checkpoint)))
+    if (evidence.nativeRunOnce !== null)
+      throw new Error('Native recovery registration exists; initial migration unsupported, preserve evidence')
+    return evidence
+  }
   const before = await collect()
   if (before.knownWriters.length) throw new Error('Known proxy writer processes remain; do not prepare')
   const oldHelper = legacy(before.legacyRunOnce, endpoints)
@@ -255,7 +262,7 @@ export async function prepareProxyMigration(options: MigrationPreparationOptions
   sameConnections(cleared, connections(afterRaw))
   const after = await collect(before.newest.record)
   verifyNoKnownLegacyWriters(after)
-  sameBoot(before, after)
+  sameBoot(before, after, preClear)
   await backup('after-boot.json', json(after))
   await verifyBackup()
   const manifest = json({ ...binding, after, files })
@@ -264,5 +271,5 @@ export async function prepareProxyMigration(options: MigrationPreparationOptions
     endpoints, helperPath, helperDigest, backupDirectory, backupDigest: hash(manifest), before, after }
   await verifyMarker()
   await durableFile(exec, marker, json(receipt), true)
-  return receipt
+  return readPreparedMigration(dataDir, helperPath)
 }

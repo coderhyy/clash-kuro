@@ -66,7 +66,17 @@ if (process.argv[2] === '--child') {
   assert(acceptedReport)
   for (const [key, value] of Object.entries(acceptedReport)) assert.deepEqual(report[key], value)
   if (mode === 'diagnostics-stall') assert.equal(Buffer.byteLength(client.diagnostics()), 16 * 1024)
-  const timeout = mode.endsWith('hang') || mode === 'replay-registration'
+  const timeout = mode.endsWith('hang') || mode === 'replay-registration' || mode === 'late-clear'
+  if (mode === 'late-clear') {
+    const trace = client.diagnostics()
+    const evidence = { exit, report, journalBytes: statSync(join(dir, 'recovery.bin')).size, trace }
+    writeFileSync(join(dir, 'late-clear-evidence.json'), JSON.stringify(evidence, null, 2))
+    console.log(JSON.stringify({ scenario: mode, ...evidence }))
+    assert(trace.includes('supervisor-delayed\n') && trace.includes('supervisor-resumed\n'))
+    assert(trace.includes('late-clear-return\n'))
+    assert(!trace.includes('unregister\n'), 'Late clear must not unregister recovery')
+    assert(report.cleanupDurationMs >= 1500, 'Completion must be measured against the original cleanup budget')
+  }
   assert.equal(statSync(join(dir, 'recovery.bin')).size, timeout ? 608 : 0)
   assert.equal(exit.code, timeout ? 42 : 0)
   assert.equal(report.command, 'shutdown')
@@ -78,6 +88,8 @@ if (process.argv[2] === '--child') {
   assert.equal(report.sessionFlags, 0)
   assert.equal(report.ok, !timeout)
   assert.equal(report.timedOut, timeout)
+  if (!timeout) assert(Number.isFinite(report.cleanupDurationMs) && report.cleanupDurationMs >= 0 && report.cleanupDurationMs < 1500)
+  else if (mode !== 'late-clear') assert.equal(report.cleanupDurationMs, null)
   assert.equal(report.coreGone, true)
   assert(Number.isInteger(report.corePid) && report.corePid > 0)
   assert.notEqual(report.corePid, child.pid)
@@ -185,7 +197,7 @@ if (process.argv[2] === '--child') {
   mkdirSync(run, { recursive: true })
   const quote = s => '"' + s.replace(/(\\*)"/g, '$1$1\\"').replace(/(\\+)$/, '$1$1') + '"'
   const results = []
-  const modes = ['normal', 'late-set', 'clear-hang', 'set-hang', 'diagnostics-stall', 'replay-registration', 'register-hang']
+  const modes = ['normal', 'late-set', 'clear-hang', 'set-hang', 'diagnostics-stall', 'replay-registration', 'register-hang', 'late-clear']
   const selected = process.argv.find(arg => arg.startsWith('--case='))?.slice(7)
   if (selected) assert(modes.includes(selected), `Unknown resident case: ${selected}`)
   for (const mode of modes.filter(mode => !selected || mode === selected)) {
