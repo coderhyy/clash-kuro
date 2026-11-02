@@ -4,10 +4,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include "../../../../../apps/desktop/native/win/core-process.h"
 
 static struct {
   HANDLE triggered, operation_start, operation_done, decision_ready, finished, report_start, report_done;
-  HANDLE stop_core, core_ready, core;
+  HANDLE stop_core, core_ready, core, core_job;
   HANDLE window_ready;
   HANDLE shutdown_done;
   HWND window;
@@ -202,6 +203,8 @@ static DWORD WINAPI supervisor(void *unused) {
   return 0;
 }
 static int launch_core(void) {
+  s.core_job = kuro_core_job();
+  if (!s.core_job) return 0;
   SECURITY_ATTRIBUTES sa = { sizeof sa, NULL, TRUE };
   s.stop_core = CreateEventW(&sa, TRUE, FALSE, NULL);
   s.core_ready = CreateEventW(&sa, TRUE, FALSE, NULL);
@@ -210,20 +213,14 @@ static int launch_core(void) {
   if (!GetModuleFileNameW(NULL, exe, 32768)) return 0;
   _snwprintf(command, 33000, L"\"%ls\" --core %llu %llu %d", exe,
     (unsigned long long)(uintptr_t)s.stop_core, (unsigned long long)(uintptr_t)s.core_ready, s.core_hang);
-  SIZE_T size = 0;
-  InitializeProcThreadAttributeList(NULL, 1, 0, &size);
-  STARTUPINFOEXW si = {0}; si.StartupInfo.cb = sizeof si;
-  si.lpAttributeList = HeapAlloc(GetProcessHeap(), 0, size);
   HANDLE inherited[] = { s.stop_core, s.core_ready };
-  if (!si.lpAttributeList || !InitializeProcThreadAttributeList(si.lpAttributeList, 1, 0, &size) ||
-      !UpdateProcThreadAttribute(si.lpAttributeList, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
-        inherited, sizeof inherited, NULL, NULL)) return 0;
   PROCESS_INFORMATION pi = {0};
-  BOOL ok = CreateProcessW(exe, command, NULL, NULL, TRUE,
-    EXTENDED_STARTUPINFO_PRESENT | CREATE_NO_WINDOW, NULL, NULL, &si.StartupInfo, &pi);
-  DeleteProcThreadAttributeList(si.lpAttributeList); HeapFree(GetProcessHeap(), 0, si.lpAttributeList);
+  BOOL ok = kuro_create_core(s.core_job, exe, command, NULL, inherited, 2, &pi);
   if (!ok) return 0;
-  CloseHandle(pi.hThread); s.core = pi.hProcess; s.core_pid = pi.dwProcessId;
+  s.core = pi.hProcess; s.core_pid = pi.dwProcessId;
+  DWORD resumed = ResumeThread(pi.hThread);
+  CloseHandle(pi.hThread);
+  if (resumed == (DWORD)-1) return 0;
   return WaitForSingleObject(s.core_ready, 3000) == WAIT_OBJECT_0;
 }
 #ifndef KURO_COORDINATION_MAIN
