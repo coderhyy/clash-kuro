@@ -212,3 +212,37 @@ alive during logoff. A real session receiver, GUI/message dependencies and then
 separately authorized session experiments still stand between this result and
 acceptance of a formal architecture. ADR-0011 remains unchanged and ADR-0013
 remains a draft; this prototype is not an exception to either constraint.
+
+## Follow-up: uncertain exit must use runtime state (2026-11-02)
+
+Review before production reuse found that self-termination was selected from
+the injected `operation_hang` / `coordinator_hang` flags, rather than the actual
+cleanup outcome. A finite 1900 ms operation therefore reported timeout at
+1500 ms but returned through the ordinary process exit path while its worker
+was still running. This is a policy defect even though the test process exited.
+
+The new `late-operation` regression failed before the fix:
+`out/runs/1793591412500/results.json` (`selfForced=false`, no external rescue).
+The supervisor now selects self-termination whenever its final decision is not
+successful, or the exact Core handle has not signalled exit. It does not infer
+safety from the kind of injected fault. This also prevents uncertain shutdown
+from depending on ordinary DLL teardown of a still-running operation.
+
+After rebuilding, all ten policy fixtures passed:
+`out/runs/1793591447018/results.json`. The late operation produced timeout at
+1500 ms, helper exit 42, one Core stop after the decision, and zero remaining
+Job processes, without watchdog rescue. Five cases exited normally; four
+uncertain cases self-terminated; one case forced the fake Core before helper
+normal exit. These are different outcomes, not ten successful cleanups.
+
+Both watchdog negative controls still **failed exit acceptance**, as required:
+`out/runs/1793591498972-negative/results.json`. Rescue left no Job members;
+the permanently stalled Electron case still demonstrated independent helper
+cleanup before rescue, not successful whole-application exit.
+
+Reproduce with `node .scratch/mvp/prototypes/prestarted-helper-deadline/build.mjs`
+followed by `node .scratch/mvp/prototypes/prestarted-helper-deadline/test.mjs`.
+Use `--case=late-operation` for the minimized regression, or
+`--watchdog-negative-control` for the deliberately failing rescue controls.
+No proxy, RunOnce or session operation was performed. The timing observations
+remain software-budget evidence, not a strict wall-clock guarantee.

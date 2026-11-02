@@ -23,7 +23,7 @@ if (process.argv[2] === '--child') {
   const negative = process.argv.includes('--watchdog-negative-control')
   const only = process.argv.find(x => x.startsWith('--case='))?.slice(7)
   const names = ['normal', 'electron-stall', 'electron-exit', 'repeat', 'ipc-before', 'ipc-after',
-    'operation-hang', 'coordinator-hang', 'core-hang']
+    'operation-hang', 'late-operation', 'coordinator-hang', 'core-hang']
   if (only && !names.includes(only)) throw new Error('Unknown case')
   const cases = negative ? ['watchdog-negative', 'electron-hang-negative'] : only ? [only] : names
   const run = join(root, 'out/runs', `${Date.now()}${negative ? '-negative' : ''}`)
@@ -62,7 +62,7 @@ if (process.argv[2] === '--child') {
       assert.equal(helper.coreGone, true)
       assert(helper.stopMs >= helper.decisionMs)
       assert(helper.endMs < 2350, 'Observed policy exit work overrun (not a hard guarantee)')
-      const uncertain = ['operation-hang', 'coordinator-hang', 'repeat'].includes(name)
+      const uncertain = ['operation-hang', 'late-operation', 'coordinator-hang', 'repeat'].includes(name)
       assert.equal(helper.decision, uncertain ? 'timeout' : 'cleared')
       assert.equal(helper.operations, name === 'coordinator-hang' ? 0 : 1)
       assert.equal(helper.selfForced, uncertain)
