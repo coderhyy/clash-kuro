@@ -346,3 +346,11 @@ Blocked by: 02, 07
 - `078201b` 的 CI `41408156606` Windows/macOS 全部通过。下载 `wininet-recovery/out/ci-41408156606/verified-recover.json`，实际 native recover 引擎及 journal 对 1 个 LAN 查询到 flags 3→1，原设置恢复后验证成功；RunOnce 未变。
 - 最终报告 ok=true、timedOut=false、coreGone=true、corePid=0。durationMs=0 是 GetTickCount64 未跨 tick，不能解释为即时完成或硬实时保证。该实验替换登记调用、无 Core、无真实会话消息；未覆盖 RAS，也不证明正式 app 全链路或注销前清理成功。
 - 这是新恢复入口的真实 API 证据，区别于此前 plain/aware 桥接；正式 Platform/legacy 迁移与人工会话验收仍未完成。goal 保持 active，不改 ADR/Status，不合并。
+
+2026-11-02 (agent，Platform resident 实验接线，应用启动入口尚未启用):
+
+- `createDesktopPlatform.startResident` 接到真实 session 类型：命令走 owner，不允许 one-shot 写入回退；保留 Core API `/version` 就绪检查及重启 pipe 轮换。Core PID 文件不写 helper PID，也不通过 PID 猜测来停止 resident Core。
+- 普通关闭、session hook 及重复关闭共享清理 Promise，关闭失败/超时不报告成功；session hook 不再生成新 helper，返回明确的“native completion 尚未验证”。意外 owner 退出永久拒绝该 Platform 寿命内的新写入。
+- 每次 owner 关闭使旧代理适配器 generation 失效；重新启动建立新的适配器，旧排队操作不能跨代写到新 owner。启动过程新增 AbortSignal 检查：异步部署/恢复结束后若已关闭，不再生成新 serve；已生成的 owner 接到关闭请求。
+- 本机 typecheck、桌面 190 项单测通过（新增 7 项 Platform 假 owner 测试）。actual native fake engine 回归覆盖挂起/迟到返回/日志阻塞及真实 session abort，强杀救援不计通过。无本机真实代理写入。
+- 这不是正式应用整体验收：app 创建 Platform 的入口未传 startResident，legacy RunOnce 迁移门禁完成前不启用；尚需真实 Core/Platform 组合与人工会话验证。ADR-0011 不改，ADR-0013 保持草案，Status 不改。

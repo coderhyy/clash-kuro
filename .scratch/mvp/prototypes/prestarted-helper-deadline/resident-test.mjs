@@ -119,6 +119,16 @@ if (process.argv[2] === '--child') {
     assert.equal(statSync(session.journal).size, 0)
     assert.notEqual(session.helper, exe)
     writeFileSync(join(dir, 'session-result.json'), JSON.stringify({ helper: session.helper, journalEmpty: true, verifiedExit: true }))
+    const abort = new AbortController()
+    const options = { helper: exe, recoveryDirectory: join(dir, 'retained'), dataDir: dir,
+      core: exe, server: '127.0.0.1:7891', log: join(dir, 'abort.json'), signal: abort.signal }
+    const aborted = await startResidentSession(options)
+    abort.abort()
+    await aborted.close()
+    await assert.rejects(aborted.request(['set']))
+    assert.equal((await aborted.exited).code, 0)
+    await assert.rejects(startResidentSession(options), { name: 'AbortError' })
+    writeFileSync(join(dir, 'abort-result.json'), JSON.stringify({ exitedNormally: true, lateWritesDenied: true, restartWithAbortedSignalDenied: true }))
   }
 } else {
   const run = join(root, 'out', `resident-${Date.now()}`)

@@ -6,11 +6,14 @@ import { residentClient } from './resident-client'
 
 /** One helper/Core lifetime. Caller must complete legacy migration before calling. */
 export async function startResidentSession(options: {
-  helper: string; recoveryDirectory: string; dataDir: string; core: string; server: string; log: string
+  helper: string; recoveryDirectory: string; dataDir: string; core: string; server: string; log: string; signal?: AbortSignal
 }) {
+  options.signal?.throwIfAborted()
   const helper = await prepareRecoveryHelper(options.helper, options.recoveryDirectory)
   const journal = join(options.recoveryDirectory, 'recovery.bin')
+  options.signal?.throwIfAborted()
   await recoverResident(helper, journal, options.log)
+  options.signal?.throwIfAborted()
   const child = spawn(helper, ['serve', '--core', options.core, '--data', options.dataDir,
     '--recovery', journal, '--expected-server', options.server, '--log', options.log],
   { windowsHide: true, detached: true, stdio: 'pipe' })
@@ -35,7 +38,11 @@ export async function startResidentSession(options: {
     })
     return closing
   }
-  try { await client.ready }
+  const abort = () => { void close().catch(() => {}) }
+  options.signal?.addEventListener('abort', abort, { once: true })
+  void client.exited.then(() => options.signal?.removeEventListener('abort', abort))
+  if (options.signal?.aborted) abort()
+  try { await client.ready; options.signal?.throwIfAborted() }
   catch (error) {
     try { await close() } catch { /* Preserve startup error; this session is never returned for reuse. */ }
     throw error

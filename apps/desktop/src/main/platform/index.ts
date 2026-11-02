@@ -10,6 +10,7 @@ import { fetchProfileText } from './fetch'
 import { createLaunchAtLogin, type LoginItemApp } from './login-item'
 import { createSystemProxy, execCommand, parseWindowsProxyServer, type Exec, type ExecSync, type SyncClearReport } from './system-proxy'
 import { createSocketTransport } from './transport'
+import type { startResidentSession } from './resident-session'
 
 export { createSocketTransport } from './transport'
 export { createSystemProxy, SystemProxyPermissionError, SystemProxyUnknownStateError } from './system-proxy'
@@ -32,6 +33,8 @@ export interface DesktopPlatformOptions {
   exec?: Exec
   execSync?: ExecSync
   spawn?: (file: string, args: string[], options: SpawnOptions) => ChildProcess
+  /** Experimental Windows owner; enable only after legacy recovery migration. */
+  startResident?: typeof startResidentSession
   powerMonitor?: { on(event: 'resume', listener: () => void): unknown; removeListener(event: 'resume', listener: () => void): unknown }
   fetchText?: Platform['fetchText']
   /** Electron `app`; omitted (tests) means Launch at Login is unsupported. */
@@ -74,21 +77,38 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
   const spawnCore = options.spawn ?? spawn
   const stopTimeoutMs = options.stopTimeoutMs ?? 2_000
   const port = () => typeof options.mixedPort === 'function' ? options.mixedPort() : options.mixedPort
-  const systemProxy = createSystemProxy({
-    os, exec, execSync: options.execSync, helperPath: options.sysproxyHelperPath, mixedPort: port,
-    runOnceLogPath: os === 'win32' ? options.runOnceLogPath ?? win32.join(dataDir, 'runonce.log') : undefined,
-    memory: {
-      async load() {
-        const text = await read('system-proxy.json')
-        const server = text ? (JSON.parse(text) as { server?: unknown }).server : null
-        return typeof server === 'string' && parseWindowsProxyServer(server) ? server : null
+  if (options.startResident && (os !== 'win32' || !options.sysproxyHelperPath)) throw new Error('Resident requires Windows and a helper')
+  type Resident = Awaited<ReturnType<typeof startResidentSession>>
+  let resident: Resident | undefined
+  let residentStarting: Promise<Resident> | undefined
+  let residentStopping: Promise<void> | undefined
+  let residentAbort: AbortController | undefined
+  let residentFailed = false
+  let residentGeneration = 0
+  function makeSystemProxy() {
+    const generation = residentGeneration
+    const proxyExec: Exec = async (file, args) => {
+      if (!options.startResident) return exec(file, args)
+      if (!resident || residentFailed || generation !== residentGeneration) throw new Error('Resident proxy owner unavailable; no one-shot write fallback')
+      return resident.request(args)
+    }
+    return createSystemProxy({
+      os, exec: proxyExec, execSync: options.execSync, helperPath: options.sysproxyHelperPath, mixedPort: port,
+      runOnceLogPath: os === 'win32' && !options.startResident ? options.runOnceLogPath ?? win32.join(dataDir, 'runonce.log') : undefined,
+      memory: {
+        async load() {
+          const text = await read('system-proxy.json')
+          const server = text ? (JSON.parse(text) as { server?: unknown }).server : null
+          return typeof server === 'string' && parseWindowsProxyServer(server) ? server : null
+        },
+        async save(server) {
+          if (server) await atomic('system-proxy.json', JSON.stringify({ server }))
+          else await rm(await filePath('system-proxy.json'), { force: true })
+        },
       },
-      async save(server) {
-        if (server) await atomic('system-proxy.json', JSON.stringify({ server }))
-        else await rm(await filePath('system-proxy.json'), { force: true })
-      },
-    },
-  })
+    })
+  }
+  let systemProxy = makeSystemProxy()
   let channel: ControlChannel
   let usedPipe = false
   if (os === 'win32') channel = { kind: 'pipe', name: `\\\\.\\pipe\\kuro-${randomUUID()}` }
@@ -210,6 +230,22 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
   }
 
   async function stop(): Promise<void> {
+    if (options.startResident) {
+      if (residentStopping) return residentStopping
+      residentGeneration++
+      if ('beginShutdown' in systemProxy) systemProxy.beginShutdown()
+      residentAbort?.abort()
+      residentStopping = (async () => {
+        const owner = resident ?? await residentStarting?.catch(() => undefined)
+        if (!owner && residentFailed) throw new Error('Resident exited unexpectedly; cleanup unverified')
+        if (owner) {
+          if (resident === owner) resident = undefined
+          try { await owner.close() }
+          catch (error) { residentFailed = true; throw error }
+        }
+      })()
+      return residentStopping
+    }
     if (child?.pid && child.exitCode === null && child.signalCode === null) {
       await terminate(child.pid)
     }
@@ -225,8 +261,10 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
     applyRuntimeConfig: (yaml) => serialize(() => apply(yaml)),
     startCore: () => serialize(async () => {
       if (shuttingDown) throw new Error('Platform is shutting down')
+      if (residentFailed) throw new Error('Resident state uncertain; application restart required')
+      if (resident) return
       if (child?.pid && child.exitCode === null && child.signalCode === null && alive(child.pid)) return
-      await cleanupOrphan()
+      if (!options.startResident) await cleanupOrphan()
       if (shuttingDown) throw new Error('Platform is shutting down')
       await assertMixedPortAvailable(port())
       if (await read('runtime.yaml') === null) throw new Error('No Runtime Config has been applied')
@@ -245,6 +283,40 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
         await rm(channel.path, { force: true })
       }
       let output = ''
+      if (options.startResident) {
+        residentStopping = undefined
+        residentAbort = new AbortController()
+        residentStarting = options.startResident({ helper: options.sysproxyHelperPath!,
+          recoveryDirectory: join(dataDir, 'proxy-recovery'), dataDir, core: corePath,
+          server: `127.0.0.1:${port()}`, log: options.runOnceLogPath ?? join(dataDir, 'runonce.log'), signal: residentAbort.signal })
+        try {
+          const owner = resident = await residentStarting
+          usedPipe = true
+          void owner.exited.then(() => {
+            if (resident === owner) {
+              residentFailed = true
+              resident = undefined
+            }
+          })
+          const deadline = Date.now() + (options.startTimeoutMs ?? 10_000)
+          while (Date.now() < deadline && !shuttingDown && resident === owner) {
+            try {
+              const res = await createSocketTransport(channel, { timeoutMs: Math.min(250, Math.max(1, deadline - Date.now())) })
+                .request({ method: 'GET', path: '/version' })
+              if (res.status >= 200 && res.status < 300) {
+                systemProxy = makeSystemProxy()
+                return
+              }
+            } catch { /* Core API readiness is separate from the helper handshake. */ }
+            await delay(25)
+          }
+          throw new Error(`Resident Core readiness failed: ${owner.diagnostics()}`)
+        } catch (error) {
+          residentFailed = true
+          await stop().catch(() => {})
+          throw error
+        } finally { residentStarting = undefined }
+      }
       const started = spawnCore(corePath, ['-d', dataDir, '-f', join(dataDir, 'runtime.yaml')], {
         cwd: dataDir, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true,
       })
@@ -279,11 +351,23 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
     }),
     stopCore: () => serialize(stop),
     async isCoreRunning() {
+      if (options.startResident) return !!resident && !residentFailed
       return !!child?.pid && child.exitCode === null && child.signalCode === null && alive(child.pid)
     },
     controlChannel: () => ({ ...channel }),
-    ...systemProxy,
     ...createLaunchAtLogin({ os, app: options.loginItemApp }),
+    getSystemProxy: () => systemProxy.getSystemProxy(),
+    clearSystemProxy: () => systemProxy.clearSystemProxy(),
+    cleanupStaleSystemProxy: port => systemProxy.cleanupStaleSystemProxy(port),
+    clearSystemProxySync(input) {
+      if (!options.startResident) return systemProxy.clearSystemProxySync(input)
+      shuttingDown = true
+      if ('beginShutdown' in systemProxy) systemProxy.beginShutdown()
+      residentAbort?.abort()
+      void stop().catch(() => { residentFailed = true })
+      return { ran: false, ok: false, exitCode: null, timedOut: false, durationMs: 0, servers: [],
+        detail: 'Resident native owner handles session cleanup; completion not yet verified' }
+    },
     async setSystemProxy(settings) {
       if (shuttingDown) throw new Error('Platform is shutting down; System Proxy writes are closed')
       await systemProxy.setSystemProxy(settings)
@@ -311,6 +395,10 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
         ]) } finally { clearTimeout(timer) }
       }
       shutdown = (async () => {
+        if (options.startResident) {
+          await within(stop, started + timeoutMs, 'Resident cleanup and Core stop')
+          return
+        }
         const errors: unknown[] = []
         // Waiting is bounded, not cancellation: the resident owner must settle/terminate native writers.
         try { await within(() => platform.clearSystemProxy(), started + timeoutMs / 2, 'Proxy cleanup') }
