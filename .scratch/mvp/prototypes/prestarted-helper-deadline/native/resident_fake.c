@@ -51,7 +51,9 @@ int wmain(int argc, wchar_t **argv) {
     }
     Sleep(INFINITE); return 99;
   }
-  if (argc < 2 || wcscmp(argv[1], L"serve")) return 98; /* Never expose the real one-shot CLI. */
+  if (argc < 2 || (wcscmp(argv[1], L"serve") && wcscmp(argv[1], L"recover"))) return 98; /* Never expose the real one-shot CLI. */
+  if (!wcscmp(argv[1], L"recover")) for (int i = 2; i + 1 < argc; i += 2)
+    if (!wcscmp(argv[i], L"--recovery") && wcsstr(argv[i + 1], L"recovery-hang.bin")) mode = 1;
   for (int i = 2; i + 1 < argc; i += 2) if (!wcscmp(argv[i], L"--data")) {
     const wchar_t *name = wcsrchr(argv[i + 1], L'\\'); name = name ? name + 1 : argv[i + 1];
     mode = !wcscmp(name, L"clear-hang") ? 1 : !wcscmp(name, L"late-set") ? 2 : !wcscmp(name, L"set-hang") ? 3 : 0;

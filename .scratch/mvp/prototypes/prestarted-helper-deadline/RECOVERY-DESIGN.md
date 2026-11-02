@@ -121,3 +121,25 @@ temporary integration guard, not the final recovery behavior. Do not enable this
 route in the app until bounded recovery replay, stable registration and legacy
 migration are implemented. The existing one-shot RunOnce path is unchanged and
 does not gain this lock simply because `serve` uses it.
+
+## Bounded replay entry
+
+`recover --recovery <absolute journal> [--log <absolute log>]` now reuses the
+native window, worker, report and supervisor from `serve`, without starting Core
+or an IPC reader. It takes exclusive ownership before reading endpoints and
+immediately starts the same first-close budget. Only recorded endpoints reach
+the existing clear/notOurs logic; no caller-supplied endpoint list or set is
+accepted. Success clears the journal, uncertainty retains it. Recovery deliberately
+passes `manage_recovery=0`, so it does not delete the legacy RunOnce registration.
+
+Fake-backend evidence `out/resident-1793604030489/`: a live owner denies recovery;
+after timed-out owner exit, recovery succeeds without Core; a hung recovery
+self-terminates 42 with timedOut=true and identical retained record. Structured
+recovery outcomes are preserved in the suite JSON. No external rescue or leftover
+process is accepted. Shared native build and fake tests pass without proxy writes.
+
+The budget begins after CLI validation/journal acquisition, not before process
+creation or filesystem calls. This is a software shutdown/replay wait bound, not
+a universal whole-process wall-clock guarantee. The standalone entry is not yet
+registered with RunOnce or called automatically by the app. Stable deployment,
+registration, legacy migration and true API replay evidence are still required.

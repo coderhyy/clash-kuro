@@ -301,3 +301,9 @@ Blocked by: 02, 07
 - `serve` 现要求绝对 `--recovery` 路径，独占句柄持续到进程退出，包含超时自终止；set 的已校验端点先追加/刷盘再进入代理操作。整个关闭清理成功后才 reset，reset 失败也判关闭失败。
 - 实际 native 假后端五项回归通过：正常/late-set/诊断阻塞清理后日志为空，set/clear 卡死则保留 608 字节记录。超时后立即再启动同入口拒绝 readiness、退出 1、记录字节不变、未启动假 Core；没有外部救援或残留。证据 `prestarted-helper-deadline/out/resident-1793603730003/`。
 - 未解决的旧记录目前保守拒绝启动，属于恢复执行器接入前的临时门槛，不能当最终恢复能力。正式 app 仍未切换，原 one-shot/RunOnce 并未因此获得独占保护；后续必须完成有界 replay、稳定登记及 legacy 迁移。无真实代理写入或人工会话实验。
+
+2026-11-02 (agent，有界恢复入口):
+
+- 增加 `recover --recovery <绝对路径> [--log ...]`，复用 native 窗口、worker、report/supervisor，不启动 Core、不开放 IPC/set。取得独占后读取端点集合，调用已有 clear/notOurs；成功 reset，超时保留。不会删除 legacy RunOnce，尚未登记到 RunOnce 或由 app 自动调用。
+- 假后端实测活跃所有者拒绝恢复、超时所有者退出后恢复成功、恢复自身卡死则 timeout/退出 42 并保留完全相同记录；无外部救援/遗留，记录 `prestarted-helper-deadline/out/resident-1793604030489/`。native 构建与原有五项策略通过。
+- 等待预算在参数/独占文件初始化后开始，不覆盖 OS 进程创建/文件系统调用的任意延迟，不是硬实时保证。真实 API replay、稳定部署登记、legacy 迁移和人工会话仍待完成；本机无代理写入，不改 ADR/Status，不合并。

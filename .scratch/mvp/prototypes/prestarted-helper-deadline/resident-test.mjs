@@ -8,11 +8,14 @@ const root = dirname(fileURLToPath(import.meta.url))
 const { residentClient } = createRequire(import.meta.url)('./out/client.cjs')
 if (process.argv[2] === '--child') {
   const [mode, dir] = process.argv.slice(3)
+  const recoveryEvidence = []
   const exe = join(root, 'out/resident-fake.exe'), log = join(dir, 'helper.json')
   const args = ['serve', '--core', exe, '--data', dir, '--log', log,
     '--recovery', join(dir, 'recovery.bin'),
     '--expected-server', '127.0.0.1:7891']
   const launch = () => spawn(exe, args, { detached: true, windowsHide: true, stdio: 'pipe' })
+  const recover = path => residentClient(spawn(exe, ['recover', '--recovery', path],
+    { detached: true, windowsHide: true, stdio: 'pipe' }))
   const child = launch()
   const client = residentClient(child)
   let marker = ''
@@ -26,6 +29,13 @@ if (process.argv[2] === '--child') {
     if (marker.includes('fake-core-start\n')) coreStarted()
   })
   await client.ready
+  if (mode === 'normal') {
+    const contender = recover(join(dir, 'recovery.bin'))
+    await assert.rejects(contender.ready)
+    const denied = await contender.closed
+    assert.equal(denied.code, 1)
+    recoveryEvidence.push({ scenario: 'live-owner-denied', ...denied })
+  }
   await coreStart
   if (mode !== 'diagnostics-stall') assert(client.diagnostics().includes('fake-core-start'))
   if (mode === 'diagnostics-stall') {
@@ -69,8 +79,29 @@ if (process.argv[2] === '--child') {
     assert.equal((await retry.closed).code, 1)
     assert.deepEqual(readFileSync(join(dir, 'recovery.bin')), retained)
     assert(!retry.diagnostics().includes('fake-core-start'))
+    if (mode === 'clear-hang') {
+      const hangPath = join(dir, 'recovery-hang.bin')
+      writeFileSync(hangPath, retained)
+      const hung = recover(hangPath)
+      await assert.rejects(hung.ready)
+      const outcome = await hung.closed
+      assert.equal(outcome.code, 42)
+      assert.equal(outcome.report?.timedOut, true)
+      assert.equal(outcome.report?.ok, false)
+      assert.deepEqual(readFileSync(hangPath), retained)
+      recoveryEvidence.push({ scenario: 'recovery-timeout-retains-journal', ...outcome })
+    }
+    const recovery = recover(join(dir, 'recovery.bin'))
+    await assert.rejects(recovery.ready) // Recovery never grants mutation readiness.
+    const recovered = await recovery.closed
+    assert.equal(recovered.code, 0)
+    assert.equal(recovered.report?.ok, true)
+    assert.equal(recovered.report?.corePid, 0)
+    assert.equal(statSync(join(dir, 'recovery.bin')).size, 0)
+    assert(!recovery.diagnostics().includes('fake-core-start'))
+    recoveryEvidence.push({ scenario: 'recovery-clear-resets-journal', ...recovered })
   }
-  writeFileSync(join(dir, 'result.json'), JSON.stringify({ mode, pid: child.pid, exit, report }))
+  writeFileSync(join(dir, 'result.json'), JSON.stringify({ mode, pid: child.pid, exit, report, recoveryEvidence }))
 } else {
   const run = join(root, 'out', `resident-${Date.now()}`)
   mkdirSync(run, { recursive: true })

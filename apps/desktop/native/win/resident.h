@@ -21,7 +21,7 @@ static struct {
   LONG gate, closing, window_waiting;
   ULONGLONG start;
   LONG clear_ok;
-  int core_gone, timed_out;
+  int core_gone, timed_out, recovery_only;
   const wchar_t *core_path, *data_dir;
   wchar_t payload[KURO_REQUEST_BYTES / 2];
   DWORD bytes;
@@ -137,6 +137,10 @@ static int resident_start_core(void) {
 static DWORD WINAPI resident_worker(void *unused) {
   (void)unused;
   g_capture = &resident.response;
+  if (resident.recovery_only) {
+    SetEvent(resident.core_started);
+    goto cleanup;
+  }
   if (KURO_RESIDENT_WARM()) resident_close(); /* Initialize before shutdown; a failed warmup closes admission. */
   resident.response.len = 0;
   int started = !resident_load(&resident.closing) && resident_start_core();
@@ -169,10 +173,11 @@ static DWORD WINAPI resident_worker(void *unused) {
     resident_write(resident.response.data, resident.response.len);
     if (code && mutating) resident_close();
   }
+cleanup:;
   const wchar_t *expected[MAX_EXPECTED];
   for (int i = 0; i < resident.server_count; ++i) expected[i] = resident.servers[i];
   resident.response.len = 0;
-  int cleared = KURO_RESIDENT_CLEAR(expected, resident.server_count, 1) == 0;
+  int cleared = !resident.server_count || KURO_RESIDENT_CLEAR(expected, resident.server_count, !resident.recovery_only) == 0;
   if (cleared && kuro_recovery_reset_after_clear(resident.recovery)) cleared = 0;
   InterlockedExchange(&resident.clear_ok, cleared);
   SetEvent(resident.cleared);
@@ -245,6 +250,7 @@ static LRESULT CALLBACK resident_window(HWND window, UINT message, WPARAM w, LPA
   return DefWindowProcW(window, message, w, l);
 }
 static int resident_main(int argc, wchar_t **argv) {
+  resident.recovery_only = argc > 1 && !wcscmp(argv[1], L"recover");
   const wchar_t *log = NULL, *recovery_path = NULL;
   for (int i = 2; i < argc; i += 2) {
     if (i + 1 >= argc) return usage(L"Missing serve option value");
@@ -255,9 +261,10 @@ static int resident_main(int argc, wchar_t **argv) {
     else if (!wcscmp(argv[i], L"--expected-server") && resident_remember(argv[i + 1])) { }
     else return usage(L"Invalid serve option");
   }
-  if (!kuro_valid_log_path(resident.core_path) || !kuro_valid_log_path(resident.data_dir) ||
-      !kuro_valid_log_path(recovery_path) || (log && !kuro_valid_log_path(log)) || !resident.server_count)
-    return usage(L"serve requires absolute --core/--data/--recovery and --expected-server");
+  if ((!resident.recovery_only && (!kuro_valid_log_path(resident.core_path) || !kuro_valid_log_path(resident.data_dir) || !resident.server_count)) ||
+      (resident.recovery_only && (resident.core_path || resident.data_dir || resident.server_count)) ||
+      !kuro_valid_log_path(recovery_path) || (log && !kuro_valid_log_path(log)))
+    return usage(L"serve requires --core/--data/--recovery/--expected-server; recover permits only --recovery/--log");
   g_log = log;
   resident.recovery = kuro_recovery_lock(recovery_path);
   if (resident.recovery == INVALID_HANDLE_VALUE) return usage(L"Recovery ownership unavailable; no writes admitted");
@@ -266,7 +273,7 @@ static int resident_main(int argc, wchar_t **argv) {
   for (unsigned i = 0; i < prior.count; ++i)
     if (!resident_remember(prior.servers[i])) return usage(L"Recovery endpoint capacity exceeded");
   // Until migration/replay is implemented, never start a new owner over unresolved prior settings.
-  if (prior.count) return usage(L"Prior recovery pending; new Core and proxy writes refused");
+  if (prior.count && !resident.recovery_only) return usage(L"Prior recovery pending; new Core and proxy writes refused");
   g_before_set = resident_admit;
   resident.main_thread = GetCurrentThreadId();
   resident.job = kuro_core_job();
@@ -282,8 +289,10 @@ static int resident_main(int argc, wchar_t **argv) {
   if (!RegisterClassW(&cls)) return 3;
   resident.window = CreateWindowExW(WS_EX_TOOLWINDOW, cls.lpszClassName, L"", WS_POPUP, 0, 0, 0, 0, NULL, NULL, cls.hInstance, NULL);
   if (!resident.window) return 3;
+  if (resident.recovery_only) resident_close();
   LPTHREAD_START_ROUTINE starts[] = { resident_supervisor, resident_report, resident_worker, resident_reader };
-  for (unsigned i = 0; i < sizeof starts / sizeof *starts; ++i) {
+  unsigned threads = resident.recovery_only ? 3 : sizeof starts / sizeof *starts;
+  for (unsigned i = 0; i < threads; ++i) {
     HANDLE thread = CreateThread(NULL, 0, starts[i], NULL, 0, NULL);
     if (!thread) { resident_close(); TerminateProcess(GetCurrentProcess(), 3); return 3; }
     CloseHandle(thread);

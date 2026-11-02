@@ -510,6 +510,6 @@ static int command_main(int argc, wchar_t **argv) {
 #include "resident.h"
 
 int wmain(int argc, wchar_t **argv) {
-  if (argc > 1 && !wcscmp(argv[1], L"serve")) return resident_main(argc, argv);
+  if (argc > 1 && (!wcscmp(argv[1], L"serve") || !wcscmp(argv[1], L"recover"))) return resident_main(argc, argv);
   return command_main(argc, argv);
 }
