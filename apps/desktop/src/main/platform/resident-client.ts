@@ -6,6 +6,8 @@ type ShutdownReport = { command: 'shutdown'; ok: boolean; timedOut: boolean; cor
 export interface ResidentReservation {
   pid: number; nonce: string; userSid: string; helperDigest: string; journalDigest: string
   priorEndpoints: readonly string[]
+  initialEndpoints: readonly string[]
+  admissionReceiptDigest: string | null
 }
 export type AuthorizeResident = (reservation: Readonly<ResidentReservation>) => Promise<{ receiptDigest: string; evidenceDigest: string }>
 
@@ -13,12 +15,15 @@ function reservation(value: Record<string, unknown>, pid: number | undefined): R
   if (!pid || value.pid !== pid || typeof value.userSid !== 'string' ||
       !/^S-1-5-21-\d+-\d+-\d+-\d+$/.test(value.userSid) ||
       ![value.nonce, value.helperDigest, value.journalDigest].every(field => typeof field === 'string' && /^[a-f0-9]{64}$/.test(field)) ||
-      !Array.isArray(value.priorEndpoints) || value.priorEndpoints.length > 8 ||
-      new Set(value.priorEndpoints).size !== value.priorEndpoints.length ||
-      value.priorEndpoints.some(endpoint => typeof endpoint !== 'string' || !/^127\.0\.0\.1:[1-9]\d{0,4}$/.test(endpoint) ||
-        Number(endpoint.split(':')[1]) > 65535)) throw new Error('Invalid native reservation identity or journal inventory')
+      (value.admissionReceiptDigest !== null && (typeof value.admissionReceiptDigest !== 'string' || !/^[a-f0-9]{64}$/.test(value.admissionReceiptDigest))) ||
+      ![value.priorEndpoints, value.initialEndpoints].every(list => Array.isArray(list) && list.length <= 8 &&
+        new Set(list).size === list.length && list.every(endpoint => typeof endpoint === 'string' &&
+          /^127\.0\.0\.1:[1-9]\d{0,4}$/.test(endpoint) && Number(endpoint.split(':')[1]) <= 65535)))
+    throw new Error('Invalid native reservation identity or journal inventory')
   return Object.freeze({ pid, userSid: value.userSid, nonce: value.nonce as string, helperDigest: value.helperDigest as string,
-    journalDigest: value.journalDigest as string, priorEndpoints: Object.freeze([...value.priorEndpoints]) as readonly string[] })
+    journalDigest: value.journalDigest as string, priorEndpoints: Object.freeze([...(value.priorEndpoints as string[])]),
+    initialEndpoints: Object.freeze([...(value.initialEndpoints as string[])]),
+    admissionReceiptDigest: value.admissionReceiptDigest as string | null })
 }
 
 /** One prestarted process, one outstanding command. Lifecycle supervision remains native.

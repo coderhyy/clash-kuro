@@ -38,17 +38,20 @@ try {
     run(cc, [...warnings, '-municode', '-mconsole', '-O2', '-static', join(src, 'resident-owner.test.c'), '-ladvapi32', '-lshell32', '-lole32', '-luuid', '-o', owner])
     // The test's private Job/watchdog bounds exact children; rescue fails the build.
     execFileSync(owner, [], { stdio: 'inherit', timeout: 10_000 })
+    const residentJournal = join(tmp, 'resident-journal.test.exe')
+    run(cc, [...warnings, '-municode', '-mconsole', '-O2', '-static', join(src, 'resident-journal.test.c'), '-ladvapi32', '-o', residentJournal])
+    execFileSync(residentJournal, [], { stdio: 'inherit', timeout: 10_000 })
     const recoveryLock = join(tmp, 'recovery-lock_test.exe')
     run(cc, [...warnings, '-municode', '-mconsole', '-O2', '-static', join(src, 'recovery-lock_test.c'), '-o', recoveryLock])
     execFileSync(recoveryLock, [], { stdio: 'inherit', timeout: 10_000 })
     const journal = join(tmp, 'recovery-journal_test.exe')
-    run(cc, [...warnings, '-municode', '-mconsole', '-O2', '-static', join(src, 'recovery-journal_test.c'), '-lwininet', '-lrasapi32', '-ladvapi32', '-o', journal])
+    run(cc, [...warnings, '-municode', '-mconsole', '-O2', '-static', join(src, 'recovery-journal_test.c'), '-lwininet', '-lrasapi32', '-ladvapi32', '-lshell32', '-lole32', '-luuid', '-o', journal])
     execFileSync(journal, [], { stdio: 'inherit', timeout: 10_000 })
     const registration = join(tmp, 'recovery-registration_test.exe')
-    run(cc, [...warnings, '-municode', '-mconsole', '-O2', '-static', join(src, 'recovery-registration_test.c'), '-lwininet', '-lrasapi32', '-ladvapi32', '-o', registration])
+    run(cc, [...warnings, '-municode', '-mconsole', '-O2', '-static', join(src, 'recovery-registration_test.c'), '-lwininet', '-lrasapi32', '-ladvapi32', '-lshell32', '-lole32', '-luuid', '-o', registration])
     execFileSync(registration, [], { stdio: 'inherit', timeout: 10_000 })
     const connections = join(tmp, 'connections_test.exe')
-    run(cc, [...warnings, '-municode', '-mconsole', '-O2', '-static', join(src, 'connections_test.c'), '-lwininet', '-lrasapi32', '-ladvapi32', '-o', connections])
+    run(cc, [...warnings, '-municode', '-mconsole', '-O2', '-static', join(src, 'connections_test.c'), '-lwininet', '-lrasapi32', '-ladvapi32', '-lshell32', '-lole32', '-luuid', '-o', connections])
     run(connections, [])
     const coreProcess = join(tmp, 'core-process_test.exe')
     run(cc, [...warnings, '-D_WIN32_WINNT=0x0A00', '-municode', '-mconsole', '-O2', '-static', join(src, 'core-process_test.c'), '-o', coreProcess])
@@ -61,6 +64,6 @@ try {
   const exe = join(outDir, 'kuro-sysproxy.exe')
   // -static avoids shipping libgcc/libwinpthread DLLs; WinINet, RAS and Advapi32 are system DLLs.
   // -mwindows: GUI subsystem, so Windows creates no console for it (stdout pipes still work).
-  run(cc, [...warnings, '-mwindows', '-municode', '-O2', '-s', '-static', join(src, 'kuro-sysproxy.c'), res, '-lwininet', '-lrasapi32', '-ladvapi32', '-o', exe])
+  run(cc, [...warnings, '-mwindows', '-municode', '-O2', '-s', '-static', join(src, 'kuro-sysproxy.c'), res, '-lwininet', '-lrasapi32', '-ladvapi32', '-lshell32', '-lole32', '-luuid', '-o', exe])
   console.log(`built ${exe} with ${cc}`)
 } finally { rmSync(tmp, { recursive: true, force: true }) }

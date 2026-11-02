@@ -1,23 +1,25 @@
 import { spawn } from 'node:child_process'
 import { join } from 'node:path'
 import { prepareRecoveryHelper } from './recovery-helper'
-import { recoverResident } from './resident-recovery'
-import { residentClient } from './resident-client'
+import { residentClient, type AuthorizeResident } from './resident-client'
 
 /** One helper/Core lifetime. Caller must complete legacy migration before calling. */
 export async function startResidentSession(options: {
   helper: string; recoveryDirectory: string; dataDir: string; core: string; server: string; log: string; signal?: AbortSignal
+  /** Native reservation holds ownership through evidence checks, replay and Core lifetime. */
+  authorize?: AuthorizeResident
+  initialEndpoints?: readonly string[]
 }) {
   options.signal?.throwIfAborted()
+  if (!options.authorize) throw new Error('Resident requires native reservation and migration authorization')
   const helper = await prepareRecoveryHelper(options.helper, options.recoveryDirectory)
   const journal = join(options.recoveryDirectory, 'recovery.bin')
   options.signal?.throwIfAborted()
-  await recoverResident(helper, journal, options.log)
-  options.signal?.throwIfAborted()
-  const child = spawn(helper, ['serve', '--core', options.core, '--data', options.dataDir,
-    '--recovery', journal, '--expected-server', options.server, '--log', options.log],
+  const child = spawn(helper, ['reserve', '--core', options.core, '--data', options.dataDir,
+    '--expected-server', options.server, '--log', options.log,
+    ...(options.initialEndpoints ?? []).flatMap(server => ['--initial-server', server])],
   { windowsHide: true, detached: true, stdio: 'pipe' })
-  const client = residentClient(child)
+  const client = residentClient(child, 10_000, options.authorize)
   let closing: Promise<void> | undefined
   function close(): Promise<void> {
     if (closing) return closing

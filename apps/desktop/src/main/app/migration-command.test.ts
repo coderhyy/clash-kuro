@@ -37,6 +37,8 @@ test.each([
   ['--proxy-migration=prepare', '--backup-directory=relative', endpoint],
   ['--proxy-migration=prepare', '--backup-directory=\\\\server\\share\\backup', endpoint],
   ['--proxy-migration=prepare', '--backup-directory=//server/share/backup', endpoint],
+  ['--proxy-migration=prepare', '--backup-directory=/\\server\\share\\backup', endpoint],
+  ['--proxy-migration=prepare', '--backup-directory=\\/server/share/backup', endpoint],
   ['--proxy-migration=prepare', backupArg, '--expected-server=localhost:7890'],
   ['--proxy-migration=prepare', backupArg, '--expected-server=127.0.0.1:0'],
   ['--proxy-migration=prepare', backupArg, '--expected-server=127.0.0.1:65536'],
@@ -73,8 +75,12 @@ async function fixture() {
   for (const path of [dataDir, installationRoot, repoRoot]) await mkdir(path)
   const helperPath = join(installationRoot, 'kuro-sysproxy.exe'), backupDirectory = join(root, 'backup')
   const marker = join(dataDir, 'proxy-migration.json'), collectorPath = join(installationRoot, 'collector.ps1')
+  const appPath = join(installationRoot, 'app.asar')
   await writeFile(helperPath, 'non-executable fixture bytes')
-  const state = { cleared: false, restarted: false }
+  await writeFile(collectorPath, 'non-executable collector fixture bytes')
+  await writeFile(appPath, 'non-executable packaged app fixture bytes')
+  const command = `"${helperPath}" clear --expected-server 127.0.0.1:7890`
+  const state = { restarted: false }
   const faults: { collect?: (value: BootEvidence) => void; exec?: string } = {}
   const collect = vi.fn(async (checkpoint?: number) => {
     const value = evidence(state.restarted ? 3 : collect.mock.calls.length, checkpoint)
@@ -101,18 +107,16 @@ async function fixture() {
         ...(state.restarted ? ['-CheckpointRecord', '105'] : [])])
       return { stdout: JSON.stringify(await collect(state.restarted ? 105 : undefined)), stderr: '' }
     }
-    if (file === 'powershell.exe') {
-      expect(args.slice(0, 3)).toEqual(['-NoProfile', '-NonInteractive', '-EncodedCommand'])
-      const script = Buffer.from(args[3]!, 'base64').toString('utf16le')
-      expect(script).toContain('MoveFileEx')
-      const encoded = /FromBase64String\('([A-Za-z0-9+/=]+)'\)/.exec(script)![1]!
-      const move = JSON.parse(Buffer.from(encoded, 'base64').toString()) as { source: string; destination: string; flags: number }
+    if (file === helperPath && args[0] === 'publish-migration') {
+      expect(args.filter((_, index) => index % 2 === 1)).toEqual(['--source', '--destination', '--replace'])
+      expect(['yes', 'no']).toContain(args[6])
+      const move = { source: args[2]!, destination: args[4]!, flags: args[6] === 'yes' ? 9 : 8 }
       inside(move.source); inside(move.destination)
       expect([8, 9]).toContain(move.flags)
       if (move.flags === 8) await expect(lstat(move.destination)).rejects.toMatchObject({ code: 'ENOENT' })
       else expect(move.destination).toBe(marker)
       await rename(move.source, move.destination)
-      return { stdout: '', stderr: '' }
+      return { stdout: JSON.stringify({ command: 'publish-migration', ok: true, errorCode: 0 }), stderr: '' }
     }
     expect(JSON.parse(await readFile(marker, 'utf8')).state).toBe('preparing')
     if (file === 'reg.exe') {
@@ -126,28 +130,25 @@ async function fixture() {
     if (args[0] === 'get') {
       expect(args).toEqual(['get'])
       return { stdout: JSON.stringify({ ok: true, command: 'get', connections: [{ name: null,
-        flags: state.cleared ? 1 : 3, proxyServer: '127.0.0.1:7890', bypass: null, autoConfigUrl: null }] }), stderr: '' }
+        flags: 3, proxyServer: '127.0.0.1:7890', bypass: null, autoConfigUrl: null }] }), stderr: '' }
     }
-    expect(args).toEqual(['clear', '--expected-server', '127.0.0.1:7890'])
-    state.cleared = true
-    return { stdout: JSON.stringify({ ok: true, command: 'clear', runOnce: 'deleted',
-      connections: [{ name: null, status: 'cleared' }] }), stderr: '' }
+    throw new Error(`Unexpected helper command: ${args[0]}`)
   })
   const options: MigrationCommandOptions = { args: ['--proxy-migration=prepare', `--backup-directory=${backupDirectory}`, endpoint],
-    dataDir, helperPath, collectorPath, installationRoot, repoRoot, exec, collect }
+    dataDir, helperPath, collectorPath, appPath, installationRoot, repoRoot, exec, collect }
   const prepare = () => runMigrationCommand(options)
   const check = () => {
     state.restarted = true
     return runMigrationCommand({ ...options, args: checkArgs })
   }
   const receipt = async () => JSON.parse(await readFile(marker, 'utf8')) as PreparedMigrationReceipt
-  return { root, options, marker, backupDirectory, state, faults, exec, collect, prepare, check, receipt }
+  return { root, options, marker, backupDirectory, command, state, faults, exec, collect, prepare, check, receipt }
 }
 
 test('no command is not handled without touching disk or running anything', async () => {
   const exec = vi.fn(), collect = vi.fn()
   expect(await runMigrationCommand({ args: ['electron', 'app'], dataDir: 'missing', helperPath: 'missing',
-    collectorPath: 'missing', installationRoot: 'missing', exec, collect })).toEqual({ handled: false })
+    collectorPath: 'missing', appPath: 'missing', installationRoot: 'missing', exec, collect })).toEqual({ handled: false })
   expect(exec).not.toHaveBeenCalled(); expect(collect).not.toHaveBeenCalled()
 })
 
@@ -191,7 +192,14 @@ test('canonical installation sibling is allowed; preparation excludes only curre
   expect(receipt.before.knownWriters).toEqual([])
   expect(f.collect.mock.results.length).toBe(3)
   expect((await f.collect.mock.results[0]!.value).knownWriters).toEqual([{ pid: process.pid, name: 'Clash Kuro' }])
-  expect(f.exec.mock.calls.some(([file, args]) => file === f.options.helperPath && args[0] === 'clear')).toBe(true)
+  expect(f.exec.mock.calls.some(([, args]) => ['clear', 'set', 'import', 'recover', 'retire-legacy-runonce', 'delete'].includes(args[0]!))).toBe(false)
+  if (result.handled) {
+    expect(result.message).toContain('Proxy settings remain unchanged')
+    expect(result.message).toContain('initial native cleanup NOT verified')
+    expect(result.message).toContain('absence observed only')
+    expect(result.message).toContain('No registration was retired')
+    expect(result.message).toContain('initial admission remains denied')
+  }
 })
 
 test.each(['Clash Kuro', 'kuro-sysproxy', 'mihomo', 'a'.repeat(64)])(
@@ -201,9 +209,17 @@ test.each(['Clash Kuro', 'kuro-sysproxy', 'mihomo', 'a'.repeat(64)])(
     await expect(f.prepare()).rejects.toThrow('Known proxy writer')
     expect(JSON.parse(await readFile(f.marker, 'utf8')).state).toBe('preparing')
     expect(f.exec.mock.calls).toHaveLength(1)
-    expect(f.exec.mock.calls[0]![0]).toBe('powershell.exe')
-    expect(f.state.cleared).toBe(false)
+    expect(f.exec.mock.calls[0]![1][0]).toBe('publish-migration')
   })
+
+test('coordinator exclusion cannot waive an existing legacy registration or request its deletion', async () => {
+  const f = await fixture()
+  f.faults.collect = value => { value.legacyRunOnce = f.command }
+  await expect(f.prepare()).rejects.toThrow('Legacy RunOnce registration exists')
+  expect(f.exec.mock.calls.map(([, args]) => args[0])).toEqual(['publish-migration'])
+  expect(JSON.parse(await readFile(f.marker, 'utf8')).state).toBe('preparing')
+  await expect(lstat(f.backupDirectory)).rejects.toMatchObject({ code: 'ENOENT' })
+})
 
 test('existing marker is preserved without collection or execution', async () => {
   const f = await fixture(), original = '{"state":"preparing","retain":"evidence"}'
@@ -219,22 +235,20 @@ test('preparation failure leaves its marker and backup without automatic restora
   await expect(f.prepare()).rejects.toThrow('fake execution failure')
   expect(JSON.parse(await readFile(f.marker, 'utf8')).state).toBe('preparing')
   expect(await readFile(join(f.backupDirectory, 'current-helper.exe'), 'utf8')).toBe('non-executable fixture bytes')
-  expect(f.exec.mock.calls.filter(([file]) => file === f.options.helperPath).map(([, args]) => args)).toEqual([['get']])
+  expect(f.exec.mock.calls.filter(([file, args]) => file === f.options.helperPath && args[0] !== 'publish-migration').map(([, args]) => args)).toEqual([['get']])
   expect(f.exec.mock.calls.some(([file, args]) => file === 'reg.exe' && args[0] === 'import')).toBe(false)
-  expect(f.state.cleared).toBe(false)
 })
 
-test('failure after clear retains evidence and does not replay or restore proxy settings', async () => {
+test('failure during final capture retains evidence without touching registrations or restoring proxy settings', async () => {
   const f = await fixture()
   f.faults.collect = value => {
-    if (f.state.cleared) value.nativeRunOnce = 'unexpected registration'
+    if (f.collect.mock.calls.length === 3) value.nativeRunOnce = 'unexpected registration'
   }
   await expect(f.prepare()).rejects.toThrow('Native recovery registration')
-  expect(f.state.cleared).toBe(true)
   expect(JSON.parse(await readFile(f.marker, 'utf8')).state).toBe('preparing')
-  expect(JSON.parse(await readFile(join(f.backupDirectory, 'after-get.json'), 'utf8')).connections[0].flags).toBe(1)
-  expect(f.exec.mock.calls.filter(([file]) => file === f.options.helperPath).map(([, args]) => args))
-    .toEqual([['get'], ['get'], ['clear', '--expected-server', '127.0.0.1:7890'], ['get']])
+  expect(JSON.parse(await readFile(join(f.backupDirectory, 'after-get.json'), 'utf8')).connections[0].flags).toBe(3)
+  expect(f.exec.mock.calls.filter(([file, args]) => file === f.options.helperPath && args[0] !== 'publish-migration').map(([, args]) => args))
+    .toEqual([['get'], ['get'], ['get']])
   expect(f.exec.mock.calls.filter(([file]) => file === 'reg.exe').map(([, args]) => args[0])).toEqual(['export'])
 })
 
@@ -274,11 +288,12 @@ test('default collection uses injected exec for read-only collector and excludes
     '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', f.options.collectorPath, '-CheckpointRecord', '105'])
 })
 
-test.each(['helper', 'manifest', 'backup', 'marker'])(
+test.each(['helper', 'collector', 'app', 'manifest', 'backup', 'marker'])(
   'tampered %s fails check before collection and preserves marker without execution', async target => {
     const f = await fixture()
     await f.prepare()
-    const path = target === 'helper' ? f.options.helperPath : target === 'manifest' ? join(f.backupDirectory, 'manifest.json')
+    const path = target === 'helper' ? f.options.helperPath : target === 'collector' ? f.options.collectorPath
+      : target === 'app' ? f.options.appPath : target === 'manifest' ? join(f.backupDirectory, 'manifest.json')
       : target === 'backup' ? join(f.backupDirectory, 'after-get.json') : f.marker
     await writeFile(path, 'corrupt evidence')
     const marker = await readFile(f.marker)
@@ -329,14 +344,15 @@ test('collector failure during check preserves marker and backups without recove
   expect(await readFile(join(f.backupDirectory, 'manifest.json'))).toEqual(manifest)
 })
 
-test.each(['helper', 'marker', 'backup'])('check rehashes %s after the slow collector returns', async target => {
+test.each(['helper', 'collector', 'app', 'marker', 'backup'])('check rehashes %s after the slow collector returns', async target => {
   const f = await fixture()
   await f.prepare()
   f.state.restarted = true
   f.exec.mockClear()
   const collect = async (checkpoint?: number) => {
     const value = await f.collect(checkpoint)
-    await writeFile(target === 'helper' ? f.options.helperPath : target === 'marker' ? f.marker
+    await writeFile(target === 'helper' ? f.options.helperPath : target === 'collector' ? f.options.collectorPath
+      : target === 'app' ? f.options.appPath : target === 'marker' ? f.marker
       : join(f.backupDirectory, 'before-get.json'), 'changed during collection')
     return value
   }

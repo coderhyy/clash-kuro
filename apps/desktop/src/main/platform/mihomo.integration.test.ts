@@ -1,9 +1,10 @@
 import { existsSync } from 'node:fs'
 import { spawn } from 'node:child_process'
-import { chmod, copyFile, lstat, mkdtemp, realpath, rm } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { chmod, copyFile, lstat, mkdtemp, readFile, realpath, rm } from 'node:fs/promises'
 import { createServer as createHttpServer, request } from 'node:http'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { isAbsolute, join, relative, sep } from 'node:path'
 import { expect, test } from 'vitest'
 import { createDesktopPlatform, createResumeHandler, createSocketTransport } from './index'
 import { startResidentSession } from './resident-session'
@@ -27,10 +28,22 @@ test.skipIf(!existsSync(corePath) && process.env.KURO_REQUIRE_CORE !== '1')('bun
   }
   const fakeResident = process.env.KURO_RESIDENT_FAKE
   let nativeOwner: Awaited<ReturnType<typeof startResidentSession>> | undefined
+  let recoveryDirectory: string | undefined
+  let nativeAdmissions = 0
+  const receiptDigest = '1'.repeat(64), evidenceDigest = '2'.repeat(64)
   if (fakeResident) {
     expect(process.platform).toBe('win32')
-    expect(fakeResident).toBe(join(import.meta.dirname, '../../../../../.scratch/mvp/prototypes/prestarted-helper-deadline/out/resident-fake.exe'))
+    expect(fakeResident).toBe(join(import.meta.dirname, '../../../../../.scratch/mvp/prototypes/prestarted-helper-deadline/out/admission-fake.exe'))
     expect(existsSync(fakeResident)).toBe(true)
+    const root = process.env.KURO_ADMISSION_TEST_ROOT
+    if (!root || !isAbsolute(root)) throw new Error('Native v2 fixture requires a private absolute temp recovery root')
+    recoveryDirectory = await realpath(root)
+    expect(recoveryDirectory.toLowerCase()).toBe(root.toLowerCase())
+    const child = relative(await realpath(tmpdir()), recoveryDirectory)
+    expect(child).toContain('kuro-admission-')
+    expect(child && child !== '..' && !child.startsWith(`..${sep}`) && !isAbsolute(child)).toBeTruthy()
+    expect(process.env.KURO_ADMISSION_TEST_NAMESPACE).toMatch(/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/)
+    expect(process.env.KURO_ADMISSION_TEST_MODE ?? '').toBe('')
   }
   let coreOutput = ''
   const platform = createDesktopPlatform({ dataDir, corePath: testCorePath, mixedPort,
@@ -42,7 +55,20 @@ test.skipIf(!existsSync(corePath) && process.env.KURO_REQUIRE_CORE !== '1')('bun
       return child
     },
     ...(fakeResident ? { sysproxyHelperPath: fakeResident, startResident: async (options: Parameters<typeof startResidentSession>[0]) => {
-      nativeOwner = await startResidentSession(options)
+      nativeOwner = await startResidentSession({ ...options, recoveryDirectory: recoveryDirectory!,
+        // Test-only policy: exercise the real native challenge/Core lifetime, not controlled Restart evidence.
+        authorize: async held => {
+          expect(held.pid).toBeGreaterThan(0)
+          expect(held.pid).not.toBe(process.pid)
+          expect(held.nonce).toMatch(/^[a-f0-9]{64}$/)
+          expect(held.journalDigest).toMatch(/^[a-f0-9]{64}$/)
+          expect(held.priorEndpoints).toEqual([])
+          expect(held.admissionReceiptDigest).toBe(nativeAdmissions === 0 ? null : receiptDigest)
+          expect(held.helperDigest).toBe(createHash('sha256').update(await readFile(fakeResident)).digest('hex'))
+          nativeAdmissions++
+          return { receiptDigest, evidenceDigest }
+        },
+      })
       return nativeOwner
     } } : {}),
   })
@@ -126,6 +152,7 @@ test.skipIf(!existsSync(corePath) && process.env.KURO_REQUIRE_CORE !== '1')('bun
     await Promise.all([stream('/traffic', ['up', 'down']), stream('/logs?level=info', ['type', 'payload'])])
     expect(originResponses, 'Restarted Core must return a new local origin response').toBeGreaterThan(previousResponses)
     if (fakeResident) {
+      expect(nativeAdmissions).toBe(2)
       // Test-entry trigger only: model native completion preceding Electron's shutdown callback.
       await nativeOwner!.close()
       expect(await platform.isCoreRunning()).toBe(false)

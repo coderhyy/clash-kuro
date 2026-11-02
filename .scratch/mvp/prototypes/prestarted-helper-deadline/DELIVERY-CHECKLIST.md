@@ -1,5 +1,28 @@
 # Prestarted user helper: delivery, controlled migration and recovery
 
+## Current hold: 2026-11-03
+
+The material below is historical audit context, not current executable steps.
+First resident admission is now explicitly denied, even with the controlled
+Restart flag. Capture requires legacy registration absence and never deletes
+RunOnce or changes proxy settings. A successful read-only check does not permit
+activation. Do not restart or use an intermediate artifact for session tests.
+
+Local transactional exact retirement failed with ERROR_RM_NOT_ACTIVE (6801).
+Ordinary compare/delete is not a safe replacement. RunOnce absence/process
+snapshots leave a consumed-before-launch gap. A deny-only replacement at each
+explicitly inventoried old helper entry point is a candidate, not implemented
+or accepted: it would require user-operated reversible file replacement,
+verified deployment identities and permissions, a controlled Restart, and a
+human prerequisite prohibiting unlisted copies/updaters/relaunch. Hashes can
+verify listed paths, not prove that no other copy exists. Restoring old bytes
+while resident or a delayed launch may exist is not a safe automatic rollback.
+
+No actual proxy/RunOnce changes, old-binary replacement or Restart have occurred.
+See CORE-FAILURE.md for retained failures and separately scoped validation.
+
+## Historical initial audit
+
 2026-11-02. Direction3 documentation and read-only constraint audit.
 
 **Disposition: HOLD for migration delivery and user session testing.** This is an

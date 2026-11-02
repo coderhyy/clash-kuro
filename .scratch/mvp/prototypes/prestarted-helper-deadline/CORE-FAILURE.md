@@ -405,3 +405,164 @@ or OS networking hard real-time, or establish an atomic reservation handoff.
   no caller may manufacture `priorRecovery: verified` just to enter replay.
   Native same-owner reservation/replay and durable provenance integration are
   still required. No new Restart/session instructions or activation granted.
+
+### CI 41475913891 retained failure, not acceptance
+
+Windows failed on `42254bf`: 422 tests passed, 1 failed, 1 skipped. The actual
+write-through publication fixture's PowerShell child was terminated at its
+existing 10s subprocess limit (10084ms observed). Raw job125381303097 log is
+`out/ci-41475913891-windows-failed.log`. The log does not localize time between
+process initialization, Add-Type compilation and MoveFileEx; do not claim that
+one particular substage was proven to hang. No blind rerun or timeout increase.
+
+The implementation unnecessarily spawned PowerShell and compiled a C# P/Invoke
+wrapper for every publication. Reuse the already compiled helper instead:
+`publish-migration` performs the same local same-directory MoveFileExW
+WRITE_THROUGH operation, validates no-replace/replace and returns checked JSON.
+It has no proxy/RunOnce API calls. Temporary source bytes still flush before
+publication, and result readback remains required. Real private-file integration
+now covers missing source, no-replace preservation, replacement, invalid paths,
+directory denial and retained source after denial. The old fixture's safety
+assertion (stop before collection/registry/proxy operations) remains, now through
+the native publisher. Focused 168/168 and all native unit tests passed locally;
+new integrated run/CI still required.
+
+The same review found Windows full-suite CI was missing the live read-only
+boot-evidence opt-in; it had mistakenly been set only on macOS's Core step.
+Windows now explicitly sets it. Earlier green CI therefore did not run this
+particular live Windows collector test (local integrated runs did); no skipped
+probe is claimed as live evidence.
+
+### Protocol fixture bootstrap/order failure, 2026-11-03 00:34 local
+
+Focused admission/startup/session suite: 82 passed, 1 failed. The premature-ready
+case expected `Unexpected` but got `Resident helper request timed out; state
+unknown`; 641ms observed against a 500ms protocol fixture timer. This is not a
+successful ordering test and not a real Core or WinINet result. The fixture
+started that timer before launching/initializing its unrelated Node interpreter,
+so process bootstrap competed with the intended protocol fault. The log alone
+does not isolate OS scheduling versus interpreter initialization time.
+
+The fake child now explicitly acknowledges bootstrap before the protocol client
+is attached; only then a one-byte test trigger sends the out-of-order frames.
+The protocol timer remains 500ms, the whole-fixture watchdog remains 4000ms,
+and production startup/cleanup budgets are unchanged. A bootstrap rescue still
+fails; native/process integration tests remain necessary and are not replaced
+by this unit fixture. No retry or broadened assertion substitutes for the fault.
+
+### Exact legacy registration retirement is unsupported locally (2026-11-03)
+
+A standalone HKCU private-key experiment attempted transactional compare/delete
+with CreateTransaction and RegOpenKeyTransactedW. The mismatch case failed before
+the expected comparison result: error 6801 (ERROR_RM_NOT_ACTIVE). Diagnostic
+reproduction printed `mismatch result=6801`; both assertion exits were failures
+(3221226505), not acceptance or watchdog rescue. This establishes failure on this
+machine, not that all Windows installations lack registry transactions.
+
+The rejected sources are retained as native/migration-retirement.h and
+native/migration-retirement.test.c, outside shipping sources and build inputs.
+No KtmW32 dependency is added to production. Exact private keys from the two
+failed test processes (29380 and 12584) were removed after verifying that they
+contained only the fixture's Owned/Other values and no subkeys. Actual RunOnce
+and proxy settings were not written. An error-checked read found the actual
+legacy value absent; absence is not proof of execution exclusion.
+
+No ordinary query-then-delete fallback is permitted. Windows can consume a
+RunOnce value before starting its executable; a missing value and an empty
+process snapshot cannot exclude that pending launch. Preparation is being
+narrowed to absence-only capture. First resident admission now explicitly
+rejects even a controlled-Restart confirmation, pending a proven legacy launch
+boundary. Native fake admission remains an isolated coordination test, not a
+shipping activation permission. Possible migration alternatives require fencing
+the actual old executable entry points or an offline maintenance boundary;
+neither has been performed or accepted as complete.
+
+Independent current-source validation: native unit build passed and protocol-2
+fake resident plus real Core Platform passed 1/1, with evidence in
+out/resident-platform-1793639307088. This is not a final full-suite/CI result.
+
+### Integrated failures and caller migration, 2026-11-03 01:20 local
+
+The uncached workspace run failed: 7/8 tasks, desktop 585 passed / 2 failed.
+Raw output remains out/integration-20261103-hold.log. The failures were TCP
+EADDRINUSE on fixture port 10573 and the resident-client malformed-channel
+fixture timing out during its initial ready wait. Neither is a passing test;
+they are not the earlier UDP-excluded mixed-port failure. Dedicated fixes and
+a new integrated run are required, with deadlines/assertions retained.
+
+The legacy engine regression also exposed an unmigrated production-wrapper
+caller: `Resident requires native reservation and migration authorization`.
+Failed watchdog evidence is out/resident-1793640366490/normal/supervisor.json.
+Keep the legacy fake engine cases, but run the normal wrapper/abort assertions
+through the protocol-2 admission fake with private root/namespace and explicit
+fake commitments. The v2 journal keeps its 480-byte provenance header after
+endpoint removal; it is no longer a zero-byte legacy journal. No production
+authorization bypass or retired shipping command is restored for this test.
+
+Electron 45.1.0 Node-mode read-only smoke verification of the raw archive hashing
+module matched Node's SHA256 for the historical cf54ea5 archive:
+ebcd282f2b36e9bae86af571f4d093b23209239e6410c52ae0c3d9847f3b2941.
+This exercised original-fs without Kuro startup, Core or proxy calls; it does
+not make that historical archive a final delivery candidate.
+
+The TCP investigation did not establish a specific Windows TIME_WAIT state.
+Removing the extra fixture probe still reproduced EADDRINUSE, so it was not
+just that fixture connection. A tighter production-readiness regression then
+failed deterministically at 01:42:55: `readiness must receive peer FIN before
+reporting success: expected false to be true`. The shared readiness function
+destroyed its socket and resolved immediately on the SOCKS greeting, before
+establishing peer teardown.
+
+The shared direct/resident readiness path now sends FIN, keeps its existing
+250ms/overall deadline through teardown, and succeeds only after peer EOF and
+local close. A greeting without peer FIN must time out rather than report
+readiness. No timeout increase, port change, skipped assertion or retry was
+used. Platform focused suite passed 34/34; real Core through protocol-2 fake
+resident passed 1/1 at out/resident-platform-1793641494285. Actual occupation or
+an intervening writer can still correctly deny a port; no kernel-state cause
+is claimed beyond the observed ordering defect.
+
+The client fault fixture now separates Node bootstrap from its unchanged 500ms
+protocol budget and asserts the specific malformed-response failure. Its
+delayed-bootstrap regression reproduced the old timeout and passed after the
+fix; focused client/admission passed 31/31. Legacy engine plus v2 wrapper/abort
+regressions passed 8/8 at out/resident-1793640480306, without external rescue or
+leftover children. These focused results do not replace the integrated rerun.
+
+### Owned Core close ordering: failure retained, integrated correction
+
+The next full run still failed (589 passed / 1 failed): port 30617 remained
+unavailable immediately after stop, despite completed probe FIN/close. Raw
+output is out/integration-20261103-hold-final.log; the filename is not a success
+claim. Thus fixing probe teardown alone was insufficient.
+
+A bounded diagnostic stopped on its first failure, not on eventual success:
+out/probe-close-diagnostic.log, 01:57:11. After stopCore returned, port 44501
+failed bind while the tracked Core PID 7648 still had exitCode=null,
+signalCode=null, coreClosed=false, stdoutClosed=false and stderrClosed=false.
+Netstat subsequently showed client-side 64145 -> 44501 TIME_WAIT, not a proven
+server-side TIME_WAIT explanation. The defect was declaring owned teardown
+complete from PID liveness polling before the owned child's close event.
+
+Owned termination now signals the actual ChildProcess handle and awaits its
+close promise, registered at spawn. Existing TERM/KILL phase limits are unchanged;
+unacknowledged teardown fails and closes restart/proxy-write admission. Orphan
+fingerprint handling is not silently generalized to owned-child completion.
+The regression asserts probe EOF/close, owned close and immediate rebind. A
+separate withheld-close fault asserts bounded failure and denied restart/set.
+
+Final uncached integrated run at 02:02 local passed all 8 workspace tasks:
+desktop 591/591, 32 files, zero skips; core 89/89, api 12/12, state 36/36.
+Typechecks, real Core integration and the actual read-only boot/checkpoint probe
+ran. Raw output: out/integration-20261103-owned-close.log. Latest native private
+admission suite passed 65/65 with watchdog reports copied into out/admission-native.
+These are current local results; Windows CI and final archive verification are
+still distinct, and initial resident admission remains intentionally denied.
+
+Rebuilt post-fix native fixtures then passed 8/8 (out/resident-1793642767494)
+and real Core/Platform 1/1 (out/resident-platform-1793642786457), with no external
+rescue or remaining processes. The real-WinINet carrier compiled warning-clean;
+its local parser/restoration guards and read-only get passed. No local exercise,
+set, clear, restore, RunOnce mutation or session event was performed. Fixture
+TEMP paths normalize Windows short-name spelling without relaxing the production
+canonical-path rejection policy.

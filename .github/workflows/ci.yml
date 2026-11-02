@@ -79,6 +79,7 @@ jobs:
         working-directory: apps/desktop
         env:
           KURO_REQUIRE_CORE: '1'
+          KURO_READ_ONLY_BOOT_EVIDENCE: '1'
         run: bun run test
       - name: Isolated helper coordination and rescue controls (fake operations only)
         shell: pwsh
@@ -92,6 +93,8 @@ jobs:
           node .scratch/mvp/prototypes/prestarted-helper-deadline/test.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node .scratch/mvp/prototypes/prestarted-helper-deadline/resident-test.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node .scratch/mvp/prototypes/prestarted-helper-deadline/native/admission-test.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node .scratch/mvp/prototypes/prestarted-helper-deadline/platform-test.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -107,6 +110,7 @@ jobs:
             .scratch/mvp/prototypes/prestarted-helper-deadline/out/runs/*/results.json
             .scratch/mvp/prototypes/prestarted-helper-deadline/out/resident-*/**/*.json
             .scratch/mvp/prototypes/prestarted-helper-deadline/out/resident-*/**/*.log
+            .scratch/mvp/prototypes/prestarted-helper-deadline/out/admission-native/**/*.json
           include-hidden-files: true
           if-no-files-found: warn
           retention-days: 7

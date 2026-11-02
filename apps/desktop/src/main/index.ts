@@ -13,6 +13,7 @@ import { installGeoData } from './app/geo'
 import { watchSessionEnd } from './app/session-end'
 import { guardMigrationStartup } from './app/migration-startup'
 import { runMigrationCommand } from './app/migration-command'
+import { prepareResidentStartup } from './app/resident-startup'
 import { IPC, type BackupResult, type StreamKind } from './ipc-channels'
 import { trayIcon } from './tray-icon'
 import { t } from '../shared/i18n'
@@ -22,7 +23,7 @@ const RELEASE_REPO = process.env.KURO_RELEASE_REPO ?? 'coderhyy/clash-kuro'
 const SHUTDOWN_TIMEOUT_MS = 3_000
 // Hard limit for the synchronous helper run inside a session-end handler; the helper is killed after this.
 const SESSION_END_CLEAR_TIMEOUT_MS = 1_500
-const migrationRequested = process.argv.some(arg => /^--(?:proxy-migration|backup-directory|expected-server|confirm-controlled-restart)/.test(arg))
+const migrationRequested = process.argv.some(arg => /^--(?:proxy-migration|backup-directory|expected-server|confirm-controlled-restart|experimental-resident)/.test(arg))
 
 if (!app.requestSingleInstanceLock()) {
   if (migrationRequested) {
@@ -48,21 +49,27 @@ async function main(): Promise<void> {
     ? app.isPackaged ? join(process.resourcesPath, 'bin', 'kuro-sysproxy.exe') : join(app.getAppPath(), 'resources', 'win', 'x64', 'kuro-sysproxy.exe')
     : undefined
   const dataDir = join(app.getPath('userData'), 'data')
+  let startResident: Awaited<ReturnType<typeof prepareResidentStartup>>
   try {
     if (migrationRequested && !sysproxyHelperPath) throw new Error('System Proxy migration requires Windows')
     if (sysproxyHelperPath) {
-      const result = await runMigrationCommand({ args: process.argv, dataDir, helperPath: sysproxyHelperPath,
-        collectorPath: app.isPackaged ? join(process.resourcesPath, 'bin', 'collect-migration-evidence.ps1')
-          : join(app.getAppPath(), 'scripts', 'collect-migration-evidence.ps1'),
-        installationRoot: dirname(process.execPath),
-        ...(app.isPackaged ? {} : { repoRoot: resolve(app.getAppPath(), '../..') }) })
-      if (result.handled) {
-        console.log(JSON.stringify(result))
-        app.exit(0)
-        return
+      const collectorPath = app.isPackaged ? join(process.resourcesPath, 'bin', 'collect-migration-evidence.ps1')
+        : join(app.getAppPath(), 'scripts', 'collect-migration-evidence.ps1')
+      const appPath = app.isPackaged ? join(process.resourcesPath, 'app.asar') : undefined
+      startResident = await prepareResidentStartup({ args: process.argv, dataDir, helperPath: sysproxyHelperPath, collectorPath, appPath })
+      if (!startResident && migrationRequested) {
+        if (!appPath) throw new Error('Migration requires a packaged, hash-bound app')
+        const result = await runMigrationCommand({ args: process.argv, dataDir, helperPath: sysproxyHelperPath, collectorPath, appPath,
+          installationRoot: dirname(process.execPath),
+          ...(app.isPackaged ? {} : { repoRoot: resolve(app.getAppPath(), '../..') }) })
+        if (result.handled) {
+          console.log(JSON.stringify(result))
+          app.exit(0)
+          return
+        }
       }
     }
-    await guardMigrationStartup(dataDir)
+    if (!startResident) await guardMigrationStartup(dataDir, { helper: sysproxyHelperPath })
   }
   catch (error) {
     const message = error instanceof Error ? error.message : String(error)
@@ -75,7 +82,7 @@ async function main(): Promise<void> {
 
   let store: AppStore | undefined
   const platform = createDesktopPlatform({
-    dataDir, corePath, sysproxyHelperPath, userAgent, powerMonitor, loginItemApp: app,
+    dataDir, corePath, sysproxyHelperPath, userAgent, powerMonitor, loginItemApp: app, startResident,
     mixedPort: () => store?.store.getState().settings.mixedPort ?? 7890
   })
   const client = createMihomoClient(createSocketTransport(() => platform.controlChannel()))
@@ -83,7 +90,7 @@ async function main(): Promise<void> {
 
   await installGeoData(geoDir, dataDir)
   // A fresh process has no Core yet, so any System Proxy still pointing at our port is stale.
-  try {
+  if (!startResident) try {
     const saved = JSON.parse((await platform.readFile('settings.json')) ?? '{}') as { settings?: { mixedPort?: number } }
     await platform.cleanupStaleSystemProxy(saved.settings?.mixedPort ?? 7890)
   } catch (error) { console.warn('Stale System Proxy cleanup failed:', error) }

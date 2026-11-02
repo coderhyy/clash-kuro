@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process'
 import { EventEmitter } from 'node:events'
 import { createSocket } from 'node:dgram'
 import { chmod, lstat, mkdir, mkdtemp, readdir, readFile, rm, symlink } from 'node:fs/promises'
-import { createConnection, createServer } from 'node:net'
+import { createConnection, createServer, Socket } from 'node:net'
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { afterEach, beforeAll, expect, test, vi } from 'vitest'
@@ -39,7 +39,7 @@ async function fixture(extra: Partial<DesktopPlatformOptions> = {}) {
   return { platform, dataDir, exec, mixedPort }
 }
 
-function fakeCore(platform: () => DesktopPlatform, mixedPort: () => number, ignoreTerm = false, listenMixed = true, authMethod = 0): DesktopPlatformOptions['spawn'] {
+function fakeCore(platform: () => DesktopPlatform, mixedPort: () => number, ignoreTerm = false, listenMixed = true, authMethod = 0, holdFin = false): DesktopPlatformOptions['spawn'] {
   return (_file, _args, options) => {
     const channel = platform().controlChannel()
     const path = channel.kind === 'unix' ? channel.path : channel.name
@@ -47,7 +47,7 @@ function fakeCore(platform: () => DesktopPlatform, mixedPort: () => number, igno
       const http = require('node:http');
       ${ignoreTerm ? "process.on('SIGTERM', () => {});" : ''}
       http.createServer((req, res) => res.end('{"version":"fake"}')).listen(${JSON.stringify(path)});
-      ${listenMixed ? `require('node:net').createServer(socket => {
+      ${listenMixed ? `require('node:net').createServer(${holdFin ? '{allowHalfOpen: true}, ' : ''}socket => {
         socket.on('error', error => { if (error.code !== 'ECONNRESET') throw error; });
         socket.once('data', () => socket.write(Buffer.from([5, ${authMethod}])));
       }).listen(${mixedPort()}, '127.0.0.1');` : ''}
@@ -211,6 +211,53 @@ test('startCore checks the latest mixed-port before spawning and never changes i
   } finally { await new Promise<void>((resolve) => server.close(() => resolve())) }
 })
 
+test('production readiness closes its own probe before reporting ready and permits immediate stop/rebind', async () => {
+  let platform: DesktopPlatform
+  let mixedPort: number
+  let probe: Socket | undefined
+  let coreClosed = false
+  const events: string[] = []
+  const destroy = Socket.prototype.destroy
+  vi.spyOn(Socket.prototype, 'destroy').mockImplementation(function (this: Socket, error?: Error) {
+    if (mixedPort !== undefined && this.remotePort === mixedPort && !probe) {
+      probe = this
+      events.push('destroy requested')
+      this.once('close', () => events.push('close emitted'))
+    }
+    return destroy.call(this, error)
+  })
+  const launch = fakeCore(() => platform, () => mixedPort)!
+  const result = await fixture({ spawn: (...args) => {
+    const core = launch(...args)
+    core.once('close', () => { coreClosed = true })
+    return core
+  } })
+  platform = result.platform
+  mixedPort = result.mixedPort
+  await platform.applyRuntimeConfig('mode: direct')
+  await platform.startCore()
+  events.push('startCore resolved')
+  const closedAtReady = probe?.closed
+  expect.soft(probe).toBeDefined()
+  expect.soft(closedAtReady, events.join(' -> ')).toBe(true)
+  expect.soft(probe?.readableEnded, 'readiness must receive peer FIN before reporting success').toBe(true)
+  await platform.stopCore()
+  expect(coreClosed, 'stopCore must await the exact owned child close event').toBe(true)
+  await expect(assertMixedPortAvailable(mixedPort)).resolves.toBeUndefined()
+})
+
+test('greeting without peer FIN cannot escape the existing readiness deadline', async () => {
+  let platform: DesktopPlatform
+  let mixedPort: number
+  const result = await fixture({ spawn: fakeCore(() => platform, () => mixedPort, false, true, 0, true), startTimeoutMs: 500 })
+  platform = result.platform
+  mixedPort = result.mixedPort
+  await platform.applyRuntimeConfig('mode: direct')
+  await expect(platform.startCore()).rejects.toThrow(/readiness timed out.*SOCKS5 greeting or close timed out/s)
+  expect(await platform.isCoreRunning()).toBe(false)
+  expect(await platform.readFile('core.pid')).toBeNull()
+})
+
 test('start waits for readiness, writes pid and chmods socket; concurrent starts share one Core', async () => {
   let platform: DesktopPlatform
   let mixedPort: number
@@ -225,9 +272,13 @@ test('start waits for readiness, writes pid and chmods socket; concurrent starts
   expect(await platform.isCoreRunning()).toBe(true)
   await new Promise<void>((resolve, reject) => {
     const socket = createConnection({ host: '127.0.0.1', port: mixedPort })
-    socket.once('connect', () => socket.destroy())
-    socket.once('close', () => resolve())
+    let peerEnded = false
+    // Local destroy/close does not prove the accepted Windows socket has closed before Core stops.
+    socket.once('connect', () => socket.end())
+    socket.once('end', () => { peerEnded = true })
+    socket.once('close', () => peerEnded ? resolve() : reject(new Error('Mixed probe closed without peer FIN')))
     socket.once('error', reject)
+    socket.resume()
   })
   expect(await platform.readFile('core.pid')).toMatch(/^\d+$/)
   const channel = platform.controlChannel()
@@ -241,6 +292,7 @@ test('start waits for readiness, writes pid and chmods socket; concurrent starts
   await platform.stopCore()
   expect(await platform.isCoreRunning()).toBe(false)
   expect(await platform.readFile('core.pid')).toBeNull()
+  await assertMixedPortAvailable(mixedPort)
   await platform.startCore()
   expect(spawned).toHaveBeenCalledTimes(2)
 })
@@ -248,18 +300,20 @@ test('start waits for readiness, writes pid and chmods socket; concurrent starts
 test('Core that ignores SIGTERM is killed after the grace period', async () => {
   let platform: DesktopPlatform
   let mixedPort: number
-  const result = await fixture({ spawn: fakeCore(() => platform, () => mixedPort, true), stopTimeoutMs: 30 })
+  const spawned = vi.fn(fakeCore(() => platform, () => mixedPort, true)!)
+  const result = await fixture({ spawn: spawned, stopTimeoutMs: 30 })
   platform = result.platform
   mixedPort = result.mixedPort
   await platform.applyRuntimeConfig('mode: direct')
   await platform.startCore()
   const pid = Number(await platform.readFile('core.pid'))
-  const kill = process.kill.bind(process)
+  const owned = spawned.mock.results[0]!.value
+  const kill = owned.kill.bind(owned)
   // Windows SIGTERM is unconditional termination; simulate an ignored first request for this branch test.
-  const signals = process.platform === 'win32' ? vi.spyOn(process, 'kill').mockImplementation((target, signal) =>
-    target === pid && signal === 'SIGTERM' ? true : kill(target, signal)) : undefined
+  const signals = process.platform === 'win32' ? vi.spyOn(owned, 'kill').mockImplementation(signal =>
+    signal === 'SIGTERM' ? true : kill(signal)) : undefined
   await platform.stopCore()
-  if (signals) expect(signals).toHaveBeenCalledWith(pid, 'SIGKILL')
+  if (signals) expect(signals).toHaveBeenCalledWith('SIGKILL')
   expect(() => process.kill(pid, 0)).toThrow()
   expect(await platform.readFile('core.pid')).toBeNull()
 })
@@ -277,6 +331,32 @@ test('failed readiness and failed spawn leave no child or pid', async () => {
   await second.platform.applyRuntimeConfig('mode: direct')
   await expect(second.platform.startCore()).rejects.toThrow('ENOENT')
   expect(await second.platform.readFile('core.pid')).toBeNull()
+})
+
+test('unacknowledged owned Core close times out and forbids restart and proxy writes', async () => {
+  let platform: DesktopPlatform
+  let mixedPort: number
+  let release = () => {}
+  const launch = fakeCore(() => platform, () => mixedPort)!
+  const result = await fixture({ stopTimeoutMs: 30, spawn: (...args) => {
+    const owned = launch(...args)
+    const events: EventEmitter = owned
+    const emit = events.emit.bind(events)
+    vi.spyOn(events, 'emit').mockImplementation((name, ...values) => {
+      if (name === 'close') { release = () => { emit(name, ...values) }; return true }
+      return emit(name, ...values)
+    })
+    return owned
+  } })
+  platform = result.platform
+  mixedPort = result.mixedPort
+  try {
+    await platform.applyRuntimeConfig('mode: direct')
+    await platform.startCore()
+    await expect(platform.stopCore()).rejects.toThrow('Owned Core teardown did not complete')
+    await expect(platform.startCore()).rejects.toThrow('shutting down')
+    await expect(platform.setSystemProxy({ host: '127.0.0.1', port: mixedPort, bypass: [] })).rejects.toThrow('writes are closed')
+  } finally { release() }
 })
 
 test('stale or unrelated pid is removed without sending a signal', async () => {

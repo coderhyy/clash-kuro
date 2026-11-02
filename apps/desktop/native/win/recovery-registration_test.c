@@ -38,9 +38,12 @@ int wmain(void) {
   assert(!kuro_recovery_register(journal));
   _snwprintf(expected, MAX_PATH, L"\"%ls\" recover", exe);
   assert(!wcscmp(saved, expected) && writes == 1);
-  assert(kuro_recovery_register(L"C:\\different\\recovery.bin") == ERROR_INVALID_PARAMETER && writes == 1);
-  mode = 1; assert(kuro_recovery_register(journal) == ERROR_ACCESS_DENIED && writes == 1);
-  mode = 2; assert(kuro_recovery_register(journal) == ERROR_ACCESS_DENIED && writes == 2);
+  assert(!kuro_recovery_register_admitted(exe));
+  _snwprintf(expected, MAX_PATH, L"\"%ls\" recover-admitted", exe);
+  assert(!wcscmp(saved, expected) && writes == 2);
+  assert(kuro_recovery_register(L"C:\\different\\recovery.bin") == ERROR_INVALID_PARAMETER && writes == 2);
+  mode = 1; assert(kuro_recovery_register(journal) == ERROR_ACCESS_DENIED && writes == 2);
+  mode = 2; assert(kuro_recovery_register(journal) == ERROR_ACCESS_DENIED && writes == 3);
   mode = 3; assert(!kuro_recovery_unregister() && !deletes);
   mode = 4; assert(kuro_recovery_unregister() == ERROR_ACCESS_DENIED && deletes == 1);
   mode = 0; assert(!kuro_recovery_unregister() && deletes == 2);

@@ -520,8 +520,54 @@ static int command_main(int argc, wchar_t **argv) {
 }
 
 #include "resident.h"
+#include "migration-files.h"
+#include "resident-owner.h"
 
 int wmain(int argc, wchar_t **argv) {
-  if (argc > 1 && (!wcscmp(argv[1], L"serve") || !wcscmp(argv[1], L"recover"))) return resident_main(argc, argv);
+  if (argc > 1 && !wcscmp(argv[1], L"resident-paths")) {
+    if (argc != 2) return usage(L"resident-paths takes no options");
+    wchar_t root[MAX_PATH], sid[KURO_RESIDENT_OWNER_SID_CHARS];
+    DWORD error = kuro_resident_recovery_root(root, MAX_PATH);
+    if (!error) error = kuro_resident_current_sid(sid, KURO_RESIDENT_OWNER_SID_CHARS);
+    if (error) return usage(L"Native recovery identity or local path unavailable");
+    /* Any retained object/value blocks legacy; discovery never creates the root or RunOnce key. */
+    BOOL retained_state_present = FALSE, recovery_registration_present = FALSE;
+    DWORD attributes = GetFileAttributesW(root);
+    if (attributes != INVALID_FILE_ATTRIBUTES) retained_state_present = TRUE;
+    else {
+      error = GetLastError();
+      if (error != ERROR_FILE_NOT_FOUND && error != ERROR_PATH_NOT_FOUND)
+        return usage(L"Native retained recovery state cannot be inspected");
+    }
+    HKEY key;
+    LSTATUS status = RegOpenKeyExW(HKEY_CURRENT_USER, RUNONCE_KEY, 0, KEY_QUERY_VALUE, &key);
+    if (status == ERROR_SUCCESS) {
+      DWORD bytes = 0;
+      status = RegQueryValueExW(key, KURO_RECOVERY_VALUE, NULL, NULL, NULL, &bytes);
+      LSTATUS closed = RegCloseKey(key);
+      if (closed != ERROR_SUCCESS) return usage(L"Native recovery registration inspection failed");
+      if (status == ERROR_SUCCESS) recovery_registration_present = TRUE;
+      else if (status != ERROR_FILE_NOT_FOUND)
+        return usage(L"Native recovery registration cannot be inspected");
+    } else if (status != ERROR_FILE_NOT_FOUND && status != ERROR_PATH_NOT_FOUND)
+      return usage(L"Native recovery registration key cannot be inspected");
+    Buf result = {0}; puts_(&result, "{\"command\":\"resident-paths\",\"ok\":true,\"recoveryDirectory\":");
+    put_json_string(&result, root); puts_(&result, ",\"userSid\":"); put_json_string(&result, sid);
+    putf(&result, ",\"retainedStatePresent\":%s,\"recoveryRegistrationPresent\":%s",
+      retained_state_present ? "true" : "false", recovery_registration_present ? "true" : "false");
+    puts_(&result, "}"); emit(&result); free(result.data);
+    return 0;
+  }
+  if (argc > 1 && !wcscmp(argv[1], L"publish-migration")) {
+    if (argc != 8 || wcscmp(argv[2], L"--source") || wcscmp(argv[4], L"--destination") ||
+        wcscmp(argv[6], L"--replace") || (wcscmp(argv[7], L"yes") && wcscmp(argv[7], L"no")) ||
+        !kuro_valid_log_path(argv[3]) || !kuro_valid_log_path(argv[5])) return usage(L"Invalid migration publication arguments");
+    DWORD error = kuro_migration_publish(argv[3], argv[5], !wcscmp(argv[7], L"yes"));
+    Buf result = {0};
+    putf(&result, "{\"command\":\"publish-migration\",\"ok\":%s,\"errorCode\":%lu}", error ? "false" : "true", error);
+    emit(&result); free(result.data);
+    return error ? 2 : 0;
+  }
+  if (argc > 1 && (!wcscmp(argv[1], L"reserve") || !wcscmp(argv[1], L"recover-admitted"))) return resident_main(argc, argv);
   return command_main(argc, argv);
 }

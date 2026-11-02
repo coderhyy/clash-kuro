@@ -19,8 +19,10 @@ for (const [source, target] of [['native/helper.c', 'helper'], ['native/watchdog
   execFileSync('gcc', [...common, join(root, source), '-o', join(root, `out/${target}.exe`)], { stdio: 'inherit', timeout: 60000 })
 }
 const imports = execFileSync(process.env.OBJDUMP ?? 'llvm-objdump', ['-p', join(root, 'out/helper.exe')], { encoding: 'utf8', timeout: 10000 })
-execFileSync('gcc', [...common, join(root, 'native/resident_fake.c'), '-lwininet', '-lrasapi32', '-ladvapi32',
+execFileSync('gcc', [...common, join(root, 'native/resident_fake.c'), '-lwininet', '-lrasapi32', '-ladvapi32', '-lshell32', '-lole32', '-luuid',
   '-o', join(root, 'out/resident-fake.exe')], { stdio: 'inherit', timeout: 60000 })
+execFileSync('gcc', [...common, join(root, 'native/admission_fake.c'), '-ladvapi32', '-lshell32', '-lole32', '-luuid',
+  '-o', join(root, 'out/admission-fake.exe')], { stdio: 'inherit', timeout: 60000 })
 if (/DLL Name: (wininet|rasapi|node\.|libgcc|libwinpthread)/i.test(imports)) throw new Error('Unexpected dependency')
 writeFileSync(join(root, 'out/imports.txt'), imports)
 console.log(`Built fake helper/Core and existing external Job watchdog; Electron ${actual}`)

@@ -23,8 +23,17 @@ int main(void) {
   assert(kuro_request_header(header, &kind, &bytes) && kind == 2 && bytes == 0);
   header[0] = 3;
   assert(!kuro_request_header(header, &kind, &bytes));
+  header[4] = 128;
+  assert(kuro_request_header(header, &kind, &bytes) && kind == 3 && bytes == KURO_ADMISSION_BYTES);
+  header[4] = 126;
+  assert(!kuro_request_header(header, &kind, &bytes));
+  header[4] = 130;
+  assert(!kuro_request_header(header, &kind, &bytes));
+  header[4] = 128; header[5] = 1;
+  assert(!kuro_request_header(header, &kind, &bytes));
+  header[5] = 0;
   header[0] = 1; header[6] = 2;
   assert(!kuro_request_header(header, &kind, &bytes));
-  puts("resident protocol: bounded argv and separate close framing passed");
+  puts("resident protocol: bounded argv, close, exact 128-byte admission framing passed");
   return 0;
 }

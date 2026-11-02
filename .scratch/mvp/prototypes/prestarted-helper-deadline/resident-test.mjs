@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { createRequire } from 'node:module'
-import { mkdirSync, readFileSync, writeFileSync, statSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, realpathSync, readFileSync, writeFileSync, statSync } from 'node:fs'
+import { randomUUID } from 'node:crypto'
+import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 const root = dirname(fileURLToPath(import.meta.url))
@@ -171,18 +173,26 @@ if (process.argv[2] === '--child') {
   }
   writeFileSync(join(dir, 'result.json'), JSON.stringify({ mode, pid: child.pid, exit, report, recoveryEvidence }))
   if (mode === 'normal') {
-    const session = await startResidentSession({ helper: exe, recoveryDirectory: join(dir, 'retained'),
+    // The production wrapper now requires v2 admission; keep legacy engine regressions separate.
+    const recoveryDirectory = realpathSync(mkdtempSync(join(tmpdir(), 'kuro-admission-wrapper-')))
+    process.env.KURO_ADMISSION_TEST_ROOT = recoveryDirectory
+    process.env.KURO_ADMISSION_TEST_NAMESPACE = randomUUID()
+    process.env.KURO_ADMISSION_TEST_MODE = ''
+    const authorize = async () => ({ receiptDigest: 'a'.repeat(64), evidenceDigest: 'b'.repeat(64) })
+    const helper = join(out, 'admission-fake.exe')
+    const session = await startResidentSession({ helper, recoveryDirectory, authorize,
       dataDir: dir, core: exe, server: '127.0.0.1:7891', log: join(dir, 'session.json') })
     assert.equal(JSON.parse((await session.request(['set', '--host', '127.0.0.1', '--port', '7891'])).stdout).ok, true)
     const first = session.close()
     assert.equal(session.close(), first)
     await assert.rejects(session.request(['set']))
     await first
-    assert.equal(statSync(session.journal).size, 0)
-    assert.notEqual(session.helper, exe)
-    writeFileSync(join(dir, 'session-result.json'), JSON.stringify({ helper: session.helper, journalEmpty: true, verifiedExit: true }))
+    assert.equal(statSync(session.journal).size, 480, 'v2 retains provenance with zero endpoint records')
+    assert.notEqual(session.helper, helper)
+    writeFileSync(join(dir, 'session-result.json'), JSON.stringify({ helper: session.helper, journalEndpointCount: 0,
+      provenanceRetained: true, verifiedExit: true, admissionPolicy: 'fake, not shipping migration permission' }))
     const abort = new AbortController()
-    const options = { helper: exe, recoveryDirectory: join(dir, 'retained'), dataDir: dir,
+    const options = { helper, recoveryDirectory, authorize, dataDir: dir,
       core: exe, server: '127.0.0.1:7891', log: join(dir, 'abort.json'), signal: abort.signal }
     const aborted = await startResidentSession(options)
     abort.abort()

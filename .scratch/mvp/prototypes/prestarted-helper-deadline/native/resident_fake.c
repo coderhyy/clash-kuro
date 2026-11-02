@@ -111,5 +111,5 @@ int wmain(int argc, wchar_t **argv) {
       !wcscmp(name, L"late-set") ? 2 : !wcscmp(name, L"set-hang") ? 3 : !wcscmp(name, L"register-hang") ? 6 :
       !wcscmp(name, L"late-clear") ? 7 : 0;
   }
-  return helper_entry(argc, argv);
+  return resident_main(argc, argv); /* Legacy engine regression only; shipping CLI rejects these verbs. */
 }

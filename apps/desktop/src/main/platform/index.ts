@@ -79,26 +79,33 @@ async function assertCoreReady(channel: ControlChannel, port: number, deadline: 
   // The API can be ready even when Core failed to bind its mixed listener.
   await new Promise<void>((resolve, reject) => {
     const socket = createConnection({ host: '127.0.0.1', port })
-    const timer = setTimeout(() => socket.destroy(new Error('Mixed listener SOCKS5 greeting timed out')), remaining())
+    const timer = setTimeout(() => socket.destroy(new Error('Mixed listener SOCKS5 greeting or close timed out')), remaining())
     let reply = Buffer.alloc(0)
+    let negotiated = false
+    let failure: Error | undefined
     // Both no-auth and password negotiation prove readiness without credentials or an upstream request.
     socket.once('connect', () => socket.write(Buffer.from([5, 2, 0, 2])))
     socket.on('data', chunk => {
+      if (negotiated) return
       reply = Buffer.concat([reply, chunk]).subarray(0, 2)
       if (reply.length < 2) return
       if (reply[0] !== 5 || (reply[1] !== 0 && reply[1] !== 2)) {
         socket.destroy(new Error('Invalid mixed listener SOCKS5 greeting'))
         return
       }
-      clearTimeout(timer)
-      socket.destroy()
-      resolve()
+      negotiated = true
+      // Local destroy does not establish peer closure before an immediate Core stop/rebind.
+      socket.end()
     })
     socket.once('end', () => { if (reply.length < 2) socket.destroy(new Error('Mixed listener closed before SOCKS5 greeting')) })
     socket.once('error', error => {
+      failure = new Error(`mixed-port 127.0.0.1:${port} is not ready: ${error.message}`, { cause: error })
+    })
+    socket.once('close', () => {
       clearTimeout(timer)
-      socket.destroy()
-      reject(new Error(`mixed-port 127.0.0.1:${port} is not ready: ${error.message}`, { cause: error }))
+      if (failure) reject(failure)
+      else if (!negotiated || !socket.readableEnded) reject(new Error('Mixed listener closed without completing probe teardown'))
+      else resolve()
     })
   })
   if (Date.now() >= deadline) throw new Error('Core mixed-port readiness deadline exceeded')
@@ -160,6 +167,7 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
     channel = { kind: 'unix', path }
   }
   let child: ChildProcess | undefined
+  let childClosed: Promise<void> | undefined
   let queue: Promise<unknown> = Promise.resolve()
   let shuttingDown = false
   let shutdown: Promise<void> | undefined
@@ -286,10 +294,26 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
       })()
       return residentStopping
     }
-    if (child?.pid && child.exitCode === null && child.signalCode === null) {
-      await terminate(child.pid)
+    if (child && childClosed) {
+      const owned = child, closed = childClosed
+      const waitClosed = () => new Promise<boolean>(resolve => {
+        const timer = setTimeout(() => resolve(false), stopTimeoutMs)
+        void closed.then(() => { clearTimeout(timer); resolve(true) })
+      })
+      try {
+        // The owned handle/close event, not PID polling, establishes completed process teardown.
+        if (owned.exitCode === null && owned.signalCode === null) owned.kill('SIGTERM')
+        if (!await waitClosed()) {
+          if (owned.exitCode === null && owned.signalCode === null) owned.kill('SIGKILL')
+          if (!await waitClosed()) throw new Error('Owned Core teardown did not complete after SIGKILL')
+        }
+      } catch (error) {
+        shuttingDown = true
+        throw error
+      }
     }
     child = undefined
+    childClosed = undefined
     await rm(await filePath('core.pid'), { force: true })
     if (channel.kind === 'unix') await rm(channel.path, { force: true })
   }
@@ -362,6 +386,7 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
         cwd: dataDir, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true,
       })
       child = started
+      childClosed = new Promise(resolve => { started.once('close', () => resolve()) })
       let processError: Error | undefined
       started.on('error', (error) => { processError = error })
       started.stdout?.on('data', (chunk: Buffer) => { output = (output + chunk.toString()).slice(-8192) })

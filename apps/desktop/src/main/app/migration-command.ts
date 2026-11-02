@@ -10,9 +10,8 @@ export type MigrationCommand =
   | { command: 'prepare'; backupDirectory: string; endpoints: string[] }
   | { command: 'check' }
 
-export interface MigrationCommandOptions extends Pick<MigrationPreparationOptions, 'dataDir' | 'helperPath'> {
+export interface MigrationCommandOptions extends Pick<MigrationPreparationOptions, 'dataDir' | 'helperPath' | 'collectorPath' | 'appPath'> {
   args: readonly string[]
-  collectorPath: string
   installationRoot: string
   /** Required for development builds; omit for an installed build. */
   repoRoot?: string
@@ -57,8 +56,8 @@ export function parseMigrationCommand(args: readonly string[]): MigrationCommand
   const command = values.get('proxy-migration')
   if (command === 'prepare') {
     const backupDirectory = values.get('backup-directory')
-    if (!backupDirectory || !isAbsolute(backupDirectory) || backupDirectory.startsWith('\\\\') ||
-        backupDirectory.startsWith('//') || !endpoints.length || values.has('confirm'))
+    if (!backupDirectory || !isAbsolute(backupDirectory) || /^[\\/]{2}/.test(backupDirectory) ||
+        !endpoints.length || values.has('confirm'))
       throw new Error('Prepare requires an absolute local --backup-directory and --expected-server; restart confirmation is check-only')
     return { command, backupDirectory, endpoints }
   }
@@ -73,7 +72,7 @@ export function parseMigrationCommand(args: readonly string[]): MigrationCommand
 const pathKey = (path: string) => process.platform === 'win32' ? resolve(path).toLowerCase() : resolve(path)
 
 async function canonicalDirectory(path: string): Promise<string> {
-  if (!isAbsolute(path) || path.startsWith('\\\\') || path.startsWith('//') || /[\0\r\n]/.test(path))
+  if (!isAbsolute(path) || /^[\\/]{2}/.test(path) || /[\0\r\n]/.test(path))
     throw new Error('Migration requires absolute local directories')
   const stat = await lstat(path), actual = await realpath(path)
   if (!stat.isDirectory() || stat.isSymbolicLink() || pathKey(actual) !== pathKey(path))
@@ -105,18 +104,19 @@ export async function runMigrationCommand(options: MigrationCommandOptions): Pro
   if (command.command === 'prepare') {
     await verifyBackupParent(command.backupDirectory, options)
     await prepareProxyMigration({ dataDir: options.dataDir, helperPath: options.helperPath,
+      collectorPath: options.collectorPath, appPath: options.appPath,
       backupDirectory: command.backupDirectory, endpoints: command.endpoints, exec, collect })
     return { handled: true, command: 'prepare', residentEnabled: false,
-      message: 'Migration prepared. Keep the marker and backups. Resident NOT enabled; exclusive native ownership/replay still required. This build is not a completed migration handoff; do not Restart or activate resident on this result alone.' }
+      message: 'Migration capture completed; legacy RunOnce absence observed only. No registration was retired. Proxy settings remain unchanged; initial native cleanup NOT verified. Keep the marker and backups. Resident NOT enabled; initial admission remains denied because legacy-writer exclusion is unproven. Controlled Restart alone is insufficient.' }
   }
 
-  const receipt = await readPreparedMigration(options.dataDir, options.helperPath)
+  const receipt = await readPreparedMigration(options.dataDir, options.helperPath, options)
   const observed = await collect(receipt.after.newest.record)
   verifyNoKnownLegacyWriters(receipt.after)
   verifyNoKnownLegacyWriters(observed)
   verifyRestart(receipt.after, observed)
-  if (!isDeepStrictEqual(receipt, await readPreparedMigration(options.dataDir, options.helperPath)))
+  if (!isDeepStrictEqual(receipt, await readPreparedMigration(options.dataDir, options.helperPath, options)))
     throw new Error('Migration receipt changed while collecting restart evidence')
   return { handled: true, command: 'check', residentEnabled: false,
-    message: 'Migration check passed: prerequisites-only. Resident NOT enabled; exclusive native ownership/replay still required. Keep the marker and backups; this is not full positive admission.' }
+    message: 'Migration check passed: prerequisites-only. Initial native cleanup NOT verified. Resident NOT enabled; exclusive native ownership/replay still required. Initial admission remains denied because legacy-writer exclusion is unproven; controlled Restart alone is insufficient. Keep the marker and backups; this is not full positive admission.' }
 }
