@@ -2,6 +2,17 @@
 
 状态：草案。前提“注销开始后任何新进程都起不来”还没完全确认（见 issue 08 Comments 的假设 2、3），确认前不定稿；是否放宽 ADR-0011 由维护者决定，本 ADR 不改 ADR-0011。
 
+## 2026-11-02 评估更新（不构成正式架构决定）
+
+- 用户已授权自主推进预启动用户级 helper 的实验、真实 WinINet 验证、draft PR 实现和 CI；并未接受最终架构。ADR-0011 不变，本 ADR 保持草案，issue Status 不变，不合并。真实注销/关机/重启只能由用户执行。
+- run 41199791603 的两次注销均未在注销前清理成功；两次 RunOnce 成功，分别约在 Explorer 启动后 82/77 秒清理。停止剩余 5+5 重复测试，不把 RunOnce 成功计作注销清理已解决。
+- 2A 的 Electron 消息感知等待被否决：受控假通知可以完成，但 PeekMessage 的窗口过滤不能阻止其他 sent messages 进入 Electron JS；注入 2100 ms JS/native handler 后突破软件预算。重入保护只拒绝递归等待和新 set，不能限制任意回调时长。这个假操作实验证明消息依赖/重入风险，**没有证明真实 WinINet 必然存在相同依赖**。不放宽等待门槛、不豁免失败测试。
+- 2A-H 证明预启动 helper 能在 Electron 已退出或 JS 卡死时独立决定清理结果并停止准确的假 Core。9 个策略场景通过（区分正常退出、自行强制退出和强制停假 Core）；两个外部救援负对照仍记退出失败。非 detached Node child 曾被 libuv 父进程 Job 提前终止，改为 detached 后验证通过；外部测试 Job 仍包含整棵被测进程树。
+- 新增价值是进程死亡后的存续和地址空间隔离；专用窗口线程 Node-API 也可能绕过 JS 卡死，因此不能把 JS 卡死独立性说成 helper 独有优势。当前尚未实现正式 resident 协议、原生会话窗口或正式 Core 句柄交接。RunOnce 代次竞争及更新/卸载路径仍是必须处理的边界。
+- 已建立仓库外 LAN/RAS 备份、严格状态校验及旧 writer Job 确认退出后恢复的工具；只执行了只读快照和纯逻辑故障测试。检测到其他代理程序运行时拒绝真实写入。下一步须先完成安全的真实 WinINet/通知实验，再决定正式集成，不能从协调模型直接推导注销可靠性。
+
+证据及复现命令：`.scratch/mvp/prototypes/electron-deadline/README.md`、`prestarted-helper-deadline/README.md`、`wininet-recovery/README.md`（后两者同属该 prototypes 目录）。以下是早期 one-shot 兜底草案，不代表当前方案已经获准或问题已解决。
+
 spec 要求退出、关机、注销时先关 System Proxy 再停 Core，带超时，不阻塞关机。Windows 上，注销和关机做不到“每次都在会话结束前关掉”：ADR-0011 不允许原生模块，关代理只能启动 `kuro-sysproxy.exe`，而注销开始后新启动的 helper 在 DLL 初始化阶段就被系统结束。实测 4 次注销都失败：GUI 子系统改动前是 0xC0000142（STATUS_DLL_INIT_FAILED），改动后是 0xC000026B（STATUS_DLL_INIT_FAILED_LOGOFF），clash-verge-rev #5018 在关机时也遇到 0xC0000142。
 
 Windows 上的清理改为三层：
@@ -23,8 +34,8 @@ Windows 上的清理改为三层：
 
 放宽的好处：
 
-- 注销时不用启动新进程，在 `query-session-end` 里同步调用 `InternetSetOptionW`，耗时毫秒级，是唯一可能做到 spec 原意的路线。前提是 WinINet 在启动时已经加载，并且已运行的进程在注销时还能正常调用它；这一点也还没在本机验证。
-- 可以去掉 RunOnce 兜底，也就没有持久化位置的误报问题。
+- 注销时不用启动新进程，但直接同步 WinINet 调用没有可取消的硬超时保证，不能仅以通常耗时较短作为验收。预启动用户级 helper 也是候选，并非只有 Node-API 一条路线。
+- 原生模块也不能覆盖崩溃、强杀和断电，不能据此删除恢复兜底。WinINet 提前加载和真实会话可靠性仍需实测。
 
 放宽的代价：
 

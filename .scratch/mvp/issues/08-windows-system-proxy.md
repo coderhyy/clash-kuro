@@ -166,3 +166,72 @@ Blocked by: 02, 07
 - 起草 `docs/adr/0013-windows-session-end-cleanup.md`（状态：草案，前提待假设 2 确认）：先同步试一次，失败就靠 RunOnce 在下次登录时清，再加上 Kuro 启动时的清理。是否放宽 ADR-0011（例如在主进程里直接调用 WinINet 的原生模块，clash-party 的 `sysproxy-rs` 就是这样）只列了取舍，由用户决定；ADR-0011 没改。在 spec 的“退出、关机、注销”一条下注明了 Windows 做不到的部分。
 - 测试：C 单测新增带 `--log` 的命令格式（含空格路径、260 边界）和日志路径校验，并通过；desktop typecheck 通过；desktop 测试 64 个通过。新增覆盖：set 带 `--log`、clear 不带；`runOnceLogOmitted` 时 set 仍成功并 warning；helper 拒绝相对路径、含引号的路径，以及 `get --log`。
 - 下一步（用户确认假设后）：完全退出 clash-verge 和 Fiddler，用新产物在 Tray Mode 下注销，前后各跑一次脚本。假设 2/3 的探针等这轮结果出来再决定做不做。
+
+2026-10-31 (用户真机，run 41199791603，Tray Mode；固定产物重复验证：注销 1/5，关机 0/5):
+
+- 本轮仅确认 RunOnce 下次登录兜底成功，不代表注销前清理问题解决，也不代表接受该方案。后续继续使用同一产物；累计完成注销 5 次、关机 5 次后再决定是否接受。每轮 before 输出交给 agent 确认后才注销/关机；登录后不启动 Kuro 或其他代理软件，先运行 after。暂不合并，不加探针，ADR-0013 保留草案，ADR-0011 不放宽。
+- before（本地时间 20:31:19）：清单中的其他代理程序均未运行；clash_verge_service 仍为 Running，作为残余变量记录，不能把脚本“服务不会自行改代理”的说明当成已证实结论。Kuro 在运行，LAN flags=3、proxyServer=127.0.0.1:7891、counter=224；RunOnce 指向 run-41199791603 的 helper，端点正确，带加引号的 --log 路径。runonce.log 记录 set 成功和 runOnce=written。残留 PAC URL 未启用（flags=3）。
+- exit.log（UTC）：12:33:05.208Z query-session-end (logoff)；05.454Z 同步清理失败，exit=3221226091 (0xC000026B)，timedOut=false，241 ms；05.455Z exit start；05.474Z session-end (logoff)；05.557Z 第二次同步清理失败，同一退出码，timedOut=false，79 ms。未观察到注销前清理成功。
+- Winlogon 本地时间：20:33:11.585 logoff，20:33:43.136 logon；Explorer 于 20:33:43.962 启动。
+- RunOnce 直接证据：20:35:05.780 helper 开始 clear，PID 30276，完整命令行包含预期端点及 runonce.log 路径；20:35:05.813 返回 {"command":"clear","connections":[{"name":null,"status":"cleared"}],"runOnce":"deleted","ok":true}。这是实际 cleared，不是 unchanged/notOurs。
+- Internet Settings 与 Connections 最后写入时间均为 20:35:05.802，落在 helper clear 开始与结果之间。after（20:40:12）：LAN flags=1、counter=225、ProxyEnable=0；server、bypass、PAC URL 保留；RunOnce 条目不存在。用户未先启动 Kuro 或其他代理软件。
+- Shell-Core：20:35:05.629 9705，05.632 9707，05.767 9708（PID 30276）及 9706；9707/9708 文本只显示 runonce.log 的尾部，不能单凭这段文本认定完整命令，需结合 PID、helper 日志及时间戳。没有本轮 clash-verge session-ending 日志。
+- 限制：从 Explorer 启动到代理实际清除相隔 81.840 秒（约 82 秒），从 Winlogon logon 算约 82.666 秒。RunOnce 并非登录后立即执行；这段时间代理仍指向已停止的 Core，先启动的联网程序可能无法联网。
+- 假设结论：退出 clash-verge 后未再观察到注销阶段提前清理，本轮支持上轮存在其他程序干扰的解释，但不足以认定上轮具体写入者；仍无法区分“所有新进程都无法初始化”与“仅此 helper 的 DLL 初始化失败”。RunOnce 清理本轮通过，关机及重复可靠性尚待验证。
+
+2026-10-31 (用户真机，run 41199791603，Tray Mode，开始菜单注销；注销 2/5，关机 0/5):
+
+- before（20:46:40）：LAN flags=3、127.0.0.1:7891、counter=226；Connections 最后写入 20:46:26.548。未检测到清单中的其他代理程序，clash_verge_service 仍运行；RunOnce 指向本轮固定产物且带 --log，set 返回 ok=true、runOnce=written。
+- exit.log（UTC）：12:47:30.336Z query-session-end；30.496Z 同步清理失败，0xC000026B，149 ms；30.498Z exit start；30.524Z session-end；30.633Z 再次失败，0xC000026B，107 ms；两次 timedOut=false。注销前清理仍未成功。
+- Winlogon 本地时间：20:47:32.564 logoff，20:47:52.962 logon；Explorer 于 20:47:53.696 启动。RunOnce helper 于 20:49:11.101 开始 clear，PID 13856，与 Shell-Core 9708 一致；11.138 返回 LAN status=cleared、runOnce=deleted、ok=true。
+- Internet Settings 最后写入 20:49:11.124，Connections 为 20:49:11.125，均在 clear 开始与结果之间。after（20:49:21）：flags=1、counter=227、ProxyEnable=0，端点保留，RunOnce 条目消失；无本轮 clash-verge session-ending 日志。
+- 登录后延迟：从 Explorer 启动到 Connections 写入为 77.429 秒；从 Winlogon logon 算为 78.163 秒。本轮 RunOnce 兜底成功，不代表注销前清理问题解决。固定产物累计：注销样本 2/5，RunOnce 清理成功 2/2，注销前同步清理成功 0/2；关机 0/5。用户尚未反馈本轮有无卡顿或错误弹窗。
+
+2026-11-01 (用户决定 + agent，只读架构可行性评估；停止重复测试):
+
+- 停止 run 41199791603 剩余注销、关机重复测试，不补齐 5+5；本条取代之前继续累计的计划。保留已完成的两次 Tray Mode 注销证据：注销前同步清理成功 0/2，RunOnce 实际清理成功 2/2，Explorer 启动后分别约 82 秒、77 秒才清除。关机没有样本；不能写成问题解决或方案已接受。
+- 本轮只读代码和官方资料，并在本 Comments 记录评估；没有运行原生原型、代理写操作或新的会话结束实验。ADR-0011 不修改，ADR-0013 保留草案，Status 不改，不合并，不替换正式实现。后续原型及新实验都先提交具体计划，等待用户确认。
+- 证据边界：0xC000026B 证明这些场景下当前 helper 初始化失败，不能推导所有新进程都无法启动；clash_verge_service 仍是残余变量。RunOnce 无即时执行保证，默认执行前删值，失败不能当作自动重试。
+
+架构评估（候选，不是已批准决策）：
+
+1. 优先验证小型 Node-API 模块，但排除主线程直接同步 WinINet 调用。InternetSetOption/InternetQueryOption/RAS 枚举没有已找到的通用、可强制取消且限定耗时的设置操作契约；网络连接/收发 timeout 不能代替。Promise.race 无法中断阻塞的主线程，napi_cancel_async_work 不能取消已开始的任务。[InternetSetOption](https://learn.microsoft.com/en-us/windows/win32/api/wininet/nf-wininet-internetsetoptionw)、[选项语义](https://learn.microsoft.com/en-us/windows/win32/wininet/option-flags)、[Node-API](https://nodejs.org/api/n-api.html#napi_cancel_async_work)。
+2. 首选原型形态：正常启动时显式初始化模块、WinINet 依赖、专用原生工作线程、事件和请求存储；不在 DllMain 中调用 WinINet。工作线程串行执行当前用户 LAN/RAS 的 get/set/clear，沿用 Platform 外部接口及端点判断。会话事件只提交已准备好的清理请求并限时等原生完成事件；完成信号不依赖被等待阻塞的 JS 线程回调。这里同步的是有界等待，不是 WinINet 操作本身。不要默认用 libuv 共享线程池；排队、取消和退出收尾也必须受控。
+3. 保证边界：超时只保证应用放弃等待，不保证清理成功或工作线程停止；禁止 TerminateThread，禁止超时后释放仍被线程使用的数据。模块/工作内存需保留至操作结束或进程终止，禁止无限 join/cleanup hook 等待。超时进入 closing/uncertain，禁止新 set；单写者保证迟到的旧 set 不会越过后续 clear。若需要卡死后安全继续正常使用，而非退出进程，进程内方案劣势明显。[TerminateThread 风险](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-terminatethread)。
+4. 预算建议供原型确认：代理清理总预算 1500 ms，从首次 query-session-end 开始采用单调绝对截止时间；session-end 只能使用剩余预算，不重新获得 1500 ms。普通退出的 Core 收尾另明确总预算；不能把当前两次清理、shutdown 和日志等待简单叠加后仍声称固定 1500 ms。主线程不做磁盘日志写入、注册表操作、阻塞锁、动态 DLL 初始化或无界取消等待。Windows 不是实时系统，限时等待不是包含调度停顿/系统挂起在内的绝对墙钟保证；必须明确承诺是软件等待路径有界。GUI 线程还需验证通知广播与消息泵重入，不能直接用无限等待。[WaitForSingleObject](https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-waitforsingleobject)。
+5. 备选为正常启动时就运行的普通用户 helper：提前完成 DLL 初始化和 IPC 连接，单写者工作线程与隐藏普通顶层窗口分离；应用和 helper 都可请求同一幂等清理。不要用不接收广播的 message-only window。独立进程能隔离崩溃并允许请求终止，但 TerminateProcess 的完成仍可能等待 I/O，主进程不得无限等待它。helper 在会话结束时仍可能先于应用退出；关停优先级只改善顺序，不构成服务可用保证。生命周期需覆盖父进程崩溃、重复实例、孤儿退出和普通退出先清代理再停 Core，不引入服务、管理员权限或 TUN。[窗口](https://learn.microsoft.com/en-us/windows/win32/winmsg/window-features)、[关停顺序](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-setprocessshutdownparameters)、[TerminateProcess](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-terminateprocess)。
+6. helper IPC 候选：预连接 named pipe、随机通道、显式 logon SID ACL（用户 SID 不等于会话隔离）、拒绝远程客户端、最小命令集和有界帧。overlapped I/O 共用截止时间；CancelIoEx 只是取消请求，不能随后无期限等待或立即复用缓冲区。Electron JS 异步 pipe 回调在同步会话处理函数等待时也不能运行：若坚持该处理函数等待 ACK，需要预初始化的原生 IPC 等待桥，或让 helper 自己处理会话消息而接受无法由主进程确认顺序的取舍，不能把纯 JS Promise 当作现成解决方案。[Pipe 安全](https://learn.microsoft.com/en-us/windows/win32/ipc/named-pipe-security-and-access-rights)、[CancelIoEx](https://learn.microsoft.com/en-us/windows/win32/api/ioapiset/nf-ioapiset-cancelioex)。
+7. 推荐顺序：先做 Node-API 专用线程的有界等待可行性原型；若隔离、超时后生命周期或消息泵无法满足验收，转预启动 helper。二者都需要用户批准约束调整后才能正式落地；本轮不放宽 ADR。直接同步 addon 不进入候选。两者仍需恢复兜底，不能承诺强制结束/断电时必定清理。
+
+必须处理的兼容边界（只列设计条件，不开发）：
+
+- 自启与旧 RunOnce：端点相同不足以证明同一实例。恢复记录需要代次/所有权；启动清旧状态、建立新所有权、set 与恢复 clear 必须在跨进程串行边界内完成，锁等待也有预算。检查代次到写代理之间不能留下竞态；旧 clear 不能删除新 RunOnce。只删除旧 RunOnce 不够，Windows 可能已取出命令/启动旧 helper。部署新协议时也要处理不理解代次的旧命令，不能只靠新 helper 的校验。
+- 自动更新/卸载：恢复 helper 不能只放在会被删的版本目录；评估稳定的用户级恢复位置、签名与路径 ACL、待清理期间保留兼容旧记录的版本、更新回滚/中断，以及卸载前有界清理。清理失败时必须明确保留恢复组件或告知手动恢复，不能留下指向不存在文件的命令。移动便携目录、长路径/RunOnce 260 字符上限、策略拦截、文件被隔离同样需要处理。
+- 外部软件和多会话：所有权记录不是 WinINet 注册表的事务锁；外部程序不遵守 Kuro 的互斥约定，仍须临写前重新判断端点、保留 notOurs/PAC/WPAD/混合协议语义，不能宣称绝对无竞争。多登录会话共享 HKCU 而 IPC 按 logon SID 隔离，需明确产品策略，防止不同会话互相清代理。
+- 查询阶段可能取消注销；不 preventDefault，但一旦提前清理并开始退出，不应自动恢复旧 set 与新的恢复流程竞争，需明确取消后的状态。普通 WM_QUERYENDSESSION 文档建议尽快返回，把清理放在确认结束之后；当前提前清理属于保守产品策略，而非系统保证。[WM_QUERYENDSESSION](https://learn.microsoft.com/en-us/windows/win32/shutdown/wm-queryendsession)、[WM_ENDSESSION](https://learn.microsoft.com/en-us/windows/win32/shutdown/wm-endsession)、[RunOnce](https://learn.microsoft.com/en-us/windows/win32/setupapi/run-and-runonce-registry-keys)。
+
+待批准的最小原型和验收：
+
+- 首阶段仅独立测试载体，不替换 app：Node-API 模块显式 init、专用线程、预分配请求、有界等待；先使用假操作，注入永不返回、迟到成功、正在 set、重复事件、日志阻塞，不更改真实代理、不注销。验收看全调用路径，不以 p95 代替保证：一个绝对截止时间，所有等待有限，无主线程 WinINet/磁盘 I/O/无限 join；超时返回 uncertain，不误报成功，无迟到任务访问已释放内存，无关闭后新 set。
+- Windows 常规调度下记录 1500 ms 预算及返回偏差，超限逐项解释；测量不能证明实时保证。必须额外审查消息泵、重入、模块卸载与进程退出路径，卡死线程不得拖住 app 的退出流程。
+- 第二阶段经另行确认才接真实 WinINet：提取 helper 中的代理操作和 endpoint 判断为共享 C 核心，exe/Node-API 仅适配，不复制业务规则；保留 get/set/clear 的外部 Platform 语义。先备份并验证 LAN/RAS、混合协议、notOurs、PAC/WPAD、失败回滚及通知；检查 Electron Node-API 版本、x64 打包、asar 外置、DLL 依赖、CI 加载，不把 Node-API ABI 稳定等同于无需打包测试。
+- 只有前两阶段通过且用户另行批准才给出 Tray Mode 注销/关机实验安排，验证提前加载后是否仍能调用 WinINet，以及清理返回再停 Core的顺序；失败/超时明确留待恢复。RunOnce 同端口跨代竞态、helper 路径消失先用隔离存储/假操作模拟，不提前开发自启、更新、卸载。
+
+2026-11-02 (agent，用户批准的第一阶段独立 Node-API 假操作原型):
+
+- 位置：`.scratch/mvp/prototypes/node-api-deadline/`。源码、独立构建/外部看门狗测试脚本及 README 均不接入正式 app，无新增运行时依赖；构建只下载并校验当前 Node 版本的官方头文件和 import library。未读写真实代理、RunOnce，未进行注销/关机。ADR-0011 不改，ADR-0013 保持草案，Status 不改，不合并。
+- 正常启动时 pin DLL、创建专用原生线程/固定内存/事件；首次 clear 共用一个 1500 ms 单调截止时间，重复事件不续期。完成由原生事件通知，不依赖 JS 回调。测试线程仍在执行时不释放状态或卸载 DLL，cleanup hook 不 join；这是进程生命周期资源保留，不是可热卸载模块，也不是安全取消卡住的调用。
+- 本机 Windows x64 / Node v24.22.1 / Node-API v8 / LLVM-MinGW clang 23.1.4，最终 16 场景各跑 3 次：48/48 通过、看门狗强杀 0。覆盖正常完成、已排队/正在执行的 set、永不返回的 set/clear、迟到返回、工作线程锁/日志阻塞、初始化卡住、重复事件和剩余预算、显式退出、Node 环境自然销毁/terminate，以及环境销毁后的原生迟到返回。关闭后 set 均被拒绝，超时及迟到完成不误报成功。
+- 实测挂起操作的完整调用为 1501.153--1514.448 ms；重复超时调用 0.007--0.100 ms；已消耗约 350 ms 后第二次事件只等待 1151.890--1154.284 ms。全部通过的子进程在最终报告后 8.700--32.563 ms 以 code 0 真正退出，不能只把函数返回视为退出通过。外部看门狗正常上限 8 秒；负对照故意保留 JS interval，约 2035 ms 被杀，明确记 FAIL，测试脚本退出码 1。
+- 保留失败证据：修复前 45 次重复有 3 次失败（其中 1 次看门狗强杀）。Windows 等待返回 WAIT_TIMEOUT 时，下一次 QPC 读数偶尔仍略早于计算截止点，旧代码未锁存 timeout；环境测试断言失败后留下持有中的 Worker，导致看门狗强杀。已改为实际 WAIT_TIMEOUT 立即锁存失败，并新增确定性 early-timeout 注入；重新运行 48 次全部通过。旧结果保存在原型 `out/results-before-timeout-fix.json`，不算通过。
+- 限制：验证的是软件有界等待策略，不是精确墙钟 1500 ms 的实时保证；调度、系统暂停、内核调用和 Node/GC 仍不可给出硬上界。原型返回诊断快照会分配 JS 对象，不能拿 nativeMs 冒充完整事件路径。启动阶段 DLL/线程/事件创建也无绝对 OS 耗时保证；假初始化就绪等待为 250 ms，未就绪明确失败。日志只用内存 trace/工作线程假阻塞，不证明真实磁盘日志耐久性。没有测试 Electron GUI 消息泵、WinINet 或正式打包，不能据此认定注销清理已解决。
+- 建议：可以继续评估，但前提是接受“进程寿命 pin + 放弃等待而非取消操作”的取舍；若要求卡死后原地重启模块或隔离原生崩溃，倾向预启动独立 helper。真实 WinINet、Electron 独立载体及新会话实验均须另交计划、等用户确认，当前不继续执行。原型复现命令与逐项结果见其 README；JS syntax check、C warnings-as-errors 编译及 git diff --check 通过。
+
+2026-11-02 (agent，自主 goal：转预启动用户级 helper 路线，进行中):
+
+- run 41199791603 保留两次注销证据：注销前同步清理均失败，RunOnce 均成功，但登录后约 77–82 秒才清理。停止剩余注销/关机重复测试；不记作问题已解决。用户允许实验/draft PR 使用预启动用户级 helper，不代表接受正式架构；ADR-0011 不改，ADR-0013 保持草案，Status 不改、不合并。
+- 已完成 2A 和 2A-H 原型证据归档，位置为 `.scratch/mvp/prototypes/`。2A 消息感知等待因任意 sent-message/JS 重入和 handler 超时被否决，不豁免、不放宽预算；这是假操作证据，不是真实 WinINet 消息依赖已经成立。2A-H 的 helper 在 Electron 退出/JS 卡死时能独立推进假清理和准确假 Core 停止；9 个策略场景通过，两个需要外部救援的负对照仍记退出失败，正常退出和强制退出分开记录。实际 OS 会话事件未验证。
+- 正式 WinINet get/set/clear 共用现有操作及端点判断，供独立恢复实验复用；CLI 仍管理 RunOnce，实验调用关闭恢复登记，不改 RunOnce。修复每次操作的 JSON/RAS 枚举内存释放，并新增假 RAS/WinINet 回归测试：RAS 枚举失败不能返回 `ok:true`，不能因 LAN 已关闭就删除恢复项。测试先复现旧代码失败，再修复通过；无真实代理写入。
+- `wininet-recovery` 新增仓库外 LAN/RAS 原样字段备份、Internet Settings 导出、只读 RunOnce 记录、全连接/逐项恢复前校验、严格 parser 和独占 writer 锁。旧 writer 的 Job 未确认清空时不恢复；日志缺失、锁遗留、外部变化均停止，不盲目 reg import。六个损坏快照及纯状态校验通过。最新只读备份 `C:\Users\DT-056\kuro-sysproxy-backups\wininet-1793590661881` 已验证，未执行 set/clear/restore 或通知调用。其他代理 GUI/Core 仍运行，因此暂不进行真实代理写入；服务本身与 GUI/Core 的写入竞争需区别判断。
+- Windows 全套 desktop 测试夹具改用真实 named pipe、系统临时目录、无提权 junction；POSIX 权限仍在 POSIX 校验，SIGTERM 忽略分支在 Windows 用定向假信号测试，未跳过失败用例。bundled mihomo 集成测试使用锁定版本、独立目录和仅本地回环请求，覆盖 traffic/logs、重启后 pipe 轮换及同一 transport 重连。本机 typecheck 与 151/151 desktop 测试通过，无跳过。cat mask 测试单独通过，完整运行改用两个 worker 避免进程争用，没有调高测试或关闭超时。
+- CI 改为 Windows 打包后执行全部 desktop 测试，不再只跑 helper 三文件；macOS 打包后强制跑 bundled Core 集成。CI 与产物核验结果另补。正式 resident 生命周期/IPC/Core 句柄交接、真实 WinINet 通知测试、恢复代次竞争，以及人工注销/关机仍未完成。goal 保持 active，不能提前标 complete。
