@@ -12,7 +12,7 @@ const common = ['-static', '-O2', '-Wall', '-Wextra', '-Werror', '-municode']
 for (const [source, target] of [['native/helper.c', 'helper'], ['native/watchdog.c', 'watchdog']]) {
   execFileSync('gcc', [...common, join(root, source), '-o', join(root, `out/${target}.exe`)], { stdio: 'inherit', timeout: 60000 })
 }
-const imports = execFileSync('llvm-objdump', ['-p', join(root, 'out/helper.exe')], { encoding: 'utf8', timeout: 10000 })
+const imports = execFileSync(process.env.OBJDUMP ?? 'llvm-objdump', ['-p', join(root, 'out/helper.exe')], { encoding: 'utf8', timeout: 10000 })
 if (/DLL Name: (wininet|rasapi|node\.|libgcc|libwinpthread)/i.test(imports)) throw new Error('Unexpected dependency')
 writeFileSync(join(root, 'out/imports.txt'), imports)
 console.log(`Built fake helper/Core and existing external Job watchdog; Electron ${actual}`)

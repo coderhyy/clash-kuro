@@ -23,7 +23,8 @@ if (process.argv[2] === '--child') {
   const negative = process.argv.includes('--watchdog-negative-control')
   const only = process.argv.find(x => x.startsWith('--case='))?.slice(7)
   const names = ['normal', 'electron-stall', 'electron-exit', 'repeat', 'ipc-before', 'ipc-after',
-    'operation-hang', 'late-operation', 'coordinator-hang', 'core-hang', 'window-stall']
+    'operation-hang', 'late-operation', 'coordinator-hang', 'core-hang', 'window-stall',
+    'query-plain', 'query-aware', 'query-handler-hang']
   if (only && !names.includes(only)) throw new Error('Unknown case')
   const cases = negative ? ['watchdog-negative', 'electron-hang-negative'] : only ? [only] : names
   const run = join(root, 'out/runs', `${Date.now()}${negative ? '-negative' : ''}`)
@@ -58,12 +59,14 @@ if (process.argv[2] === '--child') {
       assert(supervisor.observedPids.includes(helper.pid), 'Detached helper escaped test containment')
       assert(supervisor.observedPids.includes(helper.corePid), 'Fake Core escaped test containment')
       assert.equal(helper.stops, 1)
-      assert.equal(helper.windowTriggers, name === 'window-stall' ? 1 : 0)
+      assert.equal(helper.windowTriggers, name === 'query-aware' ? 2 : name === 'window-stall' || name.startsWith('query-') ? 1 : 0)
+      assert.equal(helper.nestedQueries, name === 'query-aware' ? 1 : 0)
+      if (name === 'query-aware' || name === 'query-handler-hang') assert.equal(helper.notificationInWait, 1)
       assert.equal(helper.deadlineMs, 1500)
       assert.equal(helper.coreGone, true)
       assert(helper.stopMs >= helper.decisionMs)
       assert(helper.endMs < 2350, 'Observed policy exit work overrun (not a hard guarantee)')
-      const uncertain = ['operation-hang', 'late-operation', 'coordinator-hang', 'repeat'].includes(name)
+      const uncertain = ['operation-hang', 'late-operation', 'coordinator-hang', 'repeat', 'query-plain', 'query-handler-hang'].includes(name)
       assert.equal(helper.decision, uncertain ? 'timeout' : 'cleared')
       assert.equal(helper.operations, name === 'coordinator-hang' ? 0 : 1)
       assert.equal(helper.selfForced, uncertain)

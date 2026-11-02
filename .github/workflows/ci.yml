@@ -61,6 +61,27 @@ jobs:
         env:
           KURO_REQUIRE_CORE: '1'
         run: bun run test
+      - name: Isolated helper coordination and rescue controls (fake operations only)
+        shell: pwsh
+        run: |
+          $env:PATH = "${{ steps.msys2.outputs.msys2-location }}\ucrt64\bin;$env:PATH"
+          $env:OBJDUMP = 'objdump'
+          node .scratch/mvp/prototypes/prestarted-helper-deadline/build.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node .scratch/mvp/prototypes/prestarted-helper-deadline/test.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node .scratch/mvp/prototypes/prestarted-helper-deadline/test.mjs --watchdog-negative-control
+          if ($LASTEXITCODE -ne 1) { throw 'Rescued fixtures must fail exit acceptance' }
+          node -e "const r=require('./.scratch/mvp/prototypes/prestarted-helper-deadline/out/negative.json'); const a=require('node:assert/strict'); a.equal(r.accepted,false); a.equal(r.negativeControlsObserved,true)"
+      - name: Preserve helper coordination evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: kuro-helper-coordination-evidence
+          path: .scratch/mvp/prototypes/prestarted-helper-deadline/out/runs/*/results.json
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 7
       - uses: actions/upload-artifact@v7
         with:
           name: kuro-windows-x64

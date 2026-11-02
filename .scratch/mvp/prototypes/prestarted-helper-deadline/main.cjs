@@ -38,6 +38,7 @@ app.whenReady().then(() => {
           while (performance.now() < end) { /* Native window dispatch must not need JS. */ }
           record('stall-end')
         } else if (opts.case === 'ipc-before') helper.stdin.end()
+        else if (opts.case.startsWith('query-')) helper.stdin.write('W')
         else helper.stdin.write('C')
       }
       if (line === 'triggered') {
