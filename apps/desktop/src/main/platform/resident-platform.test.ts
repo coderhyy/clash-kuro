@@ -2,10 +2,10 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createServer } from 'node:net'
-import { createSocket } from 'node:dgram'
 import { afterEach, expect, test, vi } from 'vitest'
 import { createDesktopPlatform } from './index'
 import type { startResidentSession } from './resident-session'
+import { reserveTestPort } from './test-ports'
 
 vi.mock('./transport', () => ({ createSocketTransport: vi.fn(() => ({
   request: vi.fn(async () => ({ status: 200 })),
@@ -16,17 +16,17 @@ afterEach(async () => { for (const cleanup of cleanups.splice(0)) await cleanup(
 async function fixture(listenMixed = true, reply: 'ready' | 'silent' | 'invalid' = 'ready') {
   const dir = await mkdtemp(join(tmpdir(), 'kuro-resident-platform-'))
   cleanups.push(() => rm(dir, { recursive: true, force: true }))
-  const udp = createSocket('udp4')
-  await new Promise<void>((resolve, reject) => udp.once('error', reject).bind(0, '127.0.0.1', resolve))
-  const mixedPort = udp.address().port
+  const reservation = await reserveTestPort()
+  const mixedPort = reservation.port
   const socket = createServer(connection => {
+    // Invalid/silent handshake cases intentionally make the client abort this connection.
+    connection.on('error', error => { expect(error).toHaveProperty('code', 'ECONNRESET') })
     connection.once('data', () => {
-      if (reply !== 'silent') connection.end(Buffer.from(reply === 'invalid' ? [0, 0] : [5, 0]))
+      if (reply !== 'silent') connection.write(Buffer.from(reply === 'invalid' ? [0, 0] : [5, 0]))
     })
   })
   const listen = () => new Promise<void>((resolve, reject) => socket.once('error', reject).listen(mixedPort, '127.0.0.1', resolve))
-  try { await listen() } finally { await new Promise<void>(resolve => udp.close(resolve)) }
-  await new Promise<void>(resolve => socket.close(() => resolve()))
+  await reservation.release()
   const closeListener = async () => { if (socket.listening) await new Promise<void>(resolve => socket.close(() => resolve())) }
   cleanups.push(closeListener)
   let exit!: (value: { code: number | null; signal: NodeJS.Signals | null }) => void

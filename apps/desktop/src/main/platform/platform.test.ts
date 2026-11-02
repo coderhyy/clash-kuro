@@ -11,6 +11,7 @@ import { FakeTransport } from '@kuro/api/fake'
 import { createAppStore, type Backup } from '@kuro/state'
 import { fakeSnapshot } from '@kuro/state/fake'
 import { assertMixedPortAvailable, createDesktopPlatform, type DesktopPlatform, type DesktopPlatformOptions, type Exec } from './index'
+import { reserveTestPort } from './test-ports'
 
 const cleanups: Array<() => Promise<void>> = []
 afterEach(async () => {
@@ -19,15 +20,9 @@ afterEach(async () => {
 })
 
 async function freePort(): Promise<number> {
-  const udp = createSocket('udp4')
-  await new Promise<void>((resolve, reject) => udp.once('error', reject).bind(0, '127.0.0.1', resolve))
-  const server = createServer()
-  try {
-    const port = udp.address().port
-    await new Promise<void>((resolve, reject) => server.once('error', reject).listen(port, '127.0.0.1', resolve))
-    await new Promise<void>((resolve) => server.close(() => resolve()))
-    return port
-  } finally { await new Promise<void>(resolve => udp.close(resolve)) }
+  const reservation = await reserveTestPort()
+  await reservation.release()
+  return reservation.port
 }
 
 async function fixture(extra: Partial<DesktopPlatformOptions> = {}) {
@@ -48,7 +43,10 @@ function fakeCore(platform: () => DesktopPlatform, mixedPort: () => number, igno
       const http = require('node:http');
       ${ignoreTerm ? "process.on('SIGTERM', () => {});" : ''}
       http.createServer((req, res) => res.end('{"version":"fake"}')).listen(${JSON.stringify(path)});
-      ${listenMixed ? `require('node:net').createServer(socket => socket.once('data', () => socket.end(Buffer.from([5, ${authMethod}])))).listen(${mixedPort()}, '127.0.0.1');` : ''}
+      ${listenMixed ? `require('node:net').createServer(socket => {
+        socket.on('error', error => { if (error.code !== 'ECONNRESET') throw error; });
+        socket.once('data', () => socket.write(Buffer.from([5, ${authMethod}])));
+      }).listen(${mixedPort()}, '127.0.0.1');` : ''}
     `], options)
   }
 }
@@ -223,7 +221,8 @@ test('start waits for readiness, writes pid and chmods socket; concurrent starts
   expect(await platform.isCoreRunning()).toBe(true)
   await new Promise<void>((resolve, reject) => {
     const socket = createConnection({ host: '127.0.0.1', port: mixedPort })
-    socket.once('connect', () => { socket.destroy(); resolve() })
+    socket.once('connect', () => socket.destroy())
+    socket.once('close', () => resolve())
     socket.once('error', reject)
   })
   expect(await platform.readFile('core.pid')).toMatch(/^\d+$/)

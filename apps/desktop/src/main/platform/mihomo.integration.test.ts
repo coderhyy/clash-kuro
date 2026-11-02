@@ -1,33 +1,22 @@
 import { existsSync } from 'node:fs'
 import { spawn } from 'node:child_process'
-import { createSocket } from 'node:dgram'
 import { chmod, copyFile, lstat, mkdtemp, realpath, rm } from 'node:fs/promises'
-import { createServer } from 'node:net'
 import { createServer as createHttpServer, request } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, test } from 'vitest'
 import { createDesktopPlatform, createResumeHandler, createSocketTransport } from './index'
 import { startResidentSession } from './resident-session'
+import { reserveTestPort } from './test-ports'
 
 const corePath = join(import.meta.dirname, '../../../resources/core', `${process.platform}-${process.arch}`, process.platform === 'win32' ? 'mihomo.exe' : 'mihomo')
 
 test.skipIf(!existsSync(corePath) && process.env.KURO_REQUIRE_CORE !== '1')('bundled mihomo validates config, streams traffic/logs and reconnects after channel rotation', async ({ onTestFinished }) => {
   expect(existsSync(corePath), 'Run scripts/fetch-core.mjs for this host before integration tests').toBe(true)
-  // Core's mixed listener needs UDP too; Windows excludes different TCP and UDP ranges.
-  const udp = createSocket('udp4')
-  await new Promise<void>((resolve, reject) => udp.once('error', reject).bind(0, '127.0.0.1', resolve))
-  const mixedPort = udp.address().port
-  const server = createServer()
-  let reserved = true
-  const releasePort = async () => {
-    if (!reserved) return
-    reserved = false
-    if (server.listening) await new Promise<void>(resolve => server.close(() => resolve()))
-    await new Promise<void>(resolve => udp.close(resolve))
-  }
+  const reservation = await reserveTestPort()
+  const mixedPort = reservation.port
+  const releasePort = reservation.release
   onTestFinished(releasePort)
-  await new Promise<void>((resolve, reject) => server.once('error', reject).listen(mixedPort, '127.0.0.1', resolve))
   const dataDir = await realpath(await mkdtemp(join(process.platform === 'win32' ? tmpdir() : '/tmp', 'kuro-mihomo-')))
   let testCorePath = corePath
   if (process.platform !== 'win32' && (await lstat(corePath)).mode & 0o6000) {

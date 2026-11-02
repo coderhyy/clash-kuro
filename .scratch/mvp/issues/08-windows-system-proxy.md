@@ -432,3 +432,8 @@ Blocked by: 02, 07
 - 补充审查：未找到 class-90 BootIdentifier 每次重启唯一或等同 BCD 的一手保证，因此未保留这条采集实现，更不拿它放行。启动事件/CIM/旧记录摘要仅是人工受控 Restart 的旁证；BootType 语义、独立事件关联及时间容差不能提升为通用重启身份证明。候选 collector 当前不授予准入，研究见 `BOOT-EVIDENCE-RESEARCH.md`。
 - RunOnce 文档警告被调用程序不要在执行期间修改该键，未添加失败后自我重新注册。明确保留限制：RunOnce 失败后，journal 留存并阻止新 resident，依靠后续 app/人工 replay，不保证下次登录会自动重试。新增假操作回归 7 个场景通过、无外部救援/遗留进程：失败 replay 保持 journal 字节并拒绝新 owner，注册卡死在原预算结束，重复 close 不续期。不是实际 RunOnce 调度验证。
 - 三方向回收后，主执行者统一运行工作区 `turbo typecheck test`：8 个 task 成功（6 个未变更包任务命中缓存），桌面本次重新执行 210/210、无跳过、真实 Core 必需。正式 direct/resident 启动均检查 TCP/UDP，并要求 API 与 SOCKS5 greeting 同时就绪；未延长原启动预算。重建原生假 fixture 后 7/7、真实 Core 经假 resident 的 Platform 集成 1/1 通过，未使用外部救援。最终交付仍需迁移执行器及正向准入完成后再冻结提交、统一 CI 和人工验证；这些阶段结果不等于已完成交付。
+- 70d6e8a / CI 41447368781 Windows **失败 1/210**（假 Core 重启 TCP EADDRINUSE 51399），macOS 通过。随后本机无缓存全量 **失败 39/210**：UDP 分配器选到了 TCP 排除范围内的 626xx。没有把前一轮绿色当成最终结果。测试专用分配器现避开 TCP/UDP 排除范围和动态客户端端口范围，实际预留双协议；仅在测试动作开始前进行有限、记录原因的地址分配，不重试 Core 启动/失败测试。正式 fixed-port 行为不变。假 SOCKS 对端主动中断的 ECONNRESET 也按精确错误类型处理，其他错误仍失败；具体 CI TCP 占用来源未被证明，历史失败保留。
+- 增加 `prepareProxyMigration`（尚无用户执行入口、未真实运行）：先发布阻断 marker，持久备份全部 get LAN/RAS 原文、Internet Settings/Connections 导出、旧命令和两份 helper，再重复核验后执行当前 helper 的 endpoint-bounded clear；完整读回和旧注册退役核验后才发布 prepared 收据。任一异常留在阻断状态，不重试、不恢复、不启用。准备不等于准入，独占 owner 交接和人工重启后正向核验仍待完成。
+- 准备执行器的 54 个假命令测试通过。另用唯一一次真实 Windows MoveFileEx 在私有临时目录发布阻断 marker，然后立即在采集前主动终止流程：共 55/55；未调用真实 helper/注册表/代理操作。这仅验证文件发布链路，不证明真实完整准备、断电耐久性或恢复。
+- 修复后工作区无缓存 `turbo typecheck test --force` 的 8 个任务通过，桌面 266/266（当时尚未加入最后的单项文件发布测试）。待统一提交与新 CI；不据此提供人工重启指令，也不把 goal 标为完成。
+- 21:33:40 再次在所有代码整合后无缓存运行同一完整命令：8/8 task、桌面 **267/267**、26 文件、Core 必需且无跳过，typecheck 通过。包含 55 项准备测试及真实但仅限私有目录的文件发布检查；本机仍未进行任何真实代理/RunOnce 写入。

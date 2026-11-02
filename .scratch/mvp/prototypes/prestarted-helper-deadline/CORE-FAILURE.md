@@ -315,3 +315,42 @@ explicitly rather than hiding contention. No claim of macOS execution, real
 proxy/session acceptance or historical CI EADDRINUSE root cause is made. The
 production readiness repair is recorded above; it cannot make process creation
 or OS networking hard real-time, or establish an atomic reservation handoff.
+
+## Integrated failures after 70d6e8a (not waived)
+
+- Windows CI `41447368781` failed 1/210: the fake-Core concurrent-start/restart
+  test could not bind TCP `127.0.0.1:51399` (`EADDRINUSE`). The real mihomo
+  integration passed in that run. macOS passed. This is not a green Windows run.
+- A local **uncached** full workspace run failed 39/210 desktop tests with TCP
+  `EACCES`, including port 62622. Read-only `netsh` showed TCP exclusions
+  62413-62512, 62513-62612, **62613-62712**, while UDP had different exclusions
+  (including 57722-57821). Binding UDP port zero is not a shared-protocol
+  allocator: it repeatedly selected a TCP-forbidden address before test actions.
+- The replacement test-only allocator excludes the union of advertised TCP/UDP
+  exclusions, then actually holds both protocols on one port. A bounded candidate
+  allocation handles only address-specific EADDRINUSE/EACCES and records each
+  rejected port/protocol/code. It never retries Core startup, a failed assertion,
+  or a failed test. Exhaustion/other errors fail setup. Production still fails on
+  the user's configured unavailable port; it never silently selects another.
+- Fake SOCKS servers now write their greeting and let the probing client close,
+  matching the real server rather than actively closing first. The separate
+  liveness connection awaits its close event before Core teardown. An isolated
+  12-per-mode end-vs-write socket diagnostic did **not** reproduce EADDRINUSE;
+  do not claim that this proves the precise CI TCP-occupancy cause.
+- Focused validation of the allocator, both Platform suites and real mihomo:
+  **46/46 passed**, 21:03:23 local, 6.27s, Core required. TCP-only and UDP-only
+  candidate rejection/cleanup are asserted. Final full tests and new CI are
+  required; one successful run does not erase the retained CI failure.
+- Windows dynamic TCP/UDP ranges are now also excluded from test listener
+  selection (read-only `netsh`; unknown output fails setup). Locally both ranges
+  were 49152-65535. This prevents an OS-assigned outbound ephemeral endpoint from
+  taking the test address in its release/restart window; explicitly bound other
+  applications can still contend, so handoff is still not atomic.
+- A subsequent focused run had 46 passing assertions but **failed the suite** on
+  an unhandled ECONNRESET in the deliberately invalid/silent fake SOCKS endpoint.
+  Its client intentionally aborts; fixtures now handle precisely ECONNRESET and
+  still fail on other socket errors. This was not recorded as a passing run.
+- After those changes, uncached workspace `turbo typecheck test --force` passed
+  all 8 tasks; desktop **266/266**, 26 files, Core required, no skips, 21:18:30
+  local. This includes the preparation worker's 54 fake-command cases and is not
+  a claim of real migration or session verification.
