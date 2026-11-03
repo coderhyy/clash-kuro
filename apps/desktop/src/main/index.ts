@@ -275,7 +275,9 @@ async function main(): Promise<void> {
     onResume().catch((error) => console.warn('Resume recovery failed:', error))
   })
 
-  app.on('second-instance', showWindow)
+  app.on('second-instance', (_event, argv) => {
+    if (process.platform !== 'win32' || !argv.includes('--hidden')) showWindow()
+  })
   app.on('activate', showWindow)
   app.on('window-all-closed', () => { /* Tray Mode: keep running. */ })
   app.on('before-quit', (event) => {
@@ -288,7 +290,7 @@ async function main(): Promise<void> {
   // Windows session cleanup belongs exclusively to the native owner, including Tray Mode.
   // Launch at Login starts straight in Tray Mode (CONTEXT.md: 开机自启).
   if (process.platform === 'darwin' && app.getLoginItemSettings().wasOpenedAtLogin) app.dock?.hide()
-  else showWindow()
+  else if (process.platform !== 'win32' || !process.argv.includes('--hidden')) showWindow()
   if (app_.store.getState().activeProfileId) {
     const result = await app_.run('startCore', {})
     if (!result.ok) console.warn('Core did not start:', result.error)
