@@ -35,3 +35,5 @@ Status: in-progress（待 02 真机验证）
 - 托盘菜单项、Windows 实现（issue 03）、Linux。
 
 ## Comments
+
+2026-11-04：原定 Windows 后续项 03 的依赖已满足（PR #1 合入 main `6ea3720`）。Windows 登录项和 `--hidden` 托盘启动已在集成分支实现，沿用系统状态为准、打包版限制、不恢复 System Proxy 的决定；不新增共享接口。macOS 02 与 Windows 03 的真实登录验收仍分别待办，见各自票中的产物和通过标准。以上“只做 macOS / Windows 暂不支持”记录描述最初交付范围，不再代表集成分支的代码状态。

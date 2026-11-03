@@ -1,8 +1,8 @@
 import { expect, test, vi } from 'vitest'
 import { createLaunchAtLogin, type LoginItemApp } from './login-item'
 
-function fakeApp(settings: { openAtLogin: boolean; status?: string }, isPackaged = true) {
-  return { isPackaged, getLoginItemSettings: () => settings, setLoginItemSettings: vi.fn<LoginItemApp['setLoginItemSettings']>() }
+function fakeApp(settings: ReturnType<LoginItemApp['getLoginItemSettings']>, isPackaged = true) {
+  return { isPackaged, getLoginItemSettings: vi.fn(() => settings), setLoginItemSettings: vi.fn<LoginItemApp['setLoginItemSettings']>() }
 }
 
 test('maps macOS SMAppService status to Launch at Login status', async () => {
@@ -19,7 +19,7 @@ test('maps macOS SMAppService status to Launch at Login status', async () => {
   }
 })
 
-test('registers only from a packaged macOS build', async () => {
+test('registers only from a supported packaged build', async () => {
   const app = fakeApp({ openAtLogin: false, status: 'not-registered' })
   await createLaunchAtLogin({ os: 'darwin', app }).setLaunchAtLogin(true)
   expect(app.setLoginItemSettings).toHaveBeenCalledWith({ openAtLogin: true })
@@ -29,10 +29,45 @@ test('registers only from a packaged macOS build', async () => {
   expect(await devItem.getLaunchAtLogin()).toBe('unpackaged')
   await expect(devItem.setLaunchAtLogin(true)).rejects.toThrow('unpackaged')
 
-  const win = fakeApp({ openAtLogin: false })
-  const winItem = createLaunchAtLogin({ os: 'win32', app: win })
-  expect(await winItem.getLaunchAtLogin()).toBe('unsupported')
-  await expect(winItem.setLaunchAtLogin(true)).rejects.toThrow('unsupported')
+  for (const [os, app, expected] of [
+    ['win32', fakeApp({ openAtLogin: false }, false), 'unpackaged'],
+    ['linux', fakeApp({ openAtLogin: false }), 'unsupported'],
+    ['win32', undefined, 'unsupported'],
+  ] as const) {
+    const item = createLaunchAtLogin({ os, app })
+    expect(await item.getLaunchAtLogin()).toBe(expected)
+    await expect(item.setLaunchAtLogin(true)).rejects.toThrow(expected)
+    if (app) expect(app.setLoginItemSettings).not.toHaveBeenCalled()
+  }
   expect(dev.setLoginItemSettings).not.toHaveBeenCalled()
-  expect(win.setLoginItemSettings).not.toHaveBeenCalled()
+})
+
+test('Windows registers, removes and queries the same hidden startup arguments', async () => {
+  const app = fakeApp({ openAtLogin: false, launchItems: [] })
+  const item = createLaunchAtLogin({ os: 'win32', app })
+  await item.setLaunchAtLogin(true)
+  await item.setLaunchAtLogin(false)
+  expect(app.getLoginItemSettings).toHaveBeenCalledWith({ args: ['--hidden'] })
+  expect(app.setLoginItemSettings.mock.calls).toEqual([
+    [{ openAtLogin: true, args: ['--hidden'] }],
+    [{ openAtLogin: false, args: ['--hidden'] }],
+  ])
+})
+
+test('Windows reports only an enabled matching executable and hidden startup entry', async () => {
+  const entry = { path: process.execPath, args: ['--hidden'], enabled: true }
+  for (const [settings, expected] of [
+    [{ openAtLogin: true, launchItems: [entry] }, 'enabled'],
+    [{ openAtLogin: true, launchItems: [{ ...entry, enabled: false }] }, 'disabled'],
+    [{ openAtLogin: false, launchItems: [entry] }, 'disabled'],
+    [{ openAtLogin: true, launchItems: [] }, 'disabled'],
+    [{ openAtLogin: true, launchItems: [{ ...entry, args: [] }] }, 'disabled'],
+    [{ openAtLogin: true, launchItems: [{ ...entry, args: ['--hidden', '--other'] }] }, 'disabled'],
+    [{ openAtLogin: true, launchItems: [{ ...entry, path: `${process.execPath}.other` }] }, 'disabled'],
+    [{ openAtLogin: true, launchItems: [{ ...entry, enabled: false }, { ...entry, args: [] }] }, 'disabled'],
+    [{ openAtLogin: true, launchItems: [{ ...entry, path: process.execPath.toUpperCase().replaceAll('/', '\\') }] }, 'enabled'],
+  ] satisfies Array<[ReturnType<LoginItemApp['getLoginItemSettings']>, string]>) {
+    const app = fakeApp(settings)
+    expect(await createLaunchAtLogin({ os: 'win32', app }).getLaunchAtLogin()).toBe(expected)
+  }
 })

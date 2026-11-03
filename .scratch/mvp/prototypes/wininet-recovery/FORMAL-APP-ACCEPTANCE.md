@@ -1,7 +1,9 @@
 # Formal app: minimal Windows manual acceptance
 
-Status: procedure only; **not executed or accepted**. Actual final artifact and
-data paths are pending. Run serially on the target Windows desktop, never beside
+Execution update (2026-11-03): three limited formal-app cases on commit `143a97f`
+completed with verified baseline restoration; see [FORMAL-APP-RESULTS.md](FORMAL-APP-RESULTS.md).
+This is a reusable procedure, not release acceptance; placeholders below require
+the actual selected artifact/data paths. Run serially on the target desktop, never beside
 Core/resource tests, other proxy experiments or another restore controller.
 This tests the formal packaged app, not the historical isolated session package.
 No migration/checker framework, synthetic session messages or RunOnce setup.

@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process'
 import { EventEmitter } from 'node:events'
 import { createSocket } from 'node:dgram'
-import { chmod, lstat, mkdir, mkdtemp, readdir, readFile, rm, symlink } from 'node:fs/promises'
+import { lstat, mkdir, mkdtemp, readdir, readFile, rm, symlink } from 'node:fs/promises'
 import { createConnection, createServer, Socket } from 'node:net'
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -431,7 +431,7 @@ test('an injected fetchText can use Electron networking without importing Electr
   expect(fetchText).toHaveBeenCalledWith('https://example.test', { viaCore: true, userAgent: 'Clash Kuro' })
 })
 
-test.skipIf(process.getuid?.() === 0)('a failed Backup import on real disk restores the pre-import data', async () => {
+test('a failed Backup import on real disk restores the pre-import data', async () => {
   const { platform, dataDir } = await fixture({ os: 'darwin' })
   const { settings } = fakeSnapshot()
   const saved = { settings: { ...settings, mixedPort: 7891 }, profiles: [], activeProfileId: null, language: 'en' }
@@ -454,10 +454,20 @@ test.skipIf(process.getuid?.() === 0)('a failed Backup import on real disk resto
     settings: { ...before.settings, profiles: [{ ...fakeSnapshot().profiles[0]!, id: 'p2' }], activeProfileId: 'p2' },
     profiles: { p2: 'proxies: []\n' }, override: null
   }
-  // Only the imported Profile is written into profiles/; rename into a read-only dir fails, restore never writes there.
-  await chmod(join(dataDir, 'profiles'), 0o555)
-  cleanups.push(() => chmod(join(dataDir, 'profiles'), 0o700))
-  await expect(app.importBackup(JSON.stringify(incoming))).rejects.toThrow('The previous data was restored')
+  const write = platform.writeFileAtomic.bind(platform)
+  let failed = false
+  vi.spyOn(platform, 'writeFileAtomic').mockImplementation(async (name, content) => {
+    // Fail the last import write once; restoration still uses the real filesystem on every OS.
+    if (name === 'settings.json' && !failed) {
+      failed = true
+      expect(await readFile(join(dataDir, 'profiles/p2.yaml'), 'utf8')).toBe(incoming.profiles.p2)
+      await expect(readFile(join(dataDir, 'override.yaml'))).rejects.toMatchObject({ code: 'ENOENT' })
+      throw new Error('simulated settings write failure')
+    }
+    await write(name, content)
+  })
+  await expect(app.importBackup(JSON.stringify(incoming))).rejects.toThrow('simulated settings write failure. The previous data was restored')
+  expect(failed).toBe(true)
   expect(await files()).toEqual(original)
   const after = JSON.parse(await app.exportBackup()) as Backup
   expect({ ...after, createdAt: '' }).toEqual({ ...before, createdAt: '' })
