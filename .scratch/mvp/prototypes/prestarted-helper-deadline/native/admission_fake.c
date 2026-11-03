@@ -30,11 +30,13 @@ static BOOL WINAPI fake_flush(HANDLE file);
 static BOOL WINAPI fake_truncate(HANDLE file);
 static DWORD fake_wait(HANDLE file, DWORD milliseconds);
 static BOOL WINAPI fake_set_event(HANDLE event);
+static BOOL WINAPI fake_terminate_process(HANDLE process, UINT code);
 #define WriteFile fake_write_file
 #define FlushFileBuffers fake_flush
 #define SetEndOfFile fake_truncate
 #define WaitForSingleObject fake_wait
 #define SetEvent fake_set_event
+#define TerminateProcess fake_terminate_process
 #define CreateProcessW fake_create_process
 #define KURO_RESIDENT_OWNER_TEST
 #define KURO_RESIDENT_ROOT fake_root
@@ -49,12 +51,17 @@ static BOOL WINAPI fake_set_event(HANDLE event);
 #undef SetEndOfFile
 #undef WaitForSingleObject
 #undef SetEvent
+#undef TerminateProcess
 
 static wchar_t fixture_mode[64], proxy_server[300] = L"127.0.0.1:7891";
 static DWORD proxy_flags = PROXY_TYPE_DIRECT;
 static DWORD evidence_thread;
 static int evidence_waited;
+static LONG final_io;
 static int fault(const wchar_t *name) {
+  if (!wcscmp(fixture_mode, L"append-fail-reset-fail") &&
+      (!wcscmp(name, L"append-fail") || !wcscmp(name, L"reset-fail"))) return 1;
+  if (!wcscmp(fixture_mode, L"append-flush-fail") && !wcscmp(name, L"flush-fail")) return resident_load(&resident.serving);
   if (!wcscmp(fixture_mode, L"diagnostics-report-delay") && !wcscmp(name, L"diagnostics-stall")) return 1;
   if (!wcsncmp(fixture_mode, L"shutdown-", 9))
     return resident_load(&resident.serving) && !wcscmp(fixture_mode + 9, name);
@@ -117,6 +124,10 @@ static BOOL WINAPI fake_set(HINTERNET internet, DWORD option, LPVOID data, DWORD
   return TRUE;
 }
 static BOOL WINAPI fake_write_file(HANDLE file, LPCVOID data, DWORD bytes, LPDWORD written, LPOVERLAPPED overlapped) {
+  const char final_prefix[] = "{\"command\":\"shutdown\"";
+  int final = bytes >= sizeof final_prefix - 1 && !memcmp(data, final_prefix, sizeof final_prefix - 1);
+  int final_stdout = final && file == GetStdHandle(STD_OUTPUT_HANDLE);
+  if (final) InterlockedOr(&final_io, final_stdout ? 4 : 1);
   if (file == resident.recovery) {
     if (bytes == sizeof(KuroResidentJournalHeader)) {
       if (fault(L"header-fail")) { *written = 0; SetLastError(ERROR_DISK_FULL); return FALSE; }
@@ -130,7 +141,33 @@ static BOOL WINAPI fake_write_file(HANDLE file, LPCVOID data, DWORD bytes, LPDWO
       if (fault(L"append-hung")) Sleep(INFINITE);
     }
   } else if (file != GetStdHandle(STD_OUTPUT_HANDLE) && file != GetStdHandle(STD_ERROR_HANDLE) && fault(L"log-hung")) Sleep(INFINITE);
-  return WriteFile(file, data, bytes, written, overlapped);
+  BOOL result = WriteFile(file, data, bytes, written, overlapped);
+  if (final) {
+    InterlockedOr(&final_io, final_stdout ? 8 : 2);
+    if (!final_stdout && fault(L"log-after-write-hung")) Sleep(INFINITE);
+  }
+  return result;
+}
+static BOOL WINAPI fake_terminate_process(HANDLE process, UINT code) {
+  // Failure-only side channel: never wait for the reporter or reuse its log/stdout handles.
+  if (process == GetCurrentProcess() && g_log && (code == 42 || code == 43)) {
+    char json[1024]; wchar_t path[MAX_PATH + 32]; LONG io = resident_load(&final_io);
+    int bytes = _snprintf(json, sizeof json,
+      "{\"code\":%u,\"durationMs\":%llu,\"clearOk\":%s,\"timedOut\":%s,\"coreGone\":%s,"
+      "\"cleared\":%lu,\"coreStarted\":%lu,\"coreOutputDone\":%lu,\"report\":%lu,\"reported\":%lu,\"finished\":%lu,"
+      "\"finalLogWriteEntered\":%s,\"finalLogWriteReturned\":%s,\"finalStdoutWriteEntered\":%s,\"finalStdoutWriteReturned\":%s}\n",
+      code, GetTickCount64() - resident.start, resident_load(&resident.clear_ok) ? "true" : "false",
+      resident.timed_out ? "true" : "false", resident.core_gone ? "true" : "false",
+      WaitForSingleObject(resident.cleared, 0), WaitForSingleObject(resident.core_started, 0),
+      WaitForSingleObject(resident.core_output_done, 0), WaitForSingleObject(resident.report, 0),
+      WaitForSingleObject(resident.reported, 0), WaitForSingleObject(resident.finished, 0),
+      io & 1 ? "true" : "false", io & 2 ? "true" : "false", io & 4 ? "true" : "false", io & 8 ? "true" : "false");
+    if (bytes > 0 && bytes < (int)sizeof json && _snwprintf(path, sizeof path / sizeof *path, L"%ls.state.json", g_log) > 0) {
+      HANDLE state = CreateFileW(path, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+      if (state != INVALID_HANDLE_VALUE) { DWORD written; WriteFile(state, json, (DWORD)bytes, &written, NULL); CloseHandle(state); }
+    }
+  }
+  return TerminateProcess(process, code);
 }
 static BOOL WINAPI fake_flush(HANDLE file) {
   if (file == resident.recovery) {
@@ -141,6 +178,7 @@ static BOOL WINAPI fake_flush(HANDLE file) {
 }
 static BOOL WINAPI fake_truncate(HANDLE file) {
   if (file == resident.recovery) {
+    trace("reset-enter\n");
     if (fault(L"reset-hung")) Sleep(INFINITE);
     if (fault(L"reset-fail")) { SetLastError(ERROR_WRITE_FAULT); return FALSE; }
   }

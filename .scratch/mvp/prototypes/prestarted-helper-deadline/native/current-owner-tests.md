@@ -27,7 +27,7 @@ node .scratch/mvp/prototypes/prestarted-helper-deadline/native/admission-test.mj
 
 The former 65-case protocol 2 admission suite remains in repository history. It
 is not silently skipped, reported as passing, or retained as a production bypass.
-The active 78-case replacement preserves native safety failures and explicitly
+The active 83-case replacement preserves native safety failures and explicitly
 retires properties of the deleted migration/registration design:
 
 | Former cases | Current scope/replacement |
@@ -80,6 +80,16 @@ retires properties of the deleted migration/registration design:
   A caught assertion also writes `*.failure.json` with protocol output, log content
   and a bounded diagnostic tail. Existing CI's native JSON glob uploads both;
   assertion messages no longer contain 64 KiB of repeated diagnostic noise.
+- `empty-close-reset-fail/hung` forbids journal truncation on an empty owner that
+  never attempted append, while retaining shutdown readback. An append attempt is
+  tracked before journal I/O: `append-fail-reset-fail` and `append-flush-fail`
+  still require reset and failure, even without a remembered endpoint. Existing
+  append-fail/short/hung and initialization flush-fail/hung assertions remain.
+- `log-after-write-hung` separates cleanup from publication: successful shutdown
+  bytes reach the persisted log, but a blocked reporter before stdout must still
+  fail with exit 42. Failure-only `*.state.json` snapshots record cleanup/event
+  state and final log/stdout WriteFile entry/return stages in `*.failure.json`;
+  they do not prove filesystem flush durability or identify a blocked log close.
 
 The guarded WinINet `serve.c` fixture uses the same current engine. CI's `recover`
 cycle in `replay.c` launches the actual content-addressed retained executable with

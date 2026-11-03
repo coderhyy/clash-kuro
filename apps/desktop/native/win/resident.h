@@ -40,7 +40,7 @@ static struct {
   KuroResidentJournalBinding binding, current_binding;
   KuroResidentJournalState prior;
   wchar_t servers[MAX_EXPECTED][300];
-  int server_count;
+  int server_count, append_attempted;
   Buf response;
   ResidentCleanup replay_check, cleanup_check;
   SRWLOCK output_lock;
@@ -118,8 +118,9 @@ static int resident_remember(const wchar_t *server) {
 }
 static int resident_admit(const wchar_t *server) {
   // Persist before WinINet; retain the lock and journal across every failure path.
-  return resident_load(&resident.serving) &&
-    !kuro_resident_journal_append(resident.recovery, &resident.binding, server) &&
+  if (!resident_load(&resident.serving)) return 0;
+  resident.append_attempted = 1; /* A failed append may already have changed the journal. */
+  return !kuro_resident_journal_append(resident.recovery, &resident.binding, server) &&
     resident_remember(server);
 }
 
@@ -384,7 +385,7 @@ cleanup:;
   resident.response.len = 0;
   const ULONGLONG deadline = resident.start + 1500;
   int cleared = resident_verify_clear(expected, resident.server_count, deadline, &resident.cleanup_check);
-  if (cleared) cleared = resident_left(deadline) &&
+  if (cleared && (resident.server_count || resident.append_attempted)) cleared = resident_left(deadline) &&
     !kuro_resident_journal_reset_after_clear(resident.recovery, &resident.binding);
   ULONGLONG completed = GetTickCount64();
   InterlockedExchange(&resident.clear_ok, cleared && completed < deadline);

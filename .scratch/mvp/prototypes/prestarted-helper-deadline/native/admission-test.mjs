@@ -59,6 +59,7 @@ function launch(root, mode = '', exe = helper, recovery = false, server = '') {
   }
   launches.push(() => ({ pid: child.pid, mode, log, exitCode: child.exitCode, signalCode: child.signalCode,
     ended, lines, outputTail: output.slice(-2048), traceTail: trace.slice(-2048),
+    nativeExitState: existsSync(log + '.state.json') ? JSON.parse(readFileSync(log + '.state.json', 'utf8')) : null,
     persisted: existsSync(log) ? readFileSync(log, 'utf8').slice(-16384) : null }))
   return { child, closed, exited, until, log, recovery, trace: () => trace, lines: () => lines,
     ready: () => until(() => lines.find(line => line.ready)), send: bytes => child.stdin.write(bytes),
@@ -176,7 +177,7 @@ async function scenario(name, base) {
   if (name === 'header-only' || fault === 'success') fault = ''
   const pending = replay && name !== 'header-only' ? name === 'endpoint-bound' ? Array.from({ length: 8 }, (_, i) => `127.0.0.1:${7891 + i}`) : ['127.0.0.1:7891'] : []
   const original = seed(root, header, pending)
-  const mode = replay ? fault : name.startsWith('shutdown-') ? name : fault
+  const mode = name.startsWith('empty-close-') ? `shutdown-${name.slice(12)}` : replay ? fault : name.startsWith('shutdown-') ? name : fault
   if (/^(header-|flush-)/.test(name)) writeFileSync(path, '')
   const p = launch(root, name === 'repeated-close' ? 'shutdown-clear-hung' : mode, autonomous ? retained : helper, autonomous, pending.length ? pending[0] : '')
   if (replay) {
@@ -197,6 +198,11 @@ async function scenario(name, base) {
     assert(!p.trace().includes('set\n')); return
   }
   await p.ready(); if (!name.startsWith('diagnostics-')) await p.until(() => p.trace().includes('fake-core'))
+  if (name.startsWith('empty-close-')) {
+    p.send(close); await finish(p, 0, { timedOut: false })
+    assert(!p.trace().includes('reset-enter'))
+    assert.deepEqual(readFileSync(path), header); return
+  }
   if (name === 'malformed-admit' || name === 'unknown-frame' || name === 'truncated-exec') {
     p.child.stdin.end(name === 'malformed-admit' ? frame(3, Buffer.alloc(128)) : name === 'unknown-frame' ? frame(99, Buffer.alloc(0)) : exec(['get']).subarray(0, 10))
     await finish(p, 0); assert(!p.trace().includes('set\n')); return
@@ -217,6 +223,7 @@ async function scenario(name, base) {
     p.send(close)
     await finish(p, name === 'append-fail' || name === 'set-slow' ? 0 : 42, { timedOut: /hung|late/.test(name) })
     if (name.startsWith('append-')) assert(!p.trace().includes('set\n'))
+    if (name === 'append-fail-reset-fail' || name === 'append-flush-fail') assert(p.trace().includes('reset-enter'))
     return
   }
   await p.until(() => p.lines().some(x => x.command === 'set'))
@@ -227,6 +234,17 @@ async function scenario(name, base) {
     await new Promise(resolve => setTimeout(resolve, 800)); p.send(close)
   }
   if (name.startsWith('diagnostics-')) { await p.exited; p.child.stderr.resume() }
+  if (name === 'log-after-write-hung') {
+    assert.equal(await p.closed, 42)
+    assert(!p.report() && p.lines().some(x => x.command === 'closing'))
+    const report = readFileSync(p.log, 'utf8').trim().split('\n').map(x => JSON.parse(x)).at(-1)
+    assert.equal(report.command, 'shutdown'); assert.equal(report.ok, true)
+    const state = JSON.parse(readFileSync(p.log + '.state.json', 'utf8'))
+    assert.equal(state.clearOk, true); assert.equal(state.coreGone, true); assert.equal(state.timedOut, false)
+    assert.equal(state.report, 0); assert.equal(state.reported, 258); assert.equal(state.finished, 0)
+    assert.equal(state.finalLogWriteReturned, true); assert.equal(state.finalStdoutWriteEntered, false)
+    writeFileSync(join(out, `${name}.state.json`), JSON.stringify(state, null, 2)); return
+  }
   if (name === 'log-hung') { assert.equal(await p.closed, 42); assert(p.lines().some(x => x.command === 'closing')); evidenceOrder(p); return }
   const failed = name.startsWith('shutdown-') && !name.endsWith('readback-foreign') || name === 'repeated-close'
   const report = await finish(p, failed ? 42 : 0, { timedOut: /hung|late|delayed-supervisor/.test(name) || name === 'repeated-close' })
@@ -253,15 +271,15 @@ if (process.argv[2] === '--child') {
   execFileSync(process.env.CC ?? 'gcc', [...flags, join(native, 'watchdog.c'), '-o', join(out, 'admission-watchdog.exe')], { stdio: 'inherit', timeout: 60000 })
   const base = await realpath(mkdtempSync(join(tmpdir(), 'kuro-admission-')))
   process.env.KURO_ADMISSION_TEST_NAMESPACE = randomUUID()
-  const cases = ['initial', 'eof', 'malformed-admit', 'unknown-frame', 'truncated-exec', 'query', 'owner-contention', 'recovery-contention', 'journal-contention',
+  const cases = ['initial', 'eof', 'empty-close-reset-fail', 'empty-close-reset-hung', 'malformed-admit', 'unknown-frame', 'truncated-exec', 'query', 'owner-contention', 'recovery-contention', 'journal-contention',
     'root-junction', 'retained-changed', 'header-only', 'endpoint-bound', 'recovery-missing', 'recovery-empty', 'recovery-source',
     'reject-sid', 'reject-helper', 'reject-corrupt', 'reject-legacy', 'reject-v2',
     'update-empty', 'update-pending', 'update-empty-missing', 'update-pending-missing', 'update-pending-changed', 'update-pending-readback-fail',
     ...replayFaults.map(x => `replay-${x}`), 'replay-success', 'close-replay', 'close-hung',
     'autonomous-success', ...['clear-fail', 'clear-hung', 'readback-fail', 'readback-hung', 'readback-reenabled', 'reset-fail'].map(x => `autonomous-${x}`),
     'header-fail', 'header-short', 'header-hung', 'header-crash', 'flush-fail', 'flush-hung', 'core-fail', 'core-hung', 'core-late',
-    'append-fail', 'append-short', 'append-hung', 'set-hung', 'set-late', 'set-slow',
-    ...replayFaults.map(x => `shutdown-${x}`), 'shutdown-readback-foreign', 'shutdown-delayed-supervisor', 'repeated-close', 'diagnostics-stall', 'diagnostics-report-delay', 'log-hung']
+    'append-fail', 'append-fail-reset-fail', 'append-flush-fail', 'append-short', 'append-hung', 'set-hung', 'set-late', 'set-slow',
+    ...replayFaults.map(x => `shutdown-${x}`), 'shutdown-readback-foreign', 'shutdown-delayed-supervisor', 'repeated-close', 'diagnostics-stall', 'diagnostics-report-delay', 'log-hung', 'log-after-write-hung']
   const selected = process.argv.find(x => x.startsWith('--case='))?.slice(7)
   if (selected) assert(cases.includes(selected), `unknown case ${selected}`)
   for (const name of cases.filter(x => !selected || x === selected)) {
