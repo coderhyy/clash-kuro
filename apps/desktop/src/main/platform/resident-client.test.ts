@@ -20,8 +20,11 @@ const inputFrame = chunk => {
     if (kind === 2) {
       if (++closes !== 1) process.exit(91);
       if (mode === 'hang') send({command:'get',ok:true}); // Late result cannot reopen admission.
-      if (mode.startsWith('report-')) {
+      if (mode.includes('report-')) {
         const final = {command:'shutdown',ok:true,timedOut:mode==='report-invalid',coreGone:true,corePid:123,durationMs:40};
+        if (mode.startsWith('current-')) Object.assign(final, {protocol:3,firstTrigger:16,queryEvents:1,endEvents:0});
+        if (mode === 'current-report-missing') delete final.firstTrigger;
+        if (mode === 'current-report-wrong') final.protocol = 2;
         if (mode === 'report-truncated') process.stdout.write('{');
         else {
           send(final);
@@ -29,6 +32,9 @@ const inputFrame = chunk => {
         }
       }
       setTimeout(() => process.exit(0), 30);
+    } else if (mode === 'current-closing') {
+      send({command:'closing',protocol:3,triggerMask:1,queryEvents:1,endEvents:0,sessionFlags:0});
+      send({command,ok:true});
     } else if (mode === 'bad') send({command:'wrong',ok:true});
     else if (mode === 'overflow') process.stdout.write('x'.repeat(1024 * 1024 + 1));
     else if (mode === 'eof') { process.stdout.end(); setTimeout(() => process.exit(0), 100); }
@@ -42,14 +48,14 @@ const inputFrame = chunk => {
 process.stdin.once('data', chunk => {
   if (chunk[0] !== 0) process.exit(93);
   process.stdin.on('data', inputFrame);
-  if (mode !== 'no-ready') send({ready:true,protocol:1});
+  if (mode !== 'no-ready') send({ready:true,protocol:mode.startsWith('current') ? 3 : 1,recoveryVerified:mode!=='current-unverified'});
   if (chunk.length > 1) inputFrame(chunk.subarray(1));
 });
 process.stdin.on('end', () => { if (!closes) process.exit(92); });
 process.stderr.write('fixture-ready\\n');
 `
 
-async function fixture(mode: string, body: (client: ReturnType<typeof residentClient>, child: ChildProcessWithoutNullStreams) => Promise<void>) {
+async function fixture(mode: string, body: (client: ReturnType<typeof residentClient>, child: ChildProcessWithoutNullStreams) => Promise<void>, protocol: 1 | 3 = 1) {
   const child = spawn(process.execPath, ['-e', script, mode], { windowsHide: true, stdio: 'pipe' })
   let rescued = false
   let startupFailure!: (error: Error) => void
@@ -66,7 +72,7 @@ async function fixture(mode: string, body: (client: ReturnType<typeof residentCl
   try {
     // Node bootstrap is outside this protocol-only budget, but still bounded by the watchdog.
     await boot
-    client = residentClient(child, 500)
+    client = residentClient(child, 500, protocol)
     child.stdin.write(Buffer.from([0]))
     await body(client, child)
   }
@@ -93,10 +99,21 @@ test('handshake, command correlation, one outstanding request and idempotent clo
     await expect(client.request(['set'])).rejects.toThrow('closing')
     await client.exited
     await expect(client.request(['get'])).rejects.toThrow('exited')
-    const late = residentClient(child)
+    const late = residentClient(child, 10_000, 1)
     await expect(late.ready).rejects.toThrow('exited')
     await expect(late.exited).resolves.toEqual({ code: 0, signal: null })
   })
+})
+
+test('current owner requires protocol3 and verified native recovery before writes', async () => {
+  await fixture('current', async client => {
+    await client.ready
+    expect(JSON.parse((await client.request(['get'])).stdout).ok).toBe(true)
+  }, 3)
+  for (const mode of ['normal', 'current-unverified']) await fixture(mode, async client => {
+    await expect(client.ready).rejects.toThrow('Unexpected resident helper response')
+    await expect(client.request(['set'])).rejects.toThrow(/closing|exited/)
+  }, 3)
 })
 
 test('fixture bootstrap does not consume the protocol deadline', async () => {
@@ -105,6 +122,27 @@ test('fixture bootstrap does not consume the protocol deadline', async () => {
     expect(JSON.parse((await client.request(['get'])).stdout)).toEqual({ command: 'get', ok: true })
   })
 })
+
+test('native closing rejects the in-flight operation and late success never reopens writes', async () => {
+  await fixture('current-closing', async client => {
+    await client.ready
+    await expect(client.request(['get'])).rejects.toThrow('Native session is closing')
+    await expect(client.request(['set'])).rejects.toThrow(/closing|exited/)
+    await client.closed
+    await expect(client.request(['set'])).rejects.toThrow('exited')
+  }, 3)
+})
+
+test.each(['current-report-valid', 'current-report-missing', 'current-report-wrong'])(
+  'current shutdown evidence retains validated native reasons: %s', async mode => {
+    await fixture(mode, async client => {
+      await client.ready
+      client.close()
+      const { report } = await client.closed
+      if (mode === 'current-report-valid') expect(report).toMatchObject({ firstTrigger: 16, queryEvents: 1, endEvents: 0 })
+      else expect(report).toBeNull()
+    }, 3)
+  })
 
 test.each([
   ['hang', 'timed out'],
@@ -149,7 +187,7 @@ test('a failed mutation closes admission before the response consumer can enqueu
 
 test('spawn failure rejects readiness and records that no writer process was created', async () => {
   const child = spawn(join(tmpdir(), randomUUID(), 'missing.exe'), [], { windowsHide: true, stdio: 'pipe' })
-  const client = residentClient(child)
+  const client = residentClient(child, 10_000, 1)
   await expect(client.ready).rejects.toThrow()
   expect(child.pid).toBeUndefined()
   await expect(client.exited).resolves.toEqual({ code: null, signal: null })

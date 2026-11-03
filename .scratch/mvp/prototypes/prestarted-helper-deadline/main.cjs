@@ -26,7 +26,8 @@ app.whenReady().then(() => {
   record('spawned')
   if (opts.case === 'rpc-client') {
     const { residentClient } = require('./out/client.cjs')
-    const client = residentClient(helper)
+    // This historical coordination-only fake has no native journal/recovery handshake.
+    const client = residentClient(helper, 10_000, 1)
     client.ready.then(async () => {
       record('ready')
       const response = JSON.parse((await client.request(['query'])).stdout)

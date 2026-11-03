@@ -9,13 +9,13 @@ import { setTimeout as delay } from 'node:timers/promises'
 import type { ControlChannel, Platform, ValidationResult } from '@kuro/core'
 import { fetchProfileText } from './fetch'
 import { createLaunchAtLogin, type LoginItemApp } from './login-item'
-import { createSystemProxy, execCommand, parseWindowsProxyServer, type Exec, type ExecSync, type SyncClearReport } from './system-proxy'
+import { createSystemProxy, execCommand, parseWindowsProxyServer, type Exec } from './system-proxy'
 import { createSocketTransport } from './transport'
 import type { startResidentSession } from './resident-session'
 
 export { createSocketTransport } from './transport'
 export { createSystemProxy, SystemProxyPermissionError, SystemProxyUnknownStateError } from './system-proxy'
-export type { Exec, ExecSync, SyncClearReport } from './system-proxy'
+export type { Exec } from './system-proxy'
 export { createResumeHandler } from './resume'
 
 export interface DesktopPlatformOptions {
@@ -23,8 +23,8 @@ export interface DesktopPlatformOptions {
   corePath: string
   /** Windows: absolute path to kuro-sysproxy.exe (issue 08). */
   sysproxyHelperPath?: string
-  /** Windows: --log file for the helper's RunOnce logon cleanup (default <dataDir>\runonce.log). */
-  runOnceLogPath?: string
+  /** Windows: bounded native owner diagnostics (default <dataDir>\sysproxy-owner.log). */
+  sysproxyLogPath?: string
   mixedPort: number | (() => number)
   appProcessName?: string
   userAgent?: string
@@ -32,10 +32,10 @@ export interface DesktopPlatformOptions {
   startTimeoutMs?: number
   stopTimeoutMs?: number
   exec?: Exec
-  execSync?: ExecSync
   spawn?: (file: string, args: string[], options: SpawnOptions) => ChildProcess
-  /** Experimental Windows owner; enable only after legacy recovery migration. */
+  /** Windows native owner; production startup supplies the current-version session. */
   startResident?: typeof startResidentSession
+  onResidentStopped?: (reason: string) => void
   powerMonitor?: { on(event: 'resume', listener: () => void): unknown; removeListener(event: 'resume', listener: () => void): unknown }
   fetchText?: Platform['fetchText']
   /** Electron `app`; omitted (tests) means Launch at Login is unsupported. */
@@ -44,8 +44,6 @@ export interface DesktopPlatformOptions {
 
 export interface DesktopPlatform extends Platform {
   cleanupStaleSystemProxy(port: number): Promise<void>
-  /** Windows logoff/shutdown: clears our System Proxy before returning, using only in-memory state. */
-  clearSystemProxySync(options: { timeoutMs: number }): SyncClearReport
   shutdown(options: { timeoutMs: number }): Promise<void>
 }
 
@@ -140,8 +138,8 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
       return resident.request(args)
     }
     return createSystemProxy({
-      os, exec: proxyExec, execSync: options.execSync, helperPath: options.sysproxyHelperPath, mixedPort: port,
-      runOnceLogPath: os === 'win32' && !options.startResident ? options.runOnceLogPath ?? win32.join(dataDir, 'runonce.log') : undefined,
+      os, exec: proxyExec, helperPath: options.sysproxyHelperPath, mixedPort: port,
+      logPath: os === 'win32' && !options.startResident ? options.sysproxyLogPath ?? win32.join(dataDir, 'sysproxy.log') : undefined,
       memory: {
         async load() {
           const text = await read('system-proxy.json')
@@ -288,8 +286,18 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
         if (!owner && residentFailed) throw new Error('Resident exited unexpectedly; cleanup unverified')
         if (owner) {
           if (resident === owner) resident = undefined
-          try { await owner.close() }
-          catch (error) { residentFailed = true; throw error }
+            try {
+              const result = await owner.close()
+              if (result?.restartRequired) {
+                residentFailed = true
+                options.onResidentStopped?.('Native session ended during stop; application restart required')
+              }
+            }
+            catch (error) {
+              residentFailed = true
+              options.onResidentStopped?.(`System Proxy cleanup unverified; restart required: ${errorText(error)}`)
+              throw error
+            }
         }
       })()
       return residentStopping
@@ -349,18 +357,21 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
       }
       let output = ''
       let readinessError = ''
+      if (shuttingDown || residentFailed) throw new Error('Platform is shutting down or requires restart')
       if (options.startResident) {
         residentStopping = undefined
         residentAbort = new AbortController()
         residentStarting = options.startResident({ helper: options.sysproxyHelperPath!,
           recoveryDirectory: join(dataDir, 'proxy-recovery'), dataDir, core: corePath,
-          server: `127.0.0.1:${mixedPort}`, log: options.runOnceLogPath ?? join(dataDir, 'runonce.log'), signal: residentAbort.signal })
+          server: `127.0.0.1:${mixedPort}`, log: options.sysproxyLogPath ?? join(dataDir, 'sysproxy-owner.log'), signal: residentAbort.signal })
         try {
           const owner = resident = await residentStarting
           usedPipe = true
           void owner.exited.then(() => {
             if (resident === owner) {
               residentFailed = true
+              if ('beginShutdown' in systemProxy) systemProxy.beginShutdown()
+              options.onResidentStopped?.('System Proxy owner stopped; restart the application before starting Core or changing proxy settings')
               // Keep the exact owner's final report for shutdown verification, even after native session cleanup.
             }
           })
@@ -378,6 +389,7 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
           throw new Error(`Resident Core readiness failed: ${readinessError}\n${owner.diagnostics()}`)
         } catch (error) {
           residentFailed = true
+          options.onResidentStopped?.(`System Proxy owner startup failed; restart required: ${errorText(error)}`)
           await stop().catch(() => {})
           throw error
         } finally { residentStarting = undefined }
@@ -413,7 +425,11 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
         throw error
       }
     }),
-    stopCore: () => serialize(stop),
+    stopCore: () => serialize(async () => {
+      // The native owner starts its shared cleanup budget itself; never pre-clear over IPC.
+      if (!options.startResident && !shuttingDown) await systemProxy.clearSystemProxy()
+      await stop()
+    }),
     async isCoreRunning() {
       if (options.startResident) return !!resident && !residentFailed
       return !!child?.pid && child.exitCode === null && child.signalCode === null && alive(child.pid)
@@ -423,15 +439,6 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
     getSystemProxy: () => systemProxy.getSystemProxy(),
     clearSystemProxy: () => systemProxy.clearSystemProxy(),
     cleanupStaleSystemProxy: port => systemProxy.cleanupStaleSystemProxy(port),
-    clearSystemProxySync(input) {
-      if (!options.startResident) return systemProxy.clearSystemProxySync(input)
-      shuttingDown = true
-      if ('beginShutdown' in systemProxy) systemProxy.beginShutdown()
-      residentAbort?.abort()
-      void stop().catch(() => { residentFailed = true })
-      return { ran: false, ok: false, exitCode: null, timedOut: false, durationMs: 0, servers: [],
-        detail: 'Resident native owner handles session cleanup; completion not yet verified' }
-    },
     async setSystemProxy(settings) {
       if (shuttingDown) throw new Error('Platform is shutting down; System Proxy writes are closed')
       if (residentFailed) throw new Error('Resident has exited; System Proxy writes are closed')
@@ -461,7 +468,7 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
       }
       shutdown = (async () => {
         if (options.startResident) {
-          await within(stop, started + timeoutMs, 'Resident cleanup and Core stop')
+            await within(async () => { await stop(); await queue }, started + timeoutMs, 'Resident cleanup and startup quiescence')
           return
         }
         const errors: unknown[] = []

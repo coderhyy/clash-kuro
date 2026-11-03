@@ -65,6 +65,10 @@ export interface Platform {
   applyRuntimeConfig(yaml: string): Promise<ValidationResult>
   /** Start Core with the current Runtime Config. Resolves once the Control Channel answers. */
   startCore(): Promise<void>
+  /**
+   * Own System Proxy cleanup before stopping Core; resolve only when both are confirmed.
+   * Reject failed/unknown cleanup or stop. A native owner may still stop Core after its cleanup deadline.
+   */
   stopCore(): Promise<void>
   isCoreRunning(): Promise<boolean>
   controlChannel(): ControlChannel

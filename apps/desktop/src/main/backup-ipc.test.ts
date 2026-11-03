@@ -18,7 +18,7 @@ const mocks = vi.hoisted(() => {
   }
   const app = {
     requestSingleInstanceLock: () => true, whenReady: async () => {},
-    getAppPath: () => '/unused', getPath: () => '/unused', getVersion: () => '0.1.0',
+    getAppPath: () => '/unused', getPath: vi.fn(() => '/unused'), getVersion: () => '0.1.0',
     getLoginItemSettings: () => ({ wasOpenedAtLogin: false }),
     on: vi.fn(), relaunch: vi.fn(), exit: vi.fn()
   }
@@ -54,6 +54,7 @@ const invoke = (channel: string, event = trusted) => mocks.handlers.get(channel)
 
 beforeAll(async () => {
   directory = await mkdtemp(join(tmpdir(), 'kuro-backup-ipc-'))
+  mocks.app.getPath.mockReturnValue(directory)
   await import('./index')
   await vi.waitFor(() => expect(mocks.app.on).toHaveBeenCalledWith('before-quit', expect.any(Function)))
 })

@@ -278,27 +278,98 @@ test('interval-only changes persist without restarting Core, and support removin
   expect(app.store.getState().profiles[0]?.userUpdateIntervalHours).toBeNull()
 })
 
-test('stop/quit clear System Proxy before stopping Core; host callbacks receive commands', async () => {
+test('stop delegates cleanup to Platform; quit with a hook delegates shutdown without another stop', async () => {
   const { app, platform, deps } = await setup()
   const events: string[] = []
+  const stop = platform.stopCore.bind(platform)
   platform.clearSystemProxy = async () => { events.push('clear') }
-  platform.stopCore = async () => { events.push('stop'); platform.coreRunning = false }
+  platform.stopCore = async () => { events.push('platform-stop'); await stop() }
   deps.hooks!.onQuit = () => { events.push('quit') }
   expect((await app.run('openWindow', {})).ok).toBe(true)
   expect(deps.hooks!.onOpenWindow).toHaveBeenCalledOnce()
   expect((await app.run('stopCore', {})).ok).toBe(true)
   expect((await app.run('quit', {})).ok).toBe(true)
-  expect(events).toEqual(['clear', 'stop', 'clear', 'stop', 'quit'])
+  expect(events).toEqual(['platform-stop', 'clear', 'quit'])
   expect(app.store.getState()).toMatchObject({ core: { status: 'stopped' }, proxyGroups: [], proxies: {}, systemProxy: { enabled: false } })
 })
 
-test('refuses to stop or quit if System Proxy cannot be cleared', async () => {
+test('quit with a hook reaches the host without waiting for proxy cleanup or stopping Core', async () => {
   const { app, platform, deps } = await setup()
+  const clear = vi.spyOn(platform, 'clearSystemProxy').mockImplementation(() => new Promise(() => {}))
+  const stop = vi.spyOn(platform, 'stopCore')
+  const snapshot = app.store.getState()
+
+  expect((await app.run('quit', {})).ok).toBe(true)
+
+  expect(deps.hooks!.onQuit).toHaveBeenCalledOnce()
+  expect(clear).not.toHaveBeenCalled()
+  expect(stop).not.toHaveBeenCalled()
+  expect(app.store.getState()).toBe(snapshot)
+})
+
+test.each([true, false])('only hooked quit bypasses a pending command (hook: %s)', async (hooked) => {
+  const { app, platform, deps } = await setup()
+  const onQuit = deps.hooks!.onQuit
+  if (!hooked) delete deps.hooks!.onQuit
+  let release!: () => void
+  vi.mocked(deps.hooks!.onOpenWindow!).mockImplementationOnce(() => new Promise<void>((resolve) => { release = resolve }))
+  const stop = vi.spyOn(platform, 'stopCore')
+  const previous = app.run('openWindow', {})
+  await Promise.resolve()
+  const quit = app.run('quit', {})
+  const next = app.run('openWindow', {})
+
+  try {
+    await Promise.resolve()
+    expect(onQuit).toHaveBeenCalledTimes(hooked ? 1 : 0)
+    expect(stop).not.toHaveBeenCalled()
+    expect(deps.hooks!.onOpenWindow).toHaveBeenCalledOnce()
+  } finally {
+    release()
+    expect((await Promise.all([previous, quit, next])).every((result) => result.ok)).toBe(true)
+  }
+
+  expect(stop).toHaveBeenCalledTimes(hooked ? 0 : 1)
+  expect(deps.hooks!.onOpenWindow).toHaveBeenCalledTimes(2)
+})
+
+test('hookless quit falls back to Platform cleanup and stop', async () => {
+  const { app, platform, deps } = await setup()
+  deps.hooks = undefined
+  await app.run('setSystemProxy', { enabled: true })
+  const stop = vi.spyOn(platform, 'stopCore')
+
+  expect((await app.run('quit', {})).ok).toBe(true)
+
+  expect(stop).toHaveBeenCalledOnce()
+  expect(platform.coreRunning).toBe(false)
+  expect(platform.systemProxy).toBeNull()
+  expect(app.store.getState()).toMatchObject({ core: { status: 'stopped' }, systemProxy: { enabled: false } })
+})
+
+test.each(['stopCore', 'quit'] as const)('%s preserves state when Platform refuses cleanup', async (command) => {
+  const { app, platform, deps } = await setup()
+  deps.hooks = undefined
+  await app.run('setSystemProxy', { enabled: true })
+  const snapshot = app.store.getState()
   platform.clearSystemProxy = async () => { throw new Error('cannot clear proxy') }
   const stop = vi.spyOn(platform, 'stopCore')
-  expect((await app.run('quit', {})).ok).toBe(false)
+
+  expect(await app.run(command, {})).toEqual({ ok: false, error: 'cannot clear proxy' })
+
+  expect(stop).toHaveBeenCalledOnce()
+  expect(platform.coreRunning).toBe(true)
+  expect(platform.systemProxy).not.toBeNull()
+  expect(app.store.getState()).toBe(snapshot)
+})
+
+test('a failing quit hook reports its error without falling back to a second shutdown path', async () => {
+  const { app, platform, deps } = await setup()
+  deps.hooks!.onQuit = async () => { throw new Error('shutdown failed') }
+  const stop = vi.spyOn(platform, 'stopCore')
+
+  expect(await app.run('quit', {})).toEqual({ ok: false, error: 'shutdown failed' })
   expect(stop).not.toHaveBeenCalled()
-  expect(deps.hooks!.onQuit).not.toHaveBeenCalled()
 })
 
 test('removing the Active Profile safely stops Core and clears the selection', async () => {
@@ -570,7 +641,8 @@ test('import backs up first, clears System Proxy then stops Core, replaces files
   vi.spyOn(platform, 'writeFileAtomic').mockImplementation(async (name, data) => { events.push(name); await write(name, data) })
   vi.spyOn(platform, 'removeFile').mockImplementation(async (name) => { events.push(`remove:${name}`); await remove(name) })
   vi.spyOn(platform, 'clearSystemProxy').mockImplementation(async () => { events.push('clear'); platform.systemProxy = null })
-  vi.spyOn(platform, 'stopCore').mockImplementation(async () => { events.push('stop'); platform.coreRunning = false })
+  const stopCore = platform.stopCore.bind(platform)
+  vi.spyOn(platform, 'stopCore').mockImplementation(async () => { await stopCore(); events.push('stop') })
   const imported = app.importBackup(JSON.stringify(incoming))
   const command = app.run('setMode', { mode: 'direct' })
   await imported
@@ -651,9 +723,7 @@ test('import does not stop Core or replace data if System Proxy cannot be cleare
   const data = await app.exportBackup()
   const before = new Map(platform.files)
   vi.spyOn(platform, 'clearSystemProxy').mockRejectedValue(new Error('cannot clear proxy'))
-  const stop = vi.spyOn(platform, 'stopCore')
   await expect(app.importBackup(data)).rejects.toThrow('cannot clear proxy')
-  expect(stop).not.toHaveBeenCalled()
   for (const [name, content] of before) expect(platform.files.get(name)).toBe(content)
   expect([...platform.files.keys()].filter((name) => name.startsWith('backups/'))).toHaveLength(1)
   expect(platform.coreRunning).toBe(true)
@@ -702,8 +772,188 @@ test('a failing System Proxy probe (e.g. helper blocked) does not prevent startu
   const platform = new FakePlatform()
   platform.getSystemProxy = async () => { throw new Error('spawn EPERM') }
   const app = await createAppStore({
-    platform, client: createMihomoClient(new FakeTransport()),
+    platform, client: createMihomoClient(new FakeTransport()), systemLocale: () => 'zh-CN',
     buildRuntimeConfig: vi.fn(() => ''), refreshProfile: vi.fn(async (profile) => profile),
   })
   expect(app.store.getState().systemProxy).toEqual({ enabled: false })
+})
+
+test('native owner exit immediately publishes stopped Core and unknown proxy without native cleanup', async () => {
+  const { app, platform, transport } = await setup()
+  await app.run('setSystemProxy', { enabled: true })
+  app.subscribeTraffic(() => {})
+  app.subscribeLogs(() => {})
+  const clear = vi.spyOn(platform, 'clearSystemProxy')
+  const stop = vi.spyOn(platform, 'stopCore')
+  const probe = vi.spyOn(platform, 'getSystemProxy')
+  const publish = vi.fn()
+  app.subscribe(publish)
+  const version = app.store.getState().version
+
+  app.notifyCoreStopped('Native owner exited during canceled shutdown')
+
+  expect(app.store.getState()).toMatchObject({
+    version: version + 1,
+    core: { status: 'stopped', restartRequired: true, error: expect.stringMatching(/canceled shutdown.*Restart the app/) },
+    systemProxy: { enabled: false, unknown: true },
+    proxyGroups: [], proxies: {}
+  })
+  expect(publish).toHaveBeenCalledOnce()
+  expect(clear).not.toHaveBeenCalled()
+  expect(stop).not.toHaveBeenCalled()
+  expect(probe).not.toHaveBeenCalled()
+  expect(transport.openStreams('/traffic')).toBe(0)
+  expect(transport.openStreams('/logs')).toBe(0)
+  app.subscribeTraffic(() => {})
+  app.subscribeLogs(() => {})
+  expect(transport.openStreams('/traffic')).toBe(0)
+  expect(transport.openStreams('/logs')).toBe(0)
+})
+
+test('restart requirement survives stop, repeated notifications and resume-style commands, but allows quit', async () => {
+  const { app, platform, deps } = await setup()
+  const saved = platform.files.get('settings.json')
+  const start = vi.spyOn(platform, 'startCore')
+  const set = vi.spyOn(platform, 'setSystemProxy')
+  const clear = vi.spyOn(platform, 'clearSystemProxy')
+  const stop = vi.spyOn(platform, 'stopCore')
+  app.notifyCoreStopped('Session ended')
+  const snapshot = app.store.getState()
+  const failure = { ok: false, error: snapshot.core.error }
+
+  app.notifyCoreStopped('Later exit')
+  expect(app.store.getState()).toBe(snapshot)
+  // Resume uses these same commands, including when an earlier running probe was stale.
+  expect(await app.run('startCore', {})).toEqual(failure)
+  expect(await app.run('setSystemProxy', { enabled: true })).toEqual(failure)
+  expect(await app.run('setSystemProxy', { enabled: false })).toEqual(failure)
+  expect(await app.run('selectProxy', { group: 'group', proxy: '日本 01' })).toEqual(failure)
+  expect((await app.run('stopCore', {})).ok).toBe(true)
+  expect((await app.run('openWindow', {})).ok).toBe(true)
+  expect((await app.run('quit', {})).ok).toBe(true)
+  expect(deps.hooks!.onQuit).toHaveBeenCalledOnce()
+  expect(app.store.getState()).toBe(snapshot)
+  expect(platform.files.get('settings.json')).toBe(saved)
+  for (const operation of [start, set, clear, stop]) expect(operation).not.toHaveBeenCalled()
+
+  platform.coreRunning = false
+  const restarted = await createAppStore(deps)
+  expect(restarted.store.getState().core).toEqual({ status: 'stopped', error: null })
+  expect((await restarted.run('startCore', {})).ok).toBe(true)
+})
+
+test('notification interrupts a blocked command and denies already queued starts', async () => {
+  const { app, platform } = await setup(false)
+  let release!: (running: boolean) => void
+  let entered!: () => void
+  const waiting = new Promise<void>((resolve) => { entered = resolve })
+  platform.isCoreRunning = () => { entered(); return new Promise((resolve) => { release = resolve }) }
+  const start = vi.spyOn(platform, 'startCore')
+  const apply = vi.spyOn(platform, 'applyRuntimeConfig')
+  const first = app.run('startCore', {})
+  await waiting
+  const queued = app.run('startCore', {})
+
+  app.notifyCoreStopped('Owner lost')
+  const snapshot = app.store.getState()
+  release(false)
+
+  for (const result of await Promise.all([first, queued])) expect(result).toEqual({ ok: false, error: snapshot.core.error })
+  expect(app.store.getState()).toBe(snapshot)
+  expect(start).not.toHaveBeenCalled()
+  expect(apply).not.toHaveBeenCalled()
+})
+
+test.each(['build', 'apply', 'start', 'proxy', 'clear', 'stop', 'sync'] as const)(
+  'late %s completion cannot overwrite native-stop state or reopen Core/proxy', async (stage) => {
+    const { app, platform, deps, transport } = await setup(stage !== 'build' && stage !== 'apply' && stage !== 'start')
+    if (stage === 'clear' || stage === 'stop') await app.run('setSystemProxy', { enabled: true })
+    let release!: () => void
+    let entered!: () => void
+    const waiting = new Promise<void>((resolve) => { entered = resolve })
+    const blocked = new Promise<void>((resolve) => { release = resolve })
+    const pause = async () => { entered(); await blocked }
+    const start = vi.spyOn(platform, 'startCore')
+    const set = vi.spyOn(platform, 'setSystemProxy')
+    const stop = vi.spyOn(platform, 'stopCore')
+    if (stage === 'build') vi.mocked(deps.buildRuntimeConfig).mockImplementation(async () => { await pause(); return 'config' })
+    if (stage === 'apply') vi.spyOn(platform, 'applyRuntimeConfig').mockImplementation(async () => { await pause(); return { ok: true } })
+    if (stage === 'start') start.mockImplementation(pause)
+    if (stage === 'proxy') set.mockImplementation(pause)
+    if (stage === 'clear') vi.spyOn(platform, 'clearSystemProxy').mockImplementation(pause)
+    if (stage === 'stop') stop.mockImplementation(pause)
+    if (stage === 'sync') transport.on('GET', '/proxies', async () => {
+      await pause()
+      return { status: 200, body: { proxies: { stale: { type: 'Direct' } } } }
+    })
+    const pending = stage === 'proxy' ? app.run('setSystemProxy', { enabled: true })
+      : stage === 'clear' || stage === 'stop' ? app.run('updateSettings', { settings: { mixedPort: 9000 } })
+      : stage === 'sync' ? app.run('selectProxy', { group: 'group', proxy: '日本 01' })
+      : app.run('startCore', {})
+    await waiting
+
+    app.notifyCoreStopped('Native owner stopped')
+    const snapshot = app.store.getState()
+    release()
+    expect(await pending).toEqual({ ok: false, error: snapshot.core.error })
+    expect(app.store.getState()).toBe(snapshot)
+    expect(start).toHaveBeenCalledTimes(stage === 'start' ? 1 : 0)
+    expect(set).toHaveBeenCalledTimes(stage === 'proxy' ? 1 : 0)
+    expect(stop).toHaveBeenCalledTimes(stage === 'clear' || stage === 'stop' ? 1 : 0)
+  }
+)
+
+test.each(['starting', 'stopped'] as const)('notification during %s publication prevents the next native operation', async (stage) => {
+  const { app, platform } = await setup(stage === 'stopped')
+  if (stage === 'stopped') await app.run('setSystemProxy', { enabled: true })
+  const start = vi.spyOn(platform, 'startCore')
+  const stop = vi.spyOn(platform, 'stopCore')
+  app.subscribe((snapshot) => {
+    if (snapshot.core.restartRequired) return
+    if (snapshot.core.status === stage) {
+      app.notifyCoreStopped('Owner exited during publication')
+    }
+  })
+
+  const result = stage === 'starting' ? await app.run('startCore', {})
+    : await app.run('updateSettings', { settings: { mixedPort: 9000 } })
+
+  expect(result).toEqual({ ok: false, error: app.store.getState().core.error })
+  expect(app.store.getState().core).toMatchObject({ status: 'stopped', restartRequired: true })
+  expect(start).not.toHaveBeenCalled()
+  expect(stop).toHaveBeenCalledTimes(stage === 'stopped' ? 1 : 0)
+})
+
+test.each(['start', 'proxy'] as const)('late %s rejection preserves the restart error instead of offering recovery', async (stage) => {
+  const { app, platform } = await setup(stage === 'proxy')
+  let reject!: (error: Error) => void
+  let entered!: () => void
+  const waiting = new Promise<void>((resolve) => { entered = resolve })
+  const fail = () => { entered(); return new Promise<void>((_resolve, decline) => { reject = decline }) }
+  if (stage === 'start') platform.startCore = fail
+  else platform.setSystemProxy = fail
+  const pending = stage === 'start' ? app.run('startCore', {}) : app.run('setSystemProxy', { enabled: true })
+  await waiting
+
+  app.notifyCoreStopped('Owner exited')
+  const snapshot = app.store.getState()
+  reject(new Error('Transport closed'))
+
+  expect(await pending).toEqual({ ok: false, error: snapshot.core.error })
+  expect(app.store.getState()).toBe(snapshot)
+  expect(app.store.getState().systemProxy).toEqual({ enabled: false, unknown: true })
+})
+
+test('saving a desired mode after owner exit never PATCHes Core or clears the restart requirement', async () => {
+  const { app, platform, transport } = await setup()
+  app.notifyCoreStopped('Owner exited')
+  const core = app.store.getState().core
+  const requests = transport.requests.length
+
+  expect((await app.run('setMode', { mode: 'global' })).ok).toBe(true)
+
+  expect(app.store.getState().settings.mode).toBe('global')
+  expect(JSON.parse(platform.files.get('settings.json')!).settings.mode).toBe('global')
+  expect(app.store.getState().core).toBe(core)
+  expect(transport.requests).toHaveLength(requests)
 })

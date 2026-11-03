@@ -18,3 +18,31 @@ test('onResume unsubscribes', () => {
   p.resume()
   expect(n).toBe(1)
 })
+
+test('stopCore clears System Proxy while Core is still running', async () => {
+  const p = new FakePlatform()
+  p.coreRunning = true
+  p.systemProxy = { host: '127.0.0.1', port: 7890, bypass: [] }
+  const clear = p.clearSystemProxy.bind(p)
+  p.clearSystemProxy = async () => {
+    expect(p.coreRunning).toBe(true)
+    await clear()
+  }
+
+  await p.stopCore()
+
+  expect(p.systemProxy).toBeNull()
+  expect(p.coreRunning).toBe(false)
+})
+
+test('stopCore refuses to stop Core when System Proxy cleanup fails', async () => {
+  const p = new FakePlatform()
+  p.coreRunning = true
+  p.systemProxy = { host: '127.0.0.1', port: 7890, bypass: [] }
+  p.clearSystemProxy = async () => { throw new Error('cleanup failed') }
+
+  await expect(p.stopCore()).rejects.toThrow('cleanup failed')
+
+  expect(p.coreRunning).toBe(true)
+  expect(p.systemProxy).not.toBeNull()
+})

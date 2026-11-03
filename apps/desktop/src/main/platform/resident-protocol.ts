@@ -18,14 +18,3 @@ export function residentClose(): Buffer {
   frame.writeUInt32LE(2, 0)
   return frame
 }
-
-/** Commit to one native reservation and the freshly checked migration evidence. */
-export function residentAdmission(nonce: string, journalDigest: string, receiptDigest: string, evidenceDigest: string): Buffer {
-  const fields = [nonce, journalDigest, receiptDigest, evidenceDigest]
-  if (fields.some(value => !/^[a-f0-9]{64}$/.test(value))) throw new Error('Invalid resident admission commitment')
-  const frame = Buffer.alloc(136)
-  frame.writeUInt32LE(3, 0)
-  frame.writeUInt32LE(128, 4)
-  fields.forEach((value, index) => Buffer.from(value, 'hex').copy(frame, 8 + index * 32))
-  return frame
-}

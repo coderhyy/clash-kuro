@@ -1,4 +1,4 @@
-// Real bundled Core/Platform and native v2 challenge; proxy/registration and admission policy are fake.
+// Serial resource test: real bundled Core/Platform; protocol 3 owner, fake proxy, registry calls forbidden.
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
@@ -23,7 +23,8 @@ const command = [process.execPath, vitest, 'run',
 const supervisor = spawn(join(root, 'out/watchdog.exe'), ['30000', join(dir, 'supervisor.json'), process.execPath, command], {
   cwd: desktop, windowsHide: true, stdio: 'pipe', env: { ...process.env, KURO_REQUIRE_CORE: '1',
     KURO_RESIDENT_FAKE: join(root, 'out/admission-fake.exe'),
-    KURO_ADMISSION_TEST_ROOT: recoveryDirectory, KURO_ADMISSION_TEST_NAMESPACE: namespace, KURO_ADMISSION_TEST_MODE: '' },
+    KURO_ADMISSION_TEST_ROOT: recoveryDirectory, KURO_ADMISSION_TEST_NAMESPACE: namespace,
+    KURO_ADMISSION_TEST_MODE: '', KURO_ADMISSION_TEST_SERVER: '' },
 })
 let output = '', rescued = false
 supervisor.stdout.on('data', chunk => { output += chunk })
@@ -40,6 +41,6 @@ const report = JSON.parse(readFileSync(join(dir, 'supervisor.json')))
 assert.equal(report.watchdogKilled, false)
 assert.equal(report.lingeringChildren, false)
 assert.equal(report.remaining, 0)
-writeFileSync(join(dir, 'result.json'), JSON.stringify({ scope: 'real Core/Platform and native v2 challenge; fake proxy, registration and admission policy; no controlled Restart or OS session',
+writeFileSync(join(dir, 'result.json'), JSON.stringify({ scope: 'real Core/Platform and protocol 3 native owner; fake proxy, registry calls forbidden; no OS session',
   recoveryDirectory, namespace, report }, null, 2))
 console.log(dir)

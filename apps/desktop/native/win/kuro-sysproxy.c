@@ -3,16 +3,14 @@
 //   kuro-sysproxy get
 //   kuro-sysproxy set --host <host> --port <port> [--bypass <a;b;c>] [--log <file>]
 //   kuro-sysproxy clear --expected-server <host:port> [--expected-server ...] [--log <file>]
+//   kuro-sysproxy start --core <path> --data <dir> [--log <file>] (resident protocol 3)
 //
 // Applies to the LAN settings (pszConnection = NULL) and every RAS/VPN phonebook entry.
 // Prints one UTF-8 JSON object on stdout. Exit codes: 0 all succeeded, 1 usage error,
 // 2 at least one connection or the change notification failed.
-// --log <file> also appends a start line and the JSON result to <file> (best effort, UTF-8), so
-// a run with nobody reading stdout (the RunOnce entry at logon) leaves evidence; set passes the
-// same --log on to the RunOnce command.
+// --log <file> appends bounded/rotated diagnostics (best effort, UTF-8).
 // Runs as the calling user; never elevates, never writes proxy settings to the registry directly.
-// Its only registry write is its own HKCU RunOnce entry (see runonce_set), a logon-time fallback
-// for when logoff/shutdown ends Clash Kuro before it could clear the proxy.
+// No RunOnce registration or deletion. Crash recovery runs on next startup or explicit invocation.
 // Built as a GUI-subsystem program (-mwindows): no console is created, and a parent's stdout pipe
 // (STARTUPINFO std handles) still works.
 #define WIN32_LEAN_AND_MEAN
@@ -32,19 +30,12 @@
 
 #define MAX_EXPECTED 8
 
-#ifndef RUNONCE_KEY
-#define RUNONCE_KEY L"Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce"
-#endif
-#define RUNONCE_VALUE L"ClashKuroSysProxyCleanup"
-// Run/RunOnce command lines longer than 260 characters are not executed.
-#define RUNONCE_MAX_COMMAND 260
 // The log is rotated to "<file>.1" once it grows past this.
 #define LOG_MAX_BYTES (256 * 1024)
 
 // Absolute path from --log (validated), or NULL.
 static const wchar_t *g_log;
 static int (*g_before_set)(const wchar_t *server);
-static int g_manage_recovery = 1;
 
 // ---- JSON output -------------------------------------------------------------------------
 
@@ -294,52 +285,9 @@ static void finish(Buf *b, const Connections *c, int ok) {
   free(c->ras);
 }
 
-// ---- RunOnce fallback --------------------------------------------------------------------
-//
-// Windows may refuse to start new processes once logoff/shutdown has begun (0xC0000142, 0xC000026B), so
-// Clash Kuro cannot rely on launching this helper then. After a set, a per-user RunOnce entry
-// runs `"<this exe>" clear --expected-server <server> [--log "<file>"]` at the next logon; the
-// normal clear endpoint check applies, so a proxy that is no longer ours is left alone. A
-// successful clear deletes the entry. Windows deletes a RunOnce value before running it.
-
-// *log_omitted is set when the command only fits without --log (the cleanup matters more than its log).
-static DWORD runonce_set(const wchar_t *server, int *log_omitted) {
-  wchar_t exe[MAX_PATH];
-  DWORD n = GetModuleFileNameW(NULL, exe, MAX_PATH);
-  if (!n || n >= MAX_PATH) return ERROR_FILENAME_EXCED_RANGE;
-  wchar_t command[RUNONCE_MAX_COMMAND];
-  size_t len = kuro_runonce_command(command, RUNONCE_MAX_COMMAND, exe, server, g_log);
-  if (!len && g_log && (len = kuro_runonce_command(command, RUNONCE_MAX_COMMAND, exe, server, NULL))) *log_omitted = 1;
-  if (!len) return ERROR_FILENAME_EXCED_RANGE;
-  HKEY key;
-  LSTATUS r = RegCreateKeyExW(HKEY_CURRENT_USER, RUNONCE_KEY, 0, NULL, 0, KEY_SET_VALUE, NULL, &key, NULL);
-  if (r != ERROR_SUCCESS) return (DWORD)r;
-  r = RegSetValueExW(key, RUNONCE_VALUE, 0, REG_SZ, (const BYTE *)command, (DWORD)((len + 1) * sizeof(wchar_t)));
-  RegCloseKey(key);
-  return (DWORD)r;
-}
-
-static DWORD runonce_delete(void) {
-  HKEY key;
-  LSTATUS r = RegOpenKeyExW(HKEY_CURRENT_USER, RUNONCE_KEY, 0, KEY_SET_VALUE, &key);
-  if (r == ERROR_FILE_NOT_FOUND) return ERROR_SUCCESS;
-  if (r != ERROR_SUCCESS) return (DWORD)r;
-  r = RegDeleteValueW(key, RUNONCE_VALUE);
-  RegCloseKey(key);
-  return r == ERROR_FILE_NOT_FOUND ? ERROR_SUCCESS : (DWORD)r;
-}
-
-// Reported separately: a missing fallback must not fail the proxy change itself.
-static void put_runonce(Buf *b, const char *action, DWORD error) {
-  if (error) {
-    puts_(b, ",\"runOnceError\":");
-    put_error(b, error, error == ERROR_FILENAME_EXCED_RANGE ? L"RunOnce command line would exceed 260 characters" : NULL);
-  } else putf(b, ",\"runOnce\":\"%s\"", action);
-}
-
 // ---- Commands ----------------------------------------------------------------------------
 
-static int cmd_get(void) {
+static int get_connections(const wchar_t **cleared, int cleared_count) {
   Connections c = connections();
   Buf b = {0};
   int ok = !c.rasError;
@@ -360,6 +308,13 @@ static int cmd_get(void) {
       put_json_string(&b, st.bypass);
       puts_(&b, ",\"autoConfigUrl\":");
       put_json_string(&b, st.pac);
+      for (int e = 0; (st.flags & PROXY_TYPE_PROXY) && e < cleared_count; ++e) {
+        if (!kuro_all_endpoints_equal(st.server, cleared[e])) continue;
+        ok = 0;
+        puts_(&b, ",\"error\":");
+        put_error(&b, 0, L"Owned manual proxy is still enabled after cleanup notification");
+        break;
+      }
     }
     puts_(&b, "}");
     release(&st);
@@ -370,13 +325,15 @@ static int cmd_get(void) {
   free(b.data);
   return ok ? 0 : 2;
 }
+static int cmd_get(void) { return get_connections(NULL, 0); }
 
-// Shared operation entry points; isolated experiments must not modify recovery registration.
-static int set_connections(const wchar_t *server, const wchar_t *bypass, int manage_recovery) {
+// The unused third argument preserves isolated native experiment call sites; no registry operations.
+static int set_connections(const wchar_t *server, const wchar_t *bypass, int unused_recovery) {
+  (void)unused_recovery;
   if (g_before_set && !g_before_set(server)) return usage(L"Resident endpoint/recovery admission failed");
   Connections c = connections();
   Buf b = {0};
-  int ok = !c.rasError, any_set = 0;
+  int ok = !c.rasError;
   puts_(&b, "{\"command\":\"set\",\"connections\":[");
   for (DWORD i = 0; i < c.count; i++) {
     if (i) puts_(&b, ",");
@@ -403,18 +360,11 @@ static int set_connections(const wchar_t *server, const wchar_t *bypass, int man
       put_error(&b, error, NULL);
     } else {
       puts_(&b, ",\"status\":\"set\"");
-      any_set = 1;
     }
     puts_(&b, "}");
     release(&st);
   }
   puts_(&b, "]");
-  // Also after a partial set: some connection now carries our endpoint until the caller rolls back.
-  if (any_set && manage_recovery) {
-    int log_omitted = 0;
-    put_runonce(&b, "written", runonce_set(server, &log_omitted));
-    if (log_omitted) puts_(&b, ",\"runOnceLogOmitted\":true");
-  }
   notify(&b, &ok);
   finish(&b, &c, ok);
   emit(&b);
@@ -422,7 +372,8 @@ static int set_connections(const wchar_t *server, const wchar_t *bypass, int man
   return ok ? 0 : 2;
 }
 
-static int clear_connections(const wchar_t **expected, int expected_count, int manage_recovery) {
+static int clear_connections(const wchar_t **expected, int expected_count, int unused_recovery) {
+  (void)unused_recovery;
   Connections c = connections();
   Buf b = {0};
   // Unknown RAS state is not a successful clear, even when LAN is already direct.
@@ -467,9 +418,6 @@ static int clear_connections(const wchar_t **expected, int expected_count, int m
   }
   puts_(&b, "]");
   if (changed) notify(&b, &ok);
-  // Nothing of ours is left (cleared, notOurs or unchanged everywhere): the logon fallback is no longer needed.
-  // On failure the entry stays, so the next logon retries.
-  if (ok && manage_recovery) put_runonce(&b, "deleted", runonce_delete());
   finish(&b, &c, ok);
   emit(&b);
   free(b.data);
@@ -509,12 +457,12 @@ static int command_main(int argc, wchar_t **argv) {
     wchar_t server[300];
     _snwprintf(server, sizeof server / sizeof *server, L"%ls:%u", host, p);
     server[299] = 0;
-    return set_connections(server, bypass, g_manage_recovery);
+    return set_connections(server, bypass, 0);
   }
   if (!wcscmp(command, L"clear")) {
     if (!expected_count || host || port) return usage(L"clear requires --expected-server");
     for (int i = 0; i < expected_count; i++) if (!kuro_valid_server(expected[i])) return usage(L"Invalid --expected-server");
-    return clear_connections(expected, expected_count, g_manage_recovery);
+    return clear_connections(expected, expected_count, 0);
   }
   return usage(L"Unknown command");
 }
@@ -530,8 +478,8 @@ int wmain(int argc, wchar_t **argv) {
     DWORD error = kuro_resident_recovery_root(root, MAX_PATH);
     if (!error) error = kuro_resident_current_sid(sid, KURO_RESIDENT_OWNER_SID_CHARS);
     if (error) return usage(L"Native recovery identity or local path unavailable");
-    /* Any retained object/value blocks legacy; discovery never creates the root or RunOnce key. */
-    BOOL retained_state_present = FALSE, recovery_registration_present = FALSE;
+    /* Read-only discovery; old development RunOnce values are not migrated or inspected. */
+    BOOL retained_state_present = FALSE;
     DWORD attributes = GetFileAttributesW(root);
     if (attributes != INVALID_FILE_ATTRIBUTES) retained_state_present = TRUE;
     else {
@@ -539,22 +487,10 @@ int wmain(int argc, wchar_t **argv) {
       if (error != ERROR_FILE_NOT_FOUND && error != ERROR_PATH_NOT_FOUND)
         return usage(L"Native retained recovery state cannot be inspected");
     }
-    HKEY key;
-    LSTATUS status = RegOpenKeyExW(HKEY_CURRENT_USER, RUNONCE_KEY, 0, KEY_QUERY_VALUE, &key);
-    if (status == ERROR_SUCCESS) {
-      DWORD bytes = 0;
-      status = RegQueryValueExW(key, KURO_RECOVERY_VALUE, NULL, NULL, NULL, &bytes);
-      LSTATUS closed = RegCloseKey(key);
-      if (closed != ERROR_SUCCESS) return usage(L"Native recovery registration inspection failed");
-      if (status == ERROR_SUCCESS) recovery_registration_present = TRUE;
-      else if (status != ERROR_FILE_NOT_FOUND)
-        return usage(L"Native recovery registration cannot be inspected");
-    } else if (status != ERROR_FILE_NOT_FOUND && status != ERROR_PATH_NOT_FOUND)
-      return usage(L"Native recovery registration key cannot be inspected");
     Buf result = {0}; puts_(&result, "{\"command\":\"resident-paths\",\"ok\":true,\"recoveryDirectory\":");
     put_json_string(&result, root); puts_(&result, ",\"userSid\":"); put_json_string(&result, sid);
-    putf(&result, ",\"retainedStatePresent\":%s,\"recoveryRegistrationPresent\":%s",
-      retained_state_present ? "true" : "false", recovery_registration_present ? "true" : "false");
+    putf(&result, ",\"retainedStatePresent\":%s,\"recoveryRegistrationPresent\":false",
+      retained_state_present ? "true" : "false");
     puts_(&result, "}"); emit(&result); free(result.data);
     return 0;
   }
@@ -575,6 +511,6 @@ int wmain(int argc, wchar_t **argv) {
     emit(&result); free(result.data);
     return error ? 2 : 0;
   }
-  if (argc > 1 && (!wcscmp(argv[1], L"reserve") || !wcscmp(argv[1], L"recover-admitted"))) return resident_main(argc, argv);
+  if (argc > 1 && (!wcscmp(argv[1], L"start") || !wcscmp(argv[1], L"recover-admitted"))) return resident_main(argc, argv);
   return command_main(argc, argv);
 }

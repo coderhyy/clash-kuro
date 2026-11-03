@@ -31,9 +31,11 @@ async function freePort(): Promise<number> {
 
 async function fixture(extra: Partial<DesktopPlatformOptions> = {}) {
   const dataDir = await mkdtemp(join(process.platform === 'win32' ? tmpdir() : '/tmp', 'kuro-platform-'))
-  const exec = vi.fn<Exec>(async () => ({ stdout: '', stderr: '' }))
+  const exec = vi.fn<Exec>(async (_file, args) => ({
+    stdout: args[0] === 'clear' ? JSON.stringify({ command: 'clear', ok: true, connections: [] }) : '', stderr: '',
+  }))
   const mixedPort = await freePort()
-  const platform = createDesktopPlatform({ dataDir, corePath: process.execPath, mixedPort, exec, ...extra })
+  const platform = createDesktopPlatform({ dataDir, corePath: process.execPath, sysproxyHelperPath: join(dataDir, 'fake.exe'), mixedPort, exec, ...extra })
   cleanups.push(async () => { await rm(dataDir, { force: true, recursive: true, maxRetries: 10, retryDelay: 20 }) })
   cleanups.push(() => platform.stopCore())
   return { platform, dataDir, exec, mixedPort }

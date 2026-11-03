@@ -4,20 +4,18 @@
 #include <stddef.h>
 #include <wchar.h>
 
-/* Private inherited stdin: LE uint32 kind, LE uint32 bytes, UTF-16LE NUL-terminated argv.
-   EXEC=1, CLOSE=2, ADMIT=3. ADMIT is exactly four SHA256-sized fields:
-   nonce, reserved journal hash, receipt hash, fresh evidence hash. The engine
-   permits it once, only in protocol2. CLOSE bypasses the operation queue.
+/* Protocol 3, private inherited stdin: LE uint32 kind, LE uint32 bytes,
+   UTF-16LE NUL-terminated argv. EXEC=1, CLOSE=2. Native startup owns recovery;
+   there is no admission frame. CLOSE bypasses the operation queue.
    EOF/malformed framing closes the instance; there is no reconnect or resynchronization. */
 #define KURO_REQUEST_BYTES 65536u
 #define KURO_REQUEST_ARGS 32u
-#define KURO_ADMISSION_BYTES 128u
 static uint32_t kuro_u32(const unsigned char *p) {
   return (uint32_t)p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24;
 }
 static int kuro_request_header(const unsigned char header[8], uint32_t *kind, uint32_t *bytes) {
   *kind = kuro_u32(header); *bytes = kuro_u32(header + 4);
-  return (*kind == 2 && *bytes == 0) || (*kind == 3 && *bytes == KURO_ADMISSION_BYTES) || (*kind == 1 && *bytes >= 2 &&
+  return (*kind == 2 && *bytes == 0) || (*kind == 1 && *bytes >= 2 &&
     *bytes <= KURO_REQUEST_BYTES && !(*bytes & 1));
 }
 /* Caller owns aligned payload storage through operation completion, including after timeout. */

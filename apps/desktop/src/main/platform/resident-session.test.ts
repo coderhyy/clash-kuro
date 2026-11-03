@@ -11,7 +11,7 @@ vi.mock('./resident-client', () => ({ residentClient: deps.client }))
 afterEach(() => { vi.resetAllMocks(); vi.useRealTimers() })
 
 function fixture() {
-  let finish!: (value: { code: number; signal: null; report: { ok: boolean; timedOut: boolean; coreGone: boolean } }) => void
+  let finish!: (value: { code: number; signal: null; report: { ok: boolean; timedOut: boolean; coreGone: boolean; firstTrigger: number; queryEvents: number; endEvents: number } }) => void
   const closed = new Promise<Parameters<typeof finish>[0]>(resolve => { finish = resolve })
   const child = { kill: vi.fn(), exitCode: null, signalCode: null }
   const client = { ready: Promise.resolve(), closed, exited: closed,
@@ -20,23 +20,30 @@ function fixture() {
   deps.prepare.mockResolvedValue('retained.exe')
   deps.recover.mockResolvedValue(undefined)
   deps.client.mockReturnValue(client)
-  const authorize = vi.fn(async () => ({ receiptDigest: 'a'.repeat(64), evidenceDigest: 'b'.repeat(64) }))
   const options = { helper: 'shipping.exe', recoveryDirectory: 'retained', dataDir: 'private-data', core: 'fake-core.exe',
-    server: '127.0.0.1:7891', log: 'private-log', authorize }
-  const complete = (ok = true) => finish({ code: ok ? 0 : 42, signal: null, report: { ok, timedOut: !ok, coreGone: true } })
+    server: '127.0.0.1:7891', log: 'private-log' }
+  const complete = (ok = true, firstTrigger = 2, queryEvents = 0) => finish({ code: ok ? 0 : 42, signal: null,
+    report: { ok, timedOut: !ok, coreGone: true, firstTrigger, queryEvents, endEvents: 0 } })
   return { options, child, client, complete }
 }
+
+test.each([[2, 0, false], [16, 1, true], [8, 0, true], [2, 1, true]] as const)(
+  'successful cleanup preserves restart requirement for reason %s/query %s', async (reason, queries, restartRequired) => {
+    const f = fixture(), session = await startResidentSession(f.options)
+    const closing = session.close()
+    f.complete(true, reason, queries)
+    expect(await closing).toEqual({ restartRequired })
+  })
 
 test('admitted session has one reservation child, no separate replay/ownership handoff', async () => {
   const f = fixture()
   const session = await startResidentSession(f.options)
   expect(deps.recover).not.toHaveBeenCalled()
   expect(deps.spawn).toHaveBeenCalledExactlyOnceWith('retained.exe', [
-    'reserve', '--core', 'fake-core.exe', '--data', 'private-data',
-    '--expected-server', '127.0.0.1:7891', '--log', 'private-log'],
+    'start', '--core', 'fake-core.exe', '--data', 'private-data',
+    '--log', 'private-log'],
   { windowsHide: true, detached: true, stdio: 'pipe' })
-  expect(deps.client).toHaveBeenCalledExactlyOnceWith(f.child, 10_000, f.options.authorize)
-  expect(f.options.authorize).not.toHaveBeenCalled() // Only validated native reservation may invoke policy.
+  expect(deps.client).toHaveBeenCalledExactlyOnceWith(f.child, 10_000)
   const first = session.close()
   expect(session.close()).toBe(first)
   expect(f.client.close).toHaveBeenCalledTimes(1)
@@ -52,12 +59,15 @@ test('abort during retained publication cannot spawn a writer', async () => {
   expect(deps.spawn).not.toHaveBeenCalled()
 })
 
-test('missing authorization cannot fall back to legacy replay or create a helper', async () => {
+test('current session starts one protocol3 owner without legacy migration authorization', async () => {
   const f = fixture()
-  await expect(startResidentSession({ ...f.options, authorize: undefined })).rejects.toThrow('migration authorization')
-  expect(deps.prepare).not.toHaveBeenCalled()
+  const session = await startResidentSession(f.options)
+  expect(deps.spawn.mock.calls[0]![1][0]).toBe('start')
+  expect(deps.client).toHaveBeenCalledExactlyOnceWith(f.child, 10_000)
   expect(deps.recover).not.toHaveBeenCalled()
-  expect(deps.spawn).not.toHaveBeenCalled()
+  const closing = session.close()
+  f.complete()
+  await closing
 })
 
 test('reservation failure waits for exact child closure and never starts separate recovery', async () => {
@@ -83,4 +93,15 @@ test('close timeout is failure, never success or permission for a second owner',
   expect(f.child.kill).toHaveBeenCalledExactlyOnceWith('SIGKILL')
   f.complete(false)
   expect(deps.spawn).toHaveBeenCalledTimes(1)
+})
+
+test('process exit stays observable even while final stdout evidence has not drained', async () => {
+  const f = fixture()
+  f.client.exited = Promise.resolve({ code: 42, signal: null, report: {
+    ok: false, timedOut: true, coreGone: true, firstTrigger: 16, queryEvents: 1, endEvents: 0,
+  } })
+  const session = await startResidentSession(f.options)
+  expect(session.exited).toBe(f.client.exited)
+  expect((await session.exited).code).toBe(42)
+  f.complete(false)
 })

@@ -8,6 +8,8 @@ export type LanguagePreference = 'system' | Language
 export type SystemProxyStatus =
   | { enabled: false }
   | { enabled: true }
+  /** Toggle is off; the native owner's cleanup result has not been verified. */
+  | { enabled: false; unknown: true }
   /** macOS `networksetup` refused (ADR-0009); UI tells the user to set it manually. */
   | { enabled: false; manualRequired: { host: string; port: number } }
 
@@ -15,7 +17,7 @@ export type SystemProxyStatus =
 export interface StateSnapshot {
   /** Bumped on every change so subscribers can drop stale snapshots. */
   version: number
-  core: { status: CoreStatus; error: string | null }
+  core: { status: CoreStatus; error: string | null; restartRequired?: true }
   settings: Settings
   language: LanguagePreference
   resolvedLanguage: Language

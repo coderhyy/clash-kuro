@@ -23,7 +23,7 @@ static BOOL WINAPI reject_write(HINTERNET internet, DWORD option, LPVOID buffer,
 }
 static LSTATUS WINAPI forbidden_recovery(HKEY root, LPCWSTR name, DWORD options, REGSAM access, PHKEY key) {
   (void)root; (void)name; (void)options; (void)access; (void)key;
-  assert(!"Incomplete RAS enumeration must retain recovery registration");
+  assert(!"Current commands never inspect or change RunOnce");
   return ERROR_ACCESS_DENIED;
 }
 #define RasEnumEntriesW failed_ras
@@ -35,6 +35,7 @@ static LSTATUS WINAPI forbidden_recovery(HKEY root, LPCWSTR name, DWORD options,
 #undef wmain
 
 int wmain(void) {
+  (void)forbidden_recovery;
   const wchar_t *expected[] = { L"127.0.0.1:7891" };
   assert(cmd_get() == 2);
   assert(clear_connections(expected, 1, 1) == 2);

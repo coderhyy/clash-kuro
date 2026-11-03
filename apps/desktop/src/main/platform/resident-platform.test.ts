@@ -17,7 +17,7 @@ beforeAll(async () => {
 })
 afterEach(async () => { for (const cleanup of cleanups.splice(0)) await cleanup() })
 
-async function fixture(listenMixed = true, reply: 'ready' | 'silent' | 'invalid' = 'ready') {
+async function fixture(listenMixed = true, reply: 'ready' | 'silent' | 'invalid' = 'ready', onPortRead?: () => void) {
   const dir = await mkdtemp(join(tmpdir(), 'kuro-resident-platform-'))
   cleanups.push(() => rm(dir, { recursive: true, force: true }))
   const reservation = await reserveTestPort()
@@ -33,21 +33,75 @@ async function fixture(listenMixed = true, reply: 'ready' | 'silent' | 'invalid'
   await reservation.release()
   const closeListener = async () => { if (socket.listening) await new Promise<void>(resolve => socket.close(() => resolve())) }
   cleanups.push(closeListener)
-  let exit!: (value: { code: number | null; signal: NodeJS.Signals | null }) => void
-  const exited = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>(resolve => { exit = resolve })
+  let exit!: (value: { code: number | null; signal: NodeJS.Signals | null; restartRequired?: boolean }) => void
+  const exited = new Promise<Parameters<typeof exit>[0]>(resolve => { exit = resolve })
   const request = vi.fn(async (args: readonly string[]) => ({ stdout: JSON.stringify({
     command: args[0], ok: true, connections: [{ name: null, flags: 1 }],
   }), stderr: '' }))
-  const close = vi.fn(async () => { await closeListener(); exit({ code: 0, signal: null }) })
+  const close = vi.fn<() => Promise<void | { restartRequired: boolean }>>(async () => { await closeListener(); exit({ code: 0, signal: null }) })
   const session = { request, close, exited, diagnostics: () => '', helper: 'fake', journal: 'fake' }
   const start = vi.fn<typeof startResidentSession>(async () => { if (listenMixed) await listen(); return session })
   const exec = vi.fn(async () => ({ stdout: '', stderr: '' }))
-  const execSync = vi.fn(() => '')
+  const onResidentStopped = vi.fn()
   const platform = createDesktopPlatform({ dataDir: dir, corePath: process.execPath, os: 'win32',
-    mixedPort, sysproxyHelperPath: join(dir, 'fake.exe'), startResident: start, exec, execSync, startTimeoutMs: 500 })
+    mixedPort: () => { onPortRead?.(); return mixedPort }, sysproxyHelperPath: join(dir, 'fake.exe'), startResident: start, exec, onResidentStopped, startTimeoutMs: 500 })
   await platform.writeFileAtomic('runtime.yaml', 'external-controller-pipe: "original"\n')
-  return { platform, start, request, close, session, exec, execSync, exit, listen }
+  return { platform, start, request, close, session, exec, exit, listen, onResidentStopped }
 }
+
+test('shutdown during asynchronous preflight prevents an owner from starting afterward', async () => {
+  let shutdown: Promise<void> | undefined
+  const f = await fixture(true, 'ready', () => { shutdown ??= f.platform.shutdown({ timeoutMs: 1000 }) })
+  await expect(f.platform.startCore()).rejects.toThrow('shutting down')
+  await shutdown
+  expect(f.start).not.toHaveBeenCalled()
+})
+
+test('ordinary stop overlapping native session closure cannot erase the restart latch', async () => {
+  const f = await fixture()
+  await f.platform.startCore()
+  let finish!: (result: { restartRequired: boolean }) => void, entered!: () => void
+  const closing = new Promise<void>(resolve => { entered = resolve })
+  f.close.mockImplementation(() => { entered(); return new Promise<{ restartRequired: boolean }>(resolve => { finish = resolve }) })
+  const stop = f.platform.stopCore()
+  await closing
+  f.exit({ code: 0, signal: null, restartRequired: true })
+  finish({ restartRequired: true })
+  await stop
+  expect(f.onResidentStopped).toHaveBeenCalledOnce()
+  await expect(f.platform.startCore()).rejects.toThrow('restart required')
+})
+
+test('native session exit after canceled shutdown latches stopped state and forbids a new writer', async () => {
+  const f = await fixture()
+  await f.platform.startCore()
+  f.exit({ code: 0, signal: null })
+  await Promise.resolve()
+  expect(f.onResidentStopped).toHaveBeenCalledExactlyOnceWith(expect.stringContaining('restart the application'))
+  expect(await f.platform.isCoreRunning()).toBe(false)
+  await expect(f.platform.startCore()).rejects.toThrow('restart required')
+  await expect(f.platform.setSystemProxy({ host: '127.0.0.1', port: 7891, bypass: [] })).rejects.toThrow('writes are closed')
+  expect(f.start).toHaveBeenCalledTimes(1)
+})
+
+test('ordinary Core stop enters native close directly without a separate clear request budget', async () => {
+  const f = await fixture()
+  await f.platform.startCore()
+  await f.platform.stopCore()
+  expect(f.close).toHaveBeenCalledOnce()
+  expect(f.request).not.toHaveBeenCalled()
+  expect(f.onResidentStopped).not.toHaveBeenCalled()
+})
+
+test('unverified intentional stop notifies the stopped/unknown latch and forbids restart', async () => {
+  const f = await fixture()
+  await f.platform.startCore()
+  f.close.mockRejectedValueOnce(new Error('native timeout'))
+  await expect(f.platform.stopCore()).rejects.toThrow('native timeout')
+  expect(f.onResidentStopped).toHaveBeenCalledExactlyOnceWith(expect.stringContaining('cleanup unverified'))
+  expect(await f.platform.isCoreRunning()).toBe(false)
+  await expect(f.platform.startCore()).rejects.toThrow('restart required')
+})
 
 test('resident API-ready Core without a mixed listener fails readiness and closes its owner', async () => {
   const f = await fixture(false)
@@ -86,6 +140,7 @@ test('normal resident stop permits restart, rotates pipe and never writes a help
   const before = f.platform.controlChannel()
   expect(await f.platform.readFile('core.pid')).toBeNull()
   await f.platform.stopCore()
+  expect(f.onResidentStopped).not.toHaveBeenCalled()
   expect(await f.platform.isCoreRunning()).toBe(false)
   f.start.mockImplementationOnce(async () => { await f.listen(); return { ...f.session, exited: new Promise(() => {}) } })
   await f.platform.startCore()
@@ -129,26 +184,18 @@ test('native cleanup may finish before Electron handles exit; preserve its evide
   await expect(f.platform.startCore()).rejects.toThrow()
 })
 
-test('session hook never starts another helper or claims synchronous clear succeeded', async () => {
-  const f = await fixture()
-  await f.platform.startCore()
-  const report = f.platform.clearSystemProxySync({ timeoutMs: 1500 })
-  expect(report).toMatchObject({ ran: false, ok: false })
-  expect(f.execSync).not.toHaveBeenCalled()
-  await expect(f.platform.startCore()).rejects.toThrow('shutting down')
-})
-
-test('session trigger and shutdown share in-flight cleanup, rather than reporting early success', async () => {
+test('Core stop and shutdown share in-flight cleanup, rather than reporting early success', async () => {
   const f = await fixture()
   await f.platform.startCore()
   let finish!: () => void
   f.close.mockImplementation(() => new Promise<void>(resolve => { finish = resolve }))
-  f.platform.clearSystemProxySync({ timeoutMs: 1500 })
+  const stopping = f.platform.stopCore()
   const shutdown = f.platform.shutdown({ timeoutMs: 20 })
   await expect(shutdown).rejects.toThrow('deadline exceeded')
   expect(f.platform.shutdown({ timeoutMs: 9000 })).toBe(shutdown)
   expect(f.close).toHaveBeenCalledTimes(1)
   finish()
+  await stopping
   await expect(f.platform.startCore()).rejects.toThrow('shutting down')
 })
 

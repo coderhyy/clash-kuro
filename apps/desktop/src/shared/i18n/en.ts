@@ -47,6 +47,7 @@ export const en = {
   globalHint: 'Route all connections through the global Proxy Group.',
   directHint: 'Connect directly without a Proxy.',
   systemProxy: 'System Proxy',
+  systemProxyUnknown: 'System Proxy · Unknown',
   systemProxyHint: 'Point the system HTTP / HTTPS proxy to Clash Kuro.',
   manualRequired: 'Permission denied. Set the HTTP / HTTPS proxy to {host}:{port} in your system network settings.',
   on: 'On',

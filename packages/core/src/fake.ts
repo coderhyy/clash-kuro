@@ -31,6 +31,7 @@ export class FakePlatform implements Platform {
     this.coreRunning = true
   }
   async stopCore() {
+    await this.clearSystemProxy()
     this.coreRunning = false
   }
   async isCoreRunning() {

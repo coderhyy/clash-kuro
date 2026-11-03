@@ -17,6 +17,7 @@ export interface AppStoreDeps {
   refreshProfile(profile: Profile): Promise<Profile>
   hooks?: {
     onOpenWindow?(): void | Promise<void>
+    /** Owns full shutdown, including System Proxy cleanup and Core stop. */
     onQuit?(): void | Promise<void>
   }
 }
@@ -27,6 +28,8 @@ export interface AppStore extends StateBridge {
   importBackup(json: string): Promise<void>
   /** Re-read Launch at Login from the OS; the user may change it in System Settings. */
   refreshLaunchAtLogin(): Promise<void>
+  /** Main-only: unexpected native owner exit. Immediately blocks Core/proxy writes until app restart. */
+  notifyCoreStopped(reason: string): void
   /** Close live streams; call on shutdown. */
   dispose(): void
 }
@@ -77,7 +80,7 @@ export function validateSavedState(value: unknown): asserts value is SavedState 
   if (initial.activeProfileId !== null && !initial.profiles.some((p) => p.id === initial.activeProfileId)) throw new Error('Invalid Active Profile')
 }
 
-/** Hydrates settings.json before exposing the bridge. All commands share one execution queue. */
+/** Hydrates settings.json before exposing the bridge. Commands share a queue except host-owned quit. */
 export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
   const { platform, client } = deps
   const saved = await platform.readFile('settings.json')
@@ -111,13 +114,18 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
     override
   }))
 
-  const coreUp = () => store.getState().core.status === 'running'
+  let restartError: string | null = null
+  const coreUp = () => restartError === null && store.getState().core.status === 'running'
   const traffic = createStreamHub<Traffic>({ open: (onData, onClose) => client.traffic(onData, onClose), shouldConnect: coreUp })
   const logs = createStreamHub<LogEntry>({ open: (onData, onClose) => client.logs(onData, onClose), shouldConnect: coreUp, buffer: LOG_BUFFER_SIZE })
 
   function change(patch: Partial<StateSnapshot>): void {
     store.setState((state) => ({ ...patch, version: state.version + 1 }))
     if (patch.core?.status === 'running') { traffic.wake(); logs.wake() }
+  }
+
+  function requireSession(): void {
+    if (restartError !== null) throw new Error(restartError)
   }
 
   async function persist(patch: Partial<PersistedState>): Promise<void> {
@@ -134,21 +142,30 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
   }
 
   async function syncProxies(): Promise<void> {
+    requireSession()
     const { groups, proxies } = await client.getProxyGroups()
+    requireSession()
     change({ proxyGroups: groups, proxies })
   }
 
   async function prepareRuntime(selected: Profile, settings = store.getState().settings, override = store.getState().override): Promise<void> {
+    requireSession()
     const yaml = await deps.buildRuntimeConfig({ profile: selected, settings, controlChannel: platform.controlChannel(), override })
+    requireSession()
     const result = await platform.applyRuntimeConfig(yaml)
+    requireSession()
     if (!result.ok) throw new Error(result.error)
   }
 
   async function start(): Promise<void> {
+    requireSession()
     change({ core: { status: 'starting', error: null } })
     try {
+      requireSession()
       await platform.startCore()
+      requireSession()
     } catch (error) {
+      requireSession()
       change({ core: { status: 'error', error: message(error) } })
       throw error
     }
@@ -157,7 +174,10 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
   }
 
   async function reloadIfRunning(): Promise<void> {
-    if (!await platform.isCoreRunning()) return
+    requireSession()
+    const running = await platform.isCoreRunning()
+    requireSession()
+    if (!running) return
     const restoreProxy = store.getState().systemProxy.enabled
     // Platform has no hot-reload operation; validate/replace before stopping the old Core.
     await stop()
@@ -166,28 +186,34 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
   }
 
   async function setSystemProxy(enabled: boolean): Promise<void> {
+    requireSession()
     if (typeof enabled !== 'boolean') throw new Error('Invalid System Proxy toggle')
     if (!enabled) {
       await platform.clearSystemProxy()
+      requireSession()
       change({ systemProxy: { enabled: false } })
       return
     }
-    if (!await platform.isCoreRunning()) throw new Error('Core is not running')
+    const running = await platform.isCoreRunning()
+    requireSession()
+    if (!running) throw new Error('Core is not running')
     const target = { host: '127.0.0.1', port: store.getState().settings.mixedPort }
     try {
       await platform.setSystemProxy({ ...target, bypass: ['localhost', '127.0.0.1', '::1'] })
+      requireSession()
       change({ systemProxy: { enabled: true } })
     } catch (error) {
+      requireSession()
       change({ systemProxy: { enabled: false, manualRequired: target } })
       throw error
     }
   }
 
   async function stop(): Promise<void> {
-    // Do not stop Core if clearing System Proxy failed: that would leave a dead proxy behind.
-    await setSystemProxy(false)
+    if (restartError !== null) return
     await platform.stopCore()
-    change({ core: { status: 'stopped', error: null }, proxyGroups: [], proxies: {} })
+    requireSession()
+    change({ core: { status: 'stopped', error: null }, systemProxy: { enabled: false }, proxyGroups: [], proxies: {} })
   }
 
   async function readLaunchAtLogin(): Promise<void> {
@@ -204,9 +230,12 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
       const settings = { ...store.getState().settings, mode }
       validateSettings(settings)
       await persist({ settings })
-      if (await platform.isCoreRunning()) await client.setMode(mode)
+      if (restartError !== null) return
+      const running = await platform.isCoreRunning()
+      if (running && restartError === null) await client.setMode(mode)
     },
     async selectProxy({ group, proxy }) {
+      requireSession()
       if (typeof group !== 'string' || !group || typeof proxy !== 'string' || !proxy) throw new Error('Invalid Proxy selection')
       await client.selectProxy(group, proxy)
       await syncProxies()
@@ -282,7 +311,10 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
       if (configChanged) await reloadIfRunning()
     },
     async startCore() {
-      if (await platform.isCoreRunning()) return
+      requireSession()
+      const running = await platform.isCoreRunning()
+      requireSession()
+      if (running) return
       const id = store.getState().activeProfileId
       if (id === null) throw new Error('No Active Profile')
       await prepareRuntime(profile(id))
@@ -295,8 +327,8 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
       await deps.hooks?.onOpenWindow?.()
     },
     async quit() {
-      await stop()
-      await deps.hooks?.onQuit?.()
+      if (deps.hooks?.onQuit) await deps.hooks.onQuit()
+      else await stop()
     },
     async setOverride({ yaml }) {
       if (typeof yaml !== 'string') throw new Error('Invalid Override YAML')
@@ -381,6 +413,17 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
         throw new Error(`Backup import failed: ${message(error)}. The previous data was restored.`)
       }
     }),
+    notifyCoreStopped(reason) {
+      if (restartError !== null) return
+      restartError = `${reason}. Restart the app before starting Core or changing System Proxy; System Proxy cleanup is unknown.`
+      traffic.close()
+      logs.close()
+      change({
+        core: { status: 'stopped', error: restartError, restartRequired: true },
+        systemProxy: { enabled: false, unknown: true },
+        proxyGroups: [], proxies: {}
+      })
+    },
     getSnapshot: async () => store.getState(),
     refreshLaunchAtLogin: () => enqueue(readLaunchAtLogin),
     subscribeTraffic: (listener) => traffic.subscribe(listener),
@@ -388,7 +431,7 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
     dispose() { traffic.close(); logs.close() },
     subscribe: (listener) => store.subscribe(listener),
     run<K extends CommandName>(name: K, input: CommandInput<K>): Promise<CommandResult<K>> {
-      return enqueue(async (): Promise<CommandResult<K>> => {
+      const execute = async (): Promise<CommandResult<K>> => {
         try {
           assertNotImported()
           if (!Object.hasOwn(handlers, name) || input === null || typeof input !== 'object' || Array.isArray(input)) throw new Error('Invalid command')
@@ -396,7 +439,9 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
         } catch (error) {
           return { ok: false, error: message(error) }
         }
-      })
+      }
+      if (name === 'quit' && deps.hooks?.onQuit) return execute()
+      return enqueue(execute)
     }
   }
 }

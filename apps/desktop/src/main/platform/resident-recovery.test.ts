@@ -22,19 +22,20 @@ function fixture(report: unknown, code = 0, hang = false) {
   return child
 }
 afterEach(() => vi.clearAllMocks())
-const ok = { command: 'shutdown', ok: true, timedOut: false, coreGone: true, corePid: 0, durationMs: 10 }
+const ok = { command: 'shutdown', protocol: 3, firstTrigger: 64, queryEvents: 0, endEvents: 0,
+  ok: true, timedOut: false, coreGone: true, corePid: 0, durationMs: 10 }
 test('only a drained successful recovery report admits the caller to proceed', async () => {
   const child = fixture(ok)
-  await recoverResident('helper', 'journal', 'log')
+  await recoverResident('helper', 'log')
   expect(child.kill).not.toHaveBeenCalled()
-  expect(spawn).toHaveBeenCalledWith('helper', ['recover', '--recovery', 'journal', '--log', 'log'], expect.objectContaining({ windowsHide: true, detached: true }))
+  expect(spawn).toHaveBeenCalledWith('helper', ['recover-admitted', '--log', 'log'], expect.objectContaining({ windowsHide: true, detached: true }))
 })
 test.each([null, { ...ok, corePid: 123 }, { ...ok, ok: false }, { ...ok, timedOut: true }])('missing or invalid recovery evidence rejects even exit zero: %j', async report => {
   fixture(report)
-  await expect(recoverResident('helper', 'journal', 'log')).rejects.toThrow('new writes forbidden')
+  await expect(recoverResident('helper', 'log')).rejects.toThrow('new writes forbidden')
 })
 test('budget expiry requests exact-child termination but never reports recovery success', async () => {
   const child = fixture(null, 0, true)
-  await expect(recoverResident('helper', 'journal', 'log', 30)).rejects.toThrow('writer state unknown')
+  await expect(recoverResident('helper', 'log', 30)).rejects.toThrow('writer state unknown')
   expect(child.kill).toHaveBeenCalledExactlyOnceWith('SIGKILL')
 })

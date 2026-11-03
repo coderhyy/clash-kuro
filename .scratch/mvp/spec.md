@@ -23,7 +23,7 @@
 - Orphan Core：pid 文件对应进程的可执行路径与打包的 mihomo 一致才 kill，否则只删 pid 文件。
 - 启动时只清理指向本应用 mixed-port 的 System Proxy。
 - 退出、关机、注销：先关 System Proxy 再停 Core，带超时，不阻塞关机。
-  - Windows 上注销、关机时做不到（草案 ADR-0013，待确认）：注销开始后新启动的 helper 在 DLL 初始化时就被结束（0xC0000142 / 0xC000026B），会话结束前的同步清理可能失败。兜底是 RunOnce 在下次登录时清，再加上 Kuro 启动时的清理；注销/关机到下次登录之间，代理仍指向已停止的端口。普通退出不受影响。
+  - Windows 使用预启动的当前用户 helper 接收原生会话事件，在首次关闭的同一预算内尝试清理并回读，再停止准确的 Core（ADR-0013）。超时必须报告不确定并关闭写入入口；取消关机后保持已停止／需重启，不自动恢复。历史 one-shot helper 曾在注销时因 0xC0000142 / 0xC000026B 无法启动；隔离载体的成功不代表正式 app 已验收，也不保证每次会话清理成功。当前版本不使用 RunOnce，异常退出后的兜底为持久记录加下次 Kuro 启动或显式手动恢复，因此下次登录本身不保证代理已清除。
 - mixed-port 被占用：启动前检测并报错，不自动换端口。
 - 唤醒：Core 存活则 `DELETE /connections`，否则重启 Core；System Proxy 幂等重设（ADR-0008）。
 - macOS `networksetup` 权限被拒：提示用户手动设置 127.0.0.1:mixed-port（ADR-0009）。

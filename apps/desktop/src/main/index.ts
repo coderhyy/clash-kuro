@@ -1,8 +1,7 @@
-import { app, BaseWindow, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, powerMonitor, shell, Tray, type IpcMainEvent, type IpcMainInvokeEvent } from 'electron'
-import { appendFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, powerMonitor, shell, Tray, type IpcMainEvent, type IpcMainInvokeEvent } from 'electron'
+import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
-import { readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { appendFile, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { createMihomoClient } from '@kuro/api'
 import { buildTrayMenu, createAppStore, MAX_BACKUP_BYTES, type AppStore, type CommandName } from '@kuro/state'
 import { createDesktopPlatform, createResumeHandler, createSocketTransport } from './platform'
@@ -10,9 +9,6 @@ import { createProfileSource } from './app/profiles'
 import { createUpdateScheduler } from './app/scheduler'
 import { checkForUpdate } from './app/release-check'
 import { installGeoData } from './app/geo'
-import { watchSessionEnd } from './app/session-end'
-import { guardMigrationStartup } from './app/migration-startup'
-import { runMigrationCommand } from './app/migration-command'
 import { prepareResidentStartup } from './app/resident-startup'
 import { IPC, type BackupResult, type StreamKind } from './ipc-channels'
 import { trayIcon } from './tray-icon'
@@ -21,15 +17,9 @@ import { t } from '../shared/i18n'
 // KURO_RELEASE_REPO=owner/name overrides the release source (e.g. for forks).
 const RELEASE_REPO = process.env.KURO_RELEASE_REPO ?? 'coderhyy/clash-kuro'
 const SHUTDOWN_TIMEOUT_MS = 3_000
-// Hard limit for the synchronous helper run inside a session-end handler; the helper is killed after this.
-const SESSION_END_CLEAR_TIMEOUT_MS = 1_500
-const migrationRequested = process.argv.some(arg => /^--(?:proxy-migration|backup-directory|expected-server|confirm-controlled-restart|experimental-resident)/.test(arg))
 
 if (!app.requestSingleInstanceLock()) {
-  if (migrationRequested) {
-    console.error('Migration refused: another Kuro instance holds the app lock; no migration command executed')
-    app.exit(1)
-  } else app.quit()
+  app.quit()
 } else {
   void main()
 }
@@ -49,32 +39,12 @@ async function main(): Promise<void> {
     ? app.isPackaged ? join(process.resourcesPath, 'bin', 'kuro-sysproxy.exe') : join(app.getAppPath(), 'resources', 'win', 'x64', 'kuro-sysproxy.exe')
     : undefined
   const dataDir = join(app.getPath('userData'), 'data')
-  let startResident: Awaited<ReturnType<typeof prepareResidentStartup>>
+  let startResident: Awaited<ReturnType<typeof prepareResidentStartup>> | undefined
   try {
-    if (migrationRequested && !sysproxyHelperPath) throw new Error('System Proxy migration requires Windows')
-    if (sysproxyHelperPath) {
-      const collectorPath = app.isPackaged ? join(process.resourcesPath, 'bin', 'collect-migration-evidence.ps1')
-        : join(app.getAppPath(), 'scripts', 'collect-migration-evidence.ps1')
-      const appPath = app.isPackaged ? join(process.resourcesPath, 'app.asar') : undefined
-      startResident = await prepareResidentStartup({ args: process.argv, dataDir, helperPath: sysproxyHelperPath, collectorPath, appPath })
-      if (!startResident && migrationRequested) {
-        if (!appPath) throw new Error('Migration requires a packaged, hash-bound app')
-        const result = await runMigrationCommand({ args: process.argv, dataDir, helperPath: sysproxyHelperPath, collectorPath, appPath,
-          installationRoot: dirname(process.execPath),
-          ...(app.isPackaged ? {} : { repoRoot: resolve(app.getAppPath(), '../..') }) })
-        if (result.handled) {
-          console.log(JSON.stringify(result))
-          app.exit(0)
-          return
-        }
-      }
-    }
-    if (!startResident) await guardMigrationStartup(dataDir, { helper: sysproxyHelperPath })
-  }
-  catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    if (migrationRequested) console.error(JSON.stringify({ ok: false, residentEnabled: false, message }))
-    else dialog.showErrorBox('System Proxy migration blocked', message)
+    await mkdir(dataDir, { recursive: true })
+    if (sysproxyHelperPath) startResident = await prepareResidentStartup({ dataDir, helperPath: sysproxyHelperPath })
+  } catch (error) {
+    dialog.showErrorBox('System Proxy owner unavailable', error instanceof Error ? error.message : String(error))
     app.exit(1)
     return
   }
@@ -83,6 +53,7 @@ async function main(): Promise<void> {
   let store: AppStore | undefined
   const platform = createDesktopPlatform({
     dataDir, corePath, sysproxyHelperPath, userAgent, powerMonitor, loginItemApp: app, startResident,
+    onResidentStopped: reason => store?.notifyCoreStopped(reason),
     mixedPort: () => store?.store.getState().settings.mixedPort ?? 7890
   })
   const client = createMihomoClient(createSocketTransport(() => platform.controlChannel()))
@@ -101,13 +72,15 @@ async function main(): Promise<void> {
 
   // One line per exit step, so logoff/shutdown cleanup can be checked after the next login.
   function logExit(line: string): void {
-    try { appendFileSync(join(dataDir, 'exit.log'), `${new Date().toISOString()} ${line}\n`) } catch { /* diagnostics only */ }
+    // Diagnostics never delay native cleanup; the native bounded report is authoritative.
+    void appendFile(join(dataDir, 'exit.log'), `${new Date().toISOString()} ${line}\n`).catch(() => {})
   }
 
   async function exit(trigger = 'quit'): Promise<void> {
     if (quitting) return
     quitting = true
     const started = Date.now()
+    let exitCode = 0
     logExit(`exit start (${trigger})`)
     try {
       scheduler.stop()
@@ -115,10 +88,11 @@ async function main(): Promise<void> {
       await platform.shutdown({ timeoutMs: SHUTDOWN_TIMEOUT_MS })
       logExit('cleanup completed')
     } catch (error) {
+      exitCode = 1
       logExit(`cleanup FAILED; state may be unknown: ${error instanceof Error ? error.message : String(error)}`)
     } finally {
       logExit(`exit done in ${Date.now() - started} ms`)
-      app.exit(0)
+      app.exit(exitCode)
     }
   }
 
@@ -259,6 +233,7 @@ async function main(): Promise<void> {
         label: t(item.label, {}, snapshot.resolvedLanguage),
         type: item.type,
         checked: item.checked ?? false,
+        enabled: item.enabled ?? true,
         click: () => void app_.run(item.command.name, item.command.input as never).then((result) => {
           if (!result.ok && item.command.name === 'quit') void exit()
           else if (!result.ok) dialog.showErrorBox(t('app', {}, app_.store.getState().resolvedLanguage), result.error)
@@ -310,18 +285,7 @@ async function main(): Promise<void> {
   })
   // macOS/Linux only; Windows never emits powerMonitor 'shutdown'.
   powerMonitor.on('shutdown', () => void exit())
-  // Windows logoff/shutdown arrives as BaseWindow events. Tray Mode has no main window, so a hidden window
-  // that lives as long as the app receives them. The proxy is cleared synchronously inside the handler
-  // (session-end may be followed by process termination), then Core is stopped by exit(). Never preventDefault.
-  if (process.platform === 'win32') {
-    const sessionWindow = new BaseWindow({ show: false, width: 1, height: 1, skipTaskbar: true, focusable: false, title: 'Clash Kuro session' })
-    watchSessionEnd(sessionWindow, {
-      clearSystemProxySync: () => platform.clearSystemProxySync({ timeoutMs: SESSION_END_CLEAR_TIMEOUT_MS }),
-      exit: (phase) => void exit(phase),
-      log: logExit,
-    })
-  }
-
+  // Windows session cleanup belongs exclusively to the native owner, including Tray Mode.
   // Launch at Login starts straight in Tray Mode (CONTEXT.md: 开机自启).
   if (process.platform === 'darwin' && app.getLoginItemSettings().wasOpenedAtLogin) app.dock?.hide()
   else showWindow()

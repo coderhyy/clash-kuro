@@ -21,7 +21,7 @@ static BOOL WINAPI test_flush(HANDLE file) {
 #undef FlushFileBuffers
 
 #define TEST_BYTES (sizeof(KuroResidentJournalHeader) + 9 * sizeof(KuroResidentJournalRecord))
-static KuroResidentJournalProvenance proof;
+static KuroResidentJournalBinding proof;
 
 static DWORD snapshot(HANDLE file, BYTE *data) {
   LARGE_INTEGER size, zero = {0}; DWORD bytes;
@@ -44,12 +44,13 @@ static void rejected(HANDLE file, const BYTE *data, DWORD bytes) {
   KuroResidentJournalState state;
   replace_bytes(file, data, bytes);
   memset(&state, 0x55, sizeof state);
-  assert(kuro_resident_journal_read(file, &proof.binding, &state) == ERROR_INVALID_DATA);
+  assert(kuro_resident_journal_read(file, &proof, &state) == ERROR_INVALID_DATA);
   KuroResidentJournalState empty = {0};
   assert(!memcmp(&state, &empty, sizeof state));
-  assert(kuro_resident_journal_admit(file, &proof) == ERROR_INVALID_DATA);
-  assert(kuro_resident_journal_append(file, &proof.binding, L"127.0.0.1:7893") == ERROR_INVALID_DATA);
-  assert(kuro_resident_journal_reset_after_clear(file, &proof.binding) == ERROR_INVALID_DATA);
+  assert(kuro_resident_journal_initialize(file, &proof) == ERROR_INVALID_DATA);
+  assert(kuro_resident_journal_append(file, &proof, L"127.0.0.1:7893") == ERROR_INVALID_DATA);
+  assert(kuro_resident_journal_reset_after_clear(file, &proof) == ERROR_INVALID_DATA);
+  assert(kuro_resident_journal_read_owner(file, &proof, &state) == ERROR_INVALID_DATA);
   unchanged(file, data, bytes);
 }
 static void rechecksum(BYTE *data) {
@@ -98,73 +99,100 @@ static void hash_tests(HANDLE file) {
 int wmain(void) {
   /* endpoint.h also supplies these pure helpers to the shipping engine. */
   (void)kuro_all_endpoints_equal; (void)kuro_valid_bypass;
-  (void)kuro_valid_log_path; (void)kuro_runonce_command;
+  (void)kuro_valid_log_path;
   wchar_t temp[MAX_PATH], path[MAX_PATH];
   assert(GetTempPathW(MAX_PATH, temp) && GetTempFileNameW(temp, L"krV", 0, path));
   HANDLE file = CreateFileW(path, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
     FILE_ATTRIBUTE_TEMPORARY | FILE_FLAG_DELETE_ON_CLOSE, NULL);
   assert(file != INVALID_HANDLE_VALUE);
   hash_tests(file);
-  wcscpy(proof.binding.sid, L"S-1-5-21-1-2-3-1001");
-  assert(!kuro_resident_sha256("helper", 6, proof.binding.helper_sha256));
-  assert(!kuro_resident_sha256("receipt", 7, proof.receipt_sha256));
-  assert(!kuro_resident_sha256("evidence", 8, proof.evidence_sha256));
+  wcscpy(proof.sid, L"S-1-5-21-1-2-3-1001");
+  assert(!kuro_resident_sha256("helper", 6, proof.helper_sha256));
   KuroResidentJournalState state;
-  assert(!kuro_resident_journal_read(file, &proof.binding, &state) && !state.initialized && !state.count);
-  assert(kuro_resident_journal_append(file, &proof.binding, L"127.0.0.1:7891") == ERROR_NOT_READY);
-  assert(kuro_resident_journal_reset_after_clear(file, &proof.binding) == ERROR_NOT_READY);
-  assert(kuro_resident_journal_admit(file, NULL) == ERROR_INVALID_PARAMETER);
-  for (int field = 0; field < 3; ++field) {
-    KuroResidentJournalProvenance invalid = proof;
-    memset(field == 0 ? invalid.binding.helper_sha256 : field == 1 ? invalid.receipt_sha256 : invalid.evidence_sha256, 0, 32);
-    assert(kuro_resident_journal_admit(file, &invalid) == ERROR_INVALID_PARAMETER);
-  }
-  KuroResidentJournalProvenance invalid = proof;
-  wcscpy(invalid.binding.sid, L"BA");
-  assert(kuro_resident_journal_admit(file, &invalid) == ERROR_INVALID_PARAMETER);
-  wmemset(invalid.binding.sid, L'x', KURO_RESIDENT_JOURNAL_SID_CHARS);
-  assert(kuro_resident_journal_admit(file, &invalid) == ERROR_INVALID_PARAMETER);
+  assert(!kuro_resident_journal_read(file, &proof, &state) && !state.initialized && !state.count);
+  assert(kuro_resident_journal_append(file, &proof, L"127.0.0.1:7891") == ERROR_NOT_READY);
+  assert(kuro_resident_journal_reset_after_clear(file, &proof) == ERROR_NOT_READY);
+  assert(kuro_resident_journal_initialize(file, NULL) == ERROR_INVALID_PARAMETER);
+  KuroResidentJournalBinding invalid = proof;
+  memset(invalid.helper_sha256, 0, 32);
+  assert(kuro_resident_journal_initialize(file, &invalid) == ERROR_INVALID_PARAMETER);
+  invalid = proof;
+  wcscpy(invalid.sid, L"BA");
+  assert(kuro_resident_journal_initialize(file, &invalid) == ERROR_INVALID_PARAMETER);
+  wmemset(invalid.sid, L'x', KURO_RESIDENT_JOURNAL_SID_CHARS);
+  assert(kuro_resident_journal_initialize(file, &invalid) == ERROR_INVALID_PARAMETER);
   BYTE saved[TEST_BYTES], changed[TEST_BYTES];
   assert(snapshot(file, saved) == 0);
-  assert(!kuro_resident_journal_admit(file, &proof));
-  assert(!kuro_resident_journal_admit(file, &proof));
-  assert(!kuro_resident_journal_append(file, &proof.binding, L"127.0.0.1:7891"));
-  assert(!kuro_resident_journal_append(file, &proof.binding, L"127.0.0.1:7892"));
-  assert(!kuro_resident_journal_append(file, &proof.binding, L"127.0.0.1:7891"));
+  assert(!kuro_resident_journal_initialize(file, &proof));
+  assert(!kuro_resident_journal_initialize(file, &proof));
+  assert(!kuro_resident_journal_append(file, &proof, L"127.0.0.1:7891"));
+  assert(!kuro_resident_journal_append(file, &proof, L"127.0.0.1:7892"));
+  assert(!kuro_resident_journal_append(file, &proof, L"127.0.0.1:7891"));
   assert(FlushFileBuffers(file));
   /* Replace the caller handle, then reread the flushed bytes. */
   HANDLE reopened;
   assert(DuplicateHandle(GetCurrentProcess(), file, GetCurrentProcess(), &reopened, 0, FALSE, DUPLICATE_SAME_ACCESS));
   CloseHandle(file); file = reopened;
-  assert(!kuro_resident_journal_read(file, &proof.binding, &state) && state.initialized && state.count == 2);
-  assert(!memcmp(&state.provenance, &proof, sizeof proof));
+  assert(!kuro_resident_journal_read(file, &proof, &state) && state.initialized && state.count == 2);
+  assert(!memcmp(&state.binding, &proof, sizeof proof));
   assert(!wcscmp(state.servers[0], L"127.0.0.1:7891") && !wcscmp(state.servers[1], L"127.0.0.1:7892"));
   DWORD length = snapshot(file, saved);
-  for (int field = 0; field < 4; ++field) {
+  KuroResidentJournalBinding current = proof;
+  assert(!kuro_resident_sha256("new helper", 10, current.helper_sha256));
+  assert(!kuro_resident_journal_read_owner(file, &current, &state) && state.initialized && state.count == 2);
+  assert(!memcmp(&state.binding, &proof, sizeof proof));
+  assert(kuro_resident_journal_rebind(file, &proof, &current) == ERROR_NOT_READY);
+  unchanged(file, saved, length);
+  invalid = current; wcscpy(invalid.sid, L"S-1-5-21-1-2-3-1002");
+  assert(kuro_resident_journal_read_owner(file, &invalid, &state) == ERROR_ACCESS_DENIED && !state.initialized);
+  assert(kuro_resident_journal_rebind(file, &proof, &invalid) == ERROR_INVALID_PARAMETER);
+  assert(kuro_resident_journal_rebind(file, NULL, &current) == ERROR_INVALID_PARAMETER);
+  invalid = current; memset(invalid.helper_sha256, 0, 32);
+  assert(kuro_resident_journal_rebind(file, &proof, &invalid) == ERROR_INVALID_PARAMETER);
+  unchanged(file, saved, length);
+  assert(!kuro_resident_journal_reset_after_clear(file, &proof));
+  fail_write = 1;
+  assert(kuro_resident_journal_rebind(file, &proof, &current) == ERROR_ACCESS_DENIED);
+  fail_write = 0; unchanged(file, saved, 416);
+  short_write = 1;
+  assert(kuro_resident_journal_rebind(file, &proof, &current) == ERROR_WRITE_FAULT);
+  short_write = 0;
+  replace_bytes(file, saved, 416);
+  fail_flush = 1;
+  assert(kuro_resident_journal_rebind(file, &proof, &current) == ERROR_WRITE_FAULT);
+  fail_flush = 0;
+  assert(!kuro_resident_journal_read(file, &current, &state) && !state.count);
+  assert(kuro_resident_journal_read(file, &proof, &state) == ERROR_ACCESS_DENIED && !state.initialized);
+  replace_bytes(file, saved, 416);
+  assert(!kuro_resident_journal_rebind(file, &proof, &current));
+  assert(!kuro_resident_journal_read(file, &current, &state) && state.initialized && !state.count);
+  assert(kuro_resident_journal_read(file, &proof, &state) == ERROR_ACCESS_DENIED && !state.initialized);
+  replace_bytes(file, NULL, 0);
+  assert(kuro_resident_journal_rebind(file, &proof, &current) == ERROR_NOT_READY);
+  replace_bytes(file, saved, length);
+  for (int field = 0; field < 2; ++field) {
     invalid = proof;
-    if (field == 0) wcscpy(invalid.binding.sid, L"S-1-5-21-1-2-3-1002");
-    else (field == 1 ? invalid.binding.helper_sha256 : field == 2 ? invalid.receipt_sha256 : invalid.evidence_sha256)[0] ^= 1;
-    assert(kuro_resident_journal_admit(file, &invalid) == (field < 2 ? ERROR_ACCESS_DENIED : ERROR_REVISION_MISMATCH));
-    if (field < 2) {
-      assert(kuro_resident_journal_read(file, &invalid.binding, &state) == ERROR_ACCESS_DENIED && !state.initialized && !state.count);
-      assert(kuro_resident_journal_append(file, &invalid.binding, L"127.0.0.1:7893") == ERROR_ACCESS_DENIED);
-      assert(kuro_resident_journal_reset_after_clear(file, &invalid.binding) == ERROR_ACCESS_DENIED);
-    }
+    if (field == 0) wcscpy(invalid.sid, L"S-1-5-21-1-2-3-1002");
+    else invalid.helper_sha256[0] ^= 1;
+    assert(kuro_resident_journal_initialize(file, &invalid) == ERROR_ACCESS_DENIED);
+    assert(kuro_resident_journal_read(file, &invalid, &state) == ERROR_ACCESS_DENIED && !state.initialized && !state.count);
+    assert(kuro_resident_journal_append(file, &invalid, L"127.0.0.1:7893") == ERROR_ACCESS_DENIED);
+    assert(kuro_resident_journal_reset_after_clear(file, &invalid) == ERROR_ACCESS_DENIED);
     unchanged(file, saved, length);
   }
-  assert(kuro_resident_journal_append(file, &proof.binding, L"bad endpoint") == ERROR_INVALID_PARAMETER);
+  assert(kuro_resident_journal_append(file, &proof, L"bad endpoint") == ERROR_INVALID_PARAMETER);
   unchanged(file, saved, length);
 
-  const DWORD cuts[] = {1, 12, 479, 481, 1087, 1089};
+  const DWORD cuts[] = {1, 12, 415, 417, 1023, 1025};
   for (unsigned i = 0; i < sizeof cuts / sizeof *cuts; ++i) rejected(file, saved, cuts[i]);
-  const unsigned flips[] = {0, 4, 8, 12, 380, 412, 444, 476, 480, 484, 488};
+  const unsigned flips[] = {0, 4, 8, 12, 380, 412, 416, 420, 424};
   for (unsigned i = 0; i < sizeof flips / sizeof *flips; ++i) {
     memcpy(changed, saved, length); changed[flips[i]] ^= 1;
     rejected(file, changed, length);
   }
   /* Zero/invalid provenance with a valid checksum must also be rejected. */
-  const unsigned digest_offsets[] = {380, 412, 444};
-  for (unsigned i = 0; i < 3; ++i) {
+  const unsigned digest_offsets[] = {380};
+  for (unsigned i = 0; i < 1; ++i) {
     memcpy(changed, saved, length); memset(changed + digest_offsets[i], 0, 32); rechecksum(changed);
     rejected(file, changed, length);
   }
@@ -174,49 +202,49 @@ int wmain(void) {
     memcpy(changed, saved, length); changed[offset] ^= 1; rechecksum(changed);
     rejected(file, changed, length); /* Unknown version/size even with valid checksum. */
   }
-  rejected(file, saved + 480, 608); /* Valid legacy608 endpoint is not authorization. */
-  memset(changed, 0xa5, 480); rejected(file, changed, 480);
-  memcpy(changed, saved, length); memcpy(changed + 1088, changed + 480, 608);
+  rejected(file, saved + 416, 608); /* Valid legacy608 endpoint is not authorization. */
+  memset(changed, 0xa5, 416); rejected(file, changed, 416);
+  memcpy(changed, saved, length); memcpy(changed + 1024, changed + 416, 608);
   rejected(file, changed, length); /* Duplicate records are invalid on disk. */
 
   replace_bytes(file, saved, length);
   for (unsigned i = 2; i < 8; ++i) {
     wchar_t server[64]; _snwprintf(server, 64, L"127.0.0.1:%u", 7891 + i);
-    assert(!kuro_resident_journal_append(file, &proof.binding, server));
+    assert(!kuro_resident_journal_append(file, &proof, server));
   }
   DWORD full = snapshot(file, changed);
-  assert(kuro_resident_journal_append(file, &proof.binding, L"127.0.0.1:9000") == ERROR_BUFFER_OVERFLOW);
+  assert(kuro_resident_journal_append(file, &proof, L"127.0.0.1:9000") == ERROR_BUFFER_OVERFLOW);
   unchanged(file, changed, full);
-  memcpy(changed + full, saved + 480, 608);
+  memcpy(changed + full, saved + 416, 608);
   rejected(file, changed, full + 608);
   replace_bytes(file, saved, length);
-  assert(!kuro_resident_journal_reset_after_clear(file, &proof.binding));
-  unchanged(file, saved, 480);
-  assert(!kuro_resident_journal_read(file, &proof.binding, &state) && state.initialized && !state.count);
-  assert(!memcmp(&state.provenance, &proof, sizeof proof));
-  assert(!kuro_resident_journal_append(file, &proof.binding, L"127.0.0.1:7891"));
+  assert(!kuro_resident_journal_reset_after_clear(file, &proof));
+  unchanged(file, saved, 416);
+  assert(!kuro_resident_journal_read(file, &proof, &state) && state.initialized && !state.count);
+  assert(!memcmp(&state.binding, &proof, sizeof proof));
+  assert(!kuro_resident_journal_append(file, &proof, L"127.0.0.1:7891"));
 
   /* I/O failures never report admission/set/reset success or silently repair data. */
   replace_bytes(file, NULL, 0); fail_write = 1;
-  assert(kuro_resident_journal_admit(file, &proof) == ERROR_ACCESS_DENIED);
+  assert(kuro_resident_journal_initialize(file, &proof) == ERROR_ACCESS_DENIED);
   assert(snapshot(file, changed) == 0); fail_write = 0; short_write = 1;
-  assert(kuro_resident_journal_admit(file, &proof) == ERROR_WRITE_FAULT);
-  DWORD torn = snapshot(file, changed); assert(torn == 240); short_write = 0;
+  assert(kuro_resident_journal_initialize(file, &proof) == ERROR_WRITE_FAULT);
+  DWORD torn = snapshot(file, changed); assert(torn == 208); short_write = 0;
   rejected(file, changed, torn);
   replace_bytes(file, NULL, 0); fail_flush = 1;
-  assert(kuro_resident_journal_admit(file, &proof) == ERROR_WRITE_FAULT);
-  fail_flush = 0; assert(!kuro_resident_journal_admit(file, &proof));
+  assert(kuro_resident_journal_initialize(file, &proof) == ERROR_WRITE_FAULT);
+  fail_flush = 0; assert(!kuro_resident_journal_initialize(file, &proof));
   short_write = 1;
-  assert(kuro_resident_journal_append(file, &proof.binding, L"127.0.0.1:7891") == ERROR_WRITE_FAULT);
-  short_write = 0; torn = snapshot(file, changed); assert(torn == 480 + 304);
+  assert(kuro_resident_journal_append(file, &proof, L"127.0.0.1:7891") == ERROR_WRITE_FAULT);
+  short_write = 0; torn = snapshot(file, changed); assert(torn == 416 + 304);
   rejected(file, changed, torn);
   replace_bytes(file, saved, length); fail_flush = 1;
-  assert(kuro_resident_journal_append(file, &proof.binding, L"127.0.0.1:7891") == ERROR_WRITE_FAULT);
-  assert(kuro_resident_journal_append(file, &proof.binding, L"127.0.0.1:7893") == ERROR_WRITE_FAULT);
-  assert(kuro_resident_journal_reset_after_clear(file, &proof.binding) == ERROR_WRITE_FAULT);
-  fail_flush = 0; unchanged(file, saved, 480);
-  assert(!kuro_resident_journal_read(file, &proof.binding, &state) && state.initialized && !state.count);
+  assert(kuro_resident_journal_append(file, &proof, L"127.0.0.1:7891") == ERROR_WRITE_FAULT);
+  assert(kuro_resident_journal_append(file, &proof, L"127.0.0.1:7893") == ERROR_WRITE_FAULT);
+  assert(kuro_resident_journal_reset_after_clear(file, &proof) == ERROR_WRITE_FAULT);
+  fail_flush = 0; unchanged(file, saved, 416);
+  assert(!kuro_resident_journal_read(file, &proof, &state) && state.initialized && !state.count);
   CloseHandle(file);
-  puts("resident journal v2: SHA256, explicit admission, provenance, identity, A/B persistence, rejection/reset/I/O failures passed");
+  puts("resident journal v3: SHA256, native initialization, provenance, identity, A/B persistence, rejection/reset/I/O failures passed");
   return 0;
 }

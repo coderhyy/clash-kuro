@@ -1,32 +1,13 @@
-import { execFile, execFileSync } from 'node:child_process'
+import { execFile } from 'node:child_process'
 import { isIPv6 } from 'node:net'
 import { promisify } from 'node:util'
 import type { SystemProxySettings } from '@kuro/core'
 
 export type Exec = (file: string, args: string[]) => Promise<{ stdout: string; stderr: string }>
-/** Returns stdout; throws like execFileSync (status, stdout, code 'ETIMEDOUT') on a non-zero exit or timeout. */
-export type ExecSync = (file: string, args: string[], options: { timeoutMs: number }) => string
 
 const execFileAsync = promisify(execFile)
 // execFile never uses a shell; windowsHide keeps helper/Core console windows from flashing.
 export const execCommand: Exec = (file, args) => execFileAsync(file, args, { timeout: 10_000, maxBuffer: 1024 * 1024, windowsHide: true })
-// Blocks the event loop until the helper exits or is killed (TerminateProcess) at the timeout.
-export const execCommandSync: ExecSync = (file, args, { timeoutMs }) => execFileSync(file, args, {
-  timeout: timeoutMs, killSignal: 'SIGKILL', maxBuffer: 1024 * 1024, windowsHide: true, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
-})
-
-/** Outcome of clearSystemProxySync, written to exit.log. */
-export interface SyncClearReport {
-  /** false when no helper was started (nothing of ours outstanding, or unsupported). */
-  ran: boolean
-  ok: boolean
-  /** Helper exit code; 3221225794 (0xC0000142) means the process failed to initialize. */
-  exitCode: number | null
-  timedOut: boolean
-  durationMs: number
-  servers: string[]
-  detail?: string
-}
 
 export class SystemProxyPermissionError extends Error {
   constructor(message: string, options?: ErrorOptions) {
@@ -38,11 +19,10 @@ export class SystemProxyPermissionError extends Error {
 export interface SystemProxyOptions {
   os?: NodeJS.Platform
   exec?: Exec
-  execSync?: ExecSync
   /** Windows: absolute path to kuro-sysproxy.exe. */
   helperPath?: string
-  /** Windows: absolute log file passed to set as --log; the helper's RunOnce logon cleanup appends its result there. */
-  runOnceLogPath?: string
+  /** Optional diagnostics for standalone helper calls; native owner logging is separate. */
+  logPath?: string
   /** Windows: current mixed-port, used when no earlier write is remembered. */
   mixedPort?: () => number
   /** Windows: remembers the last endpoint we wrote so clear can find it after a port change or crash. */
@@ -141,9 +121,6 @@ export function createSystemProxy(options: SystemProxyOptions = {}) {
         }
       }
     },
-    clearSystemProxySync(_options: { timeoutMs: number }): SyncClearReport {
-      return { ran: false, ok: false, exitCode: null, timedOut: false, durationMs: 0, servers: [], detail: 'synchronous clear is Windows-only' }
-    },
   }
 }
 
@@ -166,11 +143,7 @@ interface HelperResult {
   error?: HelperError
   notifyError?: HelperError
   rasError?: HelperError
-  /** Logon-time fallback entry (HKCU RunOnce): written after set, deleted after a successful clear. */
-  runOnce?: 'written' | 'deleted'
-  runOnceError?: HelperError
-  /** The RunOnce command would exceed 260 characters with --log, so it was written without it. */
-  runOnceLogOmitted?: boolean
+
 }
 
 const PROXY_TYPE_PROXY = 2
@@ -197,16 +170,14 @@ export function parseWindowsProxyServer(server: string): { host: string; port: n
 function createWindowsSystemProxy(exec: Exec, options: SystemProxyOptions) {
   const helper = options.helperPath
   const memory = options.memory
-  const execSync = options.execSync ?? execCommandSync
   const manualHint = (port?: number) => `请在 Windows 设置 > 网络和 Internet > 代理 中手动设置 127.0.0.1:${port ?? options.mixedPort?.() ?? 7890}`
-  // In-memory copy of the last endpoint we wrote, so the session-end path needs no file I/O.
+  // Cache the last endpoint across asynchronous operations.
   // undefined = not loaded yet (unknown); null = nothing of ours outstanding.
   let remembered: string | null | undefined
   // A clear that failed leaves the proxy state unknown even when nothing is remembered.
   let uncertain = false
   // Irreversible per instance: shutdown or uncertain mutation closes later sets.
   let closing = false
-  let setRunning = false
   // One helper at a time: overlapping set/clear would race on the same per-connection settings.
   let queue: Promise<unknown> = Promise.resolve()
   const serialize = <T>(operation: () => Promise<T>): Promise<T> => {
@@ -275,7 +246,7 @@ function createWindowsSystemProxy(exec: Exec, options: SystemProxyOptions) {
     remembered = server
     await memory?.save(server)
   }
-  // Preload so a session end soon after launch already knows the endpoint.
+  // Preload the last endpoint when the adapter is initialized.
   void loadRemembered()
 
   function withCurrentPort(servers: Set<string>): string[] {
@@ -309,49 +280,6 @@ function createWindowsSystemProxy(exec: Exec, options: SystemProxyOptions) {
     await remember(null)
   }
 
-  /**
-   * Windows logoff/shutdown: clears our proxy before the event handler returns, because the process may be
-   * ended right after session-end. Uses only in-memory state; never awaits; the helper is killed at timeoutMs.
-   */
-  function clearSystemProxySync({ timeoutMs }: { timeoutMs: number }): SyncClearReport {
-    closing = true
-    // Skip the spawn when nothing of ours is outstanding: fewer processes started while the session ends.
-    const servers = remembered === null && !uncertain ? [] : withCurrentPort(new Set(remembered ? [remembered] : []))
-    const report: SyncClearReport = { ran: false, ok: false, exitCode: null, timedOut: false, durationMs: 0, servers }
-    if (!helper) return { ...report, detail: 'helper path not configured' }
-    if (!servers.length) return { ...report, ok: true, detail: 'nothing of ours to clear' }
-    const inFlightSet = setRunning
-    const started = Date.now()
-    let stdout = ''
-    let failure: string | undefined
-    try {
-      stdout = execSync(helper, ['clear', ...servers.flatMap((server) => ['--expected-server', server])], { timeoutMs })
-      report.exitCode = 0
-    } catch (error) {
-      const details = error as NodeJS.ErrnoException & { status?: number | null; stdout?: string | Buffer }
-      report.exitCode = typeof details.status === 'number' ? details.status : null
-      report.timedOut = details.code === 'ETIMEDOUT'
-      stdout = String(details.stdout ?? '')
-      if (!report.timedOut && report.exitCode === null) failure = String(details.code ?? details.message)
-    }
-    report.ran = true
-    report.durationMs = Date.now() - started
-    let result: HelperResult | undefined
-    try { result = JSON.parse(stdout) as HelperResult } catch { /* reported via ok=false */ }
-    // A set still running could re-enable the proxy after this clear; let the session-end fallback retry.
-    report.ok = !report.timedOut && report.exitCode === 0 && result?.ok === true && !inFlightSet
-    const statuses = result?.connections?.map((c) => `${c.name ?? 'LAN'}=${c.status ?? '?'}`).join(',')
-    const runOnce = result?.runOnceError ? `runOnce error ${result.runOnceError.code}` : result?.runOnce && `runOnce=${result.runOnce}`
-    report.detail = [failure, statuses, runOnce, inFlightSet && 'set in flight', !result && stdout && `stdout: ${stdout.slice(0, 120)}`]
-      .filter(Boolean).join(' ') || undefined
-    if (report.ok) {
-      remembered = null
-      uncertain = false
-      void memory?.save(null).catch(() => {})
-    }
-    return report
-  }
-
   return {
     beginShutdown() { closing = true },
     getSystemProxy: () => serialize(async (): Promise<SystemProxySettings | null> => {
@@ -370,18 +298,12 @@ function createWindowsSystemProxy(exec: Exec, options: SystemProxyOptions) {
       const bypass = settings.bypass.map((entry) => isIPv6(entry) ? `[${entry}]` : entry)
       // Remember before writing, so a crash mid-write is still cleaned up on next start.
       await remember(server)
-      // A session-end clear may have run while the memory file was being written.
+      // Shutdown may have closed writes while the memory file was being written.
       if (closing) throw new Error('System Proxy writes are closed for logoff/shutdown or uncertain state')
-      let result: HelperResult
-      setRunning = true
-      try {
-        const log = options.runOnceLogPath ? ['--log', options.runOnceLogPath] : []
-        result = await run(['set', '--host', settings.host, '--port', String(settings.port), '--bypass', bypass.join(';'), ...log], settings.port)
-      } finally { setRunning = false }
+      const log = options.logPath ? ['--log', options.logPath] : []
+      const result = await run(['set', '--host', settings.host, '--port', String(settings.port), '--bypass', bypass.join(';'), ...log], settings.port)
       if (result.ok) {
         // The proxy works without the fallback; only logoff/shutdown cleanup loses its safety net.
-        if (result.runOnceError) console.warn('System Proxy logon cleanup entry not written:', result.runOnceError.message)
-        if (result.runOnceLogOmitted) console.warn('System Proxy logon cleanup entry written without --log (command line too long)')
         return
       }
       // Partial write: undo connections that did take our endpoint rather than leave a mix.
@@ -389,11 +311,10 @@ function createWindowsSystemProxy(exec: Exec, options: SystemProxyOptions) {
       throw failure(result, settings.port)
     }),
     clearSystemProxy: () => serialize(async () => {
-      // Already cleared synchronously at session end: don't start another helper while Windows shuts down.
+      // Once writes close, skip redundant clears only when no endpoint or failed cleanup remains.
       if (closing && remembered === null && !uncertain) return
       await clear(await expectedServers())
     }),
     cleanupStaleSystemProxy: (port: number) => serialize(async () => clear(await expectedServers(port))),
-    clearSystemProxySync,
   }
 }

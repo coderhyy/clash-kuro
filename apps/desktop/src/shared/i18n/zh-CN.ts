@@ -45,6 +45,7 @@ export const zhCN = {
   globalHint: '所有连接通过全局 Proxy Group。',
   directHint: '所有连接直接访问，不经过 Proxy。',
   systemProxy: 'System Proxy',
+  systemProxyUnknown: 'System Proxy · 未知',
   systemProxyHint: '将系统 HTTP / HTTPS 代理指向 Clash Kuro。',
   manualRequired:
     '系统权限不足。请在系统网络设置中手动设置 HTTP / HTTPS 代理：{host}:{port}。',

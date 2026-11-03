@@ -620,6 +620,8 @@ export function App({ bridge, demo }: { bridge: StateBridge; demo: boolean }) {
     (item) => item.id === snapshot.activeProfileId
   )
   const running = snapshot.core.status === 'running'
+  const restartRequired = snapshot.core.restartRequired === true
+  const proxyUnknown = 'unknown' in snapshot.systemProxy
   const updateUrl = snapshot.update && releaseUrl(snapshot.update.url)
   return (
     <div className="app-shell">
@@ -800,6 +802,7 @@ export function App({ bridge, demo }: { bridge: StateBridge; demo: boolean }) {
             size="sm"
             disabled={
               busy ||
+              restartRequired ||
               snapshot.core.status === 'starting' ||
               (!running && !activeProfile)
             }
@@ -816,7 +819,7 @@ export function App({ bridge, demo }: { bridge: StateBridge; demo: boolean }) {
           </p>
         )}
         <section className="connection-controls">
-          <fieldset className="mode-control" disabled={busy}>
+          <fieldset className="mode-control" disabled={busy || restartRequired}>
             <legend>{t('mode')}</legend>
             <div className="mode-options">
               {(['rule', 'global', 'direct'] as const).map((mode) => (
@@ -846,17 +849,21 @@ export function App({ bridge, demo }: { bridge: StateBridge; demo: boolean }) {
                 onCheckedChange={(enabled) =>
                   void run('setSystemProxy', { enabled })
                 }
-                disabled={busy}
-                aria-describedby="system-proxy-hint"
+                disabled={busy || restartRequired || proxyUnknown}
+                aria-describedby="system-proxy-hint system-proxy-status"
               />
             </div>
             <p id="system-proxy-hint" className="muted">
               {t('systemProxyHint')}
             </p>
             <span
+              id="system-proxy-status"
               className={`proxy-status ${snapshot.systemProxy.enabled ? 'is-on' : ''}`}
+              role="status"
             >
-              {t(snapshot.systemProxy.enabled ? 'on' : 'off')}
+              {t(
+                proxyUnknown ? 'unknown' : snapshot.systemProxy.enabled ? 'on' : 'off'
+              )}
             </span>
           </div>
         </section>
@@ -892,7 +899,7 @@ export function App({ bridge, demo }: { bridge: StateBridge; demo: boolean }) {
             <fieldset
               key={group.name}
               className="proxy-group"
-              disabled={busy || !running}
+              disabled={busy || restartRequired || !running}
             >
               <legend>
                 {group.name}

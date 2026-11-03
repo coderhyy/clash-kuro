@@ -24,7 +24,7 @@ int main(void) {
   header[0] = 3;
   assert(!kuro_request_header(header, &kind, &bytes));
   header[4] = 128;
-  assert(kuro_request_header(header, &kind, &bytes) && kind == 3 && bytes == KURO_ADMISSION_BYTES);
+  assert(!kuro_request_header(header, &kind, &bytes)); /* Removed ADMIT must fail closed. */
   header[4] = 126;
   assert(!kuro_request_header(header, &kind, &bytes));
   header[4] = 130;
@@ -34,6 +34,6 @@ int main(void) {
   header[5] = 0;
   header[0] = 1; header[6] = 2;
   assert(!kuro_request_header(header, &kind, &bytes));
-  puts("resident protocol: bounded argv, close, exact 128-byte admission framing passed");
+  puts("resident protocol 3: bounded argv, close, obsolete admission rejection passed");
   return 0;
 }

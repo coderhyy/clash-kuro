@@ -4,7 +4,13 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { cleanExit } from './exit-evidence.mjs'
+import { cleanExit, parseNativeShutdown } from './exit-evidence.mjs'
+const closing = JSON.stringify({ command: 'closing', protocol: 3 })
+const shutdown = JSON.stringify({ command: 'shutdown', protocol: 3 })
+assert.equal(parseNativeShutdown(closing + '\n' + shutdown + '\n').command, 'shutdown')
+for (const text of ['', shutdown, shutdown + '\n' + closing, closing + '\n{',
+  closing + '\n' + shutdown + '\n' + shutdown, closing.replace('3', '2') + '\n' + shutdown])
+  assert.throws(() => parseNativeShutdown(text))
 const exited = { rootExitCode: 0, remaining: 0, watchdogKilled: false, lingeringChildren: false }
 assert(cleanExit({ data: exited }))
 for (const patch of [{ rootExitCode: 2 }, { remaining: 1 }, { watchdogKilled: true },

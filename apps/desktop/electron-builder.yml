@@ -32,5 +32,3 @@ win:
   extraResources:
     - from: resources/win/x64/kuro-sysproxy.exe
       to: bin/kuro-sysproxy.exe
-    - from: scripts/collect-migration-evidence.ps1
-      to: bin/collect-migration-evidence.ps1

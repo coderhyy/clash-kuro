@@ -3,10 +3,10 @@ import { performance } from 'node:perf_hooks'
 import { residentClient } from './resident-client'
 
 /** Caller must not launch a new writer after rejection. No PID lookup or retry. */
-export async function recoverResident(helper: string, journal: string, log: string, timeoutMs = 2500): Promise<void> {
+export async function recoverResident(helper: string, log: string, timeoutMs = 2500): Promise<void> {
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new Error('Invalid recovery budget')
   const deadline = performance.now() + timeoutMs
-  const child = spawn(helper, ['recover', '--recovery', journal, '--log', log], {
+  const child = spawn(helper, ['recover-admitted', '--log', log], {
     windowsHide: true, detached: true, stdio: 'pipe',
   })
   const client = residentClient(child, timeoutMs)

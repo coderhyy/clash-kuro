@@ -1,30 +1,25 @@
 import { spawn } from 'node:child_process'
 import { join } from 'node:path'
 import { prepareRecoveryHelper } from './recovery-helper'
-import { residentClient, type AuthorizeResident } from './resident-client'
+import { residentClient } from './resident-client'
 
-/** One helper/Core lifetime. Caller must complete legacy migration before calling. */
+/** One native owner holds recovery and Core lifetime without a second proxy writer. */
 export async function startResidentSession(options: {
   helper: string; recoveryDirectory: string; dataDir: string; core: string; server: string; log: string; signal?: AbortSignal
-  /** Native reservation holds ownership through evidence checks, replay and Core lifetime. */
-  authorize?: AuthorizeResident
-  initialEndpoints?: readonly string[]
 }) {
   options.signal?.throwIfAborted()
-  if (!options.authorize) throw new Error('Resident requires native reservation and migration authorization')
   const helper = await prepareRecoveryHelper(options.helper, options.recoveryDirectory)
   const journal = join(options.recoveryDirectory, 'recovery.bin')
   options.signal?.throwIfAborted()
-  const child = spawn(helper, ['reserve', '--core', options.core, '--data', options.dataDir,
-    '--expected-server', options.server, '--log', options.log,
-    ...(options.initialEndpoints ?? []).flatMap(server => ['--initial-server', server])],
+  const child = spawn(helper, ['start', '--core', options.core, '--data', options.dataDir,
+    '--log', options.log],
   { windowsHide: true, detached: true, stdio: 'pipe' })
-  const client = residentClient(child, 10_000, options.authorize)
-  let closing: Promise<void> | undefined
-  function close(): Promise<void> {
+  const client = residentClient(child, 10_000)
+  let closing: Promise<void | { restartRequired: boolean }> | undefined
+  function close(): Promise<void | { restartRequired: boolean }> {
     if (closing) return closing
     client.close()
-    closing = new Promise<void>((resolve, reject) => {
+    closing = new Promise<void | { restartRequired: boolean }>((resolve, reject) => {
       const timer = setTimeout(() => {
         reject(new Error('Resident exit deadline exceeded; new proxy writes forbidden'))
         try {
@@ -34,7 +29,8 @@ export async function startResidentSession(options: {
       void client.closed.then(result => {
         clearTimeout(timer)
         if (result.code === 0 && result.signal === null && result.report?.ok === true &&
-            !result.report.timedOut && result.report.coreGone) resolve()
+            !result.report.timedOut && result.report.coreGone) resolve({ restartRequired:
+              result.report.firstTrigger !== 2 || (result.report.queryEvents ?? 0) > 0 || (result.report.endEvents ?? 0) > 0 })
         else reject(new Error(`Resident cleanup unverified (${result.code ?? result.signal}); ${client.diagnostics()}`))
       })
     })

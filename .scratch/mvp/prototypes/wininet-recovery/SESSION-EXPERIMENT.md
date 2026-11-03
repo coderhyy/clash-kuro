@@ -260,5 +260,167 @@ with real isolated Core and fake proxy (normal, clear-hang, readback-hang). Both
 hangs reported timeout and exited without external rescue. Existing coordination
 suite: 18/18 expected policies. Workspace typecheck passed; uncached full tests
 passed, including desktop 596/596 with no skips. These results do not exercise
-real proxy writes or real session events. This package still needs the one manual
-logoff described above; earlier CI WinINet evidence is not its acceptance.
+real proxy writes or real session events. The subsequent manual evidence below
+is separate from these automated results.
+
+## 2026-11-03 run2 result and bounded continuation
+
+User-supplied before/after/restore output establishes ONE successful real logoff
+in this isolated carrier, not approval of production architecture. Source:
+6decd764b32ecb6de07a5c7e18b13cb337f0b3c4. Native firstTriggerSource was
+WM_QUERYENDSESSION, querySession=1, testTriggers=0, eof=0, fakeProxy=false.
+decision=cleared, operationError=0, decisionMs=265, endMs=390,
+cleanupReadbackVerified=true and cleanupWithinBudget=true. Original software
+budgets were unchanged; these observations are not hard realtime guarantees.
+Readback ended at2026-11-03T03:11:55.574Z, followed in program order by the
+exact-handle Core termination request at the same recorded millisecond.
+coreGone=true, coreForced=true, coreExit=41, selfForced=false. This was deliberate
+TerminateProcess, NOT graceful Core exit. Native endSession=0 does not invalidate
+completed query-triggered cleanup. Next login was03:12:19.206Z, after cleanup.
+After-login LAN flags1 alone would not suffice; the native report supplies the
+missing timing and trigger evidence. RunOnce was not used or changed.
+
+Guarded restore returned ok=true and verified original LAN/RAS fields: LAN
+flags1, server127.0.0.1:7891, original bypass and PAC string. Keep private run2
+and run2-before-restart evidence unchanged. Only LAN was enumerated; no RAS
+coverage is claimed.
+
+Next use a fresh `shutdown1` directory. Reuse the historical run2 full-Restart
+inventory by copying ONLY its inventory.json into the fresh sibling
+shutdown1-before-restart directory; label it as historical evidence, not a new
+capture. This uses the same completed one-machine cleanup, not a fabricated
+Restart. The existing after-restart and prepare phases check current identity,
+boot and quiet state again; prepare takes a NEW LAN/RAS snapshot and verifies it.
+Do not copy prepared.json, attempts, backups or reports from run2. Do not reuse a
+partial shutdown1 directory on failure. No new migration abstraction is needed.
+
+After prepare, launch the SAME package and run before. Wait for reviewer
+confirmation before the human runs `shutdown.exe /s /t 0` (NO /f, /hybrid or /p),
+then powers on manually. Save all work first. This requests a full shutdown,
+not a hybrid Fast Startup shutdown, without changing the persistent power
+configuration. See Microsoft's shutdown command reference:
+https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/shutdown
+Cancellation or app-blocked shutdown is not a completed shutdown trial. Keep
+the actual action and any prompt in the evidence. The helper's historical
+experiment label real-logoff is not proof of which action the human performed.
+
+After power-on, start no proxy apps or carrier: collect after, review native
+trigger, budget, readback-before-Core ordering and next-login timing, then run
+guarded restore and verify the fresh baseline. Shutdown flags must be assessed
+as shutdown flags, not required to contain ENDSESSION_LOGOFF. Retain uncertainty
+if final evidence is absent. No forced retry or raw registry import.
+
+This trial tests orderly full shutdown on this machine, NOT hybrid shutdown,
+hard power loss, arbitrary app contention or general reliability. Only after a
+successful shutdown AND verified restore proceed to two new, separately
+confirmed logoff runs. Architecture decision materials follow those results;
+ADR-0011 remains unchanged, ADR-0013 draft, issue Status unchanged, no merge.
+
+## 2026-11-03 shutdown1 outcome
+
+User confirmed normal shutdown.exe /s /t 0 followed by manual power-on.
+Native WM_QUERYENDSESSION triggered cleanup (querySessionFlags=0, eof=0,
+testTriggers=0, fakeProxy=false). decision=cleared, operationError=0,
+decisionMs=265, endMs=375; original1500ms cleanup budget unchanged, readback
+verified flags1. Readback ended03:50:17.473Z; exact-handle Core TerminateProcess
+was requested03:50:17.475Z. coreGone=true, coreForced=true, coreExit=41,
+selfForced=false. Next boot03:51:55.500Z and login03:52:08.719Z were later.
+Guarded restore returned ok=true and verified original LAN/RAS fields, including
+LAN flags1/server127.0.0.1:7891 and original bypass/PAC. RunOnce unchanged.
+
+This completes ONE isolated full-shutdown trial and restoration, not hybrid
+shutdown, RAS coverage, graceful Core exit or formal architecture acceptance.
+Keep shutdown1 unchanged. Next: logoff2, then logoff3, each with a fresh snapshot,
+before review, human logoff, after review and verified restore. Reuse only the
+historical restart inventory as documented, never another run's proxy backup.
+Stop and diagnose a failed or uncertain result instead of blindly repeating.
+
+## 2026-11-03 logoff2 outcome
+
+User-provided after and restore output confirms isolated native-query-triggered
+cleanup and verified restoration. firstTriggerSource=WM_QUERYENDSESSION,
+querySessionFlags=2147483648, triggers=2/eof=1, operations=1/stops=1: the second
+trigger did not duplicate operations. EOF timing is not separately recorded;
+do not claim the complete operation ran after Electron exit.
+decision=cleared, operationError=0, decisionMs=203, deadlineMs=1500,
+cleanupReadbackVerified=true, cleanupWithinBudget=true, coreGone=true,
+coreForced=true, selfForced=false. Readback ended04:17:21.952Z; exact-handle
+Core TerminateProcess requested04:17:21.955Z, before login04:18:13.664Z.
+The derived decisionEpochMs precedes readback end by3ms; do not use that field
+for precise ordering. Restore returned ok=true and verified original LAN/RAS
+fields, including LAN flags1/server127.0.0.1:7891 and original bypass/PAC.
+RunOnce unchanged. Keep logoff2 evidence. Only logoff3 remains in the agreed
+sequence; formal architecture remains unapproved.
+
+## 2026-11-03 logoff3 and decision brief (pending approval)
+
+Final user-provided after/restore: native WM_QUERYENDSESSION with logoff flag,
+eof=0, testTriggers=0, decision=cleared, operationError=0, decisionMs=265,
+cleanupReadbackVerified=true, cleanupWithinBudget=true. Readback04:32:19.143Z,
+exact-handle Core termination request04:32:19.144Z, next login04:32:47.513Z.
+coreGone=true, coreForced=true, selfForced=false, endMs=500. Guarded restore
+returned ok=true and verified original LAN/RAS fields, LAN flags1 and original
+server/bypass/PAC. RunOnce unchanged. No additional session rounds are scheduled.
+
+| Isolated trial | Cleanup decision ms | Cleanup/readback | Baseline restored |
+| --- | ---: | --- | --- |
+| run2 logoff | 265 | verified | verified |
+| shutdown1 full shutdown | 265 | verified | verified |
+| logoff2 | 203 | verified | verified |
+| logoff3 | 265 | verified | verified |
+
+All four used the same source6decd764b32ecb6de07a5c7e18b13cb337f0b3c4 package,
+real Core and WinINet, a native session trigger and no RunOnce fallback. All
+stopped Core via exact retained handle, not graceful exit. These are four samples
+on one machine, not a reliability estimate or production app acceptance.
+
+### Recommendation and smallest approval
+
+Prefer the prestarted user-level executable over new process creation at logoff
+or the rejected Electron-main-thread message-aware Node-API wait. Preload while
+the session is healthy; the helper owns the native session window, serialized
+WinINet worker and exact Core lifetime. Electron requests ordinary cleanup;
+native session events do not depend on JS callbacks or a surviving Electron.
+The supervisor is necessary for a stuck worker/coordinator: close the write
+entrance, report uncertainty, stop the owned Core after the cleanup decision,
+and terminate the helper without external test rescue. Never renew the first
+1500ms cleanup budget; preserve existing2000/2100ms stop/confirmation bounds.
+These are software budgets, not scheduler-independent wall-clock guarantees.
+
+The current ADR-0011 text already permits external executables and forbids Node
+native modules; it does not literally specify one-shot lifetime. The smallest
+proposed clarification (NOT applied) is: Windows System Proxy may use one
+prestarted current-user helper tied to the application's lifecycle, including
+bounded cleanup after parent exit; no administrator service, Node native module,
+automatic restart daemon or unrelated proxy-management service. Dependencies
+remain empty and the existing external-executable packaging approach stays.
+This also explicitly replaces the earlier conversation's nonresident constraint.
+ADR-0013 needs a later approved decision separating this primary path from
+best-effort recovery; its historical claims are not silently rewritten here.
+
+### Remaining integration conditions and limits
+
+- Native pure tests and fake-operation failure injection establish coordination;
+  hosted real WinINet tests establish API behavior on their runner; these manual
+  trials establish this isolated carrier's session path. None substitutes for
+  final integrated app tests, CI, packaged artifacts and app session validation.
+- App timeout must disable further proxy writes and end the affected session,
+  not keep operating with an unknown native writer. Restoration must wait for
+  confirmed writer death; retain failure reports rather than report success.
+- IPC authorization, exact Core ownership and Job lifetime must survive app
+  integration. Ordinary app quit still attempts proxy cleanup before Core stop.
+  The prototype's forced Core termination must remain explicit; graceful Core
+  shutdown is not proven here.
+- Crash/power loss can leave proxy state. Startup/recovery must be endpoint and
+  ownership guarded; any RunOnce fallback cannot race a new active owner or
+  depend on an update/uninstall removing its only executable. The manual package
+  did not test this fallback. Solve supported current-version boundaries, not
+  compatibility with every old unpublished development artifact.
+- No hybrid shutdown, active VPN/RAS, enterprise policy, Defender interference,
+  canceled shutdown, multiple Windows builds or loaded-system reliability is
+  established. No real notification deadlock was observed; fake message tests
+  prove a possible dependency risk, not that WinINet always has that dependency.
+- Approval should authorize only this bounded helper architecture and app
+  integration, not release or merge. Until explicit approval, leave ADRs,
+  production activation and issue Status unchanged. Preserve private backups;
+  do not upload registry exports or raw user configuration.

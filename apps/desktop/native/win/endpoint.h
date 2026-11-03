@@ -91,35 +91,4 @@ static int kuro_valid_log_path(const wchar_t *path) {
   return path[len - 1] != L'\\';
 }
 
-static size_t kuro_append(wchar_t *out, size_t at, const wchar_t *s) {
-  size_t n = wcslen(s);
-  wmemcpy(out + at, s, n);
-  return at + n;
-}
-
-// RunOnce command line: "<exe>" clear --expected-server <server> [--log "<log>"]. Paths are quoted
-// because they may contain spaces ("Clash Kuro"). `log` may be NULL. Returns the length, or 0 when a
-// path holds a quote or the result would not fit in `cap` characters including the terminator
-// (Run/RunOnce ignore command lines longer than 260).
-static size_t kuro_runonce_command(wchar_t *out, size_t cap, const wchar_t *exe, const wchar_t *server, const wchar_t *log) {
-  static const wchar_t middle[] = L"\" clear --expected-server ";
-  static const wchar_t log_option[] = L" --log \"";
-  if (!out || !exe || !*exe || !server || !*server || wcschr(exe, L'"')) return 0;
-  if (log && (!*log || wcschr(log, L'"'))) return 0;
-  size_t len = 1 + wcslen(exe) + wcslen(middle) + wcslen(server);
-  if (log) len += wcslen(log_option) + wcslen(log) + 1;
-  if (len + 1 > cap) return 0;
-  size_t at = kuro_append(out, 0, L"\"");
-  at = kuro_append(out, at, exe);
-  at = kuro_append(out, at, middle);
-  at = kuro_append(out, at, server);
-  if (log) {
-    at = kuro_append(out, at, log_option);
-    at = kuro_append(out, at, log);
-    at = kuro_append(out, at, L"\"");
-  }
-  out[at] = 0;
-  return at;
-}
-
 #endif

@@ -10,19 +10,15 @@
 
 #define KURO_RESIDENT_JOURNAL_ENDPOINTS 8
 #define KURO_RESIDENT_JOURNAL_SID_CHARS 184
-#define KURO_RESIDENT_JOURNAL_MAGIC 0x324a524bu
+#define KURO_RESIDENT_JOURNAL_MAGIC 0x334a524bu
 
 typedef struct {
   wchar_t sid[KURO_RESIDENT_JOURNAL_SID_CHARS];
   BYTE helper_sha256[32];
 } KuroResidentJournalBinding;
 typedef struct {
-  KuroResidentJournalBinding binding;
-  BYTE receipt_sha256[32], evidence_sha256[32];
-} KuroResidentJournalProvenance;
-typedef struct {
   BOOL initialized;
-  KuroResidentJournalProvenance provenance;
+  KuroResidentJournalBinding binding;
   unsigned count;
   wchar_t servers[KURO_RESIDENT_JOURNAL_ENDPOINTS][300];
 } KuroResidentJournalState;
@@ -31,12 +27,12 @@ typedef struct {
    Checksums detect corruption, not hostile same-user edits. Link only Advapi32. */
 typedef struct {
   uint32_t magic, version, bytes;
-  KuroResidentJournalProvenance provenance;
+  KuroResidentJournalBinding binding;
   uint32_t checksum;
 } KuroResidentJournalHeader;
 typedef struct { uint32_t magic, checksum; wchar_t server[300]; } KuroResidentJournalRecord;
-_Static_assert(sizeof(wchar_t) == 2 && sizeof(KuroResidentJournalHeader) == 480 &&
-  offsetof(KuroResidentJournalHeader, checksum) == 476, "Fixed v2 header layout");
+_Static_assert(sizeof(wchar_t) == 2 && sizeof(KuroResidentJournalHeader) == 416 &&
+  offsetof(KuroResidentJournalHeader, checksum) == 412, "Fixed v3 header layout");
 _Static_assert(sizeof(KuroResidentJournalRecord) == 608, "Existing endpoint encoding");
 
 static inline DWORD kuro_resident_hash_begin(HCRYPTPROV *provider, HCRYPTHASH *hash) {
@@ -120,9 +116,9 @@ static inline BOOL kuro_resident_journal_binding_valid(const KuroResidentJournal
    expected MUST be genuinely native-derived by the caller; this module does not
    authenticate main, acquire ownership, resolve paths, or authorize proxy writes.
    All operations return Win32 errors. Reads clear state on failure. Empty read is
-   initialized=FALSE, not authorization. Invalid/legacy bytes are never repaired.
+   initialized=FALSE. Invalid/legacy bytes are never repaired.
    Parsing/identity rejection leaves bytes intact; I/O failures may leave torn data. */
-static inline DWORD kuro_resident_journal_read(HANDLE file,
+static inline DWORD kuro_resident_journal_read_owner(HANDLE file,
     const KuroResidentJournalBinding *expected, KuroResidentJournalState *state) {
   if (!state) return ERROR_INVALID_PARAMETER;
   ZeroMemory(state, sizeof *state);
@@ -137,16 +133,13 @@ static inline DWORD kuro_resident_journal_read(HANDLE file,
   if (!SetFilePointerEx(file, zero, NULL, FILE_BEGIN)) return GetLastError();
   KuroResidentJournalHeader header; DWORD bytes;
   if (!ReadFile(file, &header, sizeof header, &bytes, NULL)) return GetLastError();
-  if (bytes != sizeof header || header.magic != KURO_RESIDENT_JOURNAL_MAGIC || header.version != 2 ||
+  if (bytes != sizeof header || header.magic != KURO_RESIDENT_JOURNAL_MAGIC || header.version != 3 ||
       header.bytes != sizeof header || header.checksum != kuro_resident_journal_checksum(&header,
         offsetof(KuroResidentJournalHeader, checksum)) ||
-      !kuro_resident_journal_binding_valid(&header.provenance.binding) ||
-      !kuro_resident_digest_present(header.provenance.receipt_sha256) ||
-      !kuro_resident_digest_present(header.provenance.evidence_sha256)) return ERROR_INVALID_DATA;
-  if (wcscmp(header.provenance.binding.sid, expected->sid) ||
-      memcmp(header.provenance.binding.helper_sha256, expected->helper_sha256, 32)) return ERROR_ACCESS_DENIED;
+      !kuro_resident_journal_binding_valid(&header.binding)) return ERROR_INVALID_DATA;
+  if (wcscmp(header.binding.sid, expected->sid)) return ERROR_ACCESS_DENIED;
   KuroResidentJournalState parsed = {0};
-  parsed.initialized = TRUE; parsed.provenance = header.provenance;
+  parsed.initialized = TRUE; parsed.binding = header.binding;
   unsigned count = (unsigned)((size.QuadPart - sizeof header) / sizeof(KuroResidentJournalRecord));
   for (unsigned i = 0; i < count; ++i) {
     KuroResidentJournalRecord record;
@@ -161,28 +154,31 @@ static inline DWORD kuro_resident_journal_read(HANDLE file,
   parsed.count = count; *state = parsed;
   return ERROR_SUCCESS;
 }
+/* Owner inspection permits discovering a previous current-protocol digest, but
+   does not authorize using it. Native must verify and pin that retained helper. */
+static inline DWORD kuro_resident_journal_read(HANDLE file,
+    const KuroResidentJournalBinding *expected, KuroResidentJournalState *state) {
+  DWORD error = kuro_resident_journal_read_owner(file, expected, state);
+  if (!error && state->initialized && memcmp(state->binding.helper_sha256, expected->helper_sha256, 32)) {
+    ZeroMemory(state, sizeof *state); return ERROR_ACCESS_DENIED;
+  }
+  return error;
+}
 
-/* Only explicit ADMIT may initialize an empty file. Existing provenance is immutable:
-   identical proof is idempotent; different receipt/evidence is REVISION_MISMATCH.
-   A later replacement/rebinding protocol is deliberately outside this primitive. */
-static inline DWORD kuro_resident_journal_admit(HANDLE file, const KuroResidentJournalProvenance *proof) {
-  if (!proof || !kuro_resident_journal_binding_valid(&proof->binding) ||
-      !kuro_resident_digest_present(proof->receipt_sha256) ||
-      !kuro_resident_digest_present(proof->evidence_sha256)) return ERROR_INVALID_PARAMETER;
+/* Only native-derived current identity may initialize an empty, exclusively held
+   file. Existing provenance is immutable; invalid/foreign bytes are left intact. */
+static inline DWORD kuro_resident_journal_initialize(HANDLE file, const KuroResidentJournalBinding *binding) {
+  if (!kuro_resident_journal_binding_valid(binding)) return ERROR_INVALID_PARAMETER;
   KuroResidentJournalState state;
-  DWORD error = kuro_resident_journal_read(file, &proof->binding, &state);
+  DWORD error = kuro_resident_journal_read(file, binding, &state);
   if (error) return error;
   if (state.initialized) {
-    if (memcmp(state.provenance.receipt_sha256, proof->receipt_sha256, 32) ||
-        memcmp(state.provenance.evidence_sha256, proof->evidence_sha256, 32)) return ERROR_REVISION_MISMATCH;
     return FlushFileBuffers(file) ? ERROR_SUCCESS : GetLastError();
   }
   KuroResidentJournalHeader header = {0};
-  header.magic = KURO_RESIDENT_JOURNAL_MAGIC; header.version = 2; header.bytes = sizeof header;
-  wcscpy(header.provenance.binding.sid, proof->binding.sid);
-  memcpy(header.provenance.binding.helper_sha256, proof->binding.helper_sha256, 32);
-  memcpy(header.provenance.receipt_sha256, proof->receipt_sha256, 32);
-  memcpy(header.provenance.evidence_sha256, proof->evidence_sha256, 32);
+  header.magic = KURO_RESIDENT_JOURNAL_MAGIC; header.version = 3; header.bytes = sizeof header;
+  wcscpy(header.binding.sid, binding->sid);
+  memcpy(header.binding.helper_sha256, binding->helper_sha256, 32);
   header.checksum = kuro_resident_journal_checksum(&header, offsetof(KuroResidentJournalHeader, checksum));
   LARGE_INTEGER zero = {0}; DWORD bytes;
   if (!SetFilePointerEx(file, zero, NULL, FILE_BEGIN)) return GetLastError();
@@ -191,7 +187,7 @@ static inline DWORD kuro_resident_journal_admit(HANDLE file, const KuroResidentJ
   return FlushFileBuffers(file) ? ERROR_SUCCESS : GetLastError();
 }
 
-/* Success must precede registration/set. Duplicate endpoints still flush; no retries
+/* Success must precede set. Duplicate endpoints still flush; no retries
    or rollback after short writes/flush failure. Keep evidence and deny further writes. */
 static inline DWORD kuro_resident_journal_append(HANDLE file,
     const KuroResidentJournalBinding *expected, const wchar_t *server) {
@@ -226,5 +222,26 @@ static inline DWORD kuro_resident_journal_reset_after_clear(HANDLE file,
   if (!SetFilePointerEx(file, end, NULL, FILE_BEGIN) || !SetEndOfFile(file) || !FlushFileBuffers(file))
     return GetLastError();
   return ERROR_SUCCESS;
+}
+
+/* Only after verified cleanup, with both helpers pinned and the native owner held.
+   Never rebind pending endpoints, another SID, or older/invalid journal bytes. */
+static inline DWORD kuro_resident_journal_rebind(HANDLE file,
+    const KuroResidentJournalBinding *prior, const KuroResidentJournalBinding *current) {
+  if (!kuro_resident_journal_binding_valid(current) || !kuro_resident_journal_binding_valid(prior) || wcscmp(prior->sid, current->sid))
+    return ERROR_INVALID_PARAMETER;
+  KuroResidentJournalState state;
+  DWORD error = kuro_resident_journal_read(file, prior, &state);
+  if (error) return error;
+  if (!state.initialized || state.count) return ERROR_NOT_READY;
+  KuroResidentJournalHeader header = {0};
+  header.magic = KURO_RESIDENT_JOURNAL_MAGIC; header.version = 3; header.bytes = sizeof header;
+  header.binding = *current;
+  header.checksum = kuro_resident_journal_checksum(&header, offsetof(KuroResidentJournalHeader, checksum));
+  LARGE_INTEGER zero = {0}; DWORD written;
+  if (!SetFilePointerEx(file, zero, NULL, FILE_BEGIN) ||
+      !WriteFile(file, &header, sizeof header, &written, NULL)) return GetLastError();
+  if (written != sizeof header) return ERROR_WRITE_FAULT;
+  return FlushFileBuffers(file) ? ERROR_SUCCESS : GetLastError();
 }
 #endif

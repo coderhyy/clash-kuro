@@ -4,7 +4,8 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync, unlinkSync } from '
 import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { cleanExit } from './exit-evidence.mjs'
+import { cleanExit, parseNativeShutdown } from './exit-evidence.mjs'
+import { isCompetingProcess } from './competitors.mjs'
 const root = dirname(fileURLToPath(import.meta.url))
 const exercise = process.argv.includes('--exercise')
 const prior = process.argv.find(x => x.startsWith('--restore='))?.slice(10)
@@ -56,9 +57,11 @@ function must(label, args) {
 }
 function competitors() {
   const output = execFileSync('powershell.exe', ['-NoProfile', '-Command',
-    'Get-Process | Where-Object { $_.ProcessName -match "clash-verge|fiddler|Clash Kuro|mihomo|sing-box|v2ray|v2rayN" } | Select-Object Id,ProcessName | ConvertTo-Json -Compress'],
+    '$ErrorActionPreference="Stop"; ConvertTo-Json -InputObject @(Get-Process -ErrorAction Stop | Select-Object Id,ProcessName,Path) -Compress'],
   { timeout: 10000, windowsHide: true, encoding: 'utf8' }).trim()
-  if (output) throw new Error(`STOP: other proxy processes must exit before writes or restoration: ${output}`)
+  const recovery = process.env.LOCALAPPDATA ? join(process.env.LOCALAPPDATA, 'ClashKuro', 'Recovery') : undefined
+  const writers = JSON.parse(output).filter(row => isCompetingProcess(row, recovery))
+  if (writers.length) throw new Error(`STOP: other proxy processes must exit before writes or restoration: ${JSON.stringify(writers)}`)
 }
 function readRunOnce() {
   return execFileSync('powershell.exe', ['-NoProfile', '-Command',
@@ -98,13 +101,17 @@ if (exercise || prior) {
     assert.equal(cycleEvidence.setFlags, 3)
     assert.equal(cycleEvidence.clearFlags, 1)
     if (resident === 'recover' || resident === 'serve') {
-      residentEvidence = JSON.parse(readFileSync(residentReport, 'utf8'))
+      residentEvidence = parseNativeShutdown(readFileSync(residentReport, 'utf8'))
       assert.equal(residentEvidence.ok, true)
       assert.equal(residentEvidence.timedOut, false)
+      assert.equal(residentEvidence.cleanupReadbackVerified, true)
       if (resident === 'serve') {
         assert(residentEvidence.corePid > 0)
         assert.notEqual(residentEvidence.corePid, cycle.data.rootPid)
-        assert.equal(cycleEvidence.privateRegistrationVerified, true)
+        assert.equal(cycleEvidence.protocol, 3)
+        assert.equal(cycleEvidence.journalReplayVerified, true)
+        assert.equal(cycleEvidence.testOwnerOnly, true)
+        assert.equal(residentEvidence.cleanupReadbackVerified, true)
         assert(residentEvidence.triggerMask & 2)
         assert.equal(residentEvidence.queryEvents, 0)
         assert.equal(residentEvidence.endEvents, 0)
@@ -137,8 +144,8 @@ if (exercise || prior) {
     backup: dir, platform: process.platform, restoredAndVerified: true, runOnceUnchanged: true,
     cycleEvidence,
     residentEvidence,
-    scope: resident === 'serve' ? 'actual native serve engine, IPC and real WinINet; fake Core, private registry key, no RunOnce or OS session validation'
-      : resident === 'recover' ? 'actual native recover engine with real WinINet and journal; registration replaced, no Core or OS session validation'
+    scope: resident === 'serve' ? 'actual protocol3 native owner, IPC and real WinINet; fake Core, private ownership/root, no RunOnce or OS session validation'
+      : resident === 'recover' ? 'actual native recover engine with real WinINet and journal; no RunOnce, Core or OS session validation'
       : resident ? `real WinINet clear with ${resident} native query wait and fake Core; private trigger, not OS session validation`
       : 'shared one-shot WinINet operations, not resident notification/session validation' }, null, 2))
   console.log('Original LAN/RAS state verified after restoration; RunOnce was not modified')

@@ -8,16 +8,25 @@ export interface TrayMenuItem {
   label: string
   type: 'radio' | 'checkbox' | 'normal'
   checked?: boolean
+  /** Host forwards this to the native menu item. Omitted means enabled. */
+  enabled?: boolean
   command: TrayCommand
 }
 
 export function buildTrayMenu(snapshot: StateSnapshot): TrayMenuItem[] {
+  const proxyUnknown = 'unknown' in snapshot.systemProxy
   return [
     ...(['rule', 'global', 'direct'] as const).map((mode): TrayMenuItem => ({
       id: `mode.${mode}`, label: `mode.${mode}`, type: 'radio', checked: snapshot.settings.mode === mode,
+      enabled: !snapshot.core.restartRequired,
       command: { name: 'setMode', input: { mode } }
     })),
-    { id: 'systemProxy', label: 'systemProxy', type: 'checkbox', checked: snapshot.systemProxy.enabled, command: { name: 'setSystemProxy', input: { enabled: !snapshot.systemProxy.enabled } } },
+    {
+      id: 'systemProxy', label: proxyUnknown ? 'systemProxyUnknown' : 'systemProxy',
+      type: proxyUnknown ? 'normal' : 'checkbox', checked: proxyUnknown ? undefined : snapshot.systemProxy.enabled,
+      enabled: !snapshot.core.restartRequired && !proxyUnknown,
+      command: { name: 'setSystemProxy', input: { enabled: !snapshot.systemProxy.enabled } }
+    },
     { id: 'openWindow', label: 'openWindow', type: 'normal', command: { name: 'openWindow', input: {} } },
     { id: 'quit', label: 'quit', type: 'normal', command: { name: 'quit', input: {} } }
   ]
