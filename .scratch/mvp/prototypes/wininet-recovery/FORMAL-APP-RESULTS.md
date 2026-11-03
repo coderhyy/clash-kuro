@@ -76,6 +76,13 @@ or hidden as successful captures. No budgets were enlarged.
 
 ## Remaining risks and minimal validation proposals (NOT scheduled or executed)
 
+Maintainer decision, 2026-11-03: defer the canceled-shutdown and abnormal
+startup/explicit retained-helper recovery cases below to subsequent TUN work.
+Validate and fix any discovered defects in that work; do not run more cases or
+change implementation now. These risks remain open, not accepted as tested or
+resolved. This is a follow-up scope note, not authorization for power-loss tests
+or expanded architecture, and does not change issue Status or merge restrictions.
+
 ### Canceled shutdown
 
 Risk: query-session cleanup can already have stopped Core when Windows cancels
