@@ -468,10 +468,13 @@ static int command_main(int argc, wchar_t **argv) {
 }
 
 #include "resident.h"
-#include "migration-files.h"
 #include "resident-owner.h"
 
 int wmain(int argc, wchar_t **argv) {
+  if (argc < 2) return usage(L"Use get, resident-paths, boot-clock, start or recover-admitted");
+  /* Only the admitted resident may call the shared mutating command parser. */
+  if (!wcscmp(argv[1], L"set") || !wcscmp(argv[1], L"clear"))
+    return usage(L"Standalone proxy writes are disabled; use the resident owner");
   if (argc > 1 && !wcscmp(argv[1], L"resident-paths")) {
     if (argc != 2) return usage(L"resident-paths takes no options");
     wchar_t root[MAX_PATH], sid[KURO_RESIDENT_OWNER_SID_CHARS];
@@ -500,16 +503,6 @@ int wmain(int argc, wchar_t **argv) {
     putf(&result, "{\"command\":\"boot-clock\",\"ok\":true,\"uptimeMs\":\"%llu\"}", (unsigned long long)GetTickCount64());
     emit(&result); free(result.data);
     return 0;
-  }
-  if (argc > 1 && !wcscmp(argv[1], L"publish-migration")) {
-    if (argc != 8 || wcscmp(argv[2], L"--source") || wcscmp(argv[4], L"--destination") ||
-        wcscmp(argv[6], L"--replace") || (wcscmp(argv[7], L"yes") && wcscmp(argv[7], L"no")) ||
-        !kuro_valid_log_path(argv[3]) || !kuro_valid_log_path(argv[5])) return usage(L"Invalid migration publication arguments");
-    DWORD error = kuro_migration_publish(argv[3], argv[5], !wcscmp(argv[7], L"yes"));
-    Buf result = {0};
-    putf(&result, "{\"command\":\"publish-migration\",\"ok\":%s,\"errorCode\":%lu}", error ? "false" : "true", error);
-    emit(&result); free(result.data);
-    return error ? 2 : 0;
   }
   if (argc > 1 && (!wcscmp(argv[1], L"start") || !wcscmp(argv[1], L"recover-admitted"))) return resident_main(argc, argv);
   return command_main(argc, argv);

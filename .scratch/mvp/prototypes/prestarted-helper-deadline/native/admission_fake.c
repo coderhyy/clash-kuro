@@ -55,6 +55,7 @@ static DWORD proxy_flags = PROXY_TYPE_DIRECT;
 static DWORD evidence_thread;
 static int evidence_waited;
 static int fault(const wchar_t *name) {
+  if (!wcscmp(fixture_mode, L"diagnostics-report-delay") && !wcscmp(name, L"diagnostics-stall")) return 1;
   if (!wcsncmp(fixture_mode, L"shutdown-", 9))
     return resident_load(&resident.serving) && !wcscmp(fixture_mode + 9, name);
   return !wcscmp(fixture_mode, name);
@@ -146,6 +147,15 @@ static BOOL WINAPI fake_truncate(HANDLE file) {
   return SetEndOfFile(file);
 }
 static DWORD fake_wait(HANDLE file, DWORD milliseconds) {
+  if (fault(L"diagnostics-report-delay")) {
+    // Model a blocked drain and a runnable reporter delayed beyond the final 100 ms slot.
+    if (file == resident.core_output_done) return WaitForSingleObject(GetCurrentProcess(), milliseconds);
+    if (file == resident.report) {
+      DWORD result = WaitForSingleObject(file, milliseconds);
+      if (result == WAIT_OBJECT_0) Sleep(125);
+      return result;
+    }
+  }
   if (file == resident.reported && evidence_thread == GetCurrentThreadId() && !evidence_waited) {
     assert(WaitForSingleObject(resident.report, 0) == WAIT_OBJECT_0 && milliseconds <= 100);
     trace("evidence-wait-enter\n");

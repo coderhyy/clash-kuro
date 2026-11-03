@@ -8,6 +8,7 @@
 static DWORD flags = PROXY_TYPE_DIRECT;
 static wchar_t server[300];
 static int registry_calls;
+static int proxy_writes;
 static int forbidden_registry(const void *unused, ...) {
   (void)unused; ++registry_calls; assert(!"No current command may touch RunOnce"); return ERROR_ACCESS_DENIED;
 }
@@ -25,6 +26,7 @@ static BOOL WINAPI fake_query(HINTERNET internet, DWORD option, LPVOID data, LPD
 }
 static BOOL WINAPI fake_set(HINTERNET internet, DWORD option, LPVOID data, DWORD bytes) {
   (void)internet; (void)bytes;
+  ++proxy_writes;
   if (option == INTERNET_OPTION_PER_CONNECTION_OPTION) {
     INTERNET_PER_CONN_OPTION_LISTW *list = data;
     flags = list->pOptions[0].Value.dwValue;
@@ -55,6 +57,12 @@ int wmain(void) {
   assert(!(flags & PROXY_TYPE_PROXY));
   assert(!get_connections(expected, 1));
   assert(!registry_calls && !strstr(result.data, "runOnce"));
+  int before = proxy_writes;
+  wchar_t *set_args[] = { L"helper", L"set", L"--host", L"127.0.0.1", L"--port", L"7891" };
+  wchar_t *clear_args[] = { L"helper", L"clear", L"--expected-server", L"127.0.0.1:7891" };
+  assert(shipping_main(6, set_args) == 1);
+  assert(shipping_main(4, clear_args) == 1);
+  assert(proxy_writes == before);
   free(result.data);
   /* Model preemption after the first reason CAS; another caller must finish publication. */
   resident.close = CreateEventW(NULL, TRUE, FALSE, NULL); assert(resident.close);

@@ -131,7 +131,14 @@ by the existing watchdog (use the current `$checkpoint`, never overwrite files):
   "$tools\out\probe.exe" ('"{0}" get' -f "$tools\out\probe.exe") |
   Set-Content -LiteralPath "$case\$checkpoint-get.stdout.jsonl"
 if ($LASTEXITCODE -ne 0) { throw 'STOP: read-only probe failed' }
-Copy-Item -LiteralPath "$dataDir\sysproxy-owner.log" -Destination "$case\$checkpoint-sysproxy-owner.log"
+if (Test-Path -LiteralPath "$dataDir\sysproxy-owner.log") {
+  Copy-Item -LiteralPath "$dataDir\sysproxy-owner.log" -Destination "$case\$checkpoint-sysproxy-owner.log"
+} elseif ($checkpoint.StartsWith('after')) {
+  throw 'STOP: native exit evidence is missing; outcome is unknown'
+} else {
+  'No native closing record yet (before the first shutdown).' |
+    Set-Content -LiteralPath "$case\$checkpoint-no-native-log.txt"
+}
 ```
 
 Inspect both the probe JSON and supervisor report; apply the same clean-exit

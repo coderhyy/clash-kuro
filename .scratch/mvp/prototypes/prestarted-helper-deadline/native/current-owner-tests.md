@@ -27,7 +27,7 @@ node .scratch/mvp/prototypes/prestarted-helper-deadline/native/admission-test.mj
 
 The former 65-case protocol 2 admission suite remains in repository history. It
 is not silently skipped, reported as passing, or retained as a production bypass.
-The active 77-case replacement preserves native safety failures and explicitly
+The active 78-case replacement preserves native safety failures and explicitly
 retires properties of the deleted migration/registration design:
 
 | Former cases | Current scope/replacement |
@@ -70,6 +70,16 @@ retires properties of the deleted migration/registration design:
   a completed wait of at most 100 ms, then session-finished publication. The wait
   is capped by the original 2100 ms deadline; persistence within 100 ms is not
   assumed, and the final 2200 ms cap remains unchanged.
+- `diagnostics-report-delay` deterministically holds the supervisor's diagnostic
+  drain wait and delays the released reporter by 125 ms. A blocked diagnostic sink
+  stops consuming shutdown time at the original 2000 ms deadline, leaving the
+  bounded evidence opportunity without changing the 2100/2200 ms caps. Like
+  `diagnostics-stall`, this still requires exit 0, successful clear/readback and
+  matching stdout/persisted shutdown evidence; hung logs still require exit 42.
+- Each case retains bounded child execution stdout/stderr in `*.execution.json`.
+  A caught assertion also writes `*.failure.json` with protocol output, log content
+  and a bounded diagnostic tail. Existing CI's native JSON glob uploads both;
+  assertion messages no longer contain 64 KiB of repeated diagnostic noise.
 
 The guarded WinINet `serve.c` fixture uses the same current engine. CI's `recover`
 cycle in `replay.c` launches the actual content-addressed retained executable with

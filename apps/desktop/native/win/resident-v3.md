@@ -60,8 +60,12 @@ succeeded. Foreign endpoints are preserved. Unknown RAS/query state is failure.
 Completed work observed after the deadline is still a timeout.
 
 Native then forces only its owned Job/Core, confirms no Job members remain, and
-caps confirmation/diagnostics at 2100 ms and reporting/helper exit at 2200 ms from
-the same origin. This is not a graceful OS signal: the existing Windows Node
+caps confirmation at 2100 ms and reporting/helper exit at 2200 ms from the same
+origin. Diagnostic draining stops waiting at 2000 ms so a blocked stderr sink
+cannot consume the original bounded reporter-before-finished evidence slot
+(at most 100 ms, capped by the remaining 2100 ms deadline). This does not reserve
+extra time if Core confirmation itself needs the full 2100 ms, renew any deadline,
+or guarantee filesystem flush. This is not a graceful OS signal: the existing Windows Node
 `child.kill(SIGTERM)` also uses forced termination. No process-name/PID search is
 used. A hung startup may report `coreGone:false` rather than falsely claiming that
 Core creation can no longer be in progress; final Job close still contains it.
@@ -104,3 +108,9 @@ node .scratch/mvp/prototypes/prestarted-helper-deadline/native/admission-test.mj
 The real WinINet cycle and real session end are separate guarded CI/manual checks,
 not part of local acceptance. See the private native `current-owner-tests.md` for
 the historical admission-case replacement map.
+
+The shipping executable rejects standalone CLI `set` and `clear` before calling
+WinINet. The shared command parser is reachable for writes only inside the
+admitted resident. `get` remains read-only; manual recovery must use the locked
+`recover-admitted` route. The unused development `publish-migration` command and
+its file-publication implementation are removed, not supported as compatibility.

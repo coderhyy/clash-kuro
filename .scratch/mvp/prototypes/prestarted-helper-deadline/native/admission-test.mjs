@@ -11,6 +11,7 @@ const native = dirname(fileURLToPath(import.meta.url))
 const out = join(native, '../out/admission-native')
 const helper = join(out, 'admission-fake.exe')
 const self = fileURLToPath(import.meta.url)
+const launches = []
 const hash = bytes => createHash('sha256').update(bytes).digest()
 const close = Buffer.from([2, 0, 0, 0, 0, 0, 0, 0])
 const quote = value => '"' + value.replace(/(\\*)"/g, '$1$1\\"').replace(/(\\+)$/, '$1$1') + '"'
@@ -38,6 +39,7 @@ function launch(root, mode = '', exe = helper, recovery = false, server = '') {
   child.stdin.on('error', () => {})
   child.stdout.setEncoding('utf8'); child.stderr.setEncoding('utf8')
   child.stderr.on('data', data => { trace += data; if (trace.length > 65536) trace = trace.slice(-65536) })
+  if (mode.startsWith('diagnostics-')) child.stderr.pause()
   child.stdout.on('data', data => {
     output += data
     for (;;) {
@@ -55,12 +57,15 @@ function launch(root, mode = '', exe = helper, recovery = false, server = '') {
     }
     assert.fail(`bounded wait expired: ${JSON.stringify(lines)} ${trace}`)
   }
+  launches.push(() => ({ pid: child.pid, mode, log, exitCode: child.exitCode, signalCode: child.signalCode,
+    ended, lines, outputTail: output.slice(-2048), traceTail: trace.slice(-2048),
+    persisted: existsSync(log) ? readFileSync(log, 'utf8').slice(-16384) : null }))
   return { child, closed, exited, until, log, recovery, trace: () => trace, lines: () => lines,
     ready: () => until(() => lines.find(line => line.ready)), send: bytes => child.stdin.write(bytes),
     report: () => lines.find(line => line.command === 'shutdown') }
 }
 async function finish(p, expected, { timedOut, noop = false } = {}) {
-  assert.equal(await p.closed, expected, `${JSON.stringify(p.lines())} ${p.trace()}`)
+  assert.equal(await p.closed, expected, `${JSON.stringify(p.lines())} ${p.trace().slice(-2048)}`)
   const report = p.report()
   if (expected === 1 || expected === 77) { assert(!report && !p.lines().some(x => x.ready)); return }
   assert(report, p.trace())
@@ -191,7 +196,7 @@ async function scenario(name, base) {
     await finish(p, name === 'header-crash' ? 77 : 42, { timedOut: /hung|late/.test(name) })
     assert(!p.trace().includes('set\n')); return
   }
-  await p.ready(); if (name !== 'diagnostics-stall') await p.until(() => p.trace().includes('fake-core'))
+  await p.ready(); if (!name.startsWith('diagnostics-')) await p.until(() => p.trace().includes('fake-core'))
   if (name === 'malformed-admit' || name === 'unknown-frame' || name === 'truncated-exec') {
     p.child.stdin.end(name === 'malformed-admit' ? frame(3, Buffer.alloc(128)) : name === 'unknown-frame' ? frame(99, Buffer.alloc(0)) : exec(['get']).subarray(0, 10))
     await finish(p, 0); assert(!p.trace().includes('set\n')); return
@@ -216,13 +221,12 @@ async function scenario(name, base) {
   }
   await p.until(() => p.lines().some(x => x.command === 'set'))
   assert.throws(() => readFileSync(path), { code: 'EBUSY' })
-  if (name === 'diagnostics-stall') p.child.stderr.pause()
   p.send(close)
   if (name === 'repeated-close') {
     await p.until(() => p.lines().some(x => x.command === 'closing'))
     await new Promise(resolve => setTimeout(resolve, 800)); p.send(close)
   }
-  if (name === 'diagnostics-stall') { await p.exited; p.child.stderr.resume() }
+  if (name.startsWith('diagnostics-')) { await p.exited; p.child.stderr.resume() }
   if (name === 'log-hung') { assert.equal(await p.closed, 42); assert(p.lines().some(x => x.command === 'closing')); evidenceOrder(p); return }
   const failed = name.startsWith('shutdown-') && !name.endsWith('readback-foreign') || name === 'repeated-close'
   const report = await finish(p, failed ? 42 : 0, { timedOut: /hung|late|delayed-supervisor/.test(name) || name === 'repeated-close' })
@@ -231,10 +235,17 @@ async function scenario(name, base) {
   if (name === 'shutdown-readback-reenabled') { assert.equal(report.cleanupReadbackVerified, false); assert.equal(report.cleanupReadback.connections[0].flags, 3) }
   if (name === 'repeated-close') assert(report.durationMs < 2100)
   if (name === 'shutdown-delayed-supervisor') assert(report.cleanupDurationMs >= 1500)
+  if (name === 'diagnostics-report-delay') assert(report.durationMs >= 2000)
 }
 
 if (process.argv[2] === '--child') {
-  await scenario(process.argv[3], process.argv[4])
+  const name = process.argv[3]
+  try {
+    await scenario(name, process.argv[4])
+  } catch (error) {
+    writeFileSync(join(out, `${name}.failure.json`), JSON.stringify({ name, error: String(error.stack ?? error), launches: launches.map(snapshot => snapshot()) }, null, 2))
+    throw error
+  }
 } else {
   mkdirSync(out, { recursive: true })
   const flags = ['-D_WIN32_WINNT=0x0A00', '-municode', '-mconsole', '-O2', '-static', '-Wall', '-Wextra', '-Werror']
@@ -250,15 +261,24 @@ if (process.argv[2] === '--child') {
     'autonomous-success', ...['clear-fail', 'clear-hung', 'readback-fail', 'readback-hung', 'readback-reenabled', 'reset-fail'].map(x => `autonomous-${x}`),
     'header-fail', 'header-short', 'header-hung', 'header-crash', 'flush-fail', 'flush-hung', 'core-fail', 'core-hung', 'core-late',
     'append-fail', 'append-short', 'append-hung', 'set-hung', 'set-late', 'set-slow',
-    ...replayFaults.map(x => `shutdown-${x}`), 'shutdown-readback-foreign', 'shutdown-delayed-supervisor', 'repeated-close', 'diagnostics-stall', 'log-hung']
+    ...replayFaults.map(x => `shutdown-${x}`), 'shutdown-readback-foreign', 'shutdown-delayed-supervisor', 'repeated-close', 'diagnostics-stall', 'diagnostics-report-delay', 'log-hung']
   const selected = process.argv.find(x => x.startsWith('--case='))?.slice(7)
   if (selected) assert(cases.includes(selected), `unknown case ${selected}`)
   for (const name of cases.filter(x => !selected || x === selected)) {
     const report = join(base, `${name}.watchdog.json`)
     const command = [process.execPath, self, '--child', name, base].map(quote).join(' ')
+    const failure = join(out, `${name}.failure.json`)
+    if (existsSync(failure)) unlinkSync(failure)
+    let execution
     try {
-      execFileSync(join(out, 'admission-watchdog.exe'), ['8000', report, process.execPath, command], { stdio: 'inherit', timeout: 12000 })
+      const stdout = execFileSync(join(out, 'admission-watchdog.exe'), ['8000', report, process.execPath, command], { encoding: 'utf8', timeout: 12000, maxBuffer: 1024 * 1024 })
+      execution = { status: 0, stdout }
+    } catch (error) {
+      execution = { status: error.status, signal: error.signal, error: error.message.slice(0, 4096),
+        stdout: String(error.stdout ?? '').slice(-16384), stderr: String(error.stderr ?? '').slice(-16384) }
+      throw error
     } finally {
+      if (execution) writeFileSync(join(out, `${name}.execution.json`), JSON.stringify(execution, null, 2))
       if (existsSync(report)) writeFileSync(join(out, `${name}.watchdog.json`), readFileSync(report))
     }
     const guard = JSON.parse(readFileSync(report))

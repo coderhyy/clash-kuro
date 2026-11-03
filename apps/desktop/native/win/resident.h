@@ -495,8 +495,8 @@ static DWORD WINAPI resident_supervisor(void *unused) {
     TerminateJobObject(resident.job, 0);
     Sleep(left < 10 ? left : 10);
   } while (1);
-  // Preserve startup failures when possible, but never extend the original Core/exit deadline for logs.
-  WaitForSingleObject(resident.core_output_done, resident_left(resident.start + 2100));
+  // A blocked diagnostic sink must leave the original 100 ms evidence slot before 2100 ms.
+  WaitForSingleObject(resident.core_output_done, resident_left(resident.start + 2000));
   SetEvent(resident.report);
   // Give evidence a bounded chance before releasing the session callback, without renewing its deadline.
   DWORD evidence_budget = resident_left(resident.start + 2100);
