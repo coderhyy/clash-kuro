@@ -55,3 +55,6 @@ CI配置已串联native隔离测试→App dmg→disabled helper pkg，并保存s
 
 
 2026-11-04 固定候选检查点：下一步鉴权实验已准备可执行，实际安装鉴权未跑。精确提交、包、摘要、脚本和负例目录已固定；计划8–12分钟，仅fresh安装/前台auth observer/正负例/精确卸载及receipt清理，不bootstrap job、不运行Core/-t或系统网络变更。等待维护者本次明确“开始”；先前实验A授权不沿用。 见[结果与证据](../evidence/auth-observation-1ad5f06/RESULT.md)、[精确产物](../auth-observation-artifact.json)和[执行步骤](../auth-observation-experiment.md)。
+
+
+2026-11-04 授权实验实际结果：指定1ad5f06/7bf9ce2b观察包已管理员尝试fresh安装，preinstall因本机/private/var/run=root:daemon0775被严格父链检查拒绝，安装退出1。实际Electron正例、动态负例、非观察操作测试均未进入；不能标通过。固定安装目标、socket/身份/回执、job和Installer receipt均无残留，本次Installer临时目录已消失，未执行额外删除或kill。授权已随实验和清理核对结束。详见[实验证据](../evidence/auth-execution-1ad5f06/RESULT.md)。后续固定socket目录须迁到严格保护祖先并统一客户端/卸载；不放宽父链或chmod系统目录。新包另需授权。

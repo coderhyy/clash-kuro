@@ -103,3 +103,6 @@ Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
 
 
 2026-11-04 固定候选检查点：有限 auth-only 实验候选已从干净提交 `1ad5f06ad17495fd4e45cc1f94e54979bddf4842` 构建，App/native/pkg同提交，实际Electron隔离14项、desktop446/16skip、native与typecheck通过。修复实际/private/tmp空ACL误拒绝并有先失败后通过回归；fresh回执/失败恢复/准确卸载已普通UID验证，实际Installer仍待本次授权。有限动态正例/身份负例必须通过同一生产AuthorizeClientAt；请求协议错误或超时不算身份拒绝。完整升级保留未完成，不阻塞此fresh实验。 见[结果与证据](../evidence/auth-observation-1ad5f06/RESULT.md)、[精确产物](../auth-observation-artifact.json)和[执行步骤](../auth-observation-experiment.md)。
+
+
+2026-11-04 授权实验实际结果：指定1ad5f06/7bf9ce2b观察包已管理员尝试fresh安装，preinstall因本机/private/var/run=root:daemon0775被严格父链检查拒绝，安装退出1。实际Electron正例、动态负例、非观察操作测试均未进入；不能标通过。固定安装目标、socket/身份/回执、job和Installer receipt均无残留，本次Installer临时目录已消失，未执行额外删除或kill。授权已随实验和清理核对结束。详见[实验证据](../evidence/auth-execution-1ad5f06/RESULT.md)。后续固定socket目录须迁到严格保护祖先并统一客户端/卸载；不放宽父链或chmod系统目录。新包另需授权。

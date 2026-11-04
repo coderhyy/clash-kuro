@@ -1,5 +1,7 @@
 # 04：安装授权后的有限动态鉴权实验
 
+> 实际执行更新：1ad5f06候选已在授权下尝试安装，preinstall被本机/private/var/run 0775父链检查阻塞；未进入动态auth，目标及receipt无残留。见[执行结果](evidence/auth-execution-1ad5f06/RESULT.md)。下述步骤保留为本次历史计划，不表示该包当前可成功安装，授权已结束。
+
 范围：fresh-only，受保护 App 的无副作用 authenticate。实验 A 的授权已结束；本文所有安装、root 进程及卸载步骤必须另获用户明确授权。生产 TUN 启动仍拒绝，完整升级不阻塞本次实验但仍属于 04 的交付要求。
 
 ## 有限通过标准

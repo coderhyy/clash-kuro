@@ -1,0 +1,17 @@
+{
+  "original": {
+    "format": 2,
+    "cdhash": "164a5c54d9cd0faa1617a43f449ba94b45702ef1",
+    "executableSHA256": "9693da6cea2aa2b95f228bb34d4dd42523844e37f2028c72a4a0f718b72870d1",
+    "infoSHA256": "d1d6ebbb5d310647ce2d73847cedc0221bc5dc7dd6bed7e0aa365f69c9f72181",
+    "asarSHA256": "f13cdccdf256c801d242d6e2326ca62e8a5651d57f74aa6ef798d5970b1e2281"
+  },
+  "resigned": {
+    "format": 2,
+    "cdhash": "97cef1d0776480c9dbabe940b1c62f86e3068c83",
+    "executableSHA256": "a53edeae725bd21ad885904e73872887defb4a4a7441bb8d63b14a94b713b554",
+    "infoSHA256": "d1d6ebbb5d310647ce2d73847cedc0221bc5dc7dd6bed7e0aa365f69c9f72181",
+    "asarSHA256": "f13cdccdf256c801d242d6e2326ca62e8a5651d57f74aa6ef798d5970b1e2281"
+  },
+  "verified": true
+}
