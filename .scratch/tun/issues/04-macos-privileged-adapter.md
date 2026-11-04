@@ -106,3 +106,6 @@ Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
 
 
 2026-11-04 授权实验实际结果：指定1ad5f06/7bf9ce2b观察包已管理员尝试fresh安装，preinstall因本机/private/var/run=root:daemon0775被严格父链检查拒绝，安装退出1。实际Electron正例、动态负例、非观察操作测试均未进入；不能标通过。固定安装目标、socket/身份/回执、job和Installer receipt均无残留，本次Installer临时目录已消失，未执行额外删除或kill。授权已随实验和清理核对结束。详见[实验证据](../evidence/auth-execution-1ad5f06/RESULT.md)。后续固定socket目录须迁到严格保护祖先并统一客户端/卸载；不放宽父链或chmod系统目录。新包另需授权。
+
+
+2026-11-04 socket路径修复：固定run目录迁到`/Library/PrivilegedHelperTools/dev.kuro.tun-run`，native fresh/observer/service lock/恢复/卸载均从同一个SocketDirectory派生，TS auth/control共享路径和完整祖先检查，脚本共用authEndpoint并有跨语言一致性回归。旧run仅作残留冲突检测，不连接/迁移/删除，不改系统目录权限。保护路径诊断附具体path与owner/mode/symlink/ACL原因；public祖先需other-execute，不可搜索时拒绝。新包须另获授权；测试和摘要见后续固定候选记录。06仅记录Core不存在的证据边界不变。

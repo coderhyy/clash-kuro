@@ -17,8 +17,8 @@ beforeEach(() => {
   vi.useRealTimers()
   socket = new Socket()
   mocks.connect.mockReturnValue(socket)
-  mocks.lstat.mockImplementation(async path => ({ uid: 0, mode: 0o755,
-    isDirectory: () => path === '/var/run/dev.kuro.tun', isSocket: () => path === AUTH_SOCKET, isSymbolicLink: () => false }))
+  mocks.lstat.mockImplementation(async path => ({ uid: 0, nlink: 1, mode: path === AUTH_SOCKET ? 0o666 : 0o755,
+    isDirectory: () => path !== AUTH_SOCKET, isSocket: () => path === AUTH_SOCKET, isSymbolicLink: () => false }))
 })
 afterEach(() => { vi.clearAllMocks(); vi.useRealTimers() })
 async function connected() {
@@ -54,7 +54,7 @@ it.each([
 it('uses only the fixed root endpoint and authenticate operation, even across response chunks', async () => {
   const result = requestAuthenticationProbe()
   await connected()
-  expect(mocks.connect).toHaveBeenCalledWith('/var/run/dev.kuro.tun/auth.sock')
+  expect(mocks.connect).toHaveBeenCalledWith('/Library/PrivilegedHelperTools/dev.kuro.tun-run/auth.sock')
   expect(socket.end).toHaveBeenCalledWith('{"version":1,"operation":"authenticate"}\n')
   socket.emit('data', Buffer.from('{"version":1,"ok":true,'))
   socket.emit('data', Buffer.from('"authenticated":true}\n'))
@@ -63,8 +63,8 @@ it('uses only the fixed root endpoint and authenticate operation, even across re
   expect(socket.destroy).toHaveBeenCalledOnce()
 })
 it.each(['owner', 'symlink', 'directory-write', 'not-socket'])('rejects untrusted endpoint %s before connecting', async kind => {
-  mocks.lstat.mockImplementation(async path => ({ uid: kind === 'owner' ? 501 : 0, mode: kind === 'directory-write' ? 0o777 : 0o755,
-    isDirectory: () => path === '/var/run/dev.kuro.tun', isSocket: () => kind !== 'not-socket' && path === AUTH_SOCKET, isSymbolicLink: () => kind === 'symlink' }))
+  mocks.lstat.mockImplementation(async path => ({ uid: kind === 'owner' ? 501 : 0, nlink: 1, mode: kind === 'directory-write' ? 0o777 : path === AUTH_SOCKET ? 0o666 : 0o755,
+    isDirectory: () => path !== AUTH_SOCKET, isSocket: () => kind !== 'not-socket' && path === AUTH_SOCKET, isSymbolicLink: () => kind === 'symlink' }))
   await expect(requestAuthenticationProbe()).rejects.toThrow('Untrusted')
   expect(mocks.connect).not.toHaveBeenCalled()
 })

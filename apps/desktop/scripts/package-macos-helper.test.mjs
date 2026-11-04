@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { afterEach, expect, test } from 'vitest'
 import { sha256 } from './fetch-core.mjs'
 import { stageMacosHelperPackage } from './package-macos-helper.mjs'
+import { authEndpoint, externalNodeClient } from './prepare-electron-auth-negatives.mjs'
 
 const temporary = []
 afterEach(async () => { await Promise.all(temporary.splice(0).map((path) => rm(path, { recursive: true, force: true }))) })
@@ -55,4 +56,20 @@ macTest.each([
   await change(f)
   await expect(stageMacosHelperPackage(f.payload, f.stage, 'darwin-arm64', '0.1.0')).rejects.toThrow(message)
   await expect(lstat(join(f.stage, 'scripts'))).rejects.toThrow(/ENOENT/)
+})
+
+// Native install/recovery share SocketDirectory; this guards the cross-language clients.
+test('native and ordinary-user clients agree on fixed protected socket endpoints', async () => {
+  const native = await readFile(new URL('../native/mac/kuro-tun-helper.m', import.meta.url), 'utf8')
+  const client = await readFile(new URL('../src/main/tun-endpoints.ts', import.meta.url), 'utf8')
+  const directory = native.match(/SocketDirectory = @"([^"]+)"/)?.[1]
+  const control = `${directory}/control.sock`
+  expect(directory).toBe('/Library/PrivilegedHelperTools/dev.kuro.tun-run')
+  expect(native).toContain('[SocketDirectory stringByAppendingPathComponent:@"control.sock"]')
+  expect(authEndpoint).toBe(`${directory}/auth.sock`)
+  expect(client).toContain(`'${directory}'`)
+  expect(client).toContain(`'${authEndpoint}'`)
+  expect(client).toContain(`'${control}'`)
+  expect(externalNodeClient).toContain(JSON.stringify(authEndpoint))
+  for (const endpoint of [authEndpoint, control]) expect(Buffer.byteLength(endpoint) + 1).toBeLessThanOrEqual(104)
 })

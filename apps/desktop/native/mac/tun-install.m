@@ -34,9 +34,12 @@ static BOOL StopService(BOOL system, NSString **error) {
   return (present == 3 || present == 113) || Fail(error, @"service absence not confirmed");
 }
 static BOOL PreflightInstall(NSString *prefix, uid_t owner, BOOL system, NSString **error) {
+  NSString *legacy=At(prefix,LegacySocketDirectory);
+  if(Exists(legacy))return Fail(error,[NSString stringWithFormat:@"legacy endpoint directory %@ is preserved; fresh install refused",legacy]);
+  if(!SocketAncestorsProtected(prefix,owner,NO,error))return NO;
   for (NSString *target in @[Tools, State, SocketDirectory, Plist, Recovery, RecoveryRecord, FreshReceipt]) {
     NSString *path = At(prefix, target);
-    if (Exists(path)) return Fail(error, @"existing or partial helper install preserved; fresh install refused");
+    if (Exists(path)) return Fail(error, [NSString stringWithFormat:@"existing or partial helper install at %@ preserved; fresh install refused",path]);
     NSString *current = prefix.length ? prefix : @"/";
     if (!SafeNode(current, owner, YES, error)) return NO;
     for (NSString *component in target.pathComponents) {
@@ -97,7 +100,7 @@ static BOOL MachExecutable(NSData *data) {
 }
 static int ServiceLock(NSString *prefix, uid_t owner, NSString **error) {
   NSString *directory = At(prefix, SocketDirectory);
-  if (!EnsureDirectory(prefix, directory, owner, 0755, error)) return -1;
+  if (!SocketAncestorsProtected(prefix,owner,NO,error) || !EnsureDirectory(prefix, directory, owner, 0755, error) || !SocketAncestorsProtected(prefix,owner,YES,error)) return -1;
   NSString *path = [directory stringByAppendingPathComponent:@"service.lock"];
   int fd = open(path.fileSystemRepresentation, O_CREAT | O_RDWR | O_NOFOLLOW | O_CLOEXEC, 0600);
   struct stat info;
@@ -192,12 +195,12 @@ static BOOL InstallScriptsEmptyACL(NSString *path,NSString **error) {
     struct attrlist attributes={.bitmapcount=ATTR_BIT_MAP_COUNT,.commonattr=ATTR_CMN_EXTENDED_SECURITY};
     struct {uint32_t length;attrreference_t security;char data[65536];} result={0};
     if(!getattrlist(path.fileSystemRepresentation,&attributes,&result,sizeof(result),FSOPT_NOFOLLOW) && result.length>=sizeof(uint32_t)+sizeof(attrreference_t) && result.security.attr_length==0)return YES;
-    return Fail(error,@"unable to verify Installer temporary ancestor ACL");
+    return Fail(error,[NSString stringWithFormat:@"unable to verify Installer temporary ancestor ACL: %@",path]);
   }
   acl_entry_t entry;BOOL valid=acl_valid(acl)==0;errno=0;
   BOOL empty=acl_get_entry(acl,ACL_FIRST_ENTRY,&entry)==-1&&errno==EINVAL;
   acl_free(acl);
-  return (valid&&empty)||Fail(error,@"Installer temporary ancestor ACL not approved");
+  return (valid&&empty)||Fail(error,[NSString stringWithFormat:@"Installer temporary ancestor ACL not approved: %@",path]);
 }
 // Installer extracts its root-owned scripts below /private/tmp on some macOS releases.
 // Only that exact sticky root-owned ancestor is exempt from the non-writable rule.

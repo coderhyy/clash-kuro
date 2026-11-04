@@ -35,6 +35,9 @@ static NSDictionary *Payload(NSString *prefix) {
   Put([inbox stringByAppendingPathComponent:@"dev.kuro.tun.plist"], [NSPropertyListSerialization dataWithPropertyList:plist format:NSPropertyListXMLFormat_v1_0 options:0 error:NULL], 0644);
   Put([At(prefix, Tools) stringByAppendingPathComponent:@"installer"], helper, 0755);
   Put(At(prefix, Recovery), helper, 0755);
+  // Model the public installation ancestors; the enclosing temporary root stays private.
+  for(NSString *shared in @[@"/Library",@"/Library/PrivilegedHelperTools",@"/Library/Application Support",@"/Library/Application Support/Clash Kuro"])
+    CHECK(!chmod(At(prefix,shared).fileSystemRepresentation,0755));
   return manifest;
 }
 #import "tun-session.test.m"

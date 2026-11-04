@@ -30,6 +30,9 @@ static void AuthPeer(int peer) {
 static void AuthStopSignal(int value) { (void)value; stopping=1; }
 static int ServeAuthLocked(void) {
   NSString *error=nil;
+  NSString *path=[SocketDirectory stringByAppendingPathComponent:@"auth.sock"];
+  struct sockaddr_un address;
+  if(!KuroUnixSocketAddress(path,&address,&error))return 1;
   NSDictionary *record=nil;
   if (!ProveNeverStarted(@"",0,&record,&error)) return 1;
   NSString *directory=[Tools stringByAppendingPathComponent:[@"versions" stringByAppendingPathComponent:record[@"release"]]];
@@ -39,12 +42,10 @@ static int ServeAuthLocked(void) {
   if (![Executable() isEqual:selfPath] || !ValidManifest(manifest,&error) || !manifest[@"client"] || !bytes ||
       ![Hash(bytes) isEqual:record[@"helperSHA256"]] || ![Hash(bytes) isEqual:manifest[@"helper"][@"sha256"]]) return 1;
   int lock=ServiceLock(@"",0,&error); if(lock<0)return 1;
-  NSString *path=[SocketDirectory stringByAppendingPathComponent:@"auth.sock"];
   NSString *observer=[State stringByAppendingPathComponent:@"auth-observer.json"];
   // An unexpected stale endpoint is evidence, not permission to unlink it.
   if(Exists(path) || Exists(observer)) { close(lock); return 1; }
   int listener=socket(AF_UNIX,SOCK_STREAM,0);
-  struct sockaddr_un address={.sun_family=AF_UNIX}; strlcpy(address.sun_path,path.UTF8String,sizeof(address.sun_path));
   struct stat owned={0}; BOOL bound=NO; int result=1; NSData *receipt=nil;
   if(listener<0) { close(lock); return 1; }
   if(bind(listener,(struct sockaddr *)&address,sizeof(address)))goto finish;

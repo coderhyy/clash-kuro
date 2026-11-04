@@ -23,8 +23,9 @@ static NSString *const Tools = @"/Library/PrivilegedHelperTools/dev.kuro.tun";
 static NSString *const Recovery = @"/Library/PrivilegedHelperTools/dev.kuro.tun-uninstall";
 static NSString *const RecoveryRecord = @"/Library/PrivilegedHelperTools/dev.kuro.tun-uninstall.json";
 static NSString *const State = @"/Library/Application Support/Clash Kuro/Privileged";
-static NSString *const SocketDirectory = @"/private/var/run/dev.kuro.tun";
-static NSString *const SocketPath = @"/var/run/dev.kuro.tun/control.sock";
+static NSString *const SocketDirectory = @"/Library/PrivilegedHelperTools/dev.kuro.tun-run";
+// Detection only: never connect to, migrate or remove a legacy endpoint.
+static NSString *const LegacySocketDirectory = @"/private/var/run/dev.kuro.tun";
 static NSString *const Plist = @"/Library/LaunchDaemons/dev.kuro.tun.plist";
 static const NSUInteger MessageLimit = 65536;
 static const NSUInteger OpenMessageLimit = 66000;
@@ -32,6 +33,14 @@ static volatile sig_atomic_t stopping = 0;
 
 static BOOL Fail(NSString **error, NSString *message) { if (error) *error = message; return NO; }
 static NSString *At(NSString *prefix, NSString *path) { return [prefix stringByAppendingString:path]; }
+static BOOL KuroUnixSocketAddress(NSString *path,struct sockaddr_un *address,NSString **error) {
+  const char *bytes=path.fileSystemRepresentation;
+  NSUInteger length=[path lengthOfBytesUsingEncoding:NSUTF8StringEncoding];
+  if(!path.isAbsolutePath || !bytes || strlen(bytes)!=length)return Fail(error,[NSString stringWithFormat:@"invalid fixed Unix socket path: %@",path]);
+  if(length>=sizeof(address->sun_path))return Fail(error,[NSString stringWithFormat:@"Unix socket path exceeds sun_path capacity (%lu >= %lu): %@",(unsigned long)length,(unsigned long)sizeof(address->sun_path),path]);
+  memset(address,0,sizeof(*address));address->sun_family=AF_UNIX;address->sun_len=sizeof(*address);
+  strlcpy(address->sun_path,bytes,sizeof(address->sun_path));return YES;
+}
 static NSString *Hex(NSData *data) {
   NSMutableString *result = [NSMutableString string];
   const unsigned char *bytes = data.bytes;
@@ -55,15 +64,27 @@ static BOOL SafeMetadata(struct stat info, uid_t owner, BOOL directory) {
   return info.st_uid == owner && !(info.st_mode & 06022) &&
     (directory ? S_ISDIR(info.st_mode) : (S_ISREG(info.st_mode) && info.st_nlink == 1));
 }
+static BOOL SafeNodeMetadata(NSString *path,struct stat info,uid_t owner,BOOL directory,NSString **error) {
+  if(SafeMetadata(info,owner,directory))return YES;
+  NSString *reason;
+  if(S_ISLNK(info.st_mode))reason=@"symlink is not allowed";
+  else if(info.st_uid!=owner)reason=[NSString stringWithFormat:@"owner uid %u differs from required uid %u",info.st_uid,owner];
+  else if(info.st_mode&06022)reason=[NSString stringWithFormat:@"mode %04o contains set-ID or group/other-write bits",(unsigned)(info.st_mode&07777)];
+  else if(directory)reason=@"expected a directory";
+  else if(!S_ISREG(info.st_mode))reason=@"expected a regular file";
+  else reason=[NSString stringWithFormat:@"regular file link count %llu differs from 1",(unsigned long long)info.st_nlink];
+  return Fail(error,[NSString stringWithFormat:@"unprotected path %@: %@",path,reason]);
+}
 static BOOL SafeNode(NSString *path, uid_t owner, BOOL directory, NSString **error) {
   struct stat info;
-  if (lstat(path.fileSystemRepresentation, &info) != 0 || !SafeMetadata(info, owner, directory)) return Fail(error, @"unprotected path, permissions, owner or file type");
+  if(lstat(path.fileSystemRepresentation,&info))return Fail(error,[NSString stringWithFormat:@"cannot inspect protected path %@: %s",path,strerror(errno)]);
+  if(!SafeNodeMetadata(path,info,owner,directory,error))return NO;
   acl_t acl = acl_get_file(path.fileSystemRepresentation, ACL_TYPE_EXTENDED);
   if (!acl) {
     struct attrlist attributes = {.bitmapcount = ATTR_BIT_MAP_COUNT, .commonattr = ATTR_CMN_EXTENDED_SECURITY};
     struct { uint32_t length; attrreference_t security; char data[65536]; } result = {0};
     if (!getattrlist(path.fileSystemRepresentation, &attributes, &result, sizeof(result), FSOPT_NOFOLLOW) && result.length >= sizeof(uint32_t) + sizeof(attrreference_t) && result.security.attr_length == 0) return YES;
-    return Fail(error, @"unable to verify path ACL");
+    return Fail(error, [NSString stringWithFormat:@"unable to verify extended ACL for path %@",path]);
   }
   acl_entry_t entry;
   BOOL validACL = acl_valid(acl) == 0;
@@ -71,7 +92,7 @@ static BOOL SafeNode(NSString *path, uid_t owner, BOOL directory, NSString **err
   int entries = acl_get_entry(acl, ACL_FIRST_ENTRY, &entry);
   BOOL emptyACL = entries == -1 && errno == EINVAL;
   acl_free(acl);
-  if (!validACL || !emptyACL) return Fail(error, @"extended ACL is not approved");
+  if (!validACL || !emptyACL) return Fail(error, [NSString stringWithFormat:@"extended ACL is not approved for path %@",path]);
   return YES;
 }
 static BOOL SafeChain(NSString *anchor, NSString *path, uid_t owner, BOOL directory, NSString **error) {
@@ -126,6 +147,26 @@ static NSString *Executable(void) {
   return [NSString stringWithUTF8String:resolved];
 }
 static BOOL Exists(NSString *path) { struct stat s; return lstat(path.fileSystemRepresentation, &s) == 0 || errno != ENOENT; }
+// Public endpoints require search permission for ordinary clients on every
+// existing ancestor. The private test anchor itself is intentionally excluded.
+static BOOL SocketAncestorsProtected(NSString *prefix,uid_t owner,BOOL complete,NSString **error) {
+  NSString *current=prefix.length?prefix:@"/";
+  if(!SafeNode(current,owner,YES,error))return NO;
+  if(!prefix.length) {
+    struct stat root;
+    if(lstat("/",&root)||!(root.st_mode&S_IXOTH))return Fail(error,@"public socket ancestor / is not searchable by ordinary clients");
+  }
+  for(NSString *component in SocketDirectory.pathComponents) {
+    if([component isEqual:@"/"])continue;
+    current=[current stringByAppendingPathComponent:component];
+    if(!Exists(current))return !complete||Fail(error,[NSString stringWithFormat:@"public socket directory is missing: %@",current]);
+    if(!SafeNode(current,owner,YES,error))return NO;
+    struct stat info;
+    if(lstat(current.fileSystemRepresentation,&info))return Fail(error,[NSString stringWithFormat:@"cannot inspect public socket ancestor %@: %s",current,strerror(errno)]);
+    if(!(info.st_mode&S_IXOTH))return Fail(error,[NSString stringWithFormat:@"public socket ancestor %@ mode %04o is not searchable by ordinary clients",current,(unsigned)(info.st_mode&07777)]);
+  }
+  return YES;
+}
 static BOOL EnsureDirectory(NSString *anchor, NSString *path, uid_t owner, mode_t mode, NSString **error) {
   if (Exists(path)) return SafeChain(anchor, path, owner, YES, error);
   NSString *parent = path.stringByDeletingLastPathComponent;
@@ -324,18 +365,16 @@ static KuroTunService *ProductionService(void) {
 static void StopSignal(int signalNumber) { (void)signalNumber; stopping = 1; }
 static int Serve(void) {
   NSString *error = nil;
-  if (!EnsureDirectory(@"", SocketDirectory, 0, 0755, &error)) { fprintf(stderr, "%s\n", error.UTF8String); return 1; }
-  NSString *lockPath = [SocketDirectory stringByAppendingPathComponent:@"service.lock"];
-  int lock = open(lockPath.fileSystemRepresentation, O_CREAT | O_RDWR | O_NOFOLLOW | O_CLOEXEC, 0600);
+  NSString *realSocket=[SocketDirectory stringByAppendingPathComponent:@"control.sock"];
+  struct sockaddr_un address;
+  if(!KuroUnixSocketAddress(realSocket,&address,&error)) { fprintf(stderr,"%s\n",error.UTF8String);return 1; }
+  int lock=ServiceLock(@"",0,&error);
+  if(lock<0) { fprintf(stderr,"%s\n",error.UTF8String);return 1; }
   struct stat info;
-  if (lock < 0 || fstat(lock, &info) || !SafeMetadata(info, 0, NO) || flock(lock, LOCK_EX | LOCK_NB)) return 1;
-  NSString *realSocket = [SocketDirectory stringByAppendingPathComponent:@"control.sock"];
   if (Exists(realSocket)) {
     if (lstat(realSocket.fileSystemRepresentation, &info) || !S_ISSOCK(info.st_mode) || info.st_uid != 0 || unlink(realSocket.fileSystemRepresentation)) return 1;
   }
   int listener = socket(AF_UNIX, SOCK_STREAM, 0);
-  struct sockaddr_un address = {.sun_family = AF_UNIX};
-  strlcpy(address.sun_path, SocketPath.UTF8String, sizeof(address.sun_path));
   if (listener < 0 || bind(listener, (struct sockaddr *)&address, sizeof(address)) || chmod(realSocket.fileSystemRepresentation, 0666) || listen(listener, 8)) return 1;
   struct stat ownedSocket;
   if (lstat(realSocket.fileSystemRepresentation, &ownedSocket)) return 1;

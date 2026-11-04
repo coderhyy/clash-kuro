@@ -54,9 +54,65 @@ static void InstallerScriptsACLTests(void) {
   CHECK([[NSFileManager defaultManager] removeItemAtPath:directory error:NULL]);
   printf("native installer ACL: production /private/tmp accepted (%s); no system mutation\n",absent?"NULL ACL absence fallback":"empty ACL object");
 }
+static void SocketMigrationTests(void) {
+  CHECK(geteuid()!=0);NSString *error=nil;
+  CHECK([SocketDirectory isEqual:@"/Library/PrivilegedHelperTools/dev.kuro.tun-run"]);
+  // The exact historical host metadata remains forbidden; do not trust daemon group writes.
+  struct stat legacyMetadata={.st_uid=0,.st_gid=1,.st_mode=S_IFDIR|0775,.st_nlink=1};
+  CHECK(!SafeNodeMetadata(@"/private/var/run",legacyMetadata,0,YES,&error));
+  CHECK([error containsString:@"/private/var/run"]&&[error containsString:@"0775"]);
+  legacyMetadata.st_mode=S_IFDIR|0755;CHECK(SafeNodeMetadata(@"fixture",legacyMetadata,0,YES,&error));
+  legacyMetadata.st_uid=1;CHECK(!SafeNodeMetadata(@"/fixture/owner",legacyMetadata,0,YES,&error)&&[error containsString:@"owner uid 1"]);
+  legacyMetadata.st_uid=0;legacyMetadata.st_mode=S_IFLNK|0755;
+  CHECK(!SafeNodeMetadata(@"/fixture/link",legacyMetadata,0,YES,&error)&&[error containsString:@"symlink"]);
+  struct stat host;
+  CHECK(!lstat("/private/var/run",&host));
+  if(host.st_uid==0&&(host.st_mode&06022))CHECK(!SafeNode(@"/private/var/run",0,YES,&error));
+  // These are metadata/ACL reads only; no root endpoint or service is created.
+  CHECK(SocketAncestorsProtected(@"",0,NO,&error));
+  printf("native socket host: old ancestor uid=%u gid=%u mode=%04o; new fixed ancestors pass strict ACL/metadata/search policy (read only)\n",host.st_uid,host.st_gid,(unsigned)(host.st_mode&07777));
+  struct sockaddr_un address;
+  for(NSString *name in @[@"control.sock",@"auth.sock"])CHECK(KuroUnixSocketAddress([SocketDirectory stringByAppendingPathComponent:name],&address,&error));
+  NSString *maximum=[@"/" stringByPaddingToLength:sizeof(address.sun_path)-1 withString:@"a" startingAtIndex:0];
+  CHECK(KuroUnixSocketAddress(maximum,&address,&error));
+  CHECK(!KuroUnixSocketAddress([maximum stringByAppendingString:@"a"],&address,&error)&&[error containsString:@"sun_path"]);
+  char pattern[]="/tmp/k-sock-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(pattern)&&realpath(pattern,canonical));
+  NSString *prefix=@(canonical),*legacy=At(prefix,LegacySocketDirectory),*oldParent=legacy.stringByDeletingLastPathComponent;
+  FixtureDirectory(oldParent);CHECK(!chmod(oldParent.fileSystemRepresentation,0775));
+  CHECK(PreflightInstall(prefix,geteuid(),NO,&error)); // old writable parent alone is irrelevant
+  FixtureDirectory(legacy);CHECK(!PreflightInstall(prefix,geteuid(),NO,&error)&&[error containsString:legacy]);
+  CHECK(!rmdir(legacy.fileSystemRepresentation));CHECK(PreflightInstall(prefix,geteuid(),NO,&error));
+  NSString *parent=At(prefix,SocketDirectory).stringByDeletingLastPathComponent;
+  CHECK(EnsureDirectory(prefix,parent,geteuid(),0755,&error));
+  CHECK(!chmod(parent.fileSystemRepresentation,0700));
+  CHECK(!PreflightInstall(prefix,geteuid(),NO,&error)&&[error containsString:@"not searchable"]);
+  CHECK(ServiceLock(prefix,geteuid(),&error)<0);struct stat unchanged;CHECK(!lstat(parent.fileSystemRepresentation,&unchanged)&&(unchanged.st_mode&0777)==0700);
+  CHECK(!chmod(parent.fileSystemRepresentation,0755));
+  NSString *run=At(prefix,SocketDirectory);CHECK(EnsureDirectory(prefix,run,geteuid(),0700,&error));
+  CHECK(ServiceLock(prefix,geteuid(),&error)<0&&[error containsString:run]);
+  CHECK(!lstat(run.fileSystemRepresentation,&unchanged)&&(unchanged.st_mode&0777)==0700);
+  CHECK(!chmod(run.fileSystemRepresentation,0755));
+  int lock=ServiceLock(prefix,geteuid(),&error);CHECK(lock>=0);
+  NSString *lockPath=[run stringByAppendingPathComponent:@"service.lock"];
+  CHECK(!lstat(lockPath.fileSystemRepresentation,&unchanged)&&unchanged.st_uid==geteuid()&&(unchanged.st_mode&0777)==0600);
+  for(NSString *name in @[@"control.sock",@"auth.sock"]) {
+    NSString *path=[run stringByAppendingPathComponent:name];CHECK(KuroUnixSocketAddress(path,&address,&error));
+    int listener=socket(AF_UNIX,SOCK_STREAM,0);CHECK(listener>=0&&!bind(listener,(struct sockaddr *)&address,sizeof(address)));
+    CHECK(!chmod(path.fileSystemRepresentation,0666)&&!listen(listener,1));
+    struct stat owned;CHECK(!lstat(path.fileSystemRepresentation,&owned)&&S_ISSOCK(owned.st_mode)&&(owned.st_mode&0777)==0666);
+    int client=socket(AF_UNIX,SOCK_STREAM,0);CHECK(client>=0&&!connect(client,(struct sockaddr *)&address,sizeof(address)));
+    int peer=accept(listener,NULL,NULL);CHECK(peer>=0&&send(client,"K",1,0)==1);
+    char received=0;CHECK(recv(peer,&received,1,0)==1&&received=='K');
+    close(peer);close(client);close(listener);
+    CHECK(!lstat(path.fileSystemRepresentation,&unchanged)&&unchanged.st_dev==owned.st_dev&&unchanged.st_ino==owned.st_ino&&!unlink(path.fileSystemRepresentation));
+  }
+  close(lock);CHECK([[NSFileManager defaultManager] removeItemAtPath:prefix error:NULL]);
+  puts("native socket migration: legacy metadata/path rejection, public 0700 ancestor/run refusal, fixed/prefixed/overlong addresses and two protected ordinary-user endpoint connections passed; no system service");
+}
 static void FreshInstallTests(void) {
   CHECK(geteuid()!=0);
   InstallerScriptsACLTests();
+  SocketMigrationTests();
   NSDictionary *minimal=@{@"format":@1,@"directories":@[@{@"path":@"",@"mode":@0755}],@"files":@[],@"links":@[]};CHECK(InventoryEntries(minimal,NULL));
   NSArray *bad=@[
     @{@"path":@"../outside",@"mode":@0644,@"sha256":Hash(Bytes(@"x"))},
@@ -96,7 +152,7 @@ static void FreshInstallTests(void) {
       if(scenario==12)Put(At(prefix,Recovery),Bytes(@"changed helper"),0755);
       int auth=-1;NSString *authPath=At(prefix,[SocketDirectory stringByAppendingPathComponent:@"auth.sock"]);
       if(scenario==13||scenario==14) {
-        CHECK(EnsureDirectory(prefix,At(prefix,SocketDirectory),geteuid(),0755,&error));struct sockaddr_un address={.sun_family=AF_UNIX};strlcpy(address.sun_path,authPath.fileSystemRepresentation,sizeof(address.sun_path));auth=socket(AF_UNIX,SOCK_STREAM,0);CHECK(auth>=0&&!bind(auth,(struct sockaddr*)&address,sizeof(address)));
+        CHECK(EnsureDirectory(prefix,At(prefix,SocketDirectory),geteuid(),0755,&error));struct sockaddr_un address;CHECK(KuroUnixSocketAddress(authPath,&address,&error));auth=socket(AF_UNIX,SOCK_STREAM,0);CHECK(auth>=0&&!bind(auth,(struct sockaddr*)&address,sizeof(address)));
         struct stat value;CHECK(!lstat(authPath.fileSystemRepresentation,&value));Put(At(prefix,[State stringByAppendingPathComponent:@"auth-observer.json"]),JSONData(@{@"format":@1,@"socketDevice":@(value.st_dev),@"socketInode":@(value.st_ino+(scenario==14?1:0)),@"helperSHA256":manifest[@"helper"][@"sha256"]}),0600);
       }
       int active=-1;if(scenario==15)active=ServiceLock(prefix,geteuid(),&error);

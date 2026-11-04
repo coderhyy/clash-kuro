@@ -3,13 +3,17 @@ import { createConnection } from 'node:net'
 import { performance } from 'node:perf_hooks'
 import { validateTunSessionConfig, type TunPlatform, type TunSessionConfig, type TunStatus } from '@kuro/core'
 
-const socketPath = '/var/run/dev.kuro.tun/control.sock'
+import { TUN_RUN_DIRECTORY, TUN_CONTROL_SOCKET, assertTrustedTunEndpoint } from '../tun-endpoints'
+
+const socketPath = TUN_CONTROL_SOCKET
 const installationPaths = [
   '/Library/PrivilegedHelperTools/dev.kuro.tun',
   '/Library/PrivilegedHelperTools/dev.kuro.tun-uninstall',
   '/Library/PrivilegedHelperTools/dev.kuro.tun-uninstall.json',
   '/Library/LaunchDaemons/dev.kuro.tun.plist',
   '/Library/Application Support/Clash Kuro/Privileged',
+  TUN_RUN_DIRECTORY,
+  // A legacy footprint still means unknown; clients never connect to its old endpoint.
   '/var/run/dev.kuro.tun',
 ]
 const maxBytes = 64 * 1024
@@ -74,16 +78,14 @@ async function endpointPresent(): Promise<boolean> {
   for (const path of installationPaths) {
     try {
       const info = await lstat(path)
-      if (info.isSymbolicLink() || info.uid !== 0 || (info.mode & 0o022)) throw new Error('Untrusted TUN helper installation')
+      if (info.isSymbolicLink() || info.uid !== 0 || (info.mode & 0o6022)) throw new Error('Untrusted TUN helper installation')
       present = true
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
     }
   }
   if (!present) return false
-  const endpoint = await lstat(socketPath)
-  // Ordinary users may connect; the root-owned directory protects the endpoint, native audit-token checks authorize writes.
-  if (!endpoint.isSocket() || endpoint.uid !== 0) throw new Error('Untrusted TUN helper socket')
+  await assertTrustedTunEndpoint(socketPath)
   return true
 }
 

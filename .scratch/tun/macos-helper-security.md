@@ -26,7 +26,7 @@
 | 同一版本目录的 `manifest.json` | root:wheel 0644 | 协议/架构/版本、可执行文件及客户端完整资源身份 |
 | `/Library/LaunchDaemons/dev.kuro.tun.plist` | root:wheel 0644 | 固定绝对 ProgramArguments |
 | `/Library/Application Support/Clash Kuro/Privileged` | root:wheel 0700 | 事务、会话、受控 Runtime Config/Core 工作目录 |
-| `/var/run/dev.kuro.tun` | root:wheel 0755 | helper 入口；socket 连接权不等于操作授权 |
+| `/Library/PrivilegedHelperTools/dev.kuro.tun-run` | root:wheel 0755 | helper 入口；socket 连接权不等于操作授权 |
 | 受保护会话目录下 Core Control Channel | 目录0700/socket0600，root:wheel | 只允许 helper broker，普通 App 不直连 |
 
 自有祖先逐组件核对 root owner、无 group/other 写、无普通用户写 ACL、无 symlink；既有非预期对象停止，不接管。版本标识是构建端受限值，不是路径。执行不通过可变 current symlink，不用 PATH/shell，不继承请求方环境。LaunchDaemon 重启只能 idle/recovery，不能自动恢复 TUN。

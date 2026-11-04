@@ -8,10 +8,12 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { macosClientPin } from './macos-client-pin.mjs'
 
+export const authEndpoint = '/Library/PrivilegedHelperTools/dev.kuro.tun-run/auth.sock'
+
 // The experiment driver runs this source separately under the same ordinary UID.
 // It cannot select another endpoint/operation; only a structured native denial counts as a successful negative.
 export const externalNodeClient = `import {createConnection} from 'node:net';
-const socket=createConnection('/var/run/dev.kuro.tun/auth.sock');
+const socket=createConnection(${JSON.stringify(authEndpoint)});
 let bytes=Buffer.alloc(0),settled=false;
 const finish=(error)=>{if(settled)return;settled=true;clearTimeout(timer);socket.destroy();if(error){console.error(error.message);process.exitCode=2;}};
 const timer=setTimeout(()=>finish(new Error('auth response timeout')),3000);
@@ -37,7 +39,7 @@ export async function prepareElectronAuthNegatives(input) {
   const packagerRequire = createRequire(builderRequire.resolve('app-builder-lib'))
   const asar = packagerRequire('@electron/asar')
   const main = asar.extractFile(join(bundle, 'Contents/Resources/app.asar'), 'out/main/index.js').toString('utf8')
-  assert.ok(main.includes('--kuro-auth-verification=') && main.includes('authenticate-only') && main.includes('/var/run/dev.kuro.tun/auth.sock'), 'Candidate lacks the new fixed auth-only entry; build/freeze the committed candidate first')
+  assert.ok(main.includes('--kuro-auth-verification=') && main.includes('authenticate-only') && main.includes(authEndpoint), 'Candidate lacks the new fixed auth-only entry; build/freeze the committed candidate first')
   const directory = await mkdtemp(join(await realpath(tmpdir()), 'kuro-electron-auth-negatives-'))
   await chmod(directory, 0o700)
   const copies = {}

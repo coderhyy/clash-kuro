@@ -1,6 +1,5 @@
 import { lstatSync, mkdirSync, readdirSync, realpathSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
-import { lstat } from 'node:fs/promises'
 import { createConnection } from 'node:net'
 import { tmpdir } from 'node:os'
 import type { MihomoClient } from '@kuro/api'
@@ -8,10 +7,11 @@ import { createAppStore, parseBackup, type CommandName } from '@kuro/state'
 import type { Platform } from '@kuro/core'
 import type { App, BrowserWindow, IpcMain } from 'electron'
 import { IPC } from './ipc-channels'
+import { AUTH_SOCKET, assertTrustedTunEndpoint } from './tun-endpoints'
+export { AUTH_SOCKET } from './tun-endpoints'
 
 const FLAG = '--kuro-runtime-verification='
 const AUTH_FLAG = '--kuro-auth-verification='
-export const AUTH_SOCKET = '/var/run/dev.kuro.tun/auth.sock'
 export function inspectPackagedArguments(args: string[]): { directory?: string; authenticate?: true; error?: string } {
   let authenticate: true | undefined
   let directory: string | undefined
@@ -70,10 +70,7 @@ export function parseAuthenticationResponse(text: string): true {
 
 /** Fixed operation and root-owned endpoint only; this transport cannot request any TUN operation. */
 export async function requestAuthenticationProbe(): Promise<true> {
-  const directory = await lstat(dirname(AUTH_SOCKET))
-  const endpoint = await lstat(AUTH_SOCKET)
-  if (!directory.isDirectory() || directory.isSymbolicLink() || directory.uid !== 0 || (directory.mode & 0o022)
-    || !endpoint.isSocket() || endpoint.isSymbolicLink() || endpoint.uid !== 0) throw new Error('Untrusted authentication endpoint')
+  await assertTrustedTunEndpoint(AUTH_SOCKET)
   return new Promise((resolve, reject) => {
     const socket = createConnection(AUTH_SOCKET)
     let bytes = Buffer.alloc(0), settled = false

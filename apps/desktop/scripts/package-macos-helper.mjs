@@ -1,3 +1,4 @@
+import { authEndpoint } from './prepare-electron-auth-negatives.mjs'
 // Offline disabled installer package. Never invokes Installer, launchctl or helper.
 // Usage: node scripts/package-macos-helper.mjs [darwin-arm64|darwin-x64]
 import { execFileSync } from 'node:child_process'
@@ -128,7 +129,7 @@ export async function packageMacosHelper(target, withClient = false) {
     execFileSync('/usr/bin/pkgbuild', ['--root', root, '--component-plist', components, '--scripts', scripts, '--identifier', `${label}.disabled`, '--version', version, '--install-location', '/', '--ownership', 'recommended', built], { stdio: 'inherit' })
     const metadata = {
       format: 1, target, version, release: manifest.release,
-      ...(sourceCommit ? { sourceCommit, experiment: 'authenticate-only', observationSeconds: 300, emergencyExitSeconds: 310, productionActivation: false,
+      ...(sourceCommit ? { sourceCommit, authEndpoint, experiment: 'authenticate-only', observationSeconds: 300, emergencyExitSeconds: 310, productionActivation: false,
         buildParameters: { electronBuilder: 'mac --dir --arm64', identity: '-', hardenedRuntime: true, sourceCommitInSealedASAR: true, nativeBuild } } : {}),
       disabled: true, startAvailable: false, clientAttestationComplete: false, rootCoreConfigurationValidated: false,
       packageSHA256: sha256(await readFile(built)), helperSHA256: manifest.helper.sha256, coreSHA256: manifest.core.sha256,

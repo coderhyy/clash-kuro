@@ -1,6 +1,6 @@
 # 04：安装授权后的有限动态鉴权实验
 
-> 实际执行更新：1ad5f06候选已在授权下尝试安装，preinstall被本机/private/var/run 0775父链检查阻塞；未进入动态auth，目标及receipt无残留。见[执行结果](evidence/auth-execution-1ad5f06/RESULT.md)。下述步骤保留为本次历史计划，不表示该包当前可成功安装，授权已结束。
+> 前次1ad5f06候选因/private/var/run 0775父链检查安装失败，未进入动态auth，目标及receipt无残留；[该次结果](evidence/auth-execution-1ad5f06/RESULT.md)和授权均已结束。本次修复使用独立受保护socket目录，下述相同范围实验必须对新包另获授权。
 
 范围：fresh-only，受保护 App 的无副作用 authenticate。实验 A 的授权已结束；本文所有安装、root 进程及卸载步骤必须另获用户明确授权。生产 TUN 启动仍拒绝，完整升级不阻塞本次实验但仍属于 04 的交付要求。
 
@@ -25,9 +25,9 @@
 
 最终候选路径、提交、SHA256、负例 prepared.json 和精确 helper 路径以同目录 `auth-observation-artifact.json` 为准；缺少该文件或任一摘要不符就停止。
 
-1. 复算包、helper、脚本和负例摘要；只读确认固定 Tools/State/SocketDirectory/Client App/fresh 回执/恢复入口都不存在，且 `pkgutil --pkg-info dev.kuro.tun.disabled` 无既有 receipt。遇到已有安装不能覆盖或自动卸载它。
+1. 复算包、helper、脚本和负例摘要；确认新socket祖先root所有且不可由组/其他用户写入、普通用户可搜索，旧`/private/var/run/dev.kuro.tun`无残留；只读确认固定 Tools/State/SocketDirectory/Client App/fresh 回执/恢复入口都不存在，且 `pkgutil --pkg-info dev.kuro.tun.disabled` 无既有 receipt。遇到已有安装不能覆盖或自动卸载它。
 2. 保存安装前目标状态，然后管理员授权执行 `/usr/sbin/installer -pkg '<精确候选包>' -target /`。包保持 disabled，不 bootstrap launchd、不启动 Core。安装失败立即停止测试，只用下述固定恢复入口处理可证明属于本次的文件。
-3. 读取 installed/client/fresh 记录，复核 root 所有权、ACL、seal、manifest 和包摘要。以管理员授权在前台运行记录中的**精确版本 helper** `--serve-auth`，保留该调用的退出状态；不执行 `--serve`。它只提供 `/var/run/dev.kuro.tun/auth.sock`，不注册新 LaunchDaemon。
+3. 读取 installed/client/fresh 记录，复核 root 所有权、ACL、seal、manifest 和包摘要。以管理员授权在前台运行记录中的**精确版本 helper** `--serve-auth`，保留该调用的退出状态；不执行 `--serve`。它只提供 `/Library/PrivilegedHelperTools/dev.kuro.tun-run/auth.sock`，不注册新 LaunchDaemon。
 4. 普通用户运行 `node apps/desktop/scripts/run-electron-auth-observation.mjs '<prepared.json>'`。它依次执行实际安装 App 正例、重签副本 native 负例、外部 Node native 负例、非观察操作负例；对修改 ASAR 的副本只做离线 seal 验证、不运行它。报告逐步写入 `kuro-auth-results-*`，失败即停止剩余测试。服务不存在/超时/解析错误不计为拒绝通过。
 5. 等待服务正常退出（最多 300 秒软时限，310 秒紧急退出），保留管理员命令退出状态；检查 auth.sock/auth-observer.json 是否消失。紧急退出或异常时不继续测试，以回执和锁验证后恢复。
 6. 管理员授权执行 `/Library/PrivilegedHelperTools/dev.kuro.tun-uninstall --uninstall`。入口先持全局/服务锁，校验 fresh 回执、文件/链接/权限/摘要和 auth socket device/inode；允许缺失批准文件，拒绝未知内容，不按 PID 杀进程。它删除本次受保护 App、helper、批准记录与固定 socket/plist，不碰用户数据/现有 App。若仅恢复入口本身残留，可重复同一固定命令完成最终清理。

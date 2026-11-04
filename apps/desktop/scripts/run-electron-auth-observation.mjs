@@ -8,9 +8,10 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { macosClientPin } from './macos-client-pin.mjs'
+import { authEndpoint } from './prepare-electron-auth-negatives.mjs'
 
 const installed = '/Library/Application Support/Clash Kuro/Client/Clash Kuro.app'
-const endpoint = '/var/run/dev.kuro.tun/auth.sock'
+const endpoint = authEndpoint
 export function assertExternalIdentityRejection(stdout) {
   const { nativeReply } = JSON.parse(stdout)
   assert.deepEqual(Object.keys(nativeReply ?? {}).sort(), ['error', 'ok', 'version'])
