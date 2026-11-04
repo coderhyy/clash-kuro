@@ -109,7 +109,17 @@ export function createSystemProxy(options: SystemProxyOptions = {}) {
       }
     },
     async clearSystemProxy(): Promise<void> {
-      await disable(await services())
+      const names = await services()
+      await disable(names)
+      for (const service of names) {
+        for (const command of ['-getwebproxy', '-getsecurewebproxy']) {
+          const output = await run(command, service)
+          const enabled = output.split(/\r?\n/).map(line => line.trim()).filter(line => /^Enabled\s*:/.test(line))
+          if (enabled.length !== 1 || !/^Enabled:\s*No$/.test(enabled[0]!)) {
+            throw new Error(`System Proxy cleanup unconfirmed for ${service} (${command})`)
+          }
+        }
+      }
     },
     async cleanupStaleSystemProxy(port: number): Promise<void> {
       for (const service of await services()) {

@@ -12,6 +12,60 @@ import { createAppStore, type Backup } from '@kuro/state'
 import { fakeSnapshot } from '@kuro/state/fake'
 import { assertMixedPortAvailable, createDesktopPlatform, type DesktopPlatform, type DesktopPlatformOptions, type Exec } from './index'
 import { reserveTestPort } from './test-ports'
+import type { TunPlatform, TunStatus } from '@kuro/core'
+
+test.each(['on', 'unknown'] as const)('TUN %s blocks ordinary startup and proxy writes at the platform boundary', async state => {
+  const status: TunStatus = { availability: 'blocked', state, error: 'TUN cleanup unconfirmed' }
+  const tun: TunPlatform = { inspect: async () => status, recover: async () => status, start: async () => status, stop: async () => status }
+  const exec = vi.fn<Exec>()
+  const platform = createDesktopPlatform({ dataDir: '/tmp/kt-gate', corePath: '/tmp/no-core', mixedPort: 7890, tun, exec })
+  await expect(platform.startCore()).rejects.toThrow('TUN cleanup unconfirmed')
+  await expect(platform.setSystemProxy({ host: '127.0.0.1', port: 7890, bypass: [] })).rejects.toThrow('TUN cleanup unconfirmed')
+  await expect(platform.cleanupStaleSystemProxy(7890)).rejects.toThrow('TUN cleanup unconfirmed')
+  expect(exec).not.toHaveBeenCalled()
+})
+
+test('shutdown tries TUN cleanup before proxy writes and preserves its first deadline', async () => {
+  const dataDir = await mkdtemp(join(tmpdir(), 'kt-shutdown-'))
+  cleanups.push(() => rm(dataDir, { recursive: true, force: true }))
+  const tun: TunPlatform = {
+    inspect: async () => ({ availability: 'blocked', state: 'unknown', error: 'uncertain owner' }),
+    start: vi.fn(), recover: vi.fn(), stop: vi.fn(() => new Promise<TunStatus>(() => {})),
+  }
+  const exec = vi.fn<Exec>()
+  const platform = createDesktopPlatform({ dataDir, corePath: '/tmp/no-core', mixedPort: 7890, tun, exec })
+  const first = platform.shutdown({ timeoutMs: 60 })
+  expect(platform.shutdown({ timeoutMs: 2000 })).toBe(first)
+  await expect(first).rejects.toThrow(/TUN cleanup deadline exceeded/)
+  expect(tun.stop).toHaveBeenCalledOnce()
+  expect(exec).not.toHaveBeenCalled()
+})
+
+test('shutdown waits for an entered TUN start, then stops it; subsequent starts are closed', async () => {
+  const dataDir = await mkdtemp(join(tmpdir(), 'kt-start-shutdown-'))
+  cleanups.push(() => rm(dataDir, { recursive: true, force: true }))
+  let status: TunStatus = { availability: 'ready', state: 'off' }
+  let completeStart!: (value: TunStatus) => void
+  const tun: TunPlatform = {
+    inspect: async () => status, recover: vi.fn(),
+    start: vi.fn(() => new Promise<TunStatus>(resolve => { completeStart = resolve })),
+    stop: vi.fn(async () => { status = { availability: 'ready', state: 'off' }; return status }),
+  }
+  const exec = vi.fn<Exec>(async () => ({ stdout: '', stderr: '' }))
+  const platform = createDesktopPlatform({ os: 'darwin', dataDir, corePath: '/unused', mixedPort: 7890, tun, exec })
+  const starting = platform.tun!.start()
+  await vi.waitFor(() => expect(tun.start).toHaveBeenCalledOnce())
+  await expect(platform.setSystemProxy({ host: '127.0.0.1', port: 7890, bypass: [] })).rejects.toThrow('startup must settle')
+  const closing = platform.shutdown({ timeoutMs: 1000 })
+  await expect(platform.tun!.start()).rejects.toThrow('shutting down')
+  expect(exec).not.toHaveBeenCalled()
+  status = { availability: 'ready', state: 'on' }
+  completeStart(status)
+  await starting
+  await closing
+  expect(tun.stop).toHaveBeenCalledOnce()
+  expect(status.state).toBe('off')
+})
 
 const cleanups: Array<() => Promise<void>> = []
 beforeAll(async () => {
@@ -370,7 +424,7 @@ test('stale or unrelated pid is removed without sending a signal', async () => {
   const pid = unrelated.pid
   cleanups.push(async () => { unrelated.kill('SIGKILL') })
   await platform.writeFileAtomic('core.pid', String(pid))
-  exec.mockResolvedValue({ stdout: '/bin/sh\n', stderr: '' })
+  exec.mockImplementation(async file => ({ stdout: file === '/bin/ps' ? '/bin/sh\n' : '', stderr: '' }))
   await expect(platform.startCore()).rejects.toThrow('No Runtime Config')
   expect(await platform.readFile('core.pid')).toBeNull()
   expect(() => process.kill(pid, 0)).not.toThrow()
@@ -383,7 +437,7 @@ test('an orphan with the same executable path is terminated before port detectio
   const pid = unrelated.pid
   cleanups.push(async () => { unrelated.kill('SIGKILL') })
   const { platform, exec } = await fixture({ os: 'darwin' })
-  exec.mockResolvedValue({ stdout: process.execPath, stderr: '' })
+  exec.mockImplementation(async file => ({ stdout: file === '/bin/ps' ? process.execPath : '', stderr: '' }))
   await platform.writeFileAtomic('core.pid', String(pid))
   await expect(platform.startCore()).rejects.toThrow('No Runtime Config')
   expect(() => process.kill(pid, 0)).toThrow()

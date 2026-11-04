@@ -14,6 +14,10 @@ function fixture() {
     if (args[0] === '-getwebproxy') stdout = states.get(`${args[1]}:web`)!
     if (args[0] === '-getsecurewebproxy') stdout = states.get(`${args[1]}:secure`)!
     if (args[0] === '-getproxybypassdomains') stdout = 'localhost\n*.local\n'
+    if (args[0] === '-setwebproxystate' || args[0] === '-setsecurewebproxystate') {
+      const key = `${args[1]}:${args[0] === '-setwebproxystate' ? 'web' : 'secure'}`
+      states.set(key, states.get(key)!.replace(/^Enabled: .+$/m, `Enabled: ${args[2] === 'on' ? 'Yes' : 'No'}`))
+    }
     return { stdout, stderr: '' }
   })
   return { exec, proxy: createSystemProxy({ os: 'darwin', exec }) }
@@ -54,6 +58,30 @@ test('clear disables both protocols on all enabled services', async () => {
   const { exec, proxy } = fixture()
   await proxy.clearSystemProxy()
   expect(exec.mock.calls.filter(([, args]) => args[0]?.startsWith('-set'))).toHaveLength(4)
+  for (const service of ['Wi-Fi', 'USB Ethernet']) {
+    expect(exec).toHaveBeenCalledWith('/usr/sbin/networksetup', ['-getwebproxy', service])
+    expect(exec).toHaveBeenCalledWith('/usr/sbin/networksetup', ['-getsecurewebproxy', service])
+  }
+})
+
+test.each(['-getwebproxy', '-getsecurewebproxy'])('clear rejects %s readback without one explicit disabled state', async (command) => {
+  for (const output of ['Enabled: Yes\nServer: 127.0.0.1\nPort: 17890', 'Server: 127.0.0.1\nPort: 17890', 'Enabled: Maybe', 'Enabled: No\nEnabled: Yes']) {
+    const { exec, proxy } = fixture()
+    const original = exec.getMockImplementation()!
+    exec.mockImplementation(async (file, args) => args[0] === command && args[1] === 'Wi-Fi'
+      ? { stdout: output, stderr: '' } : original(file, args))
+    await expect(proxy.clearSystemProxy()).rejects.toThrow('cleanup unconfirmed')
+  }
+})
+
+test.each(['-getwebproxy', '-getsecurewebproxy'])('clear rejects failed %s readback after successful disable commands', async (command) => {
+  const { exec, proxy } = fixture()
+  const original = exec.getMockImplementation()!
+  exec.mockImplementation(async (file, args) => {
+    if (args[0] === command) throw new Error('readback failed')
+    return original(file, args)
+  })
+  await expect(proxy.clearSystemProxy()).rejects.toThrow('readback failed')
 })
 
 test('returns null when no proxy is enabled', async () => {

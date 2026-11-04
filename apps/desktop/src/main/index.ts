@@ -4,7 +4,8 @@ import { randomUUID } from 'node:crypto'
 import { appendFile, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { createMihomoClient } from '@kuro/api'
 import { buildTrayMenu, createAppStore, MAX_BACKUP_BYTES, type AppStore, type CommandName } from '@kuro/state'
-import { createDesktopPlatform, createResumeHandler, createSocketTransport } from './platform'
+import { createDesktopPlatform, createSocketTransport } from './platform'
+import { createMacosTun } from './platform/macos-tun'
 import { createProfileSource } from './app/profiles'
 import { createUpdateScheduler } from './app/scheduler'
 import { checkForUpdate } from './app/release-check'
@@ -52,6 +53,7 @@ async function main(): Promise<void> {
 
   let store: AppStore | undefined
   const platform = createDesktopPlatform({
+    tun: process.platform === 'darwin' ? createMacosTun() : undefined,
     dataDir, corePath, sysproxyHelperPath, userAgent, powerMonitor, loginItemApp: app, startResident,
     onResidentStopped: reason => store?.notifyCoreStopped(reason),
     mixedPort: () => store?.store.getState().settings.mixedPort ?? 7890
@@ -60,11 +62,6 @@ async function main(): Promise<void> {
   const profiles = createProfileSource({ platform, userAgent, isCoreRunning: () => platform.isCoreRunning() })
 
   await installGeoData(geoDir, dataDir)
-  // A fresh process has no Core yet, so any System Proxy still pointing at our port is stale.
-  if (!startResident) try {
-    const saved = JSON.parse((await platform.readFile('settings.json')) ?? '{}') as { settings?: { mixedPort?: number } }
-    await platform.cleanupStaleSystemProxy(saved.settings?.mixedPort ?? 7890)
-  } catch (error) { console.warn('Stale System Proxy cleanup failed:', error) }
 
   let win: BrowserWindow | null = null
   let tray: Tray | null = null
@@ -134,6 +131,11 @@ async function main(): Promise<void> {
     hooks: { onOpenWindow: showWindow, onQuit: () => void exit() }
   })
   store = app_
+
+  // Store startup reconciles TUN first, including with no active Profile. Unknown ownership forbids new proxy writes.
+  if (!startResident && app_.store.getState().tun.state === 'off') try {
+    await platform.cleanupStaleSystemProxy(app_.store.getState().settings.mixedPort)
+  } catch (error) { console.warn('Stale System Proxy cleanup failed:', error) }
 
   const scheduler = createUpdateScheduler({
     profiles: () => app_.store.getState().profiles,
@@ -254,25 +256,9 @@ async function main(): Promise<void> {
   tray = new Tray(trayClosed)
   renderTray()
 
-  const onResume = createResumeHandler({
-    platform: {
-      isCoreRunning: () => platform.isCoreRunning(),
-      startCore: async () => {
-        const result = await app_.run('startCore', {})
-        if (!result.ok) throw new Error(result.error)
-      }
-    },
-    client,
-    reapplySystemProxy: async () => {
-      if (!app_.store.getState().systemProxy.enabled) return
-      const result = await app_.run('setSystemProxy', { enabled: true })
-      if (!result.ok) throw new Error(result.error)
-    }
-  })
   platform.onResume(() => {
-    // Only recover a Core the user wanted running.
-    if (app_.store.getState().core.status !== 'running') return
-    onResume().catch((error) => console.warn('Resume recovery failed:', error))
+    // Check ownership inside the same queue as mode changes, not before entering it.
+    app_.resumeCore().catch((error) => console.warn('Resume recovery failed:', error))
   })
 
   app.on('second-instance', (_event, argv) => {

@@ -6,7 +6,7 @@ import { chmod, lstat, mkdir, readFile, readlink, realpath, rename, rm, writeFil
 import { createConnection, createServer } from 'node:net'
 import { isAbsolute, join, resolve, win32 } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
-import type { ControlChannel, Platform, ValidationResult } from '@kuro/core'
+import type { ControlChannel, Platform, TunPlatform, TunStatus, ValidationResult } from '@kuro/core'
 import { fetchProfileText } from './fetch'
 import { createLaunchAtLogin, type LoginItemApp } from './login-item'
 import { createSystemProxy, execCommand, parseWindowsProxyServer, type Exec } from './system-proxy'
@@ -19,6 +19,7 @@ export type { Exec } from './system-proxy'
 export { createResumeHandler } from './resume'
 
 export interface DesktopPlatformOptions {
+  tun?: TunPlatform
   dataDir: string
   corePath: string
   /** Windows: absolute path to kuro-sysproxy.exe (issue 08). */
@@ -169,6 +170,39 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
   let queue: Promise<unknown> = Promise.resolve()
   let shuttingDown = false
   let shutdown: Promise<void> | undefined
+  let tunStart: Promise<TunStatus> | undefined
+  const tun: TunPlatform | undefined = options.tun && {
+    inspect: () => options.tun!.inspect(),
+    recover: () => options.tun!.recover(),
+    stop: () => options.tun!.stop(),
+    start() {
+      if (shuttingDown) return Promise.reject(new Error('Platform is shutting down; TUN start is closed'))
+      if (tunStart) return tunStart
+      const pending = Promise.resolve().then(() => {
+        if (shuttingDown) throw new Error('Platform is shutting down; TUN start is closed')
+        return options.tun!.start()
+      })
+      tunStart = pending
+      const clear = () => { if (tunStart === pending) tunStart = undefined }
+      void pending.then(clear, clear)
+      return pending
+    },
+  }
+  async function requireTunOff(): Promise<void> {
+    if (!options.tun) return
+    if (tunStart) throw new Error('TUN startup must settle before ordinary Core or System Proxy writes')
+    const status = await options.tun.inspect()
+    if (status.state !== 'off') throw new Error(status.error || 'TUN must be confirmed off before ordinary Core or System Proxy writes')
+  }
+  async function stopTun(): Promise<void> {
+    if (!options.tun) return
+    // A start already sent to the helper must settle before stop/readback can prove off.
+    // shortcut: native session lease/owner-death cleanup is required before enabling real TUN start.
+    await tunStart?.catch(() => {})
+    if ((await options.tun.inspect()).state === 'off') return
+    await options.tun.stop()
+    await requireTunOff()
+  }
   const serialize = <T>(operation: () => Promise<T>): Promise<T> => {
     const result = queue.then(operation)
     queue = result.catch(() => {})
@@ -327,12 +361,14 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
   }
 
   const platform: DesktopPlatform = {
+    tun,
     readFile: read,
     writeFileAtomic: atomic,
     async removeFile(name) { await rm(await filePath(name), { force: true }) },
     applyRuntimeConfig: (yaml) => serialize(() => apply(yaml)),
     startCore: () => serialize(async () => {
       if (shuttingDown) throw new Error('Platform is shutting down')
+      await requireTunOff()
       if (residentFailed) throw new Error('Resident state uncertain; application restart required')
       if (resident) return
       if (child?.pid && child.exitCode === null && child.signalCode === null && alive(child.pid)) return
@@ -426,6 +462,7 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
       }
     }),
     stopCore: () => serialize(async () => {
+      await stopTun()
       // The native owner starts its shared cleanup budget itself; never pre-clear over IPC.
       if (!options.startResident && !shuttingDown) await systemProxy.clearSystemProxy()
       await stop()
@@ -437,11 +474,13 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
     controlChannel: () => ({ ...channel }),
     ...createLaunchAtLogin({ os, app: options.loginItemApp }),
     getSystemProxy: () => systemProxy.getSystemProxy(),
-    clearSystemProxy: () => systemProxy.clearSystemProxy(),
-    cleanupStaleSystemProxy: port => systemProxy.cleanupStaleSystemProxy(port),
+    async clearSystemProxy() { await requireTunOff(); await systemProxy.clearSystemProxy() },
+    async cleanupStaleSystemProxy(port) { await requireTunOff(); await systemProxy.cleanupStaleSystemProxy(port) },
     async setSystemProxy(settings) {
       if (shuttingDown) throw new Error('Platform is shutting down; System Proxy writes are closed')
       if (residentFailed) throw new Error('Resident has exited; System Proxy writes are closed')
+      await requireTunOff()
+      if (shuttingDown) throw new Error('Platform is shutting down; System Proxy writes are closed')
       await systemProxy.setSystemProxy(settings)
     },
     fetchText: options.fetchText ?? ((url, input) => fetchProfileText(url, {
@@ -472,8 +511,18 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
           return
         }
         const errors: unknown[] = []
+        if (options.tun) {
+          try { await within(stopTun, started + timeoutMs / 2, 'TUN cleanup') }
+          catch (error) {
+            // Do not write ordinary proxy settings while TUN ownership/cleanup is uncertain.
+            errors.push(error)
+            try { await within(stop, started + timeoutMs, 'Ordinary Core stop') }
+            catch (stopError) { errors.push(stopError) }
+            throw new AggregateError(errors, `Shutdown incomplete: ${errors.map(errorText).join('; ')}`)
+          }
+        }
         // Waiting is bounded, not cancellation: the resident owner must settle/terminate native writers.
-        try { await within(() => platform.clearSystemProxy(), started + timeoutMs / 2, 'Proxy cleanup') }
+        try { await within(() => platform.clearSystemProxy(), started + timeoutMs * (options.tun ? 0.75 : 0.5), 'Proxy cleanup') }
         catch (error) { errors.push(error) }
         try { await within(() => platform.stopCore(), started + timeoutMs, 'Core stop') }
         catch (error) { errors.push(error) }

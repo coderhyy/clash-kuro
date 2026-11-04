@@ -1,4 +1,5 @@
 import type { LogEntry, Traffic } from '@kuro/api'
+import type { TunPlatform, TunStatus } from '@kuro/core'
 import type { CommandInput, CommandName, CommandResult, StateBridge, StateSnapshot } from './index'
 
 export function fakeSnapshot(overrides: Partial<StateSnapshot> = {}): StateSnapshot {
@@ -28,6 +29,7 @@ export function fakeSnapshot(overrides: Partial<StateSnapshot> = {}): StateSnaps
       DIRECT: { name: 'DIRECT', type: 'Direct', delay: null }
     },
     systemProxy: { enabled: false },
+    tun: { availability: 'unsupported', state: 'off' },
     update: null,
     launchAtLogin: 'disabled',
     override: '',
@@ -73,5 +75,28 @@ export class FakeBridge implements StateBridge {
   publish(next: StateSnapshot) {
     this.snapshot = next
     for (const l of this.listeners) l(next)
+  }
+}
+
+/** In-memory adapter; has no installation, process or network side effects. */
+export class FakeTunPlatform implements TunPlatform {
+  events: string[] = []
+  constructor(public status: TunStatus = { availability: 'ready', state: 'off' }) {}
+  async inspect(): Promise<TunStatus> { this.events.push('inspect'); return { ...this.status } }
+  async recover(): Promise<TunStatus> {
+    this.events.push('recover')
+    this.status = { ...this.status, state: 'off' }
+    return { ...this.status }
+  }
+  async start(): Promise<TunStatus> {
+    this.events.push('start')
+    if (this.status.availability !== 'ready') throw new Error('TUN is not ready')
+    this.status = { availability: 'ready', state: 'on' }
+    return { ...this.status }
+  }
+  async stop(): Promise<TunStatus> {
+    this.events.push('stop')
+    this.status = { ...this.status, state: 'off' }
+    return { ...this.status }
   }
 }

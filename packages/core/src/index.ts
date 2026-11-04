@@ -51,11 +51,27 @@ export interface FetchResult {
   body: string
 }
 
+/** Observed TUN state, never a persisted enable preference. Unknown must block new network writers. */
+export interface TunStatus {
+  availability: 'unsupported' | 'not-installed' | 'ready' | 'blocked'
+  state: 'off' | 'on' | 'unknown'
+  error?: string
+}
+
+/** The adapter owns configuration admission and exact Core/network cleanup evidence. */
+export interface TunPlatform {
+  inspect(): Promise<TunStatus>
+  recover(): Promise<TunStatus>
+  start(): Promise<TunStatus>
+  stop(): Promise<TunStatus>
+}
+
 /**
  * System capabilities injected into the shared packages (ADR-0001).
  * File names are relative to the app data directory.
  */
 export interface Platform {
+  tun?: TunPlatform
   readFile(name: string): Promise<string | null>
   /** Write to a temp file and rename into place. */
   writeFileAtomic(name: string, data: string): Promise<void>

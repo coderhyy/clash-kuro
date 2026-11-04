@@ -866,6 +866,44 @@ export function App({ bridge, demo }: { bridge: StateBridge; demo: boolean }) {
               )}
             </span>
           </div>
+          {snapshot.tun.availability !== 'unsupported' && (
+            <div className="system-control">
+              <div className="section-heading">
+                <label htmlFor="tun">{t('tun')}</label>
+                <Switch
+                  id="tun"
+                  checked={snapshot.tun.state === 'on'}
+                  disabled={busy || restartRequired || snapshot.tun.availability !== 'ready' || snapshot.tun.state === 'unknown'}
+                  onCheckedChange={(enabled) => void run('setTun', { enabled })}
+                  aria-describedby="tun-hint tun-status"
+                />
+              </div>
+              <p id="tun-hint" className="muted">{t('tunHint')}</p>
+              <span
+                id="tun-status"
+                className={`proxy-status ${snapshot.tun.state === 'on' ? 'is-on' : ''}`}
+                role="status"
+              >
+                {t(snapshot.tun.availability === 'not-installed'
+                  ? 'tunNotInstalled'
+                  : snapshot.tun.availability === 'blocked' ? 'tunBlocked' : snapshot.tun.state)}
+              </span>
+              {snapshot.tun.error && (
+                <p className="inline-error" role="alert">{snapshot.tun.error}</p>
+              )}
+              {(snapshot.tun.availability === 'blocked' || snapshot.tun.state === 'unknown') && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  id="tun-recover"
+                  disabled={busy}
+                  onClick={() => void run('recoverTun', {})}
+                >
+                  {t('recoverTun')}
+                </Button>
+              )}
+            </div>
+          )}
         </section>
         {'manualRequired' in snapshot.systemProxy && (
           <p className="manual-notice" role="alert">
