@@ -1,5 +1,7 @@
 # 04：安装授权后的有限动态鉴权实验
 
+> e8ae1dc候选本次已获授权并完成：实际Electron正例、身份负例与非观察操作拒绝通过，精确卸载及receipt核对完成；[结果](evidence/auth-execution-e8ae1dc/RESULT.md)。本次授权已结束，下文为已执行计划，不自动授权重跑。
+
 > 前次1ad5f06候选因/private/var/run 0775父链检查安装失败，未进入动态auth，目标及receipt无残留；[该次结果](evidence/auth-execution-1ad5f06/RESULT.md)和授权均已结束。本次修复使用独立受保护socket目录，下述相同范围实验必须对新包另获授权。
 
 范围：fresh-only，受保护 App 的无副作用 authenticate。实验 A 的授权已结束；本文所有安装、root 进程及卸载步骤必须另获用户明确授权。生产 TUN 启动仍拒绝，完整升级不阻塞本次实验但仍属于 04 的交付要求。

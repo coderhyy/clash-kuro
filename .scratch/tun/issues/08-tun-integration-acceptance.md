@@ -1,8 +1,8 @@
 # macOS TUN 集成验收
 
-Status: ready-for-human（仅有限鉴权实验待新授权；完整TUN验收仍阻塞）
+Status: ready-for-agent（有限鉴权通过且清理完成；准备后续独立集成验收）
 Type: validation
-Blocked by: 04安装后动态鉴权/真实Core及双栈归属恢复、06最终组合验证；01已resolved，root闭合schema已有隔离证据；新真实系统实验须另获授权；不依赖Windows05/07
+Blocked by: 04真实Core及双栈归属恢复、06最终组合验证；01已resolved，root闭合schema已有隔离证据；新真实系统实验须另获授权；不依赖Windows05/07
 Owner: 主会话集成与最终验证；验收 agent 准备记录
 
 ## 负责范围
@@ -61,3 +61,6 @@ CI配置已串联native隔离测试→App dmg→disabled helper pkg，并保存s
 
 
 2026-11-04 新鉴权候选已冻结：实现e8ae1dc394ce59d447051d2a3fff4fdcd51a6492，包SHA256 `98562290ab91af7372cf1d7d2c8d2145e6e1f0453adb6c1203710c3d319a6177`；新受保护socket路径全链同步，native全套/desktop485+16skip/typecheck/实际隔离Electron14通过，解包验证通过。实际root安装与动态auth仍未执行；等新授权，不沿用1ad实验授权。[结果](../evidence/auth-observation-e8ae1dc/RESULT.md)、[产物](../auth-observation-artifact.json)、[步骤](../auth-observation-experiment.md)。
+
+
+2026-11-04 e8ae1dc/98562290有限鉴权实验实际通过且清理完成：root fresh安装和App seal/inventory/client/fresh身份核验通过；实际安装Electron authenticated=true；重签App明确身份拒绝、外部Node硬化拒绝；正例后start/open/stop/recover/exec全部拒绝。observer正常exit0，准确卸载与receipt forget exit0，最终路径/进程/socket/身份回执/job/receipt无残留；本次授权结束。[实际证据](../evidence/auth-execution-e8ae1dc/RESULT.md)。不是Core/TUN/网络/升级验收，不开放生产门。

@@ -1,0 +1,37 @@
+{
+  "pin": {
+    "format": 2,
+    "cdhash": "53d5e6e21a40f09f2c4bc013af9ec88c0cb737f7",
+    "executableSHA256": "5f4ad8c0852b5ff700909bbf12e2c74eca04427043ecbe080e3a71d078ca80f6",
+    "infoSHA256": "881d4dbc253a497f9a1fbf726535ebf6f8f934913dfc87ca12da90575806a56e",
+    "asarSHA256": "97a6d66d4e0f71fdd2120609d127d23ba77b7caf74b23bdaf3e1c47a5025e3f9"
+  },
+  "helperSHA256": "f995f1fd8416d5cb99af1655b1814dc206405bfc24dabe2d7d1f534c13265623",
+  "inventorySHA256": "abedd874c3a77ffee6176e17c7c4d99f3eb19c7e2ac5c6ec3be6cadea9ac5c0b",
+  "meta": {
+    "/": {
+      "uid": 0,
+      "mode": 493
+    },
+    "/Library": {
+      "uid": 0,
+      "mode": 493
+    },
+    "/Library/PrivilegedHelperTools": {
+      "uid": 0,
+      "mode": 493
+    },
+    "/Library/Application Support/Clash Kuro/Client/Clash Kuro.app": {
+      "uid": 0,
+      "mode": 493
+    },
+    "/Library/PrivilegedHelperTools/dev.kuro.tun/versions/v1.19.33-0.1.0-arm64-ba360907bb7f91f6/helper": {
+      "uid": 0,
+      "mode": 493
+    },
+    "/Library/PrivilegedHelperTools/dev.kuro.tun-uninstall": {
+      "uid": 0,
+      "mode": 493
+    }
+  }
+}

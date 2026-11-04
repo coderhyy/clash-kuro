@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "mode": "authenticate-only",
+  "ok": false,
+  "authenticated": false,
+  "nativeRejected": true,
+  "error": "client resources or exact approved identity are unavailable",
+  "endpoint": "/Library/PrivilegedHelperTools/dev.kuro.tun-run/auth.sock",
+  "executable": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-auth-negatives-z983ct/resigned.app/Contents/MacOS/Clash Kuro",
+  "directory": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-zCJcFd",
+  "userData": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-zCJcFd/userData",
+  "sessionData": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-zCJcFd/sessionData",
+  "realPlatformCreated": false,
+  "realCoreStarted": false,
+  "systemNetworkWrites": false
+}

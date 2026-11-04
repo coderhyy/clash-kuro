@@ -2,7 +2,7 @@
 
 Status: ready-for-agent（实现与隔离验证；真实操作等“开始”）
 Type: task
-Blocked by: 受保护安装后的动态客户端鉴权与真实系统验收、helper死亡后的owner约束与真实双栈恢复证据；完整升级未齐；新真实系统实验须另获授权；01/09已解决
+Blocked by: 真实Core/双栈网络及helper死亡恢复验收、完整升级；安装后有限动态鉴权已通过；新真实系统实验须另获授权；01/09已解决
 Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
 
 ## 负责范围
@@ -112,3 +112,6 @@ Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
 
 
 2026-11-04 新鉴权候选已冻结：实现e8ae1dc394ce59d447051d2a3fff4fdcd51a6492，包SHA256 `98562290ab91af7372cf1d7d2c8d2145e6e1f0453adb6c1203710c3d319a6177`；新受保护socket路径全链同步，native全套/desktop485+16skip/typecheck/实际隔离Electron14通过，解包验证通过。实际root安装与动态auth仍未执行；等新授权，不沿用1ad实验授权。[结果](../evidence/auth-observation-e8ae1dc/RESULT.md)、[产物](../auth-observation-artifact.json)、[步骤](../auth-observation-experiment.md)。
+
+
+2026-11-04 e8ae1dc/98562290有限鉴权实验实际通过且清理完成：root fresh安装和App seal/inventory/client/fresh身份核验通过；实际安装Electron authenticated=true；重签App明确身份拒绝、外部Node硬化拒绝；正例后start/open/stop/recover/exec全部拒绝。observer正常exit0，准确卸载与receipt forget exit0，最终路径/进程/socket/身份回执/job/receipt无残留；本次授权结束。[实际证据](../evidence/auth-execution-e8ae1dc/RESULT.md)。不是Core/TUN/网络/升级验收，不开放生产门。

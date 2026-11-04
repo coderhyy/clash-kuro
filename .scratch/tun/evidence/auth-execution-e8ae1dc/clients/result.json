@@ -1,0 +1,105 @@
+{
+  "results": [
+    {
+      "label": "installed",
+      "directory": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-jmvLq9",
+      "code": 0,
+      "signal": null,
+      "stdout": "",
+      "stderr": "",
+      "report": {
+        "version": 1,
+        "mode": "authenticate-only",
+        "ok": true,
+        "authenticated": true,
+        "nativeRejected": false,
+        "endpoint": "/Library/PrivilegedHelperTools/dev.kuro.tun-run/auth.sock",
+        "executable": "/Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/MacOS/Clash Kuro",
+        "directory": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-jmvLq9",
+        "userData": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-jmvLq9/userData",
+        "sessionData": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-jmvLq9/sessionData",
+        "realPlatformCreated": false,
+        "realCoreStarted": false,
+        "systemNetworkWrites": false
+      }
+    },
+    {
+      "label": "resigned",
+      "directory": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-zCJcFd",
+      "code": 1,
+      "signal": null,
+      "stdout": "",
+      "stderr": "",
+      "report": {
+        "version": 1,
+        "mode": "authenticate-only",
+        "ok": false,
+        "authenticated": false,
+        "nativeRejected": true,
+        "error": "client resources or exact approved identity are unavailable",
+        "endpoint": "/Library/PrivilegedHelperTools/dev.kuro.tun-run/auth.sock",
+        "executable": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-auth-negatives-z983ct/resigned.app/Contents/MacOS/Clash Kuro",
+        "directory": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-zCJcFd",
+        "userData": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-zCJcFd/userData",
+        "sessionData": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-zCJcFd/sessionData",
+        "realPlatformCreated": false,
+        "realCoreStarted": false,
+        "systemNetworkWrites": false
+      }
+    }
+  ],
+  "denied": [
+    {
+      "operation": "start",
+      "reply": {
+        "error": "auth observation accepts only version-1 authenticate",
+        "ok": false,
+        "version": 1
+      }
+    },
+    {
+      "operation": "open",
+      "reply": {
+        "error": "auth observation accepts only version-1 authenticate",
+        "ok": false,
+        "version": 1
+      }
+    },
+    {
+      "operation": "stop",
+      "reply": {
+        "error": "auth observation accepts only version-1 authenticate",
+        "ok": false,
+        "version": 1
+      }
+    },
+    {
+      "operation": "recover",
+      "reply": {
+        "error": "auth observation accepts only version-1 authenticate",
+        "ok": false,
+        "version": 1
+      }
+    },
+    {
+      "operation": "exec",
+      "reply": {
+        "error": "auth observation accepts only version-1 authenticate",
+        "ok": false,
+        "version": 1
+      }
+    }
+  ],
+  "mutatedSeal": {
+    "status": 1,
+    "stderr": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-auth-negatives-z983ct/asar-mutated.app: a sealed resource is missing or invalid\n",
+    "launched": false
+  },
+  "installedPinUnchanged": {
+    "format": 2,
+    "cdhash": "53d5e6e21a40f09f2c4bc013af9ec88c0cb737f7",
+    "executableSHA256": "5f4ad8c0852b5ff700909bbf12e2c74eca04427043ecbe080e3a71d078ca80f6",
+    "infoSHA256": "881d4dbc253a497f9a1fbf726535ebf6f8f934913dfc87ca12da90575806a56e",
+    "asarSHA256": "97a6d66d4e0f71fdd2120609d127d23ba77b7caf74b23bdaf3e1c47a5025e3f9"
+  }
+}

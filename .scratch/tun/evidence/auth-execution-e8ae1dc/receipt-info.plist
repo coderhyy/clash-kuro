@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>install-location</key>
+	<string></string>
+	<key>install-time</key>
+	<integer>1793796179</integer>
+	<key>pkg-version</key>
+	<string>0.1.0</string>
+	<key>pkgid</key>
+	<string>dev.kuro.tun.disabled</string>
+	<key>receipt-plist-version</key>
+	<real>1</real>
+	<key>volume</key>
+	<string>/</string>
+</dict>
+</plist>
+
