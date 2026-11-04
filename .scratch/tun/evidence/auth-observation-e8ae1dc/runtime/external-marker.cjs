@@ -1,0 +1,1 @@
+require("node:fs").writeFileSync(process.env.KURO_ATTACK_MARKER,"external-code-ran")

@@ -1,0 +1,91 @@
+{
+  "format": 1,
+  "target": "darwin-arm64",
+  "version": "0.1.0",
+  "release": "v1.19.33-0.1.0-arm64-83b540d72d7ee997",
+  "sourceCommit": "1ad5f06ad17495fd4e45cc1f94e54979bddf4842",
+  "experiment": "authenticate-only",
+  "observationSeconds": 300,
+  "emergencyExitSeconds": 310,
+  "productionActivation": false,
+  "buildParameters": {
+    "electronBuilder": "mac --dir --arm64",
+    "identity": "-",
+    "hardenedRuntime": true,
+    "sourceCommitInSealedASAR": true,
+    "nativeBuild": {
+      "sourceCommit": "1ad5f06ad17495fd4e45cc1f94e54979bddf4842",
+      "sourceClean": true,
+      "sha256": "07e00731eadc78018bfd67422e3b530e6cfa551ca03f10db4a559ee9190090e0",
+      "flags": [
+        "-arch",
+        "arm64",
+        "-fobjc-arc",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-O2",
+        "-framework",
+        "Foundation",
+        "-framework",
+        "Security",
+        "-framework",
+        "SystemConfiguration",
+        "-lbsm"
+      ],
+      "tests": true,
+      "coreSyntaxSkipped": true
+    },
+    "sealedMetadata": {
+      "kuroSourceCommit": "1ad5f06ad17495fd4e45cc1f94e54979bddf4842",
+      "kuroAuthObservationOnly": true
+    }
+  },
+  "disabled": true,
+  "startAvailable": false,
+  "clientAttestationComplete": false,
+  "rootCoreConfigurationValidated": false,
+  "packageSHA256": "7bf9ce2bf6cbef927ee55929870665c0a6f70ca1fc92eebedd268b1167e5cd8c",
+  "helperSHA256": "07e00731eadc78018bfd67422e3b530e6cfa551ca03f10db4a559ee9190090e0",
+  "coreSHA256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+  "client": {
+    "format": 2,
+    "cdhash": "164a5c54d9cd0faa1617a43f449ba94b45702ef1",
+    "executableSHA256": "9693da6cea2aa2b95f228bb34d4dd42523844e37f2028c72a4a0f718b72870d1",
+    "infoSHA256": "d1d6ebbb5d310647ce2d73847cedc0221bc5dc7dd6bed7e0aa365f69c9f72181",
+    "asarSHA256": "f13cdccdf256c801d242d6e2326ca62e8a5651d57f74aa6ef798d5970b1e2281"
+  },
+  "clientInventorySHA256": "31047fe27d74d5bd5358ae5c6eac966f22c84c974f207adf90831016c3f301f2",
+  "clientInstallPath": "/Library/Application Support/Clash Kuro/Client/Clash Kuro.app",
+  "clientRemoval": "Fresh-install receipt permits exact removal of this installed App and helper only; modified or unknown content is preserved.",
+  "limitation": "Fresh disabled install only; existing/partial installations refused. Production start and network hooks remain gated pending integrated admission and real-system acceptance. No publisher identity or full root-install acceptance claimed.",
+  "packagePath": "/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/kuro-tun-auth-observation-0.1.0-arm64-1ad5f06ad174.pkg",
+  "metadataPath": "/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/kuro-tun-auth-observation-0.1.0-arm64-1ad5f06ad174.pkg.json",
+  "appPath": "/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/electron-runtime-candidate/mac-arm64/Clash Kuro.app",
+  "installedHelper": "/Library/PrivilegedHelperTools/dev.kuro.tun/versions/v1.19.33-0.1.0-arm64-83b540d72d7ee997/helper",
+  "preparedPath": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-auth-negatives-EDZIJ2/prepared.json",
+  "preparedSHA256": "92232de343e3d67a30e272a6a6bebbff8261cd77793795d85f02ef4e891dedc2",
+  "externalClientSHA256": "c9ce469d86a6bd3f3e528a581533d6ee7dc9434737374e6a7c1bc7c883b4d1d3",
+  "driverPath": "/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/scripts/run-electron-auth-observation.mjs",
+  "scriptSHA256": {
+    "apps/desktop/scripts/run-electron-auth-observation.mjs": "a7ada567aab26bf72ef649efe8ddb228175275eda88eb73a969bff015ccaf9d8",
+    "apps/desktop/scripts/prepare-electron-auth-negatives.mjs": "8cc3182148e6924a709fd7736fa0335bc312123712bb1f845c388cb4acacb366",
+    "apps/desktop/scripts/macos-client-pin.mjs": "fc1e31d7045d5a19d05554e78eaa53f0d6d8ffc16acfc4038dcef51a0b95c821",
+    "apps/desktop/scripts/verify-macos-app.cjs": "a78435dcdd1be33f1cc98c24036a8b4b3346c4ead2d4cc396957e7ef10c68c00"
+  },
+  "runtimeEvidence": "/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/.scratch/tun/evidence/auth-observation-1ad5f06/runtime",
+  "evidencePath": "/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/.scratch/tun/evidence/auth-observation-1ad5f06",
+  "tests": {
+    "desktopPassed": 446,
+    "desktopSkipped": 16,
+    "isolatedElectron": 14,
+    "nativePassed": true,
+    "mihomoSyntaxExecuted": false
+  },
+  "electronVersion": "45.1.0",
+  "electronCache": "/Users/hyy/Library/Caches/electron/aaf6f0d50457ca990261d018944055084f99ff44386590983c0cfac6a979c69d",
+  "authorization": "Not authorized; preparation only",
+  "electronCacheFiles": {
+    "/Users/hyy/Library/Caches/electron/aaf6f0d50457ca990261d018944055084f99ff44386590983c0cfac6a979c69d/electron-v45.1.0-darwin-arm64.zip": "002b71efcf90e247317d3da486f2d4e51860e9c2889d49f33e229ab2268b0f3b"
+  }
+}

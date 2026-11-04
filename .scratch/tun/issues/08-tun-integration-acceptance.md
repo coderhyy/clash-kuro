@@ -1,8 +1,8 @@
 # macOS TUN 集成验收
 
-Status: needs-info
+Status: ready-for-human（仅有限鉴权实验待新授权；完整TUN验收仍阻塞）
 Type: validation
-Blocked by: 04安装后动态鉴权/生产service-network汇合/真实双栈归属恢复、06最终组合验证；01已resolved，root闭合schema已有隔离证据；新真实系统实验须另获授权；不依赖Windows05/07
+Blocked by: 04安装后动态鉴权/真实Core及双栈归属恢复、06最终组合验证；01已resolved，root闭合schema已有隔离证据；新真实系统实验须另获授权；不依赖Windows05/07
 Owner: 主会话集成与最终验证；验收 agent 准备记录
 
 ## 负责范围
@@ -58,3 +58,6 @@ CI配置已串联native隔离测试→App dmg→disabled helper pkg，并保存s
 
 
 2026-11-04 授权实验实际结果：指定1ad5f06/7bf9ce2b观察包已管理员尝试fresh安装，preinstall因本机/private/var/run=root:daemon0775被严格父链检查拒绝，安装退出1。实际Electron正例、动态负例、非观察操作测试均未进入；不能标通过。固定安装目标、socket/身份/回执、job和Installer receipt均无残留，本次Installer临时目录已消失，未执行额外删除或kill。授权已随实验和清理核对结束。详见[实验证据](../evidence/auth-execution-1ad5f06/RESULT.md)。后续固定socket目录须迁到严格保护祖先并统一客户端/卸载；不放宽父链或chmod系统目录。新包另需授权。
+
+
+2026-11-04 新鉴权候选已冻结：实现e8ae1dc394ce59d447051d2a3fff4fdcd51a6492，包SHA256 `98562290ab91af7372cf1d7d2c8d2145e6e1f0453adb6c1203710c3d319a6177`；新受保护socket路径全链同步，native全套/desktop485+16skip/typecheck/实际隔离Electron14通过，解包验证通过。实际root安装与动态auth仍未执行；等新授权，不沿用1ad实验授权。[结果](../evidence/auth-observation-e8ae1dc/RESULT.md)、[产物](../auth-observation-artifact.json)、[步骤](../auth-observation-experiment.md)。

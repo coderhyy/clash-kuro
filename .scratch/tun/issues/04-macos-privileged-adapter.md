@@ -109,3 +109,6 @@ Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
 
 
 2026-11-04 socket路径修复：固定run目录迁到`/Library/PrivilegedHelperTools/dev.kuro.tun-run`，native fresh/observer/service lock/恢复/卸载均从同一个SocketDirectory派生，TS auth/control共享路径和完整祖先检查，脚本共用authEndpoint并有跨语言一致性回归。旧run仅作残留冲突检测，不连接/迁移/删除，不改系统目录权限。保护路径诊断附具体path与owner/mode/symlink/ACL原因；public祖先需other-execute，不可搜索时拒绝。新包须另获授权；测试和摘要见后续固定候选记录。06仅记录Core不存在的证据边界不变。
+
+
+2026-11-04 新鉴权候选已冻结：实现e8ae1dc394ce59d447051d2a3fff4fdcd51a6492，包SHA256 `98562290ab91af7372cf1d7d2c8d2145e6e1f0453adb6c1203710c3d319a6177`；新受保护socket路径全链同步，native全套/desktop485+16skip/typecheck/实际隔离Electron14通过，解包验证通过。实际root安装与动态auth仍未执行；等新授权，不沿用1ad实验授权。[结果](../evidence/auth-observation-e8ae1dc/RESULT.md)、[产物](../auth-observation-artifact.json)、[步骤](../auth-observation-experiment.md)。

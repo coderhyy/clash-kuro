@@ -1,0 +1,16 @@
+macOS App runtime/entitlements, seal, ASAR bytes and fuses verified (no launch; not privileged caller attestation)
+macOS App runtime/entitlements, seal, ASAR bytes and fuses verified (no launch; not privileged caller attestation)
+pkgbuild: Reading components from /private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-helper-package-XDQ9zo/components.plist
+pkgbuild: Adding component at Library/Application Support/Clash Kuro/Client/Clash Kuro.app
+pkgbuild: Adding component at Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (GPU).app
+pkgbuild: Adding component at Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (Renderer).app
+pkgbuild: Adding component at Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Squirrel.framework
+pkgbuild: Adding component at Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework
+pkgbuild: Adding component at Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Mantle.framework
+pkgbuild: Adding component at Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper.app
+pkgbuild: Adding component at Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/ReactiveObjC.framework
+pkgbuild: Adding component at Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (Plugin).app
+pkgbuild: Adding top-level preinstall script
+pkgbuild: Adding top-level postinstall script
+pkgbuild: Wrote package to /private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-helper-package-XDQ9zo/disabled.pkg
+Disabled helper package: /Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/kuro-tun-auth-observation-0.1.0-arm64-e8ae1dc394ce.pkg; metadata: /Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/kuro-tun-auth-observation-0.1.0-arm64-e8ae1dc394ce.pkg.json (not installed)
