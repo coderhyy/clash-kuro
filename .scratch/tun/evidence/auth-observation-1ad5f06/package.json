@@ -1,0 +1,58 @@
+{
+  "format": 1,
+  "target": "darwin-arm64",
+  "version": "0.1.0",
+  "release": "v1.19.33-0.1.0-arm64-83b540d72d7ee997",
+  "sourceCommit": "1ad5f06ad17495fd4e45cc1f94e54979bddf4842",
+  "experiment": "authenticate-only",
+  "observationSeconds": 300,
+  "emergencyExitSeconds": 310,
+  "productionActivation": false,
+  "buildParameters": {
+    "electronBuilder": "mac --dir --arm64",
+    "identity": "-",
+    "hardenedRuntime": true,
+    "sourceCommitInSealedASAR": true,
+    "nativeBuild": {
+      "sourceCommit": "1ad5f06ad17495fd4e45cc1f94e54979bddf4842",
+      "sourceClean": true,
+      "sha256": "07e00731eadc78018bfd67422e3b530e6cfa551ca03f10db4a559ee9190090e0",
+      "flags": [
+        "-arch",
+        "arm64",
+        "-fobjc-arc",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-O2",
+        "-framework",
+        "Foundation",
+        "-framework",
+        "Security",
+        "-framework",
+        "SystemConfiguration",
+        "-lbsm"
+      ],
+      "tests": true,
+      "coreSyntaxSkipped": true
+    }
+  },
+  "disabled": true,
+  "startAvailable": false,
+  "clientAttestationComplete": false,
+  "rootCoreConfigurationValidated": false,
+  "packageSHA256": "7bf9ce2bf6cbef927ee55929870665c0a6f70ca1fc92eebedd268b1167e5cd8c",
+  "helperSHA256": "07e00731eadc78018bfd67422e3b530e6cfa551ca03f10db4a559ee9190090e0",
+  "coreSHA256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+  "client": {
+    "format": 2,
+    "cdhash": "164a5c54d9cd0faa1617a43f449ba94b45702ef1",
+    "executableSHA256": "9693da6cea2aa2b95f228bb34d4dd42523844e37f2028c72a4a0f718b72870d1",
+    "infoSHA256": "d1d6ebbb5d310647ce2d73847cedc0221bc5dc7dd6bed7e0aa365f69c9f72181",
+    "asarSHA256": "f13cdccdf256c801d242d6e2326ca62e8a5651d57f74aa6ef798d5970b1e2281"
+  },
+  "clientInventorySHA256": "31047fe27d74d5bd5358ae5c6eac966f22c84c974f207adf90831016c3f301f2",
+  "clientInstallPath": "/Library/Application Support/Clash Kuro/Client/Clash Kuro.app",
+  "clientRemoval": "Fresh-install receipt permits exact removal of this installed App and helper only; modified or unknown content is preserved.",
+  "limitation": "Fresh disabled install only; existing/partial installations refused. Production start and network hooks remain gated pending integrated admission and real-system acceptance. No publisher identity or full root-install acceptance claimed."
+}

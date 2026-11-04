@@ -2,6 +2,8 @@
 
 硬化 App 可实际运行隔离 UI、preload IPC、Language/Override 与内存 Backup 往返。它不是完整 TUN 实验候选：生产 Authorize、接口就绪、网络安装/恢复 hooks 仍拒绝，真实 Core 管理未运行。具体动态输入、签名/资源负例与限制见 [Electron 验证记录](../../electron-auth-verification.md)。
 
+> 路径保全说明（后续记录）：本页旧 App 已原样移到 `apps/desktop/dist/electron-runtime-candidate-prior-dec6d36f1109/mac-arm64/Clash Kuro.app`。原候选目录现用于新提交，请按本页旧摘要关联历史证据。
+
 ## 精确产物
 
 - App：`apps/desktop/dist/electron-runtime-candidate/mac-arm64/Clash Kuro.app`，身份见 [artifact.json](package/artifact.json) 的 client。原件未因原生最终集成而重签。

@@ -50,3 +50,6 @@ LAN/split支持边界具体为：保留现有更具体route及已识别的search
 剩余实机证据保持有限：固定Core真实utun/address/flags与本地静态DNS A/AAAA；Darwin PF_ROUTE flags/ack/精确readback及并发删除窗口；physical绑定、既有LAN/split DNS优先级；正常stop、App失联、Core/helper异常及重启后receipt/临时DNS/route absence。PF_ROUTE与SCDynamicStore无公开CAS，不能把注入验证当成原子compare-delete实证。[Electron候选](../electron-auth-verification.md)隔离验证不代替受保护安装后的动态peer鉴权；fresh-only升级未齐。实验A仅无网络fixture，本轮未执行Core、utun、路由/DNS或root安装，也无新增真实系统操作授权；本票保持进行中。
 
 跨 helper 重启恢复的代码边界（2026-11-04）：服务已允许仅有 `network.json` / `network-dns.json` 的状态进入既有只读 absence 恢复，完成后独立确认 receipts 已清除才报 off；`owner.json`、`session-work` 或仍持有的 Core 子进程存在时继续拒绝。旧 Core 的跨重启身份/退出证明、受保护工作目录与 `owner.json` 安全清退尚无实现，不能只列作实机证据缺口；当前不接管持久 PID、不据此 kill、不自动重启，仍保持 unknown，需要单独完成恢复设计与实现后才能关闭本票。
+
+
+2026-11-04 固定候选检查点：最终集成已固定提交 `1ad5f06ad17495fd4e45cc1f94e54979bddf4842`；修复network-only receipts进入恢复hook的前置条件，并独立确认receipt消失才off。全部native fixture通过，不代替实机。跨helper重启Core owner/work清退仍是实现缺口，真实utun/双栈/LAN/split/stop/异常恢复仍缺实机证据。 见[结果与证据](../evidence/auth-observation-1ad5f06/RESULT.md)、[精确产物](../auth-observation-artifact.json)和[执行步骤](../auth-observation-experiment.md)。

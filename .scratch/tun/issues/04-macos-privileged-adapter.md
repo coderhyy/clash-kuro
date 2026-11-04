@@ -100,3 +100,6 @@ Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
 2026-11-04 最终组合检查点：[精确产物、摘要、离线解包证据与下一实验前置](../evidence/electron-candidate-20261104/RESULT.md)。硬化 App 的隔离功能/入口负例已测，最终 native 构建通过；启动取消与 stop ACK/status 两个并发窗口均修复并通过屏障回归。内嵌 App 禁用包 SHA256 `c3cdf1af1f5bd9f7745171b55958c78589c564db53152de69e8d9f4ed6a5b6bf`；9 个 bundle 固定位置/严格标识、预期 root BOM、展开身份与摘要已复核。未安装，仍不能执行真实 TUN；不要求用户开始。完整鉴权观察入口、生产网络接线、升级及真实系统验收仍未完成。
 
 2026-11-04 下一检查点（覆盖上述未提交/观察入口缺失状态）：[有限鉴权实验](../auth-observation-experiment.md)已实现共享生产AuthorizeClientAt的只读观察、Electron auth-only入口、候选封印限制、fresh回执/精确inventory与部分安装恢复。真实签名live fixture正例与身份/资源变化负例通过，不再要求穷尽Chromium/DYLD。生产激活门独立保留；身份成功无Core/network能力。生产网络hooks与每秒归属确认已接通，真实Core/utun/路由/DNS证明尚未取得。主会话将固定源码提交后构建候选，实验仍须用户另行授权。
+
+
+2026-11-04 固定候选检查点：有限 auth-only 实验候选已从干净提交 `1ad5f06ad17495fd4e45cc1f94e54979bddf4842` 构建，App/native/pkg同提交，实际Electron隔离14项、desktop446/16skip、native与typecheck通过。修复实际/private/tmp空ACL误拒绝并有先失败后通过回归；fresh回执/失败恢复/准确卸载已普通UID验证，实际Installer仍待本次授权。有限动态正例/身份负例必须通过同一生产AuthorizeClientAt；请求协议错误或超时不算身份拒绝。完整升级保留未完成，不阻塞此fresh实验。 见[结果与证据](../evidence/auth-observation-1ad5f06/RESULT.md)、[精确产物](../auth-observation-artifact.json)和[执行步骤](../auth-observation-experiment.md)。

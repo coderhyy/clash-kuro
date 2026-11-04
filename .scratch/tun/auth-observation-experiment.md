@@ -21,7 +21,7 @@
 
 ## 运行步骤（授权后，预计 8–12 分钟）
 
-最终候选路径、提交、SHA256、负例 prepared.json 和精确 helper 路径以同目录后续 `auth-observation-artifact.json` 为准；缺少该文件或任一摘要不符就停止。
+最终候选路径、提交、SHA256、负例 prepared.json 和精确 helper 路径以同目录 `auth-observation-artifact.json` 为准；缺少该文件或任一摘要不符就停止。
 
 1. 复算包、helper、脚本和负例摘要；只读确认固定 Tools/State/SocketDirectory/Client App/fresh 回执/恢复入口都不存在，且 `pkgutil --pkg-info dev.kuro.tun.disabled` 无既有 receipt。遇到已有安装不能覆盖或自动卸载它。
 2. 保存安装前目标状态，然后管理员授权执行 `/usr/sbin/installer -pkg '<精确候选包>' -target /`。包保持 disabled，不 bootstrap launchd、不启动 Core。安装失败立即停止测试，只用下述固定恢复入口处理可证明属于本次的文件。
