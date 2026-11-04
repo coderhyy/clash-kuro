@@ -113,10 +113,13 @@ static NSString *KuroPathComponent(NSString *name) {
   @synchronized(self) { if(_busy)return Fail(error,@"session transaction active; recovery refused"); _busy=YES; }
   BOOL ok=NO;
   @try {
-    KuroOwnedSession *observed=[[KuroOwnedSession alloc] initWithDirectory:_directory owner:_owner];
-    if(!observed.off || Exists([self work]))return Fail(error,@"Core ownership/work residual needs separate recovery; no PID adoption");
+    if((_session && _session.child>0) || Exists([_directory stringByAppendingPathComponent:@"owner.json"]) || Exists([self work]))return Fail(error,@"Core ownership/work residual needs separate recovery; no PID adoption");
+    if(!SafeChain([self anchor],_directory,_owner,YES,error))return NO;
+    // Network receipts are the recovery input, not proof of a live Core.
     if(!_hooks.recoverResidualNetwork || !_hooks.recoverResidualNetwork(error))return NO;
-    ok=YES; return YES;
+    KuroOwnedSession *observed=[[KuroOwnedSession alloc] initWithDirectory:_directory owner:_owner];
+    ok=observed.off && (!_session || _session.off) && !Exists([self work]);
+    return ok || Fail(error,@"network recovery did not independently clear ownership receipts");
   } @finally {
     [self snapshot:ok?@"off":@"unknown" error:ok?nil:@"residual ownership recovery is not proven"];
     @synchronized(self) { _busy=NO; }

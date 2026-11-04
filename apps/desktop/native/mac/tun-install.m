@@ -184,6 +184,21 @@ static BOOL RemoveClientSubset(NSString *prefix,uid_t owner,NSDictionary *entrie
 static BOOL SyncInstallDirectory(NSString *directory,NSString **error) {
   int fd=open(directory.fileSystemRepresentation,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);BOOL ok=fd>=0&&!fsync(fd);if(fd>=0)close(fd);return ok||Fail(error,@"install receipt directory sync failed");
 }
+// Match SafeNode's ACL policy, including macOS's NULL representation of no ACL.
+// Never treat acl_get_file failure alone as evidence that an ACL is absent.
+static BOOL InstallScriptsEmptyACL(NSString *path,NSString **error) {
+  acl_t acl=acl_get_file(path.fileSystemRepresentation,ACL_TYPE_EXTENDED);
+  if(!acl) {
+    struct attrlist attributes={.bitmapcount=ATTR_BIT_MAP_COUNT,.commonattr=ATTR_CMN_EXTENDED_SECURITY};
+    struct {uint32_t length;attrreference_t security;char data[65536];} result={0};
+    if(!getattrlist(path.fileSystemRepresentation,&attributes,&result,sizeof(result),FSOPT_NOFOLLOW) && result.length>=sizeof(uint32_t)+sizeof(attrreference_t) && result.security.attr_length==0)return YES;
+    return Fail(error,@"unable to verify Installer temporary ancestor ACL");
+  }
+  acl_entry_t entry;BOOL valid=acl_valid(acl)==0;errno=0;
+  BOOL empty=acl_get_entry(acl,ACL_FIRST_ENTRY,&entry)==-1&&errno==EINVAL;
+  acl_free(acl);
+  return (valid&&empty)||Fail(error,@"Installer temporary ancestor ACL not approved");
+}
 // Installer extracts its root-owned scripts below /private/tmp on some macOS releases.
 // Only that exact sticky root-owned ancestor is exempt from the non-writable rule.
 static BOOL InstallScriptsProtected(NSString *scripts,uid_t owner,NSString **error) {
@@ -196,7 +211,7 @@ static BOOL InstallScriptsProtected(NSString *scripts,uid_t owner,NSString **err
     if([part isEqual:@"/"])continue;current=[current stringByAppendingPathComponent:part];
     if([current isEqual:@"/private/tmp"]) {
       struct stat info;if(lstat(current.fileSystemRepresentation,&info)||info.st_uid!=0||!S_ISDIR(info.st_mode)||(info.st_mode&07777)!=01777)return Fail(error,@"unapproved Installer temporary ancestor");
-      acl_t acl=acl_get_file(current.fileSystemRepresentation,ACL_TYPE_EXTENDED);acl_entry_t entry;errno=0;BOOL empty=acl&&acl_valid(acl)==0&&acl_get_entry(acl,ACL_FIRST_ENTRY,&entry)==-1&&errno==EINVAL;if(acl)acl_free(acl);if(!empty)return Fail(error,@"Installer temporary ancestor ACL not approved");
+      if(!InstallScriptsEmptyACL(current,error))return NO;
     } else if(!SafeNode(current,0,YES,error))return NO;
   }
   return YES;

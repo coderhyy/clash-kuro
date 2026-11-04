@@ -11,6 +11,30 @@ import { macosClientPin } from './macos-client-pin.mjs'
 
 const installed = '/Library/Application Support/Clash Kuro/Client/Clash Kuro.app'
 const endpoint = '/var/run/dev.kuro.tun/auth.sock'
+export function assertExternalIdentityRejection(stdout) {
+  const { nativeReply } = JSON.parse(stdout)
+  assert.deepEqual(Object.keys(nativeReply ?? {}).sort(), ['error', 'ok', 'version'])
+  assert.equal(nativeReply.version, 1)
+  assert.equal(nativeReply.ok, false)
+  // Protocol/transport failures do not establish that the native client policy ran.
+  assert.ok([
+    'dynamic peer code is not valid',
+    'client hardening is insufficient',
+    'client resources or exact approved identity are unavailable',
+    'full client code seal is invalid'
+  ].includes(nativeReply.error), 'External client must receive an explicit native identity rejection')
+  return nativeReply
+}
+function selfCheckExternalIdentityRejection() {
+  const reply = error => JSON.stringify({ nativeReply: { version: 1, ok: false, error } })
+  assertExternalIdentityRejection(reply('dynamic peer code is not valid'))
+  assertExternalIdentityRejection(reply('client resources or exact approved identity are unavailable'))
+  for (const error of ['one bounded newline auth request required', 'auth observation accepts only version-1 authenticate', 'auth response timeout']) {
+    assert.throws(() => assertExternalIdentityRejection(reply(error)))
+  }
+  assert.throws(() => assertExternalIdentityRejection(JSON.stringify({ nativeReply: { version: 1, ok: true, authenticated: true } })))
+  console.log('External identity rejection self-check passed (no socket or system operations)')
+}
 async function refusedOperation(operation) {
   return new Promise((resolve, reject) => {
     const socket = createConnection(endpoint)
@@ -62,6 +86,7 @@ export async function runAuthObservation(preparedPath) {
   const external = spawnSync(process.execPath, [prepared.nodeClient], { encoding: 'utf8', timeout: 5000, maxBuffer: 8192 })
   await writeFile(join(evidence, 'external.json'), JSON.stringify({ status: external.status, signal: external.signal, stdout: external.stdout, stderr: external.stderr, error: external.error?.message }, null, 2), { mode: 0o600 })
   assert.equal(external.status, 0, 'External client must receive explicit native identity rejection')
+  assertExternalIdentityRejection(external.stdout)
   const denied = []
   for (const operation of ['start', 'open', 'stop', 'recover', 'exec']) denied.push({ operation, reply: await refusedOperation(operation) })
   // The invalid-seal copy is never executed; this is an OS/seal negative, not a native RPC result.
@@ -73,4 +98,7 @@ export async function runAuthObservation(preparedPath) {
   console.log(`Observation passed; service exit and exact uninstall still required. ${evidence}`)
   return evidence
 }
-if (process.argv[1] === fileURLToPath(import.meta.url)) runAuthObservation(process.argv[2]).catch(error => { console.error(error); process.exitCode = 1 })
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  if (process.argv[2] === '--self-test') selfCheckExternalIdentityRejection()
+  else runAuthObservation(process.argv[2]).catch(error => { console.error(error); process.exitCode = 1 })
+}

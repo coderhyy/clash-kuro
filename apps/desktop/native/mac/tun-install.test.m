@@ -31,8 +31,32 @@ static void CopyFreshPayload(NSString *source,NSString *prefix,NSDictionary *man
   for(NSString *name in @[@"manifest.json",@"client-inventory.json"])Put([inbox stringByAppendingPathComponent:name],[NSData dataWithContentsOfFile:[scripts stringByAppendingPathComponent:name]],0600);
   CHECK([ReadJSON(prefix,[inbox stringByAppendingPathComponent:@"manifest.json"],geteuid(),NULL) isEqual:manifest]);
 }
+static void InstallerScriptsACLTests(void) {
+  CHECK(geteuid()!=0);
+  NSString *error=nil;
+  // Read-only exercise of the exact production sticky-ancestor exception.
+  // macOS commonly reports no ACL here as NULL rather than an empty acl_t.
+  acl_t existing=acl_get_file("/private/tmp",ACL_TYPE_EXTENDED);
+  BOOL absent=existing==NULL;if(existing)acl_free(existing);
+  CHECK(InstallScriptsProtected(@"/private/tmp",0,&error));
+  char temporary[]="/tmp/kuro-installer-acl-XXXXXX";CHECK(mkdtemp(temporary));
+  NSString *directory=[NSString stringWithUTF8String:temporary];
+  CHECK(InstallScriptsEmptyACL(directory,&error));
+  CHECK(!InstallScriptsEmptyACL([directory stringByAppendingPathComponent:@"missing"],&error));
+  acl_t nonempty=acl_init(1);acl_entry_t entry;acl_permset_t permissions;
+  unsigned char qualifier[16]={0};qualifier[15]=1;
+  CHECK(nonempty&&!acl_create_entry(&nonempty,&entry));
+  CHECK(!acl_set_tag_type(entry,ACL_EXTENDED_ALLOW)&&!acl_set_qualifier(entry,qualifier));
+  CHECK(!acl_get_permset(entry,&permissions)&&!acl_add_perm(permissions,ACL_READ_DATA));
+  CHECK(!acl_set_permset(entry,permissions)&&!acl_valid(nonempty));
+  CHECK(!acl_set_file(temporary,ACL_TYPE_EXTENDED,nonempty));acl_free(nonempty);
+  CHECK(!InstallScriptsEmptyACL(directory,&error));
+  CHECK([[NSFileManager defaultManager] removeItemAtPath:directory error:NULL]);
+  printf("native installer ACL: production /private/tmp accepted (%s); no system mutation\n",absent?"NULL ACL absence fallback":"empty ACL object");
+}
 static void FreshInstallTests(void) {
   CHECK(geteuid()!=0);
+  InstallerScriptsACLTests();
   NSDictionary *minimal=@{@"format":@1,@"directories":@[@{@"path":@"",@"mode":@0755}],@"files":@[],@"links":@[]};CHECK(InventoryEntries(minimal,NULL));
   NSArray *bad=@[
     @{@"path":@"../outside",@"mode":@0644,@"sha256":Hash(Bytes(@"x"))},

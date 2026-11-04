@@ -203,8 +203,23 @@ static void ServiceTests(void) {
       Put(journal,Bytes(@"unknown owner"),0600);
       CHECK(![service recoverNetworkOnly:NULL] && residualRecoveries==1);
       CHECK(Exists(journal)); CHECK(!unlink(journal.fileSystemRepresentation));
+      NSString *routes=[directory stringByAppendingPathComponent:@"network.json"],*dns=[directory stringByAppendingPathComponent:@"network-dns.json"];
+      Put(routes,Bytes(@"retained route receipt"),0600); Put(dns,Bytes(@"retained DNS receipt"),0600);
+      // A lying/incomplete recovery hook cannot publish off while receipts remain.
+      CHECK(![service recoverNetworkOnly:NULL] && residualRecoveries==2);
+      CHECK([[service statusSnapshot][@"state"]isEqual:@"unknown"] && Exists(routes) && Exists(dns));
+      Put(journal,Bytes(@"unknown old Core owner"),0600);
+      CHECK(![service recoverNetworkOnly:NULL] && residualRecoveries==2 && Exists(journal)); CHECK(!unlink(journal.fileSystemRepresentation));
+      FixtureDirectory([directory stringByAppendingPathComponent:@"session-work"]);
+      CHECK(![service recoverNetworkOnly:NULL] && residualRecoveries==2 && Exists(routes) && Exists(dns)); CHECK(!rmdir([directory stringByAppendingPathComponent:@"session-work"].fileSystemRepresentation));
+      hooks.recoverResidualNetwork=^BOOL(NSString **error) {
+        (void)error; residualRecoveries++; CHECK(Exists(routes) && Exists(dns));
+        return !unlink(routes.fileSystemRepresentation) && !unlink(dns.fileSystemRepresentation);
+      };
+      CHECK([service recoverNetworkOnly:NULL] && residualRecoveries==3);
+      CHECK([[service statusSnapshot][@"state"]isEqual:@"off"] && !Exists(routes) && !Exists(dns));
     }
     CHECK([[NSFileManager defaultManager] removeItemAtPath:directory error:NULL]);
   }
-  puts("native service: 23 fixture cases cover closed open, preflight gates, private HTTP, typed control, concurrent status, single owner, stop, recovery refusal and work preservation");
+  puts("native service: 23 fixture cases cover closed open, preflight gates, private HTTP, typed control, concurrent status, single owner, stop, bounded network-only receipt recovery, Core-owner refusal and work preservation");
 }
