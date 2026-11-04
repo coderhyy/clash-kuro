@@ -166,7 +166,7 @@ static NSDictionary *KuroDNSPreflight(NSDictionary *records, NSString **error) {
   if (failure) return Fail(error, @"DNS recovery readback failed; ownership unknown");
   if (observed) {
     // SCDynamicStore has no public conditional remove/CAS. This is a unique
-    // root-owned UUID key on one serial writer; changed values are never removed.
+    // helper-generated UUID key on one serial session; observed changed values are preserved.
     if (![observed isEqual:record[@"after"]]) return Fail(error, @"DNS target changed; preserving third-party value and ownership journal");
     if (![_backend removeDNSKey:record[@"key"] error:error]) return NO;
     failure = nil;
