@@ -2,7 +2,7 @@
 
 Status: ready-for-agent（实现与隔离验证；真实操作等“开始”）
 Type: task
-Blocked by: 完整客户端可信链、有限Core控制broker、helper死亡后的owner约束与两族网络恢复证据；真实安装/网络验证等“开始”；01产品边界与09路线均已解决
+Blocked by: 受保护安装后的动态客户端鉴权与真实系统验收、helper死亡后的owner约束与真实双栈恢复证据；完整升级未齐；新真实系统实验须另获授权；01/09已解决
 Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
 
 ## 负责范围
@@ -19,7 +19,60 @@ Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
 - 网络工作清单：IPv6 路由、网络接口变化、双栈 DNS（AAAA 与回退）、停止/异常后的恢复，以及双栈泄漏测试；明确 IPv4/IPv6/DNS 归属和第三方冲突。双栈固定模板/无高级 UI/技术参数选定已批准，候选和版本证据见 [spec](../spec.md#固定版本事实与技术候选)；root 有限 schema 验证通过前不接入模板，候选不等于网络通过；保持LAN/split DNS、不新增DNS供应商，DNS缺失/不支持具体拒绝；显式DIRECT与无kill switch/路由消失可能直连已由 [ADR-0018](../../../docs/adr/0018-macos-tun-network-boundaries.md) 批准。不静默关闭IPv6，不宣称全流量/防泄漏。
 - 隔离/负例、Core/平台回归、typecheck 与打包通过；原型通过不等于生产认证/真实 root/launchd/网络验收，后者交 [08](08-tun-integration-acceptance.md) 串行执行。
 
+## 最小闭环设计记录（2026-11-04，按最新用户边界收敛）
+
+**推荐：安装时授权本 App 使用有限 TUN 能力，正常使用仍在 App 内单次点击；暂不增加原生确认组件。** 上一版“每次确认窗口＋会话组件”未获批准，已撤回作为前置依赖。用户不要求完全抵御已被攻陷的用户会话，但任意本地程序直接冒充 App、常规启动参数/环境注入、root 任意执行与文件访问仍须阻断。下面是选择的实现方向，不是生产鉴权已经通过。
+
+**用户已批准上述安装级有限授权与单次点击方案。** 本轮仅实验 A 获真实系统操作授权；实际 Electron 鉴权验证通过前保留生产拒绝门，未授权运行 Core 或任何网络实验。
+
+### 威胁、现有证据与最小方案
+
+| 必须覆盖 | 已有机制／必须补齐 |
+| --- | --- |
+| 其他本地程序直接连接、伪造 PID/路径/hash、重放会话或转交 FD 延续会话 | 内核 audit token/PID version、动态 SecCode、管理员安装的完整 App pin 与保护路径；同 UID 不放行；原实例存活、单会话、序号及 lease。已有 peer/FD 负例只证明基础原语 |
+| 篡改 App/ASAR/Core 或借可信 App 的公开环境/调试/代码加载入口发请求 | 完整 seal、受保护代码与资源、固定 Core pin；现有 Node/inspect fuses 和 ASAR 校验继续保留。候选为 Hardened Runtime＋仅必要的库校验例外，不允许 get-task-allow 或 allow-dyld-environment-variables；实际 Electron 的插件/动态库/Chromium 调试入口须审计与负例验证 |
+| 恶意 Profile 让 root 执行任意程序、加载用户路径或写任意文件 | helper 独立闭合 schema、固定 Core/工作目录、有限控制操作；禁止任意命令、可执行路径和通用 Core controller。语法检查不代替权限验证 |
+| App 消失、helper 崩溃后残留或误删第三方网络 | 准确直接子进程、原客户端生命绑定、持久自有网络记录、读回与比较恢复；未知拒绝开启，不能按持久化 PID 盲杀 |
+
+首版不承诺抵御恶意 root、已取得 App 主进程任意代码执行的漏洞或已获用户授权的 Accessibility 自动化。该限制不豁免上表中的公开注入入口，也不允许被攻陷客户端越过 helper 的有限 root 操作边界。
+
+**安装授权为什么可以承担长期授权：** 授权对象可以是“管理员批准的精确 App 版本＋固定有限操作”，无需每次重新证明用户点击。用户已选择此体验。helper 必须验证当前调用者确实属于这些受保护字节，并自己校验每个请求；只安装 helper、只验 UID/CDHash 或只靠 schema 都不够。安装/升级写入 App pin、更新前停止旧会话，旧实例/旧 pin 不再获新会话；无需新增共享 secret 或常驻转发器。
+
+**原生窗口增加的只是独立的逐次用户意图确认。** 如果组件接受任意程序请求后自动转发，它确实是 confused deputy；只有不可自动跳过的确认与不可变请求绑定才能补上该保证。它不替代 helper 鉴权、配置校验或残留恢复，也无法保证抵御已授权 UI 自动化。当前范围没有要求这项逐次确认，因此没有证据证明它不可替代。
+
+**上一轮结论修正：** 现有 `check-adhoc-library-validation.mjs` 证明严格库校验拒绝分别 ad-hoc 签名的动态库，不证明 “ad-hoc Electron 必须有另一个授权 App”。应先核验 Hardened Runtime 下的最小库校验例外与其余注入防护，不把“关闭库校验”误等同于“所有运行时保护关闭”，也不直接认为此例外已安全。
+
+本轮在同一脚本最小增补并实际验证：runtime＋disable-library-validation 能加载该 ad-hoc 库；没有 allow-dyld-environment-variables/get-task-allow 时，`DYLD_INSERT_LIBRARIES` constructor 注入负例未执行；去掉 runtime 的阳性对照确实执行。只运行普通用户临时 C loader，无 App、网络或服务操作。这推翻了“该库兼容障碍必然需要独立授权窗口”的推断，但没有验证 Electron 的所有加载路径，也不构成放行依据。
+
+具体待封闭入口而非抽象“完全安全”：当前 BrowserWindow 未关闭生产 DevTools；Electron 45 本地类型文档说明默认开启。现有 Node inspect fuse 不证明 Chromium `remote-debugging-port/pipe` 已禁用；固定 Framework 包含这些参数，尚未实测可达性。若 CDP 可达，可通过 renderer 的 `window.kuro.run` 触发有限命令，helper 的进程身份不会把它与正常 UI 点击区分。需核对生产 DevTools/CDP、启动参数及可加载脚本/原生库路径；不把同 UID 外部调试默认为“会话已攻陷”而跳过。
+
+一手代码证据：`apps/desktop/native/mac/kuro-tun-helper.m` 的 `Authorize` 当前拒绝库校验例外且末尾无条件拒绝；`client.json` 目前只有读取没有安装写入；`ProtectBundle` 对正常 framework 内部 symlink 的严格拒绝尚需改为受限解析并验证受保护目标。`electron-builder.yml` 当前仍为 hardenedRuntime:false；`verify-macos-app.cjs` 只验证静态 seal/fuses。`src/main/index.ts` 已限制窗口 IPC、导航与 packaged renderer 来源，但这些不证明完整运行时鉴权。**本轮不删除任何拒绝门，不把候选配置直接发成可用 TUN 包。**
+
+落地顺序：先完成受保护 App 安装/pin 契约与实际 Electron 入口负例，再调整 `Authorize` 的精确允许策略；并行继续准确 owner、有限服务和网络恢复。若候选仍存在无需攻陷会话即可利用的代码加载入口，再集中给出具体绕过证据及可选代价；不默认恢复每次弹窗方案。
+
+实验 A 期间并行完成[实际 Electron 产物离线核验](../electron-auth-verification.md)：现有 dist App seal/fuses 与 ASAR 摘要通过，但包内 15 个 Mach-O 均无 runtime flag，不能进入放行阶段。报告记录各产物独立摘要，未将 dist App 与 DMG/CI 包混用；下一步需构建并验证硬化候选的调试/代码加载负例和正常加载，测试入口须隔离现有用户数据并确保不启动 Core/触碰网络。所有动态项仍未执行。
+
+### 三个结果与阻塞
+
+| 结果 | 关键剩余条件 |
+| --- | --- |
+| 可信启动固定 Core、建立真实 TUN | 上述 App 信任链验证与安装接线、有限 Core 控制/并发 status、真实 utun 与双栈路由/DNS 就绪。当前 start 仍拒绝 |
+| 正常停／App 断线，准确停止并确认自有清理 | 接通已有 direct-child/lease 原语；准确路由 journal、读回与冲突保留；真实 DNS/接口清理证据 |
+| helper 强杀后识别恢复、不重开 | 实验 A 先验证 launchd 对无网络子进程行为；随后固定 Core 真实行为与跨重启网络恢复。实验 child 的自退出不得冒充 launchd 清理通过 |
+
+### 独立实验 A
+
+[源码、离线验证和执行说明](../prototypes/helper-lifecycle/README.md)。不依赖授权窗口方案，不运行 Core、不创建 TUN、不改变路由/DNS/登录项。补齐路径为：记录精确 epoch/PID/start-time/可执行文件身份，只读识别；残留 child 自行处理本次 epoch 的受保护停止标记，并有单调时钟寿命上限；不把观察 PID 转换为稍后 kill(pid)。观察窗口内组清理失败即记失败，恢复成功不能改写结果。
+
+准备状态：**已具备用户授权后执行本轮有限实验的产物、命令和残留 child 恢复步骤，尚未执行系统实验。** 原生严格编译/self-test 与 8 项驱动隔离测试通过；主会话复核相同结果和最终摘要。review `/private/tmp/kuro-lifecycle-a-review`，binary SHA256 `6a9c665c6af2dc3428db026d61ad5b734577afff809e00dba08ed968173798ef`；driver SHA256 `4b1c05025816da23ffe702eaaaa7598c12d4663c0c8836c608f059479ee64953`。仅使用 README 当前 epoch `668F8E2A-414B-476C-A648-1DC49D24788B`，旧 review 不用。
+
+流程为精确安装→启动测试 job→30 秒内按 job 强杀→1/5 秒只读观察→epoch marker/TTL 恢复→确认两进程与 job 不存在再移除精确文件，通常 3–5 分钟；TTL 兜底约 5–7 分钟清醒时间。原生观察器使用与证据相同的时钟判定观察窗口，不混用 Python 时基。脚本删除前输出证据，用户保存终端即可。部分安装/缺 evidence/身份未知仍保留现场并阻塞，不能称完备自动回滚安装器。
+
+真实安装、服务变更和强杀均仍等“开始”。实验只回答此 fixture 的进程生命周期，不能证明 Core 或生产网络清理。Backup／登录项不因此重打包。完整命令、产物摘要、影响范围、耗时与停止条件以实验 README 为准。
+
 ## Comments
+
+2026-11-04 实验 A 实证：获用户明确授权后执行固定 epoch，强杀测试 supervisor 后约 1s/5s 两进程均 absent，job runs=1 且未重启；没有停止标记/到期退出证据，判定本 fixture 的 launchd 组清理通过。随后精确 bootout/清单移除成功，最终独立只读核验 job 与三个安装目标均不存在。共享父目录及用户态 review/build 留存。完整[结果和原始证据](../prototypes/helper-lifecycle/results-668F8E2A/RESULT.md)。该结果不证明 mihomo 不脱组或网络清理；生产仍需固定 Core/接口行为及路由/DNS恢复实证，另行准备和授权，不能沿用 A 授权。安装级 App 鉴权离线核验并行推进，start 继续拒绝。
 
 2026-11-04：11/12 已归并，本票未实现完成。既有安装目录模型 16/16（setuid 为元数据模拟）、C 身份原语两分支是有限证据，原记录见历史票。源码由实施 agent 交付，最终命令、产物与验证证据待回填；没有真实系统授权。
 
@@ -34,3 +87,16 @@ Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
 2026-11-04 受限会话切片：生产新增独立root闭合schema/JSON候选、audit-token+CDHash存活检查、direct-child监督与lease、SCDynamicStore自有临时DNS记录组件。原生全套普通用户隔离测试通过；候选经固定Core v1.19.33的真实-t通过，修复JSON/YAML转义兼容性并留回归；CI先fetch固定Core并要求该用例不得跳过。客户端收到完整V2配置，不再通过V1启动。固定plist显式AbandonProcessGroup:false，残留检查覆盖network-dns.json。
 
 这仍不是04交付完成：真实open拒绝；完整可信授权、有限Core控制broker、长连接与并发status服务、helper SIGKILL后的组约束、准确utun/双栈路由恢复未齐；DNS组件只有自有key级证据。安装仍fresh-only且服务禁用，升级未补齐。App加入fuses/ASAR seal离线检查，但ad-hoc hardened动态库实验验证了Team ID兼容障碍，不能将静态验包当完整调用者鉴权；详见安全方案新增实验证据。
+
+
+## 当前检查点：service / routes / client pin（2026-11-04）
+
+本节覆盖上文“service串行”“broker/路由组件尚未实现”“client pin只有读取”“Framework链接一律拒绝”“Electron尚无硬化动态证据”等旧检查点；历史产物和实验结果仍仅适用于原对象。当前已有单owner的V2服务、并发独立status worker、私有Core socket及有限mode/select控制；普通用户无网络child fixture覆盖启动拒绝、lease/stop、状态读回与失败保留。路由组件已有有界PF_ROUTE编解码/后端、双栈精确条目、journal与持久确认、独立readback和保守compare-delete；wire/注入测试通过，没有调用真实PF_ROUTE/sysctl。原Core已退出且接口消失只允许确认记录路由不存在，跨helper重启或归属未知保留现场。四条`/1`仅为离线计划候选，不证明LAN/split路由、egress或全流量覆盖。
+
+安装manifest可选完整client pin现已接Install/Uninstall；固定目标为`/Library/Application Support/Clash Kuro/Client/Clash Kuro.app`，允许受限、受保护的Framework内部相对链接；卸载只移精确批准记录，保留App。临时普通用户fixture已验证签名/篡改及pin落盘清理；打包显式限制主App与ChildBundles的relocation/version skip。fresh-only仍拒绝已有/部分安装，升级、安装失败恢复与管理员精确包消费绑定尚未完成真实验证。
+
+[冻结Electron候选](../electron-auth-verification.md)已通过15个Mach-O的runtime/最小entitlement、seal/ASAR/fuse核验，14/14隔离启动/UI/IPC与环境/调试负例，以及3/3离线篡改/重签比较；不使用真实Platform/Core/helper/network。它不等于安装后动态鉴权，也不穷尽所有Chromium/DYLD入口。`Authorize`最终拒绝仍保留，生产`ready`/`applyNetwork`/`recoverNetwork` hooks均拒绝；DNS激活须实际route receipts、live owner和内部resolver probe，真实PF_ROUTE竞争/flags、LAN/split DNS/AAAA与回退、接口变化、异常恢复未验。实验A只证明其无网络fixture的launchd组清理，不证明mihomo或网络行为。本票未完成；本轮最终组合测试/精确产物摘要由主会话另填。
+
+2026-11-04 最终组合检查点：[精确产物、摘要、离线解包证据与下一实验前置](../evidence/electron-candidate-20261104/RESULT.md)。硬化 App 的隔离功能/入口负例已测，最终 native 构建通过；启动取消与 stop ACK/status 两个并发窗口均修复并通过屏障回归。内嵌 App 禁用包 SHA256 `c3cdf1af1f5bd9f7745171b55958c78589c564db53152de69e8d9f4ed6a5b6bf`；9 个 bundle 固定位置/严格标识、预期 root BOM、展开身份与摘要已复核。未安装，仍不能执行真实 TUN；不要求用户开始。完整鉴权观察入口、生产网络接线、升级及真实系统验收仍未完成。
+
+2026-11-04 下一检查点（覆盖上述未提交/观察入口缺失状态）：[有限鉴权实验](../auth-observation-experiment.md)已实现共享生产AuthorizeClientAt的只读观察、Electron auth-only入口、候选封印限制、fresh回执/精确inventory与部分安装恢复。真实签名live fixture正例与身份/资源变化负例通过，不再要求穷尽Chromium/DYLD。生产激活门独立保留；身份成功无Core/network能力。生产网络hooks与每秒归属确认已接通，真实Core/utun/路由/DNS证明尚未取得。主会话将固定源码提交后构建候选，实验仍须用户另行授权。

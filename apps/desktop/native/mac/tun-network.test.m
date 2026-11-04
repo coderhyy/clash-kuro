@@ -1,4 +1,5 @@
 #import "tun-network.m"
+#import "tun-routes.test.m"
 
 @interface KuroFakeDNSStore : NSObject <KuroDNSStore>
 @property(nonatomic) NSMutableDictionary *records;
@@ -14,6 +15,7 @@
 @property(nonatomic) BOOL lieRemove;
 @property(nonatomic) BOOL replaceAfterAdd;
 @property(nonatomic) BOOL changeOnSecondSnapshot;
+@property(nonatomic,copy) void (^onSnapshot)(void);
 @end
 @implementation KuroFakeDNSStore
 - (instancetype)init {
@@ -22,6 +24,7 @@
 }
 - (NSDictionary *)dnsRecords:(NSString **)error {
   _snapshots++;
+  if (_onSnapshot) _onSnapshot();
   if (_failSnapshot) { Fail(error, @"snapshot failure"); return nil; }
   if (_changeOnSecondSnapshot && _snapshots == 2) _records[@"State:/Network/Service/default/DNS"] = @{@"ServerAddresses": @[@"192.168.1.2"]};
   return [_records copy];
@@ -49,8 +52,12 @@
 }
 @end
 
+#import "tun-production-network.test.m"
+
 static void NetworkTests(void) {
   CHECK(geteuid() != 0);
+  RouteTests();
+  ProductionNetworkTests();
   char temporary[] = "/tmp/kuro-dns-owner-XXXXXX"; CHECK(mkdtemp(temporary));
   char canonical[PATH_MAX]; CHECK(realpath(temporary, canonical));
   NSString *base = [NSString stringWithUTF8String:canonical];
@@ -114,8 +121,8 @@ static void NetworkTests(void) {
     }
   }
   NSArray *unsupported = @[
-    @{}, @{@"SupplementalMatchDomains": @[@"corp.example"]}, @{@"SearchDomains": @[@"lan"]},
-    @{@"DomainName": @"corp.example"}, @{@"Options": @"mdns"}, @{@"ServerPort": @5353},
+    @{}, @{@"SupplementalMatchDomains": @[@""]}, @{@"SearchDomains": @[@"bad domain"]},
+    @{@"DomainName": @"bad/domain"}, @{@"Options": @"mdns"}, @{@"ServerPort": @5353},
     @{@"SearchOrder": @YES}, @{@"ServerAddresses": @[@"fe80::1%en0"]}, @{@"ServerAddresses": @[]},
   ];
   for (NSUInteger index = 0; index < unsupported.count + 3; index++) {
@@ -124,11 +131,20 @@ static void NetworkTests(void) {
     NSMutableDictionary *value = [@{@"ServerAddresses": @[@"192.168.1.1"]} mutableCopy];
     if (index < unsupported.count) { [value addEntriesFromDictionary:unsupported[index]]; if (index == 0) [value removeAllObjects]; }
     backend.records[@"State:/Network/Service/default/DNS"] = value;
-    if (index == unsupported.count) backend.records[@"State:/Network/Interface/utun7/DNS"] = value;
+    if (index == unsupported.count) backend.records[@"State:/Network/Unsupported/utun7/DNS"] = value;
     if (index == unsupported.count + 1) [backend.records removeAllObjects];
     if (index == unsupported.count + 2) backend.failSnapshot = YES;
     KuroOwnedDNS *dns = [[KuroOwnedDNS alloc] initWithDirectory:directory owner:geteuid() backend:backend];
     CHECK(![dns installForSession:session error:&error] && backend.additions == 0 && !Exists([directory stringByAppendingPathComponent:KuroDNSJournal]));
+  }
+  // Preserve supported LAN search and more-specific split resolver records byte-for-byte.
+  {
+    NSString *directory=[base stringByAppendingPathComponent:@"split-supported"]; FixtureDirectory(directory);
+    KuroFakeDNSStore *backend=[KuroFakeDNSStore new]; backend.directory=directory;
+    backend.records[@"State:/Network/Service/corp/DNS"]=@{@"ServerAddresses":@[@"192.168.1.53"],@"SearchDomains":@[@"corp.example"],@"DomainName":@"corp.example",@"SupplementalMatchDomains":@[@"corp.example"],@"SupplementalMatchOrders":@[@100],@"SupplementalMatchDomainsNoSearch":@1};
+    NSDictionary *before=[backend.records copy]; KuroOwnedDNS *dns=[[KuroOwnedDNS alloc]initWithDirectory:directory owner:geteuid() backend:backend];
+    CHECK([dns installForSession:session error:&error]); CHECK(![dns recoverDNSAbsence:&error] && !backend.removals);
+    CHECK([dns recoverDNS:&error] && [backend.records isEqual:before]);
   }
   for (NSUInteger scenario = 0; scenario < 7; scenario++) {
     NSString *directory = [base stringByAppendingPathComponent:[NSString stringWithFormat:@"invalid%lu", (unsigned long)scenario]]; FixtureDirectory(directory);
@@ -160,6 +176,26 @@ static void NetworkTests(void) {
     }
     CHECK(!dns.dnsOff && backend.removals == 0);
   }
+  // Production DNS entry cannot skip route proof, a failed local probe, or an
+  // owner disappearing while the DNS adapter is taking its baseline snapshot.
+  for (NSUInteger scenario=0;scenario<5;scenario++) {
+    NSString *directory=[base stringByAppendingPathComponent:[NSString stringWithFormat:@"route-gate%lu",(unsigned long)scenario]]; FixtureDirectory(directory);
+    KuroCoreInterface association=RouteFixtureInterface(); __block KuroRouteOwnerState owner=KuroRouteOwnerLive;
+    KuroRouteOwnership ownership=^KuroRouteOwnerState(KuroCoreInterface value,NSString **failure) { (void)value; (void)failure; return owner; };
+    KuroFakeRouteStore *routeStore=[KuroFakeRouteStore new]; routeStore.directory=directory;
+    KuroOwnedRoutes *routes=[[KuroOwnedRoutes alloc]initWithDirectory:directory owner:geteuid() backend:routeStore];
+    if (scenario!=0) CHECK([routes installForSession:session interface:association routes:KuroSplitRouteCandidate(association) ownership:ownership error:&error]);
+    KuroFakeDNSStore *store=[KuroFakeDNSStore new]; store.directory=directory;
+    KuroOwnedDNS *dns=[[KuroOwnedDNS alloc]initWithDirectory:directory owner:geteuid() backend:store];
+    BOOL (^probe)(NSString **)=^BOOL(NSString **failure) { (void)failure; if (scenario==2) { owner=KuroRouteOwnerUnknown; return YES; } return scenario!=1; };
+    if (scenario==4) store.onSnapshot=^{ owner=KuroRouteOwnerUnknown; };
+    BOOL installed=[dns installForSession:session routes:routes interface:association ownership:ownership dnsReady:probe error:&error];
+    if (scenario==3) { CHECK(installed && store.additions==1); CHECK([dns recoverDNS:&error]); }
+    else {
+      CHECK(!installed && !store.additions);
+      CHECK(Exists([directory stringByAppendingPathComponent:KuroDNSJournal])==(scenario==4));
+    }
+  }
   CHECK([[NSFileManager defaultManager] removeItemAtPath:base error:NULL]);
-  puts("native DNS ownership: 29 mock/temp scenarios passed; no Darwin store or system network operation executed");
+  puts("native DNS ownership: 30 journal + 5 route-admission scenarios passed; no Darwin store or system network operation executed");
 }

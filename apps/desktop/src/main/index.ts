@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, powerMonitor, shell, Tray, type IpcMainEvent, type IpcMainInvokeEvent } from 'electron'
 import { join } from 'node:path'
+import { readFileSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import { appendFile, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { createMihomoClient } from '@kuro/api'
@@ -14,12 +15,50 @@ import { prepareResidentStartup } from './app/resident-startup'
 import { IPC, type BackupResult, type StreamKind } from './ipc-channels'
 import { trayIcon } from './tray-icon'
 import { t } from '../shared/i18n'
+import { assertObservationCandidateLaunch, inspectPackagedArguments, prepareVerificationDirectory, runAuthenticationVerification, runRuntimeVerification, safeWebPreferences } from './runtime-verification'
 
 // KURO_RELEASE_REPO=owner/name overrides the release source (e.g. for forks).
 const RELEASE_REPO = process.env.KURO_RELEASE_REPO ?? 'coderhyy/clash-kuro'
 const SHUTDOWN_TIMEOUT_MS = 3_000
 
-if (!app.requestSingleInstanceLock()) {
+let verificationDirectory: string | undefined
+let authenticationOnly = false
+let startupRefused = false
+if (app.isPackaged) {
+  try {
+    const launch = inspectPackagedArguments(process.argv.slice(1))
+    // Chromium may parse switches before JS. Dynamic CDP negatives must also pass.
+    if (launch.error) throw new Error(launch.error)
+    const sealedMetadata: unknown = JSON.parse(readFileSync(join(app.getAppPath(), 'package.json'), 'utf8'))
+    assertObservationCandidateLaunch(sealedMetadata, launch.directory)
+    verificationDirectory = launch.directory
+    authenticationOnly = launch.authenticate === true
+    if (verificationDirectory) {
+      const paths = prepareVerificationDirectory(verificationDirectory)
+      for (const [name, path] of Object.entries(paths)) app.setPath(name as 'userData' | 'sessionData' | 'crashDumps', path)
+      app.disableHardwareAcceleration()
+    }
+  } catch (error) {
+    startupRefused = true
+    console.error(error instanceof Error ? error.message : String(error))
+    app.exit(64)
+  }
+}
+
+if (startupRefused) {
+  // No production platform, profiles or Core are created on a refused launch.
+} else if (verificationDirectory) {
+  const directory = verificationDirectory
+  void app.whenReady().then(async () => {
+    if (authenticationOnly) {
+      await runAuthenticationVerification({ app, directory })
+      return
+    }
+    const window = new BrowserWindow({ show: false, width: 960, height: 640,
+      webPreferences: safeWebPreferences(join(__dirname, '../preload/index.js')) })
+    await runRuntimeVerification({ app, window, ipc: ipcMain, directory, renderer: join(__dirname, '../renderer/index.html') })
+  }).catch(error => { console.error(error); app.exit(1) })
+} else if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
   void main()
@@ -104,7 +143,7 @@ async function main(): Promise<void> {
     win = new BrowserWindow({
       width: 960, height: 640, minWidth: 720, minHeight: 520, title: 'Clash Kuro', show: false,
       backgroundColor: nativeTheme.shouldUseDarkColors ? '#1f2430' : '#f8f9fa',
-      webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: true, contextIsolation: true }
+      webPreferences: safeWebPreferences(join(__dirname, '../preload/index.js'))
     })
     win.once('ready-to-show', () => win?.show())
     // The user may toggle the login item in System Settings while we run.

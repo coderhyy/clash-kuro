@@ -10,13 +10,17 @@ static void SessionTests(void) {
     FixtureDirectory(directory);
     NSString *child = [directory stringByAppendingPathComponent:@"child"]; Put(child, [NSData dataWithContentsOfFile:binary], 0755);
     KuroOwnedSession *session = [[KuroOwnedSession alloc] initWithDirectory:directory owner:geteuid()];
+    CHECK(![session setLaunchEvidence:@{@"template":@"arbitrary"} error:&error]);
+    NSDictionary *evidence=@{@"configSHA256":Hash(Bytes(@"config")),@"coreSHA256":Hash(Bytes(@"core")),@"template":@"macos-dual-stack-v1"};
+    CHECK([session setLaunchEvidence:evidence error:&error]);
     __block BOOL cleanupAllowed = scenario != 5; __block NSUInteger cleanups = 0;
     CHECK(([session spawnExecutable:child arguments:@[@"--session-child", @"ignore-term"] beforeResume:^BOOL(NSString **failure) {
       (void)failure;
       NSDictionary *record = ReadJSON(directory, [directory stringByAppendingPathComponent:@"owner.json"], geteuid(), NULL);
       CHECK([record[@"pid"] intValue] == session.child); CHECK([record[@"session"] isEqual:session.identifier]);
-      CHECK([record[@"phase"] isEqual:@"prepared"]); return YES;
+      CHECK([record[@"phase"] isEqual:@"prepared"]); CHECK([record[@"launch"] isEqual:evidence]); CHECK([record[@"processGroup"] intValue]==getpgrp()); return YES;
     } afterReap:^BOOL(NSString **failure) { (void)failure; cleanups++; return cleanupAllowed; } error:&error]));
+    CHECK(![session setLaunchEvidence:evidence error:&error]);
     pid_t owned = session.child; CHECK(owned > 0 && !session.off);
     int pair[2]; CHECK(!socketpair(AF_UNIX, SOCK_STREAM, 0, pair));
     pid_t writer = 0;
@@ -54,6 +58,12 @@ static void SessionTests(void) {
   NSString *failedDirectory = [base stringByAppendingPathComponent:@"prepare-failed"]; FixtureDirectory(failedDirectory);
   NSString *child = [failedDirectory stringByAppendingPathComponent:@"child"]; Put(child, [NSData dataWithContentsOfFile:binary], 0755);
   KuroOwnedSession *failed = [[KuroOwnedSession alloc] initWithDirectory:failedDirectory owner:geteuid()];
+  CHECK(![failed spawnExecutable:child arguments:@[@"--session-child"] workingDirectory:failedDirectory beforeResume:^BOOL(NSString **failure) { (void)failure; return YES; } afterReap:^BOOL(NSString **failure) { (void)failure; return YES; } error:&error]);
+  CHECK(failed.off && !failed.child);
+  __block NSUInteger resumeGates=0,deniedCleanup=0;
+  CHECK(![failed spawnExecutable:child arguments:@[@"--session-child"] workingDirectory:nil beforeResume:^BOOL(NSString **failure) { (void)failure;return YES; } afterReap:^BOOL(NSString **failure) { (void)failure;deniedCleanup++;return YES; } resumeGate:^BOOL(KuroSessionHook resume,NSString **failure) { CHECK(resume!=nil);resumeGates++;return Fail(failure,@"test cancellation before SIGCONT"); } error:&error]);
+  CHECK(resumeGates==1 && deniedCleanup==1 && failed.off && !failed.child);
+  CHECK([error containsString:@"resume refused"]);
   CHECK(![failed spawnExecutable:child arguments:@[@"--session-child"] beforeResume:^BOOL(NSString **failure) { (void)failure; return NO; } afterReap:^BOOL(NSString **failure) { (void)failure; return YES; } error:&error]);
   CHECK(failed.off && !failed.child);
   Put([failedDirectory stringByAppendingPathComponent:@"owner.json"], Bytes(@"foreign-owner"), 0600);

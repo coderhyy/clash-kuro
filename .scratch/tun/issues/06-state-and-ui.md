@@ -2,7 +2,7 @@
 
 Status: ready-for-agent（生产客户端/State/UI已接线；完整安全适配与最终验证分阶段）
 Type: task
-Blocked by: 主会话统一接口已接入；受限配置及V2客户端已接；实际开启先等04可信链/有限Core控制/准确owner与恢复；01产品边界已全部解决，不再等待DNS/DIRECT/kill switch选择
+Blocked by: 04受保护安装后动态鉴权与生产service/network hooks、真实双栈归属/恢复及最终组合验证；共享配置/V2/State/UI已接入，01产品决定已解决
 Owner: TUN 接入 agent；主会话统一 Core/State/桌面公共接口与源码分工
 
 ## 负责范围
@@ -33,3 +33,18 @@ Owner: TUN 接入 agent；主会话统一 Core/State/桌面公共接口与源码
 
 
 2026-11-04 当前实现复核：生产 Profile → Override → 当前 mode 的受限 TUN 配置先准入，再停止旧模式；反向 `startCore` / `setSystemProxy` 通过 `stopTunIfNeeded(beforeStop)`，在 inspect 确认活跃后先离线验证目标普通配置，失败不调用 TUN stop/普通 start/代理 set。主会话报告 State170/170，本 agent 只读复核并重跑该两项回归通过。V2客户端完整发送重验后的config，无V1start回退；有限帧/严格UTF-8与重复键/sequence/单心跳/lease、断链unknown和停止独立status读回已实现，会话捕获竞态已修复，临时socket43/43及main typecheck通过。原生Serve仍串行并拒绝open，活跃session/并发status与可信链/broker/网络归属恢复仍未汇合；本票保持进行中，无真实系统验收授权。
+
+
+## 当前检查点：生产调用方与原生组件（2026-11-04）
+
+本节覆盖上文“原生Serve仍串行”“活跃session/有限broker/路由未接入”“网络hooks只无条件拒绝”的历史状态。原生已有单owner V2服务、并发独立status、lease/stop、私有Core socket及有限mode/select；桌面完整config重验、离线准入先于停止旧模式、恢复锁、重开手动启用与无kill switch文案不变。主会话接入生产鉴权及network hooks，外层真实启动策略门仍关闭；组件fixture不代表真实会话验收通过。
+
+本轮 [`tun-production-network.m`](../../../apps/desktop/native/mac/tun-production-network.m) 已实现真实系统后端的协调路径：认证后的preflight读取route/DNS/interface基线；仅接受同一已验证physical接口的双栈默认出口；持有原Core子进程的utun socket/名称/index与固定双栈地址/flags观测后，才以journal→确认→readback顺序安装四条`/1`和自有临时DNS key。运行中复核接口检查route receipts、保留基线、exact own DNS、physical/utun及本机解析器，供主会话每秒调用，失败走停止/unknown，不切换普通Core或System Proxy。
+
+LAN/split支持边界具体为：保留现有更具体route及已识别的search/supplemental/scoped DNS原记录；Profile literal私有端点与既有DNS服务器须有可证明保留的更具体路径（Core出口还须匹配physical绑定），default-only私网路径、分离双默认出口、已有split-default owner、固定内部地址冲突、未知DNS字段/scoped literal等具体拒绝。不静默新增DIRECT规则、上游供应商或修改既有设置，不宣称枚举并保留任意LAN。内部唯一保留域`kuro-tun-ready.invalid`由root固定hosts映射，A/AAAA仅向utun内固定resolver发包并验证精确静态答复；不查询公共测试域名，内部域不构成DNS隐私产品变化。App闭合schema不开放physical接口/hosts字段。
+
+同一held session恢复先移除精确自有DNS，再按当前归属恢复route；原Core已退出且utun消失仅接受相关route已absent，不盲删残留。全新helper的`recoverSession:nil`只校验保护receipt与目标route/DNS absence并清退receipt；有任何目标prefix/key、未知/变更记录则保留、返回恢复需要，绝不从持久PID推导kill/route写权限。此API仅证明网络组件，不能清除Core owner或冒报整会话off。
+
+普通用户注入验证：生产协调层13场景（含基线变化、默认私网不支持、分离双默认、local probe失败、部分DNS写入、归属未知、跨重启冲突/absence、运行中DNS篡改与route消失）及原有route/DNS用例通过；构造对象不读网络，测试不调用Darwin网络后端、Core或`-t`。最终全量native/desktop/build和产物身份由主会话回填。
+
+剩余实机证据保持有限：固定Core真实utun/address/flags与本地静态DNS A/AAAA；Darwin PF_ROUTE flags/ack/精确readback及并发删除窗口；physical绑定、既有LAN/split DNS优先级；正常stop、App失联、Core/helper异常及重启后receipt/临时DNS/route absence。PF_ROUTE与SCDynamicStore无公开CAS，不能把注入验证当成原子compare-delete实证。[Electron候选](../electron-auth-verification.md)隔离验证不代替受保护安装后的动态peer鉴权；fresh-only升级未齐。实验A仅无网络fixture，本轮未执行Core、utun、路由/DNS或root安装，也无新增真实系统操作授权；本票保持进行中。

@@ -1,6 +1,7 @@
 // Internal DNS ownership primitive. Not an RPC or permission to start TUN:
 // route ownership and Core DNS-readiness gates must succeed at its caller.
 #import <SystemConfiguration/SystemConfiguration.h>
+#import "tun-routes.m"
 #include <arpa/inet.h>
 #include <pthread.h>
 
@@ -69,19 +70,29 @@ static NSDictionary *KuroDNSPreflight(NSDictionary *records, NSString **error) {
   if (![records isKindOfClass:NSDictionary.class] || !records.count || records.count > 256) { Fail(error, @"DNS preflight lacks a bounded default-resolver snapshot"); return nil; }
   for (NSString *key in records) {
     if (![key isKindOfClass:NSString.class] || [key hasPrefix:KuroDNSPrefix] ||
-      !Match(key, @"\\A(State|Setup):/Network/(Global|Service/[^/]+)/DNS\\z")) { Fail(error, @"DNS preflight found retained ownership or unsupported scoped/interface DNS"); return nil; }
-    NSDictionary *value = records[key];
-    if (![value isKindOfClass:NSDictionary.class]) { Fail(error, @"DNS preflight record is not a mapping"); return nil; }
-    for (NSString *field in value) {
-      if (![@[@"ServerAddresses", @"ServerPort", @"SearchOrder", @"SearchDomains", @"DomainName"] containsObject:field]) { Fail(error, @"DNS preflight cannot preserve supplemental/scoped DNS or an unknown resolver field"); return nil; }
+      !Match(key, @"\\A(State|Setup):/Network/(Global|Service/[^/]+|Interface/[a-zA-Z][a-zA-Z0-9]{0,14})/DNS\\z")) { Fail(error,@"DNS preflight found retained ownership or unsupported resolver key"); return nil; }
+    NSDictionary *value=records[key];
+    if (![value isKindOfClass:NSDictionary.class]) { Fail(error,@"DNS record is not a mapping"); return nil; }
+    for (NSString *field in value) if (![@[@"ServerAddresses",@"ServerPort",@"SearchOrder",@"SearchDomains",@"DomainName",@"SupplementalMatchDomains",@"SupplementalMatchOrders",@"SupplementalMatchDomainsNoSearch",@"InterfaceIndex"]containsObject:field]) {
+      Fail(error,[NSString stringWithFormat:@"unsupported DNS resolver field %@; preserving existing configuration",field]); return nil;
     }
-    if ((value[@"SearchDomains"] && (![value[@"SearchDomains"] isKindOfClass:NSArray.class] || [value[@"SearchDomains"] count])) ||
-      (value[@"DomainName"] && ![value[@"DomainName"] isEqual:@""])) { Fail(error, @"DNS preflight cannot prove LAN/search-domain preservation; refusing DNS takeover"); return nil; }
-    NSArray *servers = value[@"ServerAddresses"];
-    if (![servers isKindOfClass:NSArray.class] || !servers.count || servers.count > 16) { Fail(error, @"DNS preflight has no explicit bounded resolver addresses"); return nil; }
-    for (NSString *server in servers) if (!KuroDNSIP(server)) { Fail(error, @"DNS preflight contains an unsupported resolver address"); return nil; }
-    if ((value[@"ServerPort"] && ![value[@"ServerPort"] isEqual:@53]) ||
-      (value[@"SearchOrder"] && !KuroNumber(value[@"SearchOrder"], 0, UINT32_MAX))) { Fail(error, @"DNS preflight contains unsupported resolver port/order"); return nil; }
+    NSArray *servers=value[@"ServerAddresses"];
+    if (![servers isKindOfClass:NSArray.class] || !servers.count || servers.count>16) { Fail(error,@"DNS record lacks bounded explicit servers"); return nil; }
+    for (NSString *server in servers) if (!KuroDNSIP(server)) { Fail(error,@"DNS server address is unsupported (including scoped literals)"); return nil; }
+    if ((value[@"ServerPort"] && ![value[@"ServerPort"]isEqual:@53]) || (value[@"SearchOrder"] && !KuroNumber(value[@"SearchOrder"],0,UINT32_MAX)) ||
+      (value[@"InterfaceIndex"] && !KuroNumber(value[@"InterfaceIndex"],1,UINT16_MAX)) ||
+      (value[@"SupplementalMatchDomainsNoSearch"] && !KuroNumber(value[@"SupplementalMatchDomainsNoSearch"],0,1))) { Fail(error,@"unsupported DNS port/order/interface metadata"); return nil; }
+    for (NSString *field in @[@"SearchDomains",@"SupplementalMatchDomains"]) if (value[field]) {
+      NSArray *domains=value[field];
+      if (![domains isKindOfClass:NSArray.class] || domains.count>64) { Fail(error,@"DNS domain list exceeds bounds"); return nil; }
+      for (NSString *domain in domains) if (![domain isKindOfClass:NSString.class] || domain.length>253 || !Match(domain,@"\\A[a-zA-Z0-9_-]+(?:\\.[a-zA-Z0-9_-]+)*\\.?\\z")) { Fail(error,@"unsupported or competing catch-all DNS domain; preserving original resolver"); return nil; }
+    }
+    if (value[@"DomainName"] && (![value[@"DomainName"]isKindOfClass:NSString.class] || ([value[@"DomainName"]length] && !Match(value[@"DomainName"],@"\\A[a-zA-Z0-9_-]+(?:\\.[a-zA-Z0-9_-]+)*\\.?\\z")))) { Fail(error,@"unsupported DNS search domain"); return nil; }
+    if (value[@"SupplementalMatchOrders"]) {
+      NSArray *orders=value[@"SupplementalMatchOrders"],*domains=value[@"SupplementalMatchDomains"];
+      if (![orders isKindOfClass:NSArray.class] || !domains || orders.count!=domains.count) { Fail(error,@"split DNS domain/order mismatch"); return nil; }
+      for (id order in orders) if (!KuroNumber(order,0,UINT32_MAX)) { Fail(error,@"invalid split DNS order"); return nil; }
+    }
   }
   NSData *bytes = [NSPropertyListSerialization dataWithPropertyList:records format:NSPropertyListBinaryFormat_v1_0 options:0 error:NULL];
   if (!bytes || bytes.length > MessageLimit) { Fail(error, @"DNS preflight snapshot is oversized or invalid"); return nil; }
@@ -98,10 +109,16 @@ static NSDictionary *KuroDNSPreflight(NSDictionary *records, NSString **error) {
 }
 @property(nonatomic, readonly) BOOL dnsOff;
 - (instancetype)initWithDirectory:(NSString *)directory owner:(uid_t)owner backend:(id<KuroDNSStore>)backend;
-// Only writes our temporary key. It does not prove usable DNS or full TUN on.
+#ifdef KURO_TESTING
+// Isolated journal primitive tests; production activation requires route/probe admission.
 - (BOOL)installForSession:(NSString *)session error:(NSString **)error;
+#endif
+// Production caller supplies held-session route authority and an actual internal
+// DNS probe, never booleans/config fields received from the App.
+- (BOOL)installForSession:(NSString *)session routes:(KuroOwnedRoutes *)routes interface:(KuroCoreInterface)association ownership:(KuroRouteOwnership)ownership dnsReady:(BOOL (^)(NSString **))dnsReady error:(NSString **)error;
 // Only proves this component's recorded key was removed/absent; never Core or routes off.
 - (BOOL)recoverDNS:(NSString **)error;
+- (BOOL)recoverDNSAbsence:(NSString **)error;
 @end
 @implementation KuroOwnedDNS
 - (instancetype)initWithDirectory:(NSString *)directory owner:(uid_t)owner backend:(id<KuroDNSStore>)backend {
@@ -117,11 +134,31 @@ static NSDictionary *KuroDNSPreflight(NSDictionary *records, NSString **error) {
   BOOL ok = descriptor >= 0 && !fsync(descriptor); if (descriptor >= 0) close(descriptor);
   return ok || Fail(error, @"DNS journal directory could not be synchronized");
 }
+- (BOOL)installForSession:(NSString *)session routes:(KuroOwnedRoutes *)routes interface:(KuroCoreInterface)association ownership:(KuroRouteOwnership)ownership dnsReady:(BOOL (^)(NSString **))dnsReady error:(NSString **)error {
+  _dnsOff=NO;
+  BOOL (^admission)(NSString **)=^BOOL(NSString **failure) {
+    return routes && [routes confirmInstalledSession:session interface:association ownership:ownership error:failure];
+  };
+  if (![self onThread:error] || !dnsReady || !admission(error) || !dnsReady(error) || !admission(error)) return Fail(error,@"DNS activation requires current route receipts and a successful internal resolver probe");
+  return [self installPreparedSession:session admission:admission error:error];
+}
+#ifdef KURO_TESTING
 - (BOOL)installForSession:(NSString *)session error:(NSString **)error {
-  if (![self onThread:error]) return NO;
+  return [self installPreparedSession:session admission:^BOOL(NSString **failure) { (void)failure; return YES; } error:error];
+}
+#endif
+- (BOOL)protectedDirectory:(NSString **)error {
+  NSString *anchor=@"";
+#ifdef KURO_TESTING
+  anchor=_directory;
+#endif
+  return SafeChain(anchor,_directory,_owner,YES,error);
+}
+- (BOOL)installPreparedSession:(NSString *)session admission:(BOOL (^)(NSString **))admission error:(NSString **)error {
+  if (![self onThread:error] || !admission || !admission(error)) return NO;
   _dnsOff = NO;
   NSString *key = KuroDNSKey(session), *path = [_directory stringByAppendingPathComponent:KuroDNSJournal];
-  if (!key || !SafeChain(_directory, _directory, _owner, YES, error) || Exists(path)) return Fail(error, @"DNS install requires a canonical session and protected clean journal directory");
+  if (!key || ![self protectedDirectory:error] || Exists(path)) return Fail(error, @"DNS install requires a canonical session and protected clean journal directory");
   NSString *failure = nil;
   NSDictionary *baseline = KuroDNSPreflight([_backend dnsRecords:&failure], &failure);
   if (!baseline) return Fail(error, failure ?: @"DNS preflight failed");
@@ -136,16 +173,18 @@ static NSDictionary *KuroDNSPreflight(NSDictionary *records, NSString **error) {
   // that reports failure after the insertion actually landed.
   NSDictionary *current = [_backend dnsRecords:&failure];
   if (failure || ![current isEqual:baseline]) return Fail(error, @"DNS changed after preflight; prepared journal retained without writing DNS");
-  if (![_backend addTemporaryDNSValue:KuroDNSValue() key:key error:error]) return NO;
+  if (!admission(error) || ![_backend addTemporaryDNSValue:KuroDNSValue() key:key error:error]) return NO;
   failure = nil;
   id observed = [_backend valueForDNSKey:key error:&failure];
-  if (failure || ![observed isEqual:KuroDNSValue()]) return Fail(error, @"temporary DNS write was not independently confirmed; journal retained");
+  if (failure || ![observed isEqual:KuroDNSValue()] || !admission(error)) return Fail(error, @"temporary DNS write was not independently confirmed; journal retained");
   return YES;
 }
-- (BOOL)recoverDNS:(NSString **)error {
+- (BOOL)recoverDNS:(NSString **)error { return [self recoverDNSAllowRemoval:YES error:error]; }
+- (BOOL)recoverDNSAbsence:(NSString **)error { return [self recoverDNSAllowRemoval:NO error:error]; }
+- (BOOL)recoverDNSAllowRemoval:(BOOL)allowRemoval error:(NSString **)error {
   if (![self onThread:error]) return NO;
   _dnsOff = NO;
-  if (!SafeChain(_directory, _directory, _owner, YES, error)) return NO;
+  if (![self protectedDirectory:error]) return NO;
   NSString *path = [_directory stringByAppendingPathComponent:KuroDNSJournal];
   NSString *failure = nil;
   NSDictionary *records = [_backend dnsRecords:&failure];
@@ -165,6 +204,7 @@ static NSDictionary *KuroDNSPreflight(NSDictionary *records, NSString **error) {
   id observed = [_backend valueForDNSKey:record[@"key"] error:&failure];
   if (failure) return Fail(error, @"DNS recovery readback failed; ownership unknown");
   if (observed) {
+    if (!allowRemoval) return Fail(error,@"DNS key remains after helper restart; preserving key and receipt without write authority");
     // SCDynamicStore has no public conditional remove/CAS. This is a unique
     // helper-generated UUID key on one serial session; observed changed values are preserved.
     if (![observed isEqual:record[@"after"]]) return Fail(error, @"DNS target changed; preserving third-party value and ownership journal");
@@ -174,6 +214,8 @@ static NSDictionary *KuroDNSPreflight(NSDictionary *records, NSString **error) {
   }
   // Re-read protected bytes before deleting only our journal. A missing
   // temporary key after helper death does not imply routes or Core have stopped.
+  failure=nil;
+  if ([_backend valueForDNSKey:record[@"key"] error:&failure] || failure) return Fail(error,@"DNS key reappeared before absence receipt retirement");
   NSData *unchanged = ReadProtected(_directory, path, _owner, error);
   if (![unchanged isEqual:bytes] || unlink(path.fileSystemRepresentation) || ![self syncDirectory:error]) return Fail(error, @"DNS journal removal was not safely completed");
   _dnsOff = YES;
@@ -182,7 +224,7 @@ static NSDictionary *KuroDNSPreflight(NSDictionary *records, NSString **error) {
 @end
 
 static BOOL KuroNetworkRoutesReady(NSString **error) {
-  return Fail(error, @"route preparation blocked: exact live utun owner and journal/readback are not implemented");
+  return Fail(error, @"route preparation blocked: exact live utun owner/kernel route semantics have not passed controlled acceptance");
 }
 static BOOL KuroNetworkCoreDNSReady(NSString **error) {
   return Fail(error, @"DNS activation blocked: fixed internal resolver reachability and scoped/LAN preservation are not proven");

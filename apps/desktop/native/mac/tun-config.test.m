@@ -1,4 +1,5 @@
 static void NativeCoreSyntaxTest(NSData *candidate) {
+  if (getenv("KURO_SKIP_CORE_SYNTAX")) { CHECK(!getenv("KURO_REQUIRE_CORE")); puts("SKIP Core syntax execution: explicitly disabled for this validation run"); return; }
   NSString *source = [[NSString stringWithUTF8String:__FILE__] stringByDeletingLastPathComponent];
 #if defined(__arm64__)
   NSString *target = @"darwin-arm64";

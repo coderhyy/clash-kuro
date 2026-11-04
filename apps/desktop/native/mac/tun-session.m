@@ -9,6 +9,7 @@ static uint64_t KuroMonotonicMilliseconds(void) {
   return (uint64_t)now.tv_sec * 1000 + (uint64_t)now.tv_nsec / 1000000;
 }
 typedef BOOL (^KuroSessionHook)(NSString **error);
+typedef BOOL (^KuroSessionResumeGate)(KuroSessionHook resume, NSString **error);
 @interface KuroOwnedSession : NSObject {
   pid_t _child;
   pthread_t _thread;
@@ -18,14 +19,20 @@ typedef BOOL (^KuroSessionHook)(NSString **error);
   BOOL _journaled;
   BOOL _unknown;
   KuroSessionHook _cleanup;
+  NSDictionary *_launchEvidence;
 }
 @property(nonatomic, readonly) pid_t child;
 @property(nonatomic, readonly) NSString *identifier;
 @property(nonatomic, readonly) BOOL off;
 - (instancetype)initWithDirectory:(NSString *)directory owner:(uid_t)owner;
 - (BOOL)spawnExecutable:(NSString *)executable arguments:(NSArray<NSString *> *)arguments beforeResume:(KuroSessionHook)prepare afterReap:(KuroSessionHook)cleanup error:(NSString **)error;
+- (BOOL)setLaunchEvidence:(NSDictionary *)evidence error:(NSString **)error;
+- (BOOL)spawnExecutable:(NSString *)executable arguments:(NSArray<NSString *> *)arguments workingDirectory:(NSString *)workingDirectory beforeResume:(KuroSessionHook)prepare afterReap:(KuroSessionHook)cleanup error:(NSString **)error;
+- (BOOL)spawnExecutable:(NSString *)executable arguments:(NSArray<NSString *> *)arguments workingDirectory:(NSString *)workingDirectory beforeResume:(KuroSessionHook)prepare afterReap:(KuroSessionHook)cleanup resumeGate:(KuroSessionResumeGate)resumeGate error:(NSString **)error;
 - (BOOL)stop:(NSString **)error;
 - (BOOL)superviseSocket:(int)socket leaseMilliseconds:(NSUInteger)lease identityValid:(BOOL (^)(void))identityValid error:(NSString **)error;
+- (BOOL)superviseSocket:(int)socket leaseMilliseconds:(NSUInteger)lease identityValid:(BOOL (^)(void))identityValid tick:(KuroSessionHook)tick error:(NSString **)error;
+- (BOOL)superviseSocket:(int)socket leaseMilliseconds:(NSUInteger)lease identityValid:(BOOL (^)(void))identityValid tick:(KuroSessionHook)tick stopConfirmed:(void (^)(void))stopConfirmed error:(NSString **)error;
 @end
 @implementation KuroOwnedSession
 - (instancetype)initWithDirectory:(NSString *)directory owner:(uid_t)owner {
@@ -52,7 +59,20 @@ typedef BOOL (^KuroSessionHook)(NSString **error);
   BOOL ok = fd >= 0 && !fsync(fd); if (fd >= 0) close(fd);
   return ok || Fail(error, @"owner journal directory could not be synchronized");
 }
+- (BOOL)setLaunchEvidence:(NSDictionary *)evidence error:(NSString **)error {
+  if (![self onThread:error] || _child || _journaled || _unknown) return Fail(error, @"cannot replace active launch evidence");
+  if (!Keys(evidence, @[@"configSHA256", @"coreSHA256", @"template"]) ||
+      !Match(evidence[@"configSHA256"], @"\\A[0-9a-f]{64}\\z") || !Match(evidence[@"coreSHA256"], @"\\A[0-9a-f]{64}\\z") ||
+      ![evidence[@"template"] isEqual:@"macos-dual-stack-v1"]) return Fail(error, @"invalid fixed launch evidence");
+  _launchEvidence = [evidence copy]; return YES;
+}
 - (BOOL)spawnExecutable:(NSString *)executable arguments:(NSArray<NSString *> *)arguments beforeResume:(KuroSessionHook)prepare afterReap:(KuroSessionHook)cleanup error:(NSString **)error {
+  return [self spawnExecutable:executable arguments:arguments workingDirectory:nil beforeResume:prepare afterReap:cleanup error:error];
+}
+- (BOOL)spawnExecutable:(NSString *)executable arguments:(NSArray<NSString *> *)arguments workingDirectory:(NSString *)workingDirectory beforeResume:(KuroSessionHook)prepare afterReap:(KuroSessionHook)cleanup error:(NSString **)error {
+  return [self spawnExecutable:executable arguments:arguments workingDirectory:workingDirectory beforeResume:prepare afterReap:cleanup resumeGate:nil error:error];
+}
+- (BOOL)spawnExecutable:(NSString *)executable arguments:(NSArray<NSString *> *)arguments workingDirectory:(NSString *)workingDirectory beforeResume:(KuroSessionHook)prepare afterReap:(KuroSessionHook)cleanup resumeGate:(KuroSessionResumeGate)resumeGate error:(NSString **)error {
   if (![self onThread:error]) return NO;
   if (_child || _journaled || _unknown || !prepare || !cleanup) return Fail(error, @"session is not clean or lifecycle hooks are absent");
   // No resume from a persisted PID: only this process's unreaped direct child is owned.
@@ -79,19 +99,37 @@ typedef BOOL (^KuroSessionHook)(NSString **error);
   int setup = posix_spawnattr_setflags(&attr, POSIX_SPAWN_START_SUSPENDED | POSIX_SPAWN_CLOEXEC_DEFAULT | POSIX_SPAWN_SETSIGMASK | POSIX_SPAWN_SETSIGDEF);
   setup |= posix_spawnattr_setsigmask(&attr, &empty); setup |= posix_spawnattr_setsigdefault(&attr, &defaults);
   for (int descriptor = 0; descriptor < 3; descriptor++) setup |= posix_spawn_file_actions_addopen(&actions, descriptor, "/dev/null", descriptor ? O_WRONLY : O_RDONLY, 0);
+  if (workingDirectory) {
+    if (![workingDirectory isEqual:[_directory stringByAppendingPathComponent:@"session-work"]] || !SafeChain(_directory, workingDirectory, _owner, YES, error)) setup = EINVAL;
+    else {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+      // The _np spelling also supports macOS releases older than SDK 26.
+      setup |= posix_spawn_file_actions_addchdir_np(&actions, workingDirectory.fileSystemRepresentation);
+#pragma clang diagnostic pop
+    }
+  }
   char *environment[] = {"PATH=/usr/bin:/bin", "LANG=C", NULL};
   int spawned = setup ? setup : posix_spawn(&_child, executable.fileSystemRepresentation, &actions, &attr, argv, environment);
   posix_spawn_file_actions_destroy(&actions); posix_spawnattr_destroy(&attr);
   if (spawned) { _child = 0; return Fail(error, @"owned child spawn failed"); }
   struct proc_bsdinfo process = {0};
-  BOOL known = proc_pidinfo(_child, PROC_PIDTBSDINFO, 0, &process, sizeof(process)) == sizeof(process) && process.pbi_ppid == (uint32_t)getpid();
-  NSDictionary *record = @{ @"format":@1, @"session":_identifier, @"pid":@(_child), @"parent":@(getpid()), @"startSeconds":@(process.pbi_start_tvsec), @"startMicros":@(process.pbi_start_tvusec), @"executableSHA256":Hash(bytes), @"phase":@"prepared" };
+  BOOL known = proc_pidinfo(_child, PROC_PIDTBSDINFO, 0, &process, sizeof(process)) == sizeof(process) && process.pbi_ppid == (uint32_t)getpid() && process.pbi_pgid == (uint32_t)getpgrp();
+  NSMutableDictionary *record = [@{ @"format":@1, @"session":_identifier, @"pid":@(_child), @"parent":@(getpid()), @"startSeconds":@(process.pbi_start_tvsec), @"startMicros":@(process.pbi_start_tvusec), @"executableSHA256":Hash(bytes), @"phase":@"prepared", @"processGroup":@(process.pbi_pgid) } mutableCopy];
+  if (_launchEvidence) record[@"launch"] = _launchEvidence;
   _cleanup = [cleanup copy];
   // Mark uncertainty before creating the journal, including partial-write failures.
   _journaled = YES;
   BOOL ready = known && WriteNew(journal, JSONData(record), 0600, error) && [self syncDirectory:error] && prepare(error);
   if (!ready) { NSString *ignored = nil; [self stop:&ignored]; return Fail(error, @"owner preparation failed; child was never resumed (cleanup status must be inspected)"); }
-  if (kill(_child, SIGCONT)) { NSString *ignored = nil; [self stop:&ignored]; return Fail(error, @"owned child could not be resumed"); }
+  __block BOOL resumed=NO;
+  KuroSessionHook resume=^BOOL(NSString **problem) {
+    if(resumed)return Fail(problem,@"owned child resume may run only once");
+    if(kill(self->_child,SIGCONT))return Fail(problem,@"owned child could not be resumed");
+    resumed=YES; return YES;
+  };
+  BOOL permitted=resumeGate ? resumeGate(resume,error) : resume(error);
+  if(!permitted || !resumed) { NSString *ignored=nil; [self stop:&ignored]; return Fail(error,@"owned child resume refused; cleanup status must be inspected"); }
   return YES;
 }
 - (BOOL)reapUntil:(uint64_t)deadline error:(NSString **)error {
@@ -130,6 +168,12 @@ typedef BOOL (^KuroSessionHook)(NSString **error);
   return YES;
 }
 - (BOOL)superviseSocket:(int)socket leaseMilliseconds:(NSUInteger)lease identityValid:(BOOL (^)(void))identityValid error:(NSString **)error {
+  return [self superviseSocket:socket leaseMilliseconds:lease identityValid:identityValid tick:nil error:error];
+}
+- (BOOL)superviseSocket:(int)socket leaseMilliseconds:(NSUInteger)lease identityValid:(BOOL (^)(void))identityValid tick:(KuroSessionHook)tick error:(NSString **)error {
+  return [self superviseSocket:socket leaseMilliseconds:lease identityValid:identityValid tick:tick stopConfirmed:nil error:error];
+}
+- (BOOL)superviseSocket:(int)socket leaseMilliseconds:(NSUInteger)lease identityValid:(BOOL (^)(void))identityValid tick:(KuroSessionHook)tick stopConfirmed:(void (^)(void))stopConfirmed error:(NSString **)error {
   if (![self onThread:error]) return NO;
   if (!_child || !_journaled || !identityValid || lease < 50 || lease > 30000) {
     NSString *ignored = nil; [self stop:&ignored];
@@ -139,6 +183,7 @@ typedef BOOL (^KuroSessionHook)(NSString **error);
   NSMutableData *buffer = [NSMutableData data]; NSString *reason = @"session closed";
   for (;;) {
     if (!identityValid()) { reason = @"authenticated client identity exited or changed"; break; }
+    if (tick && !tick(error)) { reason = @"session owner requested stop or control gate failed"; break; }
     if ([self reapUntil:KuroMonotonicMilliseconds() error:error] || _unknown) { reason = @"owned child exited"; break; }
     uint64_t now = KuroMonotonicMilliseconds(); if (now >= deadline) { reason = @"authenticated session lease expired"; break; }
     struct pollfd descriptor = {.fd = socket, .events = POLLIN};
@@ -163,7 +208,9 @@ typedef BOOL (^KuroSessionHook)(NSString **error);
     NSUInteger consumed = (NSUInteger)(newline - start) + 1;
     if (consumed != buffer.length || sequence == 9007199254740991ULL) { reason = @"pipelined session frame refused"; break; }
     if ([message[@"operation"] isEqual:@"stop"]) {
-      BOOL stopped = [self stop:error];
+      BOOL stopped = [self stop:error] && self.off;
+      // Publish proven off before the client can receive its stop acknowledgement.
+      if (stopped && stopConfirmed) stopConfirmed();
       NSDictionary *reply = stopped ? @{@"version":@2,@"ok":@YES,@"sequence":@(sequence),@"status":@{@"availability":@"ready",@"state":@"off"}} : @{@"version":@2,@"ok":@NO,@"error":(error && *error) ? *error : @"cleanup is not proven"};
       NSMutableData *encoded = [JSONData(reply) mutableCopy]; [encoded appendBytes:"\n" length:1];
       (void)send(socket, encoded.bytes, encoded.length, MSG_NOSIGNAL | MSG_DONTWAIT);
@@ -174,7 +221,8 @@ typedef BOOL (^KuroSessionHook)(NSString **error);
     const char *replyBytes = reply.UTF8String; size_t length = strlen(replyBytes);
     if (send(socket, replyBytes, length, MSG_NOSIGNAL | MSG_DONTWAIT) != (ssize_t)length) { reason = @"session acknowledgement failed"; break; }
   }
-  BOOL stopped = [self stop:error];
+  BOOL stopped = [self stop:error] && self.off;
+  if (stopped && stopConfirmed) stopConfirmed();
   if (stopped && error) *error = reason;
   return stopped;
 }

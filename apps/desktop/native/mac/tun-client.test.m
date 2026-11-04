@@ -1,0 +1,48 @@
+static void ClientPinTests(void) {
+  char pattern[] = "/tmp/kuro-client-pin-XXXXXX"; CHECK(mkdtemp(pattern));
+  char canonical[PATH_MAX]; CHECK(realpath(pattern, canonical));
+  NSString *prefix = [NSString stringWithUTF8String:canonical];
+  NSString *bundle = At(prefix, ClientBundle);
+  Put([bundle stringByAppendingPathComponent:ClientExecutable], [NSData dataWithContentsOfFile:Executable()], 0755);
+  NSDictionary *plist = @{@"CFBundleIdentifier":@"dev.kuro.desktop", @"CFBundleExecutable":@"Clash Kuro", @"CFBundlePackageType":@"APPL", @"CFBundleVersion":@"1"};
+  Put([bundle stringByAppendingPathComponent:@"Contents/Info.plist"], [NSPropertyListSerialization dataWithPropertyList:plist format:NSPropertyListXMLFormat_v1_0 options:0 error:NULL], 0644);
+  Put([bundle stringByAppendingPathComponent:@"Contents/Resources/app.asar"], Bytes(@"fixture only"), 0644);
+  NSString *framework = [bundle stringByAppendingPathComponent:@"Contents/Frameworks/FixtureResources"];
+  Put([framework stringByAppendingPathComponent:@"Versions/A/resource"], Bytes(@"sealed resource"), 0644);
+  CHECK(!symlink("A", [framework stringByAppendingPathComponent:@"Versions/Current"].fileSystemRepresentation));
+  CHECK(!symlink("Versions/Current/resource", [framework stringByAppendingPathComponent:@"resource"].fileSystemRepresentation));
+  NSString *error = nil;
+  CHECK(KuroClientProtected(prefix, bundle, geteuid(), &error));
+  NSString *escape = [framework stringByAppendingPathComponent:@"escape"];
+  CHECK(!symlink("/etc/hosts", escape.fileSystemRepresentation));
+  CHECK(!KuroClientProtected(prefix, bundle, geteuid(), &error)); CHECK(!unlink(escape.fileSystemRepresentation));
+  NSString *asar = [bundle stringByAppendingPathComponent:@"Contents/Resources/app.asar"];
+  CHECK(!chmod(asar.fileSystemRepresentation, 0666)); CHECK(!KuroClientProtected(prefix, bundle, geteuid(), &error)); CHECK(!chmod(asar.fileSystemRepresentation, 0644));
+  CHECK([[NSFileManager defaultManager] removeItemAtPath:framework error:NULL]);
+  pid_t signing; char *argv[] = {"/usr/bin/codesign", "--force", "--sign", "-", "--options", "runtime", (char *)bundle.fileSystemRepresentation, NULL};
+  char *env[] = {"PATH=/usr/bin:/bin", NULL};
+  CHECK(!posix_spawn(&signing, argv[0], NULL, NULL, argv, env)); int status; CHECK(waitpid(signing, &status, 0) == signing && WIFEXITED(status) && !WEXITSTATUS(status));
+  NSDictionary *pin = KuroClientSnapshot(prefix, bundle, geteuid(), &error); CHECK(pin && KuroClientPinValid(pin));
+  NSString *source=prefix,*sourceBundle=bundle;
+  NSDictionary *inventory=FixtureInventory(sourceBundle);
+  NSDictionary *manifest=FreshFixtureScripts(source,pin,inventory);
+  char target[]="/tmp/kuro-client-target-XXXXXX";CHECK(mkdtemp(target));CHECK(realpath(target,canonical));prefix=[NSString stringWithUTF8String:canonical];
+  CHECK(BeginClientInstallFromScripts(prefix,geteuid(),NO,[source stringByAppendingPathComponent:@"scripts"],&error));
+  CopyFreshPayload(source,prefix,manifest);bundle=At(prefix,ClientBundle);FixtureDirectory(bundle.stringByDeletingLastPathComponent);
+  CHECK([[NSFileManager defaultManager] copyItemAtPath:sourceBundle toPath:bundle error:NULL]);
+  asar=[bundle stringByAppendingPathComponent:@"Contents/Resources/app.asar"];
+  CHECK(Install(prefix, geteuid(), NO, &error));
+  NSString *record = At(prefix, [State stringByAppendingPathComponent:@"client.json"]);
+  CHECK([ReadJSON(prefix, record, geteuid(), &error) isEqual:pin]);
+  Put(asar, Bytes(@"tampered"), 0644); CHECK(!KuroClientSnapshot(prefix, bundle, geteuid(), &error));
+  // A fresh receipt removes only its exact installed App, rejecting changed records and bytes.
+  Put(record, Bytes(@"{}"), 0600); CHECK(!Uninstall(prefix, geteuid(), NO, [At(prefix, Tools) stringByAppendingPathComponent:@"installer"], &error));
+  Put(record, JSONData(pin), 0600);
+  CHECK(!Uninstall(prefix, geteuid(), NO, [At(prefix, Tools) stringByAppendingPathComponent:@"installer"], &error));
+  Put(asar,Bytes(@"fixture only"),0644);
+  CHECK(Uninstall(prefix, geteuid(), NO, [At(prefix, Tools) stringByAppendingPathComponent:@"installer"], &error));
+  CHECK(!Exists(record) && !Exists(bundle));
+  CHECK([[NSFileManager defaultManager] removeItemAtPath:source error:NULL]);
+  CHECK([[NSFileManager defaultManager] removeItemAtPath:prefix error:NULL]);
+  puts("native client pin: real ad-hoc runtime seal, internal Framework links, escape/writable/tamper rejection, install record and exact removal passed (temporary ordinary-user fixture)");
+}

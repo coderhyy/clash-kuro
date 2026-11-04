@@ -53,6 +53,9 @@ export async function buildMacosHelper(target, test = false) {
     const output = join(root, 'resources/mac', target.slice('darwin-'.length))
     await directory(output)
     await replace(join(output, 'kuro-tun-helper'), bytes, 0o755)
+    const sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim()
+    const sourceClean = !execFileSync('git', ['status', '--porcelain', '--untracked-files=all', '--', 'apps/desktop', 'packages'], { cwd: resolve(root, '../..'), encoding: 'utf8' }).trim()
+    await replace(join(output, 'kuro-tun-helper.build.json'), `${JSON.stringify({ sourceCommit, sourceClean, sha256: sha256(bytes), flags, tests: test, coreSyntaxSkipped: Boolean(process.env.KURO_SKIP_CORE_SYNTAX) }, null, 2)}\n`, 0o644)
     const lock = { format: 1, version, protocol: 1, targets: { [target]: { sha256: sha256(bytes) } } }
     await replace(join(source, 'helper.lock.json'), `${JSON.stringify(lock, null, 2)}\n`, 0o644)
     console.log(`Built ${target} helper ${version}; executable pin written (root activation remains disabled)`)

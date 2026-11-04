@@ -90,4 +90,19 @@ App lease 到期/断连、Core crash、取消关机后恢复、helper 重启均�
 
 可复现脚本为`apps/desktop/scripts/check-adhoc-library-validation.mjs`。另用普通用户临时C loader与dylib（均ad-hoc签名，loader加runtime，仅dlopen与返回42，不启动App或改网络）复现：系统拒绝加载，错误为mapping process and mapped file have different Team IDs。electron-builder对ad-hoc+hardenedRuntime也提示disable-library-validation兼容条件。因此没有把hardenedRuntime=true候选发作可用包；保留原有false，native授权门继续关闭，不通过放宽entitlement检查解决。
 
-下一条技术候选是受保护安装、仅链接系统framework的独立native授权broker；它必须自己确认用户意图并展示有限请求，不是给任何同UID进程静默转发的shim。需要具体验证其UI意图绑定、pin、peer身份、lease归属与Electron退出联动，当前尚未实现或宣称通过。无需改变“不付费会员、不setuid Core、不关闭SIP/Gatekeeper”的产品边界。
+上述证据不证明必须增加独立 native 授权 broker。上一轮逐次原生确认候选未获用户批准；当前推荐与威胁边界以 [04 最小闭环设计记录](issues/04-macos-privileged-adapter.md#最小闭环设计记录2026-11-04按最新用户边界收敛) 为准：优先安装时授予受保护 App 有限能力，验证 Hardened Runtime 与最小库校验例外，保留 App 内单次点击。扩展后的同一 C probe 已通过 runtime＋disableLV 加载及无 allowDYLD 的注入负例；不代表实际 Electron 已通过，也不解除生产拒绝门。
+
+
+## 当前安全检查点（2026-11-04，覆盖上文旧实现状态）
+
+上文“hardenedRuntime=false”“client.json只读”“正常Framework链接一律拒绝”“有限broker/route未实现”仅对应历史检查点。当前候选与具体证据见[Electron验证报告](electron-auth-verification.md)：15个Mach-O均runtime，最小entitlement限制、seal/ASAR/fuse校验、14/14普通用户隔离启动/UI/IPC与环境/调试负例、3/3离线篡改/重签pin比较通过。`GrantFileProtocolExtraPrivileges`因实际渲染兼容对照保留true；该候选不在root保护位置，不宣称完整Chromium/DYLD攻击面或生产RPC动态鉴权通过。
+
+固定受保护客户端目标改为`/Library/Application Support/Clash Kuro/Client/Clash Kuro.app`。安装manifest的可选完整pin、受限Framework内部相对链接、精确pin卸载已接生产代码并有普通用户临时fixture；卸载保留App。包显式禁用主App与ChildBundles的relocation/version skip。安装仍fresh-only，升级与partial恢复、管理员批准package与Installer实际消费的稳定字节绑定、真实root/ACL/动态peer鉴权仍待验证。安装级授权是精确App版本的长期有限能力，不是逐次点击证明。
+
+原生V2服务已实现单owner、并发独立status、lease/stop与私有socket有限mode/select。生产网络协调层现已接真实只读观测、PF_ROUTE和SCDynamicStore后端，取代旧`ready/apply/recover`无条件拒绝桩；外层真实启动策略门仍保持关闭。具体接口与兼容范围见[06当前检查点](issues/06-state-and-ui.md#当前检查点生产调用方与原生组件2026-11-04)。route计划固定四条`/1`，仅在同一验证physical双栈出口、原Core/utun活跃归属与未变基线通过后写入，journal先于写入、持久receipt及exact readback；运行中复核失败停止并报unknown，不切模式。既有更具体LAN/split routes与受支持DNS记录保留，default-only私有DNS/Profile端点或未知resolver字段具体拒绝，不改Profile规则、不承诺任意LAN或全流量覆盖。
+
+root运行时只新增已验证physical `interface-name`与固定内部hosts；App schema不开放这些字段。唯一内部域`kuro-tun-ready.invalid`映射固定utun双栈地址，仅向本机utun resolver进行A/AAAA精确静态答复探测，不加公共域/上游供应商，内部域不改变DNS隐私产品边界。运行时Core语法与真实包处理仍须后续受控验证，本轮没有执行Core或`-t`。
+
+route/DNS恢复拒绝现存冲突、未确认写入、条目变化和未知归属。同一held Core退出且接口消失只确认相关route absent；跨helper恢复只读保护receipt并核对目标route/DNS已absent，有残留则保留，不凭PID/接口名重建写权限。网络组件absence不替代Core owner清理/整会话off。PF_ROUTE及SCDynamicStore没有公开CAS，真实并发删除/flags回读、DNS优先级与helper死亡临时key生命周期尚未实证；运行中验证不是kill switch，route消失时仍可能直连。
+
+**仍未完成真实闭环：** root安装动态peer鉴权、固定Core/utun与本地DNS、双栈route实际写入/readback、LAN/split兼容及stop/断链/异常/重启恢复。生产协调层13场景与原有route/DNS注入测试通过不能替代这些证明。实验A仅无网络fixture；本轮无新增系统授权，不请求把旧A授权沿用到新操作。[08现有验收](issues/08-tun-integration-acceptance.md)由主会话汇合最终组合结果、有限实验范围和精确产物身份。

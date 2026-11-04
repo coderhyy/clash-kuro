@@ -41,8 +41,24 @@ static NSDictionary *Payload(NSString *prefix) {
 #import "tun-config.test.m"
 #import "tun-peer.test.m"
 #import "tun-network.test.m"
+#import "tun-interface.test.m"
+#import "tun-install.test.m"
+#import "tun-client.test.m"
+#import "tun-auth.test.m"
+#import "tun-service.test.m"
 int main(int argc, const char **argv) {
   @autoreleasepool {
+    int authFixture=AuthFixtureMain(argc,argv); if(authFixture>=0)return authFixture;
+    if(argc==2 && !strcmp(argv[1],"--auth-tests")) { CHECK(geteuid()!=0); alarm(20); AuthTests(); return 0; }
+    int fixture = ServiceFixtureMain(argc, argv); if (fixture >= 0) return fixture;
+    if (argc == 3 && !strcmp(argv[1], "--inspect-client-fixture")) {
+      CHECK(geteuid() != 0);
+      char canonical[PATH_MAX]; CHECK(realpath(argv[2], canonical));
+      NSString *bundle = [NSString stringWithUTF8String:canonical], *error = nil;
+      NSDictionary *pin = KuroClientSnapshot(bundle, bundle, geteuid(), &error);
+      if (!pin) { fprintf(stderr, "%s\n", error.UTF8String); return 1; }
+      NSData *json = JSONData(pin); fwrite(json.bytes, 1, json.length, stdout); puts(""); return 0;
+    }
     if (argc >= 2 && !strcmp(argv[1], "--session-child")) {
       if (argc >= 3) signal(SIGTERM, SIG_IGN);
       for (;;) pause();
@@ -55,11 +71,16 @@ int main(int argc, const char **argv) {
       CHECK(Uninstall(prefix, geteuid(), NO, Executable(), &error));
       return 0;
     }
-    CHECK(geteuid() != 0); alarm(20);
+    CHECK(geteuid() != 0); alarm(40);
     SessionTests();
     ConfigTests();
     PeerIdentityTests();
     NetworkTests();
+    InterfaceTests();
+    ClientPinTests();
+    FreshInstallTests();
+    AuthTests();
+    ServiceTests();
     NSString *error = nil;
     for (NSString *op in @[@"status", @"recover", @"start", @"stop"]) {
       NSString *json = [NSString stringWithFormat:@"{\"version\":1,\"operation\":\"%@\"}\n", op];

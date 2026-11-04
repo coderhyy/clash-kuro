@@ -12,6 +12,8 @@ electronFuses:
   enableNodeCliInspectArguments: false
   enableEmbeddedAsarIntegrityValidation: true
   onlyLoadAppFromAsar: true
+  # Current renderer uses file://; disabling this fails actual ASAR load.
+  grantFileProtocolExtraPrivileges: true
 # Core, Geo data and licenses come from scripts/fetch-core.mjs (ADR-0012); never inside app.asar.
 extraResources:
   - from: resources/core/${platform}-${arch}
@@ -29,8 +31,10 @@ mac:
   icon: build/icon.icns
   # Ad-hoc integrity signature; no Developer ID or notarization (ADR-0010).
   identity: '-'
-  # Ad-hoc Electron needs a separate proven native authorization boundary; helper start remains closed.
-  hardenedRuntime: false
+  # Exact installed App identity remains gated by the helper; runtime alone is not authorization.
+  hardenedRuntime: true
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
 dmg:
   artifactName: clash-kuro-${version}-${arch}.${ext}
 win:
