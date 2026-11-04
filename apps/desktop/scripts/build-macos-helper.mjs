@@ -33,7 +33,7 @@ export async function buildMacosHelper(target, test = false) {
   if (test && target !== `darwin-${process.arch}`) throw new Error('--test must use the host architecture')
   const source = join(root, 'native/mac')
   const temporary = await mkdtemp(join(tmpdir(), 'kuro-helper-build-'))
-  const flags = ['-arch', arch, '-fobjc-arc', '-Wall', '-Wextra', '-Werror', '-O2', '-framework', 'Foundation', '-framework', 'Security', '-lbsm']
+  const flags = ['-arch', arch, '-fobjc-arc', '-Wall', '-Wextra', '-Werror', '-O2', '-framework', 'Foundation', '-framework', 'Security', '-framework', 'SystemConfiguration', '-lbsm']
   try {
     if (test) {
       const binary = join(temporary, 'tests')

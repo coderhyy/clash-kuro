@@ -49,6 +49,7 @@ export const en = {
   systemProxy: 'System Proxy',
   tun: 'TUN',
   tunHint: 'TUN and System Proxy are mutually exclusive. TUN stays off when you reopen the app; enable it manually after the startup check.',
+  tunSafetyHint: 'No kill switch. Traffic may go directly if TUN routes disappear. Explicit DIRECT rules also allow direct traffic.',
   tunNotInstalled: 'Privileged helper not installed',
   tunBlocked: 'TUN blocked',
   recoverTun: 'Check and recover TUN',

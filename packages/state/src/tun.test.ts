@@ -1,5 +1,5 @@
 import { expect, test, vi } from 'vitest'
-import type { TunStatus } from '@kuro/core'
+import type { TunSessionConfig, TunStatus } from '@kuro/core'
 import { FakePlatform } from '@kuro/core/fake'
 import { FakeTransport } from '@kuro/api/fake'
 import { createMihomoClient } from '@kuro/api'
@@ -8,6 +8,11 @@ import { createAppStore, type Backup } from './index'
 
 const readyOff: TunStatus = { availability: 'ready', state: 'off' }
 type TestPlatform = FakePlatform & { tun: FakeTunPlatform }
+const session: TunSessionConfig = {
+  version: 1, template: 'macos-dual-stack-v1', mode: 'rule', proxies: [], groups: [],
+  rules: [{ type: 'MATCH', value: '', target: 'DIRECT', noResolve: false }],
+  dns: { nameservers: ['192.0.2.53'], bootstrap: ['192.0.2.53'], proxyNameservers: ['192.0.2.53'], policies: [] },
+}
 
 async function setupTun(status: TunStatus = readyOff, initialize?: (platform: TestPlatform) => void) {
   const platform = Object.assign(new FakePlatform(), { tun: new FakeTunPlatform({ ...status }) })
@@ -19,13 +24,38 @@ async function setupTun(status: TunStatus = readyOff, initialize?: (platform: Te
   initialize?.(platform)
   const transport = new FakeTransport().on('GET', '/proxies', { status: 200, body: { proxies: {} } })
   const onQuit = vi.fn()
+  const buildTunConfig = vi.fn(() => session)
   const app = await createAppStore({
     platform, client: createMihomoClient(transport), systemLocale: () => 'en',
     buildRuntimeConfig: () => 'proxies: []', refreshProfile: async (profile) => profile,
+    buildTunConfig,
     hooks: { onQuit }
   })
-  return { app, platform, tun: platform.tun, transport, onQuit }
+  return { app, platform, tun: platform.tun, transport, onQuit, buildTunConfig }
 }
+
+test('rejected TUN configuration preserves the working ordinary mode and never starts the helper', async () => {
+  const { app, platform, tun, buildTunConfig } = await setupTun()
+  buildTunConfig.mockImplementation(() => { throw new Error('TUN Profile.dns: unsupported DoH resolver') })
+  const stop = vi.spyOn(platform, 'stopCore')
+  const clear = vi.spyOn(platform, 'clearSystemProxy')
+  const start = vi.spyOn(tun, 'start')
+  const result = await app.run('setTun', { enabled: true })
+  expect(result).toEqual({ ok: false, error: 'TUN Profile.dns: unsupported DoH resolver' })
+  expect(stop).not.toHaveBeenCalled()
+  expect(clear).not.toHaveBeenCalled()
+  expect(start).not.toHaveBeenCalled()
+  expect(platform.coreRunning).toBe(true)
+  expect(platform.runtimeConfig).toBe('old ordinary config')
+})
+
+test('TUN receives the admitted configuration with current Profile, mode and Override', async () => {
+  const { app, tun, buildTunConfig } = await setupTun()
+  const start = vi.spyOn(tun, 'start')
+  expect(await app.run('setTun', { enabled: true })).toEqual({ ok: true })
+  expect(buildTunConfig).toHaveBeenCalledWith({ profile: app.store.getState().profiles[0], settings: app.store.getState().settings, override: '' })
+  expect(start).toHaveBeenCalledWith(session)
+})
 
 function replacement(json: string): string {
   const backup = JSON.parse(json) as Backup
@@ -120,7 +150,7 @@ test('TUN start waits for ordinary Core/proxy cleanup and serializes duplicate e
   expect((await first).ok).toBe(true)
   expect((await second).ok).toBe(true)
   expect(start).toHaveBeenCalledOnce()
-  expect(start).toHaveBeenCalledWith()
+  expect(start).toHaveBeenCalledWith(session)
   expect(events.indexOf('ordinary-stop')).toBeLessThan(events.indexOf('proxy-clear'))
   expect(events.indexOf('proxy-clear')).toBeLessThan(events.indexOf('start'))
   expect(events.at(-1)).toBe('inspect')
@@ -167,6 +197,21 @@ test('System Proxy waits for TUN stop/readback before ordinary start and proxy s
   expect(events.indexOf('ordinary-start')).toBeLessThan(events.indexOf('proxy-set'))
   expect(app.store.getState().tun.state).toBe('off')
   expect(app.store.getState().systemProxy).toEqual({ enabled: true })
+})
+
+test.each(['startCore', 'setSystemProxy'] as const)('%s validates ordinary configuration before stopping working TUN', async command => {
+  const { app, platform, tun } = await setupTun()
+  expect((await app.run('setTun', { enabled: true })).ok).toBe(true)
+  vi.spyOn(platform, 'applyRuntimeConfig').mockResolvedValue({ ok: false, error: 'invalid updated Profile' })
+  const stop = vi.spyOn(tun, 'stop')
+  const start = vi.spyOn(platform, 'startCore')
+  const proxy = vi.spyOn(platform, 'setSystemProxy')
+  const result = command === 'startCore' ? await app.run(command, {}) : await app.run(command, { enabled: true })
+  expect(result).toEqual({ ok: false, error: 'invalid updated Profile' })
+  expect(stop).not.toHaveBeenCalled()
+  expect(start).not.toHaveBeenCalled()
+  expect(proxy).not.toHaveBeenCalled()
+  expect(app.store.getState().tun.state).toBe('on')
 })
 
 test('failed TUN stop blocks ordinary/proxy starts until recovery proves off', async () => {

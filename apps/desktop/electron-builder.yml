@@ -1,10 +1,17 @@
 appId: dev.kuro.desktop
 productName: Clash Kuro
+afterSign: scripts/verify-macos-app.cjs
 directories:
   output: dist
   buildResources: build
 files:
   - out/**
+electronFuses:
+  runAsNode: false
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  enableEmbeddedAsarIntegrityValidation: true
+  onlyLoadAppFromAsar: true
 # Core, Geo data and licenses come from scripts/fetch-core.mjs (ADR-0012); never inside app.asar.
 extraResources:
   - from: resources/core/${platform}-${arch}
@@ -20,8 +27,9 @@ mac:
     - target: dmg
       arch: [arm64]
   icon: build/icon.icns
-  # Ad-hoc only, not code signing; users still need xattr (ADR-0010).
+  # Ad-hoc integrity signature; no Developer ID or notarization (ADR-0010).
   identity: '-'
+  # Ad-hoc Electron needs a separate proven native authorization boundary; helper start remains closed.
   hardenedRuntime: false
 dmg:
   artifactName: clash-kuro-${version}-${arch}.${ext}

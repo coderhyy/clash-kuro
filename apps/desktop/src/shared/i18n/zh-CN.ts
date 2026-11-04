@@ -47,6 +47,7 @@ export const zhCN = {
   systemProxy: 'System Proxy',
   tun: 'TUN',
   tunHint: 'TUN 与 System Proxy 互斥。重新打开应用后 TUN 保持关闭，启动检查完成后需手动开启。',
+  tunSafetyHint: 'TUN 不提供独立断网保护（kill switch）。路由消失时流量可能直连，显式 DIRECT 规则也允许直连。',
   tunNotInstalled: '尚未安装特权 helper',
   tunBlocked: 'TUN 已阻止',
   recoverTun: '检查并恢复 TUN',

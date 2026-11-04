@@ -175,12 +175,12 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
     inspect: () => options.tun!.inspect(),
     recover: () => options.tun!.recover(),
     stop: () => options.tun!.stop(),
-    start() {
+    start(config) {
       if (shuttingDown) return Promise.reject(new Error('Platform is shutting down; TUN start is closed'))
       if (tunStart) return tunStart
       const pending = Promise.resolve().then(() => {
         if (shuttingDown) throw new Error('Platform is shutting down; TUN start is closed')
-        return options.tun!.start()
+        return options.tun!.start(config)
       })
       tunStart = pending
       const clear = () => { if (tunStart === pending) tunStart = undefined }

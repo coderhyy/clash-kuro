@@ -27,7 +27,7 @@ static NSDictionary *Payload(NSString *prefix) {
   NSDictionary *manifest = @{@"format":@1, @"label":Label, @"release":release, @"target":target, @"protocol":@1, @"activationAllowed":@NO,
     @"core":@{@"file":@"mihomo", @"version":@"v1.19.33", @"sha256":Hash(core), @"archiveSha256":Hash(Bytes(@"archive"))},
     @"helper":@{@"file":@"helper", @"version":@"0.1.0", @"sha256":Hash(helper)}};
-  NSDictionary *plist = @{@"Label":Label, @"ProgramArguments":@[[[Tools stringByAppendingPathComponent:@"versions"] stringByAppendingPathComponent:[release stringByAppendingPathComponent:@"helper"]], @"--serve"], @"Disabled":@YES, @"RunAtLoad":@NO, @"KeepAlive":@NO};
+  NSDictionary *plist = @{@"Label":Label, @"ProgramArguments":@[[[Tools stringByAppendingPathComponent:@"versions"] stringByAppendingPathComponent:[release stringByAppendingPathComponent:@"helper"]], @"--serve"], @"Disabled":@YES, @"RunAtLoad":@NO, @"KeepAlive":@NO, @"AbandonProcessGroup":@NO};
   NSString *inbox = At(prefix, [State stringByAppendingPathComponent:@"Inbox"]);
   Put([inbox stringByAppendingPathComponent:@"helper"], helper, 0755);
   Put([inbox stringByAppendingPathComponent:@"mihomo"], core, 0755);
@@ -37,8 +37,16 @@ static NSDictionary *Payload(NSString *prefix) {
   Put(At(prefix, Recovery), helper, 0755);
   return manifest;
 }
+#import "tun-session.test.m"
+#import "tun-config.test.m"
+#import "tun-peer.test.m"
+#import "tun-network.test.m"
 int main(int argc, const char **argv) {
   @autoreleasepool {
+    if (argc >= 2 && !strcmp(argv[1], "--session-child")) {
+      if (argc >= 3) signal(SIGTERM, SIG_IGN);
+      for (;;) pause();
+    }
     if (argc == 3 && !strcmp(argv[1], "--resume-fixture")) {
       NSString *prefix = [NSString stringWithUTF8String:argv[2]];
       NSString *error = nil;
@@ -48,6 +56,10 @@ int main(int argc, const char **argv) {
       return 0;
     }
     CHECK(geteuid() != 0); alarm(20);
+    SessionTests();
+    ConfigTests();
+    PeerIdentityTests();
+    NetworkTests();
     NSString *error = nil;
     for (NSString *op in @[@"status", @"recover", @"start", @"stop"]) {
       NSString *json = [NSString stringWithFormat:@"{\"version\":1,\"operation\":\"%@\"}\n", op];
@@ -90,10 +102,13 @@ int main(int argc, const char **argv) {
     CHECK(Install(prefix, geteuid(), NO, &error));
     CHECK([Status(prefix, geteuid())[@"status"][@"state"] isEqual:@"off"]);
     CHECK(!Install(prefix, geteuid(), NO, &error));
-    NSString *network = At(prefix, [State stringByAppendingPathComponent:@"network.json"]);
-    Put(network, Bytes(@"{}"), 0600);
-    CHECK([Status(prefix, geteuid())[@"status"][@"state"] isEqual:@"unknown"]);
-    CHECK(!Uninstall(prefix, geteuid(), NO, [At(prefix, Tools) stringByAppendingPathComponent:@"installer"], &error)); CHECK(!unlink(network.fileSystemRepresentation));
+    for (NSString *name in @[@"owner.json", @"network.json", @"network-dns.json"]) {
+      NSString *network = At(prefix, [State stringByAppendingPathComponent:name]);
+      Put(network, Bytes(@"{}"), 0600);
+      CHECK([Status(prefix, geteuid())[@"status"][@"state"] isEqual:@"unknown"]);
+      CHECK(!PreflightInstall(prefix, geteuid(), NO, &error));
+      CHECK(!Uninstall(prefix, geteuid(), NO, [At(prefix, Tools) stringByAppendingPathComponent:@"installer"], &error)); CHECK(!unlink(network.fileSystemRepresentation));
+    }
     NSString *unknown = At(prefix, [State stringByAppendingPathComponent:@"keep-user-file"]);
     Put(unknown, Bytes(@"preserve"), 0600);
     CHECK(!Uninstall(prefix, geteuid(), NO, [At(prefix, Tools) stringByAppendingPathComponent:@"installer"], &error));

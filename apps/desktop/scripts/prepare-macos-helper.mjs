@@ -121,7 +121,7 @@ export async function prepareMacosHelper(target, root = desktopRoot) {
     core: { file: 'mihomo', version: lock.mihomo.version, sha256: sha256(core), archiveSha256: coreSpec.sha256 },
     helper: { file: 'helper', version: helperLock.version, sha256: sha256(helper) },
   }
-  const plist = `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0"><dict>\n<key>Label</key><string>${label}</string>\n<key>ProgramArguments</key><array><string>${executablePath}</string><string>--serve</string></array>\n<key>Disabled</key><true/>\n<key>RunAtLoad</key><false/>\n<key>KeepAlive</key><false/>\n</dict></plist>\n`
+  const plist = `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0"><dict>\n<key>Label</key><string>${label}</string>\n<key>ProgramArguments</key><array><string>${executablePath}</string><string>--serve</string></array>\n<key>Disabled</key><true/>\n<key>RunAtLoad</key><false/>\n<key>KeepAlive</key><false/>\n<key>AbandonProcessGroup</key><false/>\n</dict></plist>\n`
   const staging = await mkdtemp(join(parent, '.helper-payload-'))
   try {
     for (const [name, data, mode] of [

@@ -1,26 +1,34 @@
 import { mkdtemp, rm } from 'node:fs/promises'
-import { createServer } from 'node:net'
+import { createServer, type Socket } from 'node:net'
 import { join } from 'node:path'
-import { expect, test, vi } from 'vitest'
-import type { TunStatus } from '@kuro/core'
-import { createMacosTun, parseTunResponse, requestTunHelper } from './macos-tun'
+import { expect, onTestFinished, test, vi } from 'vitest'
+import type { TunSessionConfig, TunStatus } from '@kuro/core'
+import { createMacosTun, openTunHelperSession, parseTunResponse, requestTunHelper } from './macos-tun'
 
 const off: TunStatus = { availability: 'ready', state: 'off' }
 const on: TunStatus = { availability: 'ready', state: 'on' }
+const config: TunSessionConfig = {
+  version: 1, template: 'macos-dual-stack-v1', mode: 'rule', proxies: [], groups: [],
+  rules: [{ type: 'MATCH', value: '', target: 'DIRECT', noResolve: false }],
+  dns: { nameservers: ['192.0.2.53'], bootstrap: ['2001:db8::53'], proxyNameservers: ['192.0.2.54'], policies: [] },
+}
+const sessionId = '46c21f68-d929-4bf9-8adf-de4f27a33809'
+const opened = { version: 2, ok: true, session: sessionId, leaseMilliseconds: 15000, sequence: 0, status: on }
+
 
 test('absent installation is off and cannot be started', async () => {
   const request = vi.fn()
   const tun = createMacosTun({ endpointPresent: async () => false, request })
   expect(await tun.inspect()).toEqual({ availability: 'not-installed', state: 'off' })
   expect((await tun.recover()).state).toBe('off')
-  await expect(tun.start()).rejects.toThrow('not installed')
+  await expect(tun.start(config)).rejects.toThrow('not installed')
   expect(request).not.toHaveBeenCalled()
 })
 
 test('unreadable or retained installation is unknown, never silently off', async () => {
   const tun = createMacosTun({ endpointPresent: async () => { throw new Error('retained state without socket') } })
   expect(await tun.inspect()).toEqual({ availability: 'blocked', state: 'unknown', error: 'retained state without socket' })
-  await expect(tun.start()).rejects.toThrow('retained state')
+  await expect(tun.start(config)).rejects.toThrow('retained state')
 })
 
 test('blocked but proven-off helper does not receive state-changing requests', async () => {
@@ -28,17 +36,21 @@ test('blocked but proven-off helper does not receive state-changing requests', a
   const request = vi.fn(async (_operation: string) => status)
   const tun = createMacosTun({ endpointPresent: async () => true, request })
   expect(await tun.stop()).toEqual(status)
-  await expect(tun.start()).rejects.toThrow('attestation incomplete')
+  await expect(tun.start(config)).rejects.toThrow('attestation incomplete')
   expect(request.mock.calls).toEqual([['status'], ['status']])
 })
 
-test('start and stop require independent status confirmation', async () => {
-  const request = vi.fn().mockResolvedValueOnce(off).mockResolvedValueOnce(on).mockResolvedValueOnce(on)
-    .mockResolvedValueOnce(on).mockResolvedValueOnce(off).mockResolvedValueOnce(off)
-  const tun = createMacosTun({ endpointPresent: async () => true, request })
-  expect(await tun.start()).toEqual(on)
+test('start carries a validated copy over V2 and stop requires independent status confirmation', async () => {
+  const request = vi.fn().mockResolvedValueOnce(off).mockResolvedValueOnce(on).mockResolvedValueOnce(off)
+  const owner = { stop: vi.fn(async () => off), error: () => undefined, disconnect: vi.fn() }
+  const open = vi.fn(async (_config: TunSessionConfig) => owner)
+  const tun = createMacosTun({ endpointPresent: async () => true, request, open })
+  expect(await tun.start(config)).toEqual(on)
+  expect(open.mock.calls[0]![0]).toEqual(config)
+  expect(open.mock.calls[0]![0]).not.toBe(config)
   expect(await tun.stop()).toEqual(off)
-  expect(request.mock.calls.flat()).toEqual(['status', 'start', 'status', 'status', 'stop', 'status'])
+  expect(owner.stop).toHaveBeenCalledOnce()
+  expect(request.mock.calls.flat()).toEqual(['status', 'status', 'status'])
 })
 
 test('successful stop reply cannot override an unknown readback', async () => {
@@ -86,4 +98,292 @@ test.skipIf(process.platform === 'win32')('hung peer has a deadline and cannot l
   await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(path, resolve) })
   onTestFinished(async () => { for (const socket of sockets) socket.destroy(); await new Promise<void>(resolve => server.close(() => resolve())); await rm(dir, { recursive: true, force: true }) })
   await expect(requestTunHelper('status', path, 30)).rejects.toThrow('timed out')
+})
+
+test('invalid configuration is rejected before any endpoint or transport access', async () => {
+  const present = vi.fn(async () => true)
+  const request = vi.fn()
+  const open = vi.fn()
+  const tun = createMacosTun({ endpointPresent: present, request, open })
+  const bad = { ...config, command: '/bin/sh' }
+  await expect(tun.start(bad)).rejects.toThrow('unsupported field')
+  await expect(openTunHelperSession(bad, '/nonexistent')).rejects.toThrow('unsupported field')
+  expect(present).not.toHaveBeenCalled()
+  expect(request).not.toHaveBeenCalled()
+  expect(open).not.toHaveBeenCalled()
+})
+
+test('a failed start readback disconnects its session; a disconnected owner stays unknown until proven off', async () => {
+  let failure: Error | undefined
+  const owner = { stop: vi.fn(async () => { throw failure }), error: () => failure,
+    disconnect: vi.fn(() => { failure = new Error('session disconnected') }) }
+  const request = vi.fn().mockResolvedValueOnce(off).mockRejectedValueOnce(new Error('readback failed'))
+    .mockResolvedValueOnce(on).mockResolvedValueOnce(off)
+  const tun = createMacosTun({ endpointPresent: async () => true, request, open: async () => owner })
+  await expect(tun.start(config)).rejects.toThrow('readback failed')
+  expect(owner.disconnect).toHaveBeenCalledOnce()
+  expect(await tun.inspect()).toEqual({ availability: 'blocked', state: 'unknown', error: 'session disconnected' })
+  expect(await tun.inspect()).toEqual(off)
+})
+
+test('active stop attempts session cleanup even when preflight status is unreadable, then reads status independently', async () => {
+  const owner = { stop: vi.fn(async () => { throw new Error('lost stop reply') }), error: () => undefined, disconnect: vi.fn() }
+  const request = vi.fn().mockResolvedValueOnce(off).mockResolvedValueOnce(on).mockResolvedValueOnce(off)
+  const tun = createMacosTun({ endpointPresent: async () => true, request, open: async () => owner })
+  await tun.start(config)
+  expect(await tun.stop()).toEqual(off)
+  expect(owner.stop).toHaveBeenCalledOnce()
+  expect(request.mock.calls.flat()).toEqual(['status', 'status', 'status'])
+})
+
+test('an active session stop acknowledgement cannot override an unknown independent readback', async () => {
+  const owner = { stop: vi.fn(async () => off), error: () => undefined, disconnect: vi.fn() }
+  const request = vi.fn().mockResolvedValueOnce(off).mockResolvedValueOnce(on)
+    .mockResolvedValueOnce({ availability: 'blocked', state: 'unknown', error: 'cleanup journal retained' })
+  const tun = createMacosTun({ endpointPresent: async () => true, request, open: async () => owner })
+  await tun.start(config)
+  await expect(tun.stop()).rejects.toThrow('cleanup journal retained')
+  expect(owner.disconnect).toHaveBeenCalledOnce()
+})
+
+// These are unprivileged temporary sockets; fixtures do not attest the production helper or start Core.
+async function fixture(onFrame: (frame: Record<string, unknown>, socket: Socket) => void) {
+  const dir = await mkdtemp(join('/tmp', 'kt-v2-'))
+  const path = join(dir, 's')
+  const sockets = new Set<Socket>()
+  const server = createServer(socket => {
+    sockets.add(socket)
+    let bytes = ''
+    socket.on('data', data => {
+      bytes += data.toString()
+      while (bytes.includes('\n')) {
+        const index = bytes.indexOf('\n')
+        const frame = JSON.parse(bytes.slice(0, index)) as Record<string, unknown>
+        bytes = bytes.slice(index + 1)
+        onFrame(frame, socket)
+      }
+    })
+    socket.on('error', () => {})
+  })
+  await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(path, resolve) })
+  return { path, dispose: async () => {
+    for (const socket of sockets) socket.destroy()
+    await new Promise<void>(resolve => server.close(() => resolve()))
+    await rm(dir, { recursive: true, force: true })
+  } }
+}
+function reply(socket: Socket, value: unknown) { socket.write(`${JSON.stringify(value)}\n`) }
+
+test.skipIf(process.platform === 'win32')('V2 sends the complete config, bounded heartbeats and exact monotonically sequenced stop', async ({ onTestFinished }) => {
+  const frames: Record<string, unknown>[] = []
+  let heartbeat!: () => void
+  const heartbeatReceived = new Promise<void>(resolve => { heartbeat = resolve })
+  const peer = await fixture((frame, socket) => {
+    frames.push(frame)
+    if (frame.operation === 'open') reply(socket, opened)
+    else if (frame.operation === 'heartbeat') {
+      reply(socket, { version: 2, ok: true, sequence: frame.sequence })
+      heartbeat()
+    } else reply(socket, { version: 2, ok: true, sequence: frame.sequence, status: off })
+  })
+  onTestFinished(peer.dispose)
+  const session = await openTunHelperSession(config, peer.path, { heartbeatMs: 10 })
+  onTestFinished(() => session.disconnect())
+  await heartbeatReceived
+  expect(await session.stop()).toEqual(off)
+  expect(session.error()).toBeUndefined()
+  expect(frames[0]).toEqual({ version: 2, operation: 'open', config })
+  expect(frames.slice(1)).toEqual([
+    { version: 2, operation: 'heartbeat', session: sessionId, sequence: 1 },
+    { version: 2, operation: 'stop', session: sessionId, sequence: 2 },
+  ])
+})
+
+test.skipIf(process.platform === 'win32').each([
+  { ...opened, version: 1 }, { ...opened, sequence: 1 }, { ...opened, leaseMilliseconds: 999999 },
+  { ...opened, session: '/bin/sh' }, { ...opened, status: off }, { ...opened, command: 'start' },
+  { version: 2, ok: false, error: 'root authorization gate denied' },
+])('rejects invalid or denied V2 open %j without a V1 fallback', async response => {
+  const frames: unknown[] = []
+  const peer = await fixture((frame, socket) => { frames.push(frame); reply(socket, response) })
+  onTestFinished(peer.dispose)
+  await expect(openTunHelperSession(config, peer.path)).rejects.toThrow()
+  expect(frames).toHaveLength(1)
+  expect(frames[0]).toEqual({ version: 2, operation: 'open', config })
+})
+
+test.skipIf(process.platform === 'win32').each([
+  '{"version":2,"ok":true,"sequence":0,"session":"' + sessionId + '","leaseMilliseconds":15000,"status":{"availability":"ready","state":"on","st\\u0061te":"off"}}\n',
+  JSON.stringify(opened) + '\n{}\n',
+  'x'.repeat(65537),
+])('rejects duplicate keys, pipelined frames and oversized replies', async response => {
+  const peer = await fixture((_frame, socket) => socket.write(response))
+  onTestFinished(peer.dispose)
+  await expect(openTunHelperSession(config, peer.path)).rejects.toThrow()
+})
+
+test.skipIf(process.platform === 'win32')('invalid UTF-8 cannot be decoded into a successful session', async ({ onTestFinished }) => {
+  const peer = await fixture((_frame, socket) => socket.write(Buffer.concat([Buffer.from([0xff]), Buffer.from(JSON.stringify(opened) + '\n')])))
+  onTestFinished(peer.dispose)
+  await expect(openTunHelperSession(config, peer.path)).rejects.toThrow()
+})
+
+test.skipIf(process.platform === 'win32')('wrong heartbeat sequence disconnects the session and prevents further commands', async ({ onTestFinished }) => {
+  let replied!: () => void
+  const badReplySent = new Promise<void>(resolve => { replied = resolve })
+  const frames: unknown[] = []
+  const peer = await fixture((frame, socket) => {
+    frames.push(frame)
+    if (frame.operation === 'open') reply(socket, opened)
+    else { reply(socket, { version: 2, ok: true, sequence: 0 }); replied() }
+  })
+  onTestFinished(peer.dispose)
+  const session = await openTunHelperSession(config, peer.path, { heartbeatMs: 5 })
+  onTestFinished(() => session.disconnect())
+  await badReplySent
+  await vi.waitFor(() => expect(session.error()?.message).toContain('sequence'))
+  await expect(session.stop()).rejects.toThrow('sequence')
+  expect(frames).toHaveLength(2)
+})
+
+test.skipIf(process.platform === 'win32')('a hung heartbeat has one outstanding request and no stop is pipelined behind it', async ({ onTestFinished }) => {
+  const frames: Record<string, unknown>[] = []
+  let received!: () => void
+  const heartbeatReceived = new Promise<void>(resolve => { received = resolve })
+  const peer = await fixture((frame, socket) => {
+    frames.push(frame)
+    if (frame.operation === 'open') reply(socket, opened)
+    else received()
+  })
+  onTestFinished(peer.dispose)
+  const session = await openTunHelperSession(config, peer.path, { timeoutMs: 40, heartbeatMs: 5 })
+  onTestFinished(() => session.disconnect())
+  await heartbeatReceived
+  await expect(session.stop()).rejects.toThrow('timed out')
+  expect(session.error()?.message).toContain('unknown')
+  expect(frames.map(frame => frame.operation)).toEqual(['open', 'heartbeat'])
+})
+
+test.skipIf(process.platform === 'win32')('EOF after open is unknown and an opening timeout cannot later become success', async ({ onTestFinished }) => {
+  const peer = await fixture((_frame, socket) => { reply(socket, opened); socket.end() })
+  onTestFinished(peer.dispose)
+  const session = await openTunHelperSession(config, peer.path)
+  await vi.waitFor(() => expect(session.error()?.message).toContain('disconnected'))
+  await expect(session.stop()).rejects.toThrow('disconnected')
+  const hung = await fixture(() => {})
+  onTestFinished(hung.dispose)
+  await expect(openTunHelperSession(config, hung.path, { timeoutMs: 20 })).rejects.toThrow('timed out')
+})
+
+test.skipIf(process.platform === 'win32')('a heartbeat lease expires independently of a longer reply timeout', async () => {
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+  const frames: Record<string, unknown>[] = []
+  const peer = await fixture((frame, socket) => {
+    frames.push(frame)
+    if (frame.operation === 'open') reply(socket, opened)
+  })
+  try {
+    const session = await openTunHelperSession(config, peer.path, { timeoutMs: 30000 })
+    await vi.advanceTimersByTimeAsync(15001)
+    expect(session.error()?.message).toContain('lease expired')
+    await expect(session.stop()).rejects.toThrow('lease expired')
+    expect(frames.filter(frame => frame.operation === 'heartbeat').length).toBeLessThanOrEqual(1)
+  } finally { vi.useRealTimers(); await peer.dispose() }
+})
+
+test.skipIf(process.platform === 'win32')('stop rejects a replayed acknowledgement and waits for proof of off', async () => {
+  const peer = await fixture((frame, socket) => {
+    if (frame.operation === 'open') reply(socket, opened)
+    else reply(socket, { version: 2, ok: true, sequence: 0, status: off })
+  })
+  onTestFinished(peer.dispose)
+  const session = await openTunHelperSession(config, peer.path)
+  await expect(session.stop()).rejects.toThrow('sequence')
+  expect(session.error()?.message).toContain('sequence')
+})
+
+test('concurrent mutation cannot create a second session', async () => {
+  let resolve!: (value: TunStatus) => void
+  const request = vi.fn(() => new Promise<TunStatus>(done => { resolve = done }))
+  const open = vi.fn()
+  const tun = createMacosTun({ endpointPresent: async () => true, request, open })
+  const starting = tun.start(config)
+  await Promise.resolve()
+  await expect(tun.start(config)).rejects.toThrow('in progress')
+  resolve({ availability: 'blocked', state: 'off', error: 'native gate closed' })
+  await expect(starting).rejects.toThrow('native gate closed')
+  expect(open).not.toHaveBeenCalled()
+})
+
+test('recovery of a disconnected session invokes native recovery and independently confirms cleanup', async () => {
+  const unknown: TunStatus = { availability: 'blocked', state: 'unknown', error: 'lease lost; journal retained' }
+  let failure: Error | undefined
+  const owner = { stop: vi.fn(async () => { throw new Error('closed') }), error: () => failure,
+    disconnect: () => { failure = new Error('closed') } }
+  const request = vi.fn().mockResolvedValueOnce(off).mockResolvedValueOnce(on)
+    .mockResolvedValueOnce(unknown).mockResolvedValueOnce(off).mockResolvedValueOnce(off)
+  const tun = createMacosTun({ endpointPresent: async () => true, request, open: async () => owner })
+  await tun.start(config)
+  owner.disconnect()
+  expect(await tun.recover()).toEqual(off)
+  expect(request.mock.calls.flat()).toEqual(['status', 'status', 'status', 'recover', 'status'])
+})
+
+test('a stale inspect result cannot disconnect a session opened after the inspection began', async () => {
+  let readback!: (value: TunStatus) => void
+  const owner = { stop: vi.fn(async () => off), error: () => undefined, disconnect: vi.fn() }
+  const request = vi.fn().mockImplementationOnce(() => new Promise<TunStatus>(resolve => { readback = resolve }))
+    .mockResolvedValueOnce(off).mockResolvedValueOnce(on)
+  const tun = createMacosTun({ endpointPresent: async () => true, request, open: async () => owner })
+  const reading = tun.inspect()
+  await Promise.resolve()
+  await tun.start(config)
+  readback(off)
+  expect(await reading).toEqual(off)
+  expect(owner.disconnect).not.toHaveBeenCalled()
+})
+
+test('disappearing installation footprints cannot turn a locally owned session into not-installed/off', async () => {
+  let installed = true
+  const owner = { stop: vi.fn(async () => off), error: () => undefined, disconnect: vi.fn() }
+  const request = vi.fn().mockResolvedValueOnce(off).mockResolvedValueOnce(on)
+  const tun = createMacosTun({ endpointPresent: async () => installed, request, open: async () => owner })
+  await tun.start(config)
+  installed = false
+  expect(await tun.inspect()).toEqual({ availability: 'blocked', state: 'unknown', error: 'TUN helper disappeared; network state unknown' })
+  expect(owner.disconnect).not.toHaveBeenCalled()
+})
+
+test('concurrent inspect cannot invalidate the captured owner while stop awaits its acknowledgement', async () => {
+  let release!: (status: TunStatus) => void
+  let entered!: () => void
+  const stopping = new Promise<void>(resolve => { entered = resolve })
+  const owner = { stop: () => { entered(); return new Promise<TunStatus>(resolve => { release = resolve }) },
+    error: () => undefined, disconnect: vi.fn() }
+  const request = vi.fn().mockResolvedValueOnce(off).mockResolvedValueOnce(on).mockResolvedValue(off)
+  const tun = createMacosTun({ endpointPresent: async () => true, request, open: async () => owner })
+  await tun.start(config)
+  const pending = tun.stop()
+  await stopping
+  expect(await tun.inspect()).toEqual(off)
+  release(off)
+  expect(await pending).toEqual(off)
+  expect(request.mock.calls.flat()).toEqual(['status', 'status', 'status', 'status'])
+})
+
+test('a concurrent proven-off inspection invalidates pending start without losing its captured owner', async () => {
+  let release!: (status: TunStatus) => void
+  let entered!: () => void
+  const reading = new Promise<void>(resolve => { entered = resolve })
+  const owner = { stop: vi.fn(async () => off), error: () => undefined, disconnect: vi.fn() }
+  const request = vi.fn().mockResolvedValueOnce(off)
+    .mockImplementationOnce(() => { entered(); return new Promise<TunStatus>(resolve => { release = resolve }) })
+    .mockResolvedValue(off)
+  const tun = createMacosTun({ endpointPresent: async () => true, request, open: async () => owner })
+  const pending = tun.start(config)
+  await reading
+  expect(await tun.inspect()).toEqual(off)
+  release(on)
+  await expect(pending).rejects.toThrow('state confirmation failed')
+  expect(owner.disconnect).toHaveBeenCalledTimes(2)
 })

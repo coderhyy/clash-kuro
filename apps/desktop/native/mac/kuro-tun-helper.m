@@ -27,6 +27,7 @@ static NSString *const SocketDirectory = @"/private/var/run/dev.kuro.tun";
 static NSString *const SocketPath = @"/var/run/dev.kuro.tun/control.sock";
 static NSString *const Plist = @"/Library/LaunchDaemons/dev.kuro.tun.plist";
 static const NSUInteger MessageLimit = 65536;
+static const NSUInteger OpenMessageLimit = 66000;
 static volatile sig_atomic_t stopping = 0;
 
 static BOOL Fail(NSString **error, NSString *message) { if (error) *error = message; return NO; }
@@ -148,6 +149,8 @@ static BOOL WriteNew(NSString *path, NSData *bytes, mode_t mode, NSString **erro
 }
 static NSData *JSONData(NSDictionary *value) { return [NSJSONSerialization dataWithJSONObject:value options:NSJSONWritingSortedKeys error:NULL]; }
 static NSDictionary *ErrorResponse(NSString *error) { return @{@"version":@1, @"ok":@NO, @"error":error ?: @"operation refused"}; }
+#import "tun-config.m"
+
 static NSString *ParseRequest(NSData *data, NSString **error) {
   if (!data.length || data.length > MessageLimit) { Fail(error, @"request exceeds 64KiB or is empty"); return nil; }
   NSString *text = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
@@ -211,11 +214,19 @@ static BOOL Authorize(int peer, NSString **error) {
   return Fail(error, @"complete Electron startup and injection attestation is not enabled");
 }
 
+#import "tun-peer.m"
+#import "tun-session.m"
+#import "tun-network.m"
+
+static BOOL HasOwnershipFootprint(NSString *prefix) {
+  for (NSString *name in @[@"owner.json", @"network.json", @"network-dns.json"]) if (Exists(At(prefix, [State stringByAppendingPathComponent:name]))) return YES;
+  return NO;
+}
 static NSDictionary *Status(NSString *prefix, uid_t owner) {
   NSString *error = nil;
   NSDictionary *record = ReadJSON(prefix, At(prefix, [State stringByAppendingPathComponent:@"installed.json"]), owner, &error);
   BOOL off = Keys(record, @[@"format", @"release", @"helperSHA256", @"neverStarted"]) && [record[@"format"] isEqual:@1] && [record[@"neverStarted"] isEqual:@YES] &&
-    Match(record[@"release"], @"\\A[A-Za-z0-9.-]{1,120}\\z") && !Exists(At(prefix, [State stringByAppendingPathComponent:@"owner.json"])) && !Exists(At(prefix, [State stringByAppendingPathComponent:@"network.json"]));
+    Match(record[@"release"], @"\\A[A-Za-z0-9.-]{1,120}\\z") && !HasOwnershipFootprint(prefix);
   if (off) {
     NSString *helperPath = [At(prefix, Tools) stringByAppendingPathComponent:[@"versions" stringByAppendingPathComponent:[record[@"release"] stringByAppendingPathComponent:@"helper"]]];
     NSData *helper = ReadProtected(prefix, helperPath, owner, &error);
@@ -228,11 +239,20 @@ static NSDictionary *Status(NSString *prefix, uid_t owner) {
 }
 static NSDictionary *ProcessRequest(NSData *data, int peer, NSString *prefix, uid_t owner) {
   NSString *error = nil;
+  id request = KuroDecodeJSON(data, OpenMessageLimit, &error);
+  if ([request isKindOfClass:NSDictionary.class] && KuroNumber(request[@"version"], 2, 2)) {
+    NSDictionary *(^refused)(NSString *) = ^NSDictionary *(NSString *message) { return @{@"version":@2,@"ok":@NO,@"error":message ?: @"operation refused"}; };
+    if (!Keys(request, @[@"version", @"operation", @"config"]) || ![request[@"operation"] isEqual:@"open"] || ![request[@"config"] isKindOfClass:NSDictionary.class]) return refused(@"invalid version-2 open request");
+    if (!Authorize(peer, &error)) return refused(error);
+    if (!KuroTunRuntimeJSON([NSJSONSerialization dataWithJSONObject:request[@"config"] options:NSJSONWritingSortedKeys | NSJSONWritingWithoutEscapingSlashes error:NULL], &error)) return refused(error);
+    if (!KuroNetworkRoutesReady(&error) || !KuroNetworkCoreDNSReady(&error)) return refused(error);
+    return refused(@"owned Core launch, complete caller attestation and network prerequisites are not enabled; start refused");
+  }
   NSString *operation = ParseRequest(data, &error);
   if (!operation) return ErrorResponse(error);
   if ([operation isEqual:@"status"]) return Status(prefix, owner);
   if (!Authorize(peer, &error)) return ErrorResponse(error);
-  if ([operation isEqual:@"start"]) return ErrorResponse(@"root Core configuration validation is not implemented; start refused");
+  if ([operation isEqual:@"start"]) return ErrorResponse(@"V1 start unsupported; authenticated V2 prerequisites incomplete");
   NSDictionary *status = Status(prefix, owner);
   if (![status[@"status"][@"state"] isEqual:@"off"]) return ErrorResponse(@"owned process/network cleanup is not implemented; recovery refused");
   return status;
@@ -307,13 +327,13 @@ static BOOL ValidManifest(NSDictionary *manifest, NSString **error) {
 static BOOL FixedPlist(NSData *data, NSString *release, NSString **error) {
   NSDictionary *plist = data ? [NSPropertyListSerialization propertyListWithData:data options:NSPropertyListImmutable format:NULL error:NULL] : nil;
   NSString *program = [[Tools stringByAppendingPathComponent:@"versions"] stringByAppendingPathComponent:[release stringByAppendingPathComponent:@"helper"]];
-  return (Keys(plist, @[@"Label", @"ProgramArguments", @"Disabled", @"RunAtLoad", @"KeepAlive"]) && [plist[@"Label"] isEqual:Label] &&
-    [plist[@"ProgramArguments"] isEqual:@[program, @"--serve"]] && [plist[@"Disabled"] isEqual:@YES] && [plist[@"RunAtLoad"] isEqual:@NO] && [plist[@"KeepAlive"] isEqual:@NO]) || Fail(error, @"plist must be fixed and disabled");
+  return (Keys(plist, @[@"Label", @"ProgramArguments", @"Disabled", @"RunAtLoad", @"KeepAlive", @"AbandonProcessGroup"]) && [plist[@"Label"] isEqual:Label] &&
+    [plist[@"ProgramArguments"] isEqual:@[program, @"--serve"]] && [plist[@"Disabled"] isEqual:@YES] && [plist[@"RunAtLoad"] isEqual:@NO] && [plist[@"KeepAlive"] isEqual:@NO] && [plist[@"AbandonProcessGroup"] isEqual:@NO]) || Fail(error, @"plist must be fixed and disabled");
 }
 static BOOL ProveNeverStarted(NSString *prefix, uid_t owner, NSDictionary **record, NSString **error) {
   *record = ReadJSON(prefix, At(prefix, [State stringByAppendingPathComponent:@"installed.json"]), owner, error);
   if (!Keys(*record, @[@"format", @"release", @"helperSHA256", @"neverStarted"]) || ![(*record)[@"format"] isEqual:@1] || ![(*record)[@"neverStarted"] isEqual:@YES] ||
-      !Match((*record)[@"release"], @"\\A[A-Za-z0-9.-]{1,120}\\z") || Exists(At(prefix, [State stringByAppendingPathComponent:@"owner.json"])) || Exists(At(prefix, [State stringByAppendingPathComponent:@"network.json"]))) return Fail(error, @"no proven off ownership record; cleanup refused");
+      !Match((*record)[@"release"], @"\\A[A-Za-z0-9.-]{1,120}\\z") || HasOwnershipFootprint(prefix)) return Fail(error, @"no proven off ownership record; cleanup refused");
   return YES;
 }
 static BOOL MachExecutable(NSData *data) {
@@ -453,7 +473,7 @@ static BOOL Uninstall(NSString *prefix, uid_t owner, BOOL system, NSString *entr
     approval = @{@"format":@1, @"release":record[@"release"], @"helper":manifest[@"helper"][@"sha256"], @"core":manifest[@"core"][@"sha256"], @"manifest":Hash(manifestBytes), @"plist":Hash(plist), @"neverStarted":@YES};
     if (!WriteNew(approvalPath, JSONData(approval), 0600, error)) return NO;
   }
-  if (!Match(approval[@"release"], @"\\A[A-Za-z0-9.-]{1,120}\\z") || Exists(At(prefix, [State stringByAppendingPathComponent:@"owner.json"])) || Exists(At(prefix, [State stringByAppendingPathComponent:@"network.json"])) || Exists(At(prefix, [State stringByAppendingPathComponent:@"transaction.json"]))) return Fail(error, @"owned cleanup is unknown; uninstall preserved");
+  if (!Match(approval[@"release"], @"\\A[A-Za-z0-9.-]{1,120}\\z") || HasOwnershipFootprint(prefix) || Exists(At(prefix, [State stringByAppendingPathComponent:@"transaction.json"]))) return Fail(error, @"owned cleanup is unknown; uninstall preserved");
   NSString *versions = [At(prefix, Tools) stringByAppendingPathComponent:@"versions"];
   NSString *version = [versions stringByAppendingPathComponent:approval[@"release"]];
   if (!OnlyNames(prefix, At(prefix, Tools), owner, @[@"installer", @"versions"], error) ||
@@ -517,7 +537,7 @@ static int Serve(void) {
       BOOL complete = NO; BOOL invalid = NO;
       // Absolute bounded request lifetime, even when a client slowly trickles bytes.
       struct timespec began; clock_gettime(CLOCK_MONOTONIC, &began);
-      while (!stopping && request.length <= MessageLimit) {
+      while (!stopping && request.length <= OpenMessageLimit) {
         struct timespec now; clock_gettime(CLOCK_MONOTONIC, &now);
         long elapsed = (now.tv_sec - began.tv_sec) * 1000 + (now.tv_nsec - began.tv_nsec) / 1000000;
         struct pollfd ready = {.fd = peer, .events = POLLIN};
@@ -528,7 +548,7 @@ static int Serve(void) {
         [request appendBytes:bytes length:(NSUInteger)count];
         if (newline) { complete = YES; invalid = newline != bytes + count - 1; break; }
       }
-      NSDictionary *response = complete && !invalid ? ProcessRequest(request, peer, @"", 0) : ErrorResponse(@"request must be one newline-terminated JSON within 64KiB and 2 seconds");
+      NSDictionary *response = complete && !invalid ? ProcessRequest(request, peer, @"", 0) : ErrorResponse(@"request must be one newline-terminated JSON within its version byte limit and 2 seconds");
       NSMutableData *encoded = [JSONData(response) mutableCopy]; [encoded appendBytes:"\n" length:1];
       struct timeval timeout = {1, 0}; setsockopt(peer, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
       (void)send(peer, encoded.bytes, encoded.length, 0);

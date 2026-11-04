@@ -59,6 +59,7 @@ macTest.each(['arm64', 'x64'])('prepares %s from pinned local archive/resources 
   expect(await readFile(join(result, 'helper'))).toEqual(f.helper)
   const plist = await readFile(join(result, 'dev.kuro.tun.plist'), 'utf8')
   expect(plist).toContain('<key>Disabled</key><true/>')
+  expect(plist).toContain('<key>AbandonProcessGroup</key><false/>')
   expect(plist).toContain('<string>--serve</string>')
   expect(plist).toContain(`/Library/PrivilegedHelperTools/dev.kuro.tun/versions/${manifest.release}/helper`)
   expect((await lstat(result)).mode & 0o777).toBe(0o700)

@@ -1,3 +1,5 @@
+import type { TunSessionConfig } from './tun-config'
+
 export type Mode = 'rule' | 'global' | 'direct'
 export type LogLevel = 'silent' | 'error' | 'warning' | 'info' | 'debug'
 
@@ -62,7 +64,7 @@ export interface TunStatus {
 export interface TunPlatform {
   inspect(): Promise<TunStatus>
   recover(): Promise<TunStatus>
-  start(): Promise<TunStatus>
+  start(config: TunSessionConfig): Promise<TunStatus>
   stop(): Promise<TunStatus>
 }
 
@@ -108,3 +110,5 @@ export type LaunchAtLoginStatus = 'unsupported' | 'unpackaged' | 'disabled' | 'e
 
 export * from './config'
 export * from './profile-update'
+
+export * from './tun-config'

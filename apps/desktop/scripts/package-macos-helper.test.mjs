@@ -20,7 +20,7 @@ async function fixture() {
   const core = Buffer.from('build-core-fixture')
   const manifest = { format: 1, protocol: 1, label: 'dev.kuro.tun', release, target: 'darwin-arm64', activationAllowed: false,
     helper: { file: 'helper', version: '0.1.0', sha256: sha256(helper) }, core: { file: 'mihomo', sha256: sha256(core) } }
-  const plist = `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0"><dict>\n<key>Label</key><string>dev.kuro.tun</string>\n<key>ProgramArguments</key><array><string>/Library/PrivilegedHelperTools/dev.kuro.tun/versions/${release}/helper</string><string>--serve</string></array>\n<key>Disabled</key><true/>\n<key>RunAtLoad</key><false/>\n<key>KeepAlive</key><false/>\n</dict></plist>\n`
+  const plist = `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0"><dict>\n<key>Label</key><string>dev.kuro.tun</string>\n<key>ProgramArguments</key><array><string>/Library/PrivilegedHelperTools/dev.kuro.tun/versions/${release}/helper</string><string>--serve</string></array>\n<key>Disabled</key><true/>\n<key>RunAtLoad</key><false/>\n<key>KeepAlive</key><false/>\n<key>AbandonProcessGroup</key><false/>\n</dict></plist>\n`
   for (const [name, bytes] of Object.entries({ helper, mihomo: core, 'manifest.json': JSON.stringify(manifest), 'dev.kuro.tun.plist': plist })) await writeFile(join(payload, name), bytes, { mode: 0o600 })
   return { directory, payload, stage, manifest, plist }
 }

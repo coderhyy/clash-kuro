@@ -875,10 +875,11 @@ export function App({ bridge, demo }: { bridge: StateBridge; demo: boolean }) {
                   checked={snapshot.tun.state === 'on'}
                   disabled={busy || restartRequired || snapshot.tun.availability !== 'ready' || snapshot.tun.state === 'unknown'}
                   onCheckedChange={(enabled) => void run('setTun', { enabled })}
-                  aria-describedby="tun-hint tun-status"
+                  aria-describedby="tun-hint tun-safety-hint tun-status"
                 />
               </div>
               <p id="tun-hint" className="muted">{t('tunHint')}</p>
+              <p id="tun-safety-hint" className="muted">{t('tunSafetyHint')}</p>
               <span
                 id="tun-status"
                 className={`proxy-status ${snapshot.tun.state === 'on' ? 'is-on' : ''}`}

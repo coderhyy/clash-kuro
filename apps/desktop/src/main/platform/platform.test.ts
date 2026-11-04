@@ -12,7 +12,7 @@ import { createAppStore, type Backup } from '@kuro/state'
 import { fakeSnapshot } from '@kuro/state/fake'
 import { assertMixedPortAvailable, createDesktopPlatform, type DesktopPlatform, type DesktopPlatformOptions, type Exec } from './index'
 import { reserveTestPort } from './test-ports'
-import type { TunPlatform, TunStatus } from '@kuro/core'
+import type { TunPlatform, TunSessionConfig, TunStatus } from '@kuro/core'
 
 test.each(['on', 'unknown'] as const)('TUN %s blocks ordinary startup and proxy writes at the platform boundary', async state => {
   const status: TunStatus = { availability: 'blocked', state, error: 'TUN cleanup unconfirmed' }
@@ -53,11 +53,17 @@ test('shutdown waits for an entered TUN start, then stops it; subsequent starts 
   }
   const exec = vi.fn<Exec>(async () => ({ stdout: '', stderr: '' }))
   const platform = createDesktopPlatform({ os: 'darwin', dataDir, corePath: '/unused', mixedPort: 7890, tun, exec })
-  const starting = platform.tun!.start()
+  const config: TunSessionConfig = {
+    version: 1, template: 'macos-dual-stack-v1', mode: 'rule', proxies: [], groups: [],
+    rules: [{ type: 'MATCH', value: '', target: 'DIRECT', noResolve: false }],
+    dns: { nameservers: ['192.0.2.53'], bootstrap: ['192.0.2.53'], proxyNameservers: ['192.0.2.53'], policies: [] },
+  }
+  const starting = platform.tun!.start(config)
   await vi.waitFor(() => expect(tun.start).toHaveBeenCalledOnce())
+  expect(tun.start).toHaveBeenCalledWith(config)
   await expect(platform.setSystemProxy({ host: '127.0.0.1', port: 7890, bypass: [] })).rejects.toThrow('startup must settle')
   const closing = platform.shutdown({ timeoutMs: 1000 })
-  await expect(platform.tun!.start()).rejects.toThrow('shutting down')
+  await expect(platform.tun!.start(config)).rejects.toThrow('shutting down')
   expect(exec).not.toHaveBeenCalled()
   status = { availability: 'ready', state: 'on' }
   completeStart(status)

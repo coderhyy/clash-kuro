@@ -1,6 +1,6 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import type { MihomoClient } from '@kuro/api'
-import type { ControlChannel, Platform, Profile, Settings, TunStatus } from '@kuro/core'
+import type { ControlChannel, Platform, Profile, Settings, TunSessionConfig, TunStatus } from '@kuro/core'
 import { parseOverride } from '@kuro/core'
 import { LOG_BUFFER_SIZE, type CommandInput, type CommandName, type CommandOutput, type CommandResult, type Language, type LanguagePreference, type StateBridge, type StateSnapshot } from './index'
 import type { LogEntry, Traffic } from '@kuro/api'
@@ -13,6 +13,8 @@ export interface AppStoreDeps {
   systemLocale(): string
   /** Reads the Profile's original content; must not mutate it. */
   buildRuntimeConfig(input: { profile: Profile; settings: Settings; controlChannel: ControlChannel; override: string }): string | Promise<string>
+  /** Admit a restricted session before stopping the currently working mode. */
+  buildTunConfig?(input: { profile: Profile; settings: Settings; override: string }): TunSessionConfig | Promise<TunSessionConfig>
   /** Fetches/imports original content and returns updated metadata; rejects without destroying old content. */
   refreshProfile(profile: Profile): Promise<Profile>
   hooks?: {
@@ -157,15 +159,16 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
     return status
   }
 
-  async function performTun(operation: 'start' | 'stop' | 'recover'): Promise<TunStatus> {
+  async function performTun(operation: 'start' | 'stop' | 'recover', config?: TunSessionConfig): Promise<TunStatus> {
     requireNativeSession()
     if (!platform.tun) throw new Error('TUN is unsupported')
+    if (operation === 'start' && !config) throw new Error('TUN configuration admission is unavailable')
     let observed: TunStatus | undefined
     tunTransition = true
     try {
       change({ tun: { availability: store.getState().tun.availability, state: 'unknown' } })
       requireNativeSession()
-      const result = await platform.tun[operation]()
+      const result = operation === 'start' ? await platform.tun.start(config!) : await platform.tun[operation]()
       requireNativeSession()
       observed = await inspectTun()
       requireNativeSession()
@@ -189,7 +192,7 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
     } finally { tunTransition = false }
   }
 
-  async function stopTunIfNeeded(): Promise<boolean> {
+  async function stopTunIfNeeded(beforeStop?: () => Promise<void>): Promise<boolean> {
     requireSession()
     let status: TunStatus
     try { status = await inspectTun() } catch (error) {
@@ -199,6 +202,8 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
     }
     requireSession()
     if (status.state === 'off') return false
+    await beforeStop?.()
+    requireSession()
     await performTun('stop')
     requireSession()
     change({ core: { status: 'stopped', error: null }, proxyGroups: [], proxies: {} })
@@ -284,10 +289,11 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
       change({ systemProxy: { enabled: false } })
       return
     }
-    if (await stopTunIfNeeded()) {
+    if (await stopTunIfNeeded(async () => {
       const id = store.getState().activeProfileId
       if (id === null) throw new Error('No Active Profile')
       await prepareRuntime(profile(id))
+    })) {
       await start()
     }
     const running = await platform.isCoreRunning()
@@ -363,10 +369,13 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
       if (status.availability !== 'ready') throw new Error(status.error ?? `TUN is ${status.availability}`)
       if (status.state === 'on') return
       if (store.getState().activeProfileId === null) throw new Error('No Active Profile')
+      if (!deps.buildTunConfig) throw new Error('TUN configuration admission is unavailable')
+      const current = store.getState()
+      const config = await deps.buildTunConfig({ profile: profile(current.activeProfileId!), settings: current.settings, override: current.override })
+      requireSession()
       await stop()
       requireSession()
-      // The adapter owns a fixed, validated session; no Profile/YAML/path crosses this boundary.
-      await performTun('start')
+      await performTun('start', config)
       requireSession()
       change({ core: { status: 'running', error: null }, proxyGroups: [], proxies: {} })
       requireSession()
@@ -450,14 +459,18 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
     },
     async startCore() {
       requireSession()
-      await stopTunIfNeeded()
+      const prepared = await stopTunIfNeeded(async () => {
+        const id = store.getState().activeProfileId
+        if (id === null) throw new Error('No Active Profile')
+        await prepareRuntime(profile(id))
+      })
       requireSession()
       const running = await platform.isCoreRunning()
       requireSession()
       if (running) return
       const id = store.getState().activeProfileId
       if (id === null) throw new Error('No Active Profile')
-      await prepareRuntime(profile(id))
+      if (!prepared) await prepareRuntime(profile(id))
       await start()
     },
     async stopCore() {

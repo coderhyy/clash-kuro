@@ -1,8 +1,8 @@
 # macOS 传统 helper：安装与权限边界
 
-2026-11-04。依据 [ADR-0015](../../docs/adr/0015-macos-traditional-privileged-helper.md)。这是实现方案与证据，**不是已实现的服务或真实安装/TUN 验收通过**。路线是管理员安装小型 LaunchDaemon，不依赖付费 Developer ID/公证，不设置整个 Core setuid，不关闭 SIP/Gatekeeper。目前没有真实系统操作授权。
+2026-11-04。依据 [ADR-0015](../../docs/adr/0015-macos-traditional-privileged-helper.md)。这是实现方案与证据；原生禁用服务切片已有源码，**不代表完整安全能力或真实安装/TUN验收通过**。路线是管理员安装小型 LaunchDaemon，不依赖付费 Developer ID/公证，不设置整个 Core setuid，不关闭 SIP/Gatekeeper。目前没有真实系统操作授权。
 
-安装负例归 [11](issues/11-protected-install-transaction.md)，调用者与 broker 归 [12](issues/12-peer-authentication-and-broker.md)。纯测试可并行；生产身份清单依赖受保护安装记录。配置白名单、完整客户端身份或网络归属证据未完成时，不得接受启动 TUN。
+安装、调用者与broker由 [04](issues/04-macos-privileged-adapter.md) 跟踪，原 [11](issues/11-protected-install-transaction.md)/[12](issues/12-peer-authentication-and-broker.md) 保留历史。纯测试可并行；生产身份清单依赖受保护安装记录。配置白名单、完整客户端身份或网络归属证据未完成时，不得接受启动 TUN。
 
 ## 威胁与参考证据
 
@@ -76,10 +76,18 @@ root Core 不接受普通 buildRuntimeConfig 产出的任意 YAML：Profile/Over
 
 helper 只监督自己 spawn 的固定 Core，记录进程句柄/PID+启动时间及会话，不按名称 killall，不仅凭 pid 文件恢复。写入网络前持久记录计划、基线和 owner/session；记录自身 utun 的内核接口标识、每条 route/DNS 的修改前后值。停止时逐项核对当前值仍是本会话所有再恢复；第三方修改/接口复用/记录不完整时停止自动清理并报需要恢复，不能全局清空代理、路由或 DNS。
 
-App lease 到期/断连、Core crash、取消关机后恢复、helper 重启均进入有界 stop/reconcile；证据不足保持禁用，不再启第二 writer。真实恢复依赖 10 的生命周期/08 真机验收；临时目录测试不证明这些结果。正常退出后是否恢复 TUN、DNS/route 作用域仍待产品决定，不由本方案扩大范围。
+App lease 到期/断连、Core crash、取消关机后恢复、helper 重启均进入有界 stop/reconcile；证据不足保持禁用，不再启第二 writer。真实恢复依赖 [06生命周期](issues/06-state-and-ui.md)/[08验收](issues/08-tun-integration-acceptance.md)，原10已归并；临时目录测试不证明这些结果。[ADR-0016](../../docs/adr/0016-macos-tun-manual-start.md) 已批准正常重开/登录启动先恢复残留、关闭TUN且仅手动开启；[0017](../../docs/adr/0017-macos-tun-dual-stack.md) 已批准双栈固定模板/无高级UI；[0018](../../docs/adr/0018-macos-tun-network-boundaries.md) 已批准保持LAN/split DNS、不新增DNS供应商、缺失或不支持DNS具体拒绝、显式DIRECT与无kill switch。故障不自动切模式，但路由消失后OS可能直连，UI开启/故障说明不得称全流量/防泄漏。这些产品边界不再阻塞技术验证；root schema/可信链/归属清理门保持。
 
 ## 本轮通过与后续门槛
 
 已通过：安装模型16项（包含元数据模拟）；普通用户 native peer identity 两分支。本轮没有 sudo/launchctl、挂载/安装/启动真实 App、网络或用户基线读取。
 
-未通过/尚未执行：未签名 pkg 的精确批准与消费绑定、root/ACL/真实安装事务、完整 Electron 资源及注入负例、受限配置 schema/broker 实现、进程和网络归属/异常恢复、真机权限与卸载。它们分别阻塞对应生产入口，不阻塞 11/12 继续写纯验证。没有把文档或原型当作生产安全完成。
+未通过/尚未执行：未签名 pkg 的精确批准与消费绑定、root/ACL/真实安装事务、完整 Electron 资源及注入负例、受限配置 schema/broker 实现、进程和网络归属/异常恢复、真机权限与卸载。它们分别阻塞对应生产入口，不阻塞04继续隔离验证，06继续调用方/门禁工作。没有把文档或原型当作生产安全完成。
+
+## 2026-11-04 ad-hoc Electron 鉴权实验证据
+
+实际本机构建已经验证：禁用RunAsNode/NODE_OPTIONS/Node CLI inspect、启用OnlyLoadAppFromAsar及EmbeddedAsarIntegrityValidation后，包的完整seal/fuse/签名内ASAR元数据可离线核验；生产包新增afterSign检查。packaged App也不再读取ELECTRON_RENDERER_URL来载入开发页面。这些是减少注入入口，不等于完整调用者认证。
+
+可复现脚本为`apps/desktop/scripts/check-adhoc-library-validation.mjs`。另用普通用户临时C loader与dylib（均ad-hoc签名，loader加runtime，仅dlopen与返回42，不启动App或改网络）复现：系统拒绝加载，错误为mapping process and mapped file have different Team IDs。electron-builder对ad-hoc+hardenedRuntime也提示disable-library-validation兼容条件。因此没有把hardenedRuntime=true候选发作可用包；保留原有false，native授权门继续关闭，不通过放宽entitlement检查解决。
+
+下一条技术候选是受保护安装、仅链接系统framework的独立native授权broker；它必须自己确认用户意图并展示有限请求，不是给任何同UID进程静默转发的shim。需要具体验证其UI意图绑定、pin、peer身份、lease归属与Electron退出联动，当前尚未实现或宣称通过。无需改变“不付费会员、不setuid Core、不关闭SIP/Gatekeeper”的产品边界。

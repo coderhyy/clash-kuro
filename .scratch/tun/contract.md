@@ -1,7 +1,7 @@
 # macOS TUN 转换契约草案
 
 Status: proposed（06 票内契约/调用方/测试清单；整合票据不代表实现完成）
-依据：ADR-0014 与 [ADR-0015：传统特权 helper](../../docs/adr/0015-macos-traditional-privileged-helper.md)；源码基线 `2617cf9`。macOS 安装路线已选择管理员安装的传统 LaunchDaemon；正常重开策略已由 [ADR-0016](../../docs/adr/0016-macos-tun-manual-start.md) 批准：先检查/恢复自有残留，TUN 保持关闭，仅手动开启；双栈固定模板、无高级 UI 和技术参数选定权限已由 [ADR-0017](../../docs/adr/0017-macos-tun-dual-stack.md) 批准，具体候选与证据见 [spec](spec.md#固定版本事实与技术候选)，不是实测通过。安装技术约束见 `platform-feasibility.md`。
+依据：ADR-0014 与 [ADR-0015：传统特权 helper](../../docs/adr/0015-macos-traditional-privileged-helper.md)；源码基线 `2617cf9`。macOS 安装路线已选择管理员安装的传统 LaunchDaemon；正常重开策略已由 [ADR-0016](../../docs/adr/0016-macos-tun-manual-start.md) 批准：先检查/恢复自有残留，TUN 保持关闭，仅手动开启；双栈固定模板、无高级 UI 和技术参数选定权限已由 [ADR-0017](../../docs/adr/0017-macos-tun-dual-stack.md) 批准，具体候选与证据见 [spec](spec.md#固定版本事实与技术候选)，不是实测通过。LAN/DNS/DIRECT 与无 kill switch 已由 [ADR-0018](../../docs/adr/0018-macos-tun-network-boundaries.md) 批准。安装技术约束见 `platform-feasibility.md`。
 
 ## 1. 范围与 seam
 
@@ -23,7 +23,7 @@ interface TunStatus {
 }
 // StateSnapshot.tun: TunStatus
 // Commands: setTun({ enabled: boolean }), recoverTun({})
-// TunPlatform: inspect(), recover(), start(), stop() -> Promise<TunStatus>
+// TunPlatform: inspect(), recover(), start(config: TunSessionConfig), stop() -> Promise<TunStatus>
 ```
 
 - `availability` 是能力/安装/门禁观察，`state` 是实际运行证据；`ready` 不等于 on，`blocked/off` 与 `blocked/unknown` 都有意义。`not-installed` 不能替代所有权与残留恢复证明，安装状态查询失败不能伪装成 off。
@@ -118,6 +118,8 @@ interface TunStatus {
 | 残留恢复成功 | 网络 known/none，不自动恢复异常前 TUN；正常重开也保持关闭，仅手动开启 |
 | uninstall 时网络未知、卸载执行失败 | 不先删掉恢复能力，不显示安装 absent；错误与网络未知保留 |
 | 不含新字段的旧 Settings/Backup | 仍能读取；不从旧文件推断安装状态或实际 TUN，也不绕过启动恢复 |
+| DNS 缺失/不支持、LAN/分域 DNS 变化 | 前者具体报错并拒绝开启，不自动换供应商/丢字段；后者不得声称符合已批准模板，保留准确失败与恢复证据 |
+| 显式 DIRECT、TUN 故障/路由消失 | 尊重 DIRECT；故障不自动切模式。UI 常显无 kill switch/可能直连，不能把未知门禁等同系统断网 |
 
 最小第一步不需要服务实现：在现有 store fixture 上把 `stopCore` 的 Promise 延迟/拒绝，验证 `setActiveProfile` / `setOverride` / `importBackup` 不越过 stop 继续 start/导入；在 `createSystemProxy({ os: 'darwin', exec })` 的 mock Exec 下记录当前第三方端点 clear 行为，作为“未满足 TUN 所有权要求”的基线而不是先修改 MVP。再以现有 `notifyCoreStopped`、resume fixture 注入已观察异常与迟到 resolve，定位现有门禁保证；另测快照仍 running 而底层 Core 已死的未观察异常，不把两个分支混为一谈。06 确认本文件后，才把尚无真实入口的 TUN 双向转换矩阵接入最终 fake adapter。
 
@@ -136,7 +138,7 @@ interface TunStatus {
 - 本清单属于 [06](issues/06-state-and-ui.md)，原 [03](issues/03-shared-contract-and-config.md)/[10](issues/10-mode-transition-contract.md) 保留历史，不再独立阻塞；现有调用链的 fake 回归设计不依赖安装路线或 DNS/路由值。
 - 实现真实 TUN 请求、安装控制或扩公共接口前，主会话先集成 06 的最小类型与配置归属规则。普通重载中显式请求仍活跃 TUN如何维持、关闭 TUN 后保留普通 Core与否，随该契约评审，不隐式扩大本轮行为。
 - 管理员安装传统 LaunchDaemon 路线已由 ADR-0015 选定；具体安装/授权 API、helper caller 与产物鉴别、升级/卸载细节仍由 macOS 机制票明确，不阻塞已有 Command 顺序测试。
-- 正常重开关闭/先残留检查/仅手动开启，以及双栈固定模板/无高级 UI/参数可技术选定均已批准。mips、双族 auto-route 与 native DNS 等首个候选见 spec；它们未通过网络实验，不能写成已验证默认。当前待决只剩 LAN/分域 DNS 与上游隐私、DIRECT/无独立 kill switch 的具体产品影响。
+- 正常重开关闭/先残留检查/仅手动开启，以及双栈固定模板/无高级 UI/参数可技术选定均已批准。mips、双族 auto-route 与 native DNS 等首个候选见 spec；它们未通过网络实验，不能写成已验证默认。LAN/分域 DNS 保持、不新增 DNS 供应商、不支持具体拒绝、显式 DIRECT 与无独立 kill switch 已由 ADR-0018 批准，不再是待决；开启/故障说明需明确路由消失可能直连。
 - 所有自动结果只证明受测的 fake 顺序与门禁，真实网络残留恢复、授权拒绝和卸载完成需要独立产物与人工验收证据。
 
 ## 7. IPv6 与模板验证清单（06/04/08 内，不新票）
@@ -144,3 +146,11 @@ interface TunStatus {
 IPv6 路由、接口变化、双栈 DNS（AAAA、单族失败/回退与 bootstrap 环路）、停止/异常恢复及双栈绕过/泄漏测试须有具体设计、隔离验证与精确产物结果。双栈固定模板已批准，技术参数不再逐项等用户选择；但 root schema 尚未通过前不实现可启用模板，随后固定 Core 校验与网络读回分别取证。不得静默关闭用户 IPv6；无法验证外网 IPv6 的场景明确记录，不能声称全流量/防泄漏。最终证据回填 06/04/08 Comments，历史 fake 通过计数保持原范围。
 
 2026-11-04 后续接线证据：本轮生产 macOS 客户端、State 与 UI 使用第2节接口；UI相关25项及renderer typecheck通过，主会话报告State151通过、desktop359通过/17skip、全量typecheck通过。原生start仍拒绝未完成的root验证与完整调用方证明，组合native修复/build/CI/产物与真机结果待主会话最终回填。
+
+## 2026-11-04 受限会话接线检查点
+
+`buildTunConfig` 从原始 Profile 与 Override 生成闭合 JSON schema；State 在停止旧模式之前完成准入，再将同一候选交给 `TunPlatform.start(config)`。缺少准入实现直接拒绝。root 独立重复验证，客户端校验不替代 root 校验。
+
+V1 仅用于 status/recover/无活跃连接的 stop；启动使用 V2 持久 open，携带 config，单帧含换行不超过66000字节，config不超过65536 UTF-8字节。服务端UUID只作关联标识；同一已认证连接上heartbeat/stop从1严格递增，单个待确认请求，租约15000ms；停止ack后仍须独立status读回。断链不等于off。当前native open仍拒绝，完整会话服务并发状态读回尚待接通。
+
+普通用户原生子进程测试覆盖悬停生成owner记录后才恢复执行、精确direct-child回收、EOF/lease/原peer死亡与清理失败保留证据；这些不证明helper SIGKILL后的launchd进程组清理。固定plist显式AbandonProcessGroup=false只是准备条件。

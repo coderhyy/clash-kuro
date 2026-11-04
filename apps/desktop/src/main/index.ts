@@ -119,7 +119,7 @@ async function main(): Promise<void> {
       return { action: 'deny' }
     })
     win.webContents.on('will-navigate', (event) => event.preventDefault())
-    if (process.env.ELECTRON_RENDERER_URL) void win.loadURL(process.env.ELECTRON_RENDERER_URL)
+    if (!app.isPackaged && process.env.ELECTRON_RENDERER_URL) void win.loadURL(process.env.ELECTRON_RENDERER_URL)
     else void win.loadFile(join(__dirname, '../renderer/index.html'))
   }
 
@@ -127,6 +127,7 @@ async function main(): Promise<void> {
     platform, client,
     systemLocale: () => app.getLocale(),
     buildRuntimeConfig: (input) => profiles.buildRuntimeConfig(input),
+    buildTunConfig: (input) => profiles.buildTunConfig(input),
     refreshProfile: (profile) => profiles.refreshProfile(profile),
     hooks: { onOpenWindow: showWindow, onQuit: () => void exit() }
   })
