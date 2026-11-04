@@ -53,3 +53,5 @@
 实际可运行的是普通Core/Backup/登录项原链路加TUN状态与恢复门禁，native socket/CLI为受限生产实现；尚不能启动真实TUN。04已落root有限配置与owner/lease组件；仍缺可信授权入口、Core控制broker、helper死亡约束、双栈路由归属清理和升级，06真实TUN接管依赖这些入口。disabled helper安装包不等于可用TUN产品，不能混入Backup/登录项验收。08负责同commit CI/dmg/pkg身份记录与后续人工验收；操作顺序仍Backup恢复→登录项，TUN另排且等待明确“开始”。
 
 最终产物源码`9990da69c565cef973e8560636fd2fb68fddbf15`：[CI 41774486923](https://github.com/coderhyy/clash-kuro/actions/runs/41774486923) macOS/Windows均通过，App/helper下载后source-commit与摘要一致，DMG verify VALID。草稿PR #3依赖PR #2，未合并。精确路径、摘要、预计耗时与需保存内容以[人工验收入口](manual-acceptance.md)为准；TUN disabled pkg只审阅，不混入Backup/登录项验收。
+
+2026-11-04 最新验证：`f837691`双平台[CI 41787576501](https://github.com/coderhyy/clash-kuro/actions/runs/41787576501)通过，PR #3仍为依赖PR #2的草稿。新App/disabled helper产物身份及哈希见[人工验收入口](manual-acceptance.md)，不再以9990da6证明新代码。启动仍关门，停止/恢复只有组件隔离证据，未证明真实双栈TUN闭环；真实安装/网络/登录项/注销继续等“开始”。

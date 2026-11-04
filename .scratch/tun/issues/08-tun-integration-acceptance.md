@@ -33,3 +33,7 @@ CI配置已串联native隔离测试→App dmg→disabled helper pkg，并保存s
 2026-11-04 受限会话切片本地整合：State正反切换均先校验目标配置再停止旧模式；V2长连接客户端已接闭合配置、lease和独立stop读回；修复并发inspect清空session的引用竞态。原生测试包含真实普通用户direct-child/SCM_RIGHTS peer退出、固定Core-t及29项DNS mock/temp场景，均通过。四包typecheck/production build通过；本地App目录包经afterSign的seal/ASAR/fuse核验通过，篡改副本被拒绝。没有运行真实App/root服务或网络写入。
 
 真实三结果仍为：启动不支持（native gate）；停止/清理仅组件隔离证据，未完成真实TUN闭环；异常恢复仅direct-child与自有DNS journal组件，未证明helperSIGKILL/双栈route恢复。不把该检查点当作可安装TUN验收包。最终同提交CI身份由主会话回填，原9990da6产物只代表旧版本；人工顺序与授权要求不变。
+
+2026-11-04 最终结果：源码`f8376911308b80677dac923ba9e5fbe3c0095f77`，[CI 41787576501](https://github.com/coderhyy/clash-kuro/actions/runs/41787576501) macOS/Windows全部success。首轮2197af4的macOS打包失败因PR默认跳过ad-hoc签名；保持完整性校验并在无证书/无密钥环境显式执行ad-hoc签名后已修复，未绕过检查。最终本地API12/Core218/State170/Desktop407共807项通过，desktop16平台skip；native隔离suite、固定Core-t、四包类型检查、构建和验包通过。
+
+已下载同提交App与disabled helper，source-commit与CI完全一致。App路径`/tmp/clash-kuro-acceptance-f837691/kuro-macos-arm64/clash-kuro-0.1.0-arm64.dmg`，SHA256`6c6b256cad37b3c16cc72339650b9a9c0e7a8002190b3aa5fc5a7923bbdd8cb4`；hdiutil verify VALID。helper审阅pkg SHA256`94ab97e2a5142c0d37d4ca534083adc2f2718bdf9cc40befef85fd69d53fb69b`；摘要/manifest/lock匹配，离线展开后的helper、installer、preflight-native、uninstall、Core分别匹配pin，未执行脚本。详细准备步骤与保存项见[人工验收入口](../../phase2/manual-acceptance.md)。仅App用于Backup/登录项准备，禁用helper不安装；真实TUN三结果仍不具备，04/06/08保持开放。

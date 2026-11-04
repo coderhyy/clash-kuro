@@ -7,22 +7,22 @@ Blocked by: 用户明确开始并安排同机系统状态操作窗口
 
 ## 有效安装包与预计耗时
 
-- **本轮 App 包**：`/tmp/clash-kuro-acceptance-9990da6/kuro-macos-arm64/clash-kuro-0.1.0-arm64.dmg`，macOS arm64，App版本0.1.0。
-- 来源：[CI 41774486923](https://github.com/coderhyy/clash-kuro/actions/runs/41774486923)，macOS和Windows双绿；[草稿PR #3](https://github.com/coderhyy/clash-kuro/pull/3)依赖PR #2，均未合并。
-- 源码提交：`9990da69c565cef973e8560636fd2fb68fddbf15`。下载后的两份`source-commit.txt`与CI headSha一致；本节及后续票据提交只记录结果，不把它冒充构建来源。
-- **App SHA256**：`df1116f64e4719e11135442bc24b4a08b08b36ea0ae4bc57f2314ce6fd1ba130`。已与CI `SHA256SUMS`逐字核验，`hdiutil verify`退出0、checksum VALID；未挂载或启动这个CI包。
+- **本轮 App 包**：`/tmp/clash-kuro-acceptance-f837691/kuro-macos-arm64/clash-kuro-0.1.0-arm64.dmg`，macOS arm64，App版本0.1.0。
+- 来源：[CI 41787576501](https://github.com/coderhyy/clash-kuro/actions/runs/41787576501)，macOS和Windows双绿；[草稿PR #3](https://github.com/coderhyy/clash-kuro/pull/3)依赖PR #2，均未合并。
+- 源码提交：`f8376911308b80677dac923ba9e5fbe3c0095f77`。下载后的两份`source-commit.txt`与CI headSha一致；本节及后续票据提交只记录结果，不把它冒充构建来源。
+- **App SHA256**：`6c6b256cad37b3c16cc72339650b9a9c0e7a8002190b3aa5fc5a7923bbdd8cb4`。已与CI `SHA256SUMS`逐字核验，`hdiutil verify`退出0、checksum VALID；未挂载或启动这个CI包。
 - 备份验收预计**20–30分钟**；登录项预计**15–25分钟，含两次注销/登录**。先完成Backup与恢复，再单独安排登录项；TUN另排。原App/数据保存与环境恢复另留时间。
 
 只读复核命令（不挂载、不启动App）：
 
 ```sh
-shasum -a 256 /tmp/clash-kuro-acceptance-9990da6/kuro-macos-arm64/clash-kuro-0.1.0-arm64.dmg
-hdiutil verify /tmp/clash-kuro-acceptance-9990da6/kuro-macos-arm64/clash-kuro-0.1.0-arm64.dmg
+shasum -a 256 /tmp/clash-kuro-acceptance-f837691/kuro-macos-arm64/clash-kuro-0.1.0-arm64.dmg
+hdiutil verify /tmp/clash-kuro-acceptance-f837691/kuro-macos-arm64/clash-kuro-0.1.0-arm64.dmg
 ```
 
-摘要不符、文件缺失或verify非零时停止。`/tmp`可能被清理，正式开始前可复制原包、source-commit和SHA256SUMS到用户选择的私有保存目录，再核验副本。`2617cf9`及更早包仅保留历史，不用于验收本轮代码。
+摘要不符、文件缺失或verify非零时停止。`/tmp`可能被清理，正式开始前可复制原包、source-commit和SHA256SUMS到用户选择的私有保存目录，再核验副本。`9990da6`、`2617cf9`及更早包仅保留历史，不用于验收本轮代码。
 
-**禁用helper包仅供审阅，不安装到本次Backup/登录项环境：**`/tmp/clash-kuro-acceptance-9990da6/kuro-macos-helper-disabled-arm64/dist/kuro-tun-helper-disabled-0.1.0-arm64.pkg`；SHA256 `1a5711bfd26228d715d1d52b689bb479525457246d1a9429019cd5259b141333`。同一CI/源码提交，pkg摘要、helper.lock、manifest与pkg.json身份一致。它是fresh-only disabled-service候选，真实TUN start关闭，完整鉴权、root配置/broker、网络owner/lease/恢复与升级尚未完成。安装后服务socket未激活，App会保守显示unknown并拒绝普通网络写入，不能把它当可用TUN安装包。本轮仅生成/解包检查本地候选的脚本和BOM，从未执行Installer或脚本。
+**禁用helper包仅供审阅，不安装到本次Backup/登录项环境：**`/tmp/clash-kuro-acceptance-f837691/kuro-macos-helper-disabled-arm64/dist/kuro-tun-helper-disabled-0.1.0-arm64.pkg`；SHA256 `94ab97e2a5142c0d37d4ca534083adc2f2718bdf9cc40befef85fd69d53fb69b`。同一CI/源码提交，pkg摘要、helper.lock、manifest与pkg.json身份一致。它是fresh-only disabled-service候选，真实TUN start关闭，root闭合schema及owner/lease/DNS组件已实现；完整鉴权、有限Core控制broker、活跃会话与并发状态服务、双栈路由恢复、helper死亡证明与升级尚未完成。安装后服务socket未激活，App会保守显示unknown并拒绝普通网络写入，不能把它当可用TUN安装包。本轮仅生成/解包检查本地候选的脚本和BOM，从未执行Installer或脚本。
 
 本机未进行安装、卸载、服务启动、真实代理/路由/登录项变更或注销。Windows CI沿用隔离runner既有WinINet备份/恢复验证，其通过不替代用户机器验收。
 
