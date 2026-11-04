@@ -56,3 +56,5 @@ Blocked by: 01
 
 - 当前候选更新为上方 `2617cf9` 双绿 CI 包，SHA256 与预期一致，`hdiutil verify` checksum VALID、退出 0。`6ea3720` 包只作历史证据，不作为本轮当前包。
 - 已补齐统一人工入口；业务数据目录按源码确认是 `app.getPath('userData')/data`，macOS 默认 `~/Library/Application Support/Clash Kuro/data/`，实际路径等用户开始后核对。个人基线读取、安装、系统代理操作与真实 App 运行均未开始。
+
+2026-11-04 验收产物更新：使用源码`9990da69c565cef973e8560636fd2fb68fddbf15`的[CI 41774486923](https://github.com/coderhyy/clash-kuro/actions/runs/41774486923) App dmg，双平台绿，路径/摘要/只读核验及步骤见[人工验收入口](../../phase2/manual-acceptance.md)。原2617cf9产物留作历史，不再用于当前代码验收。先Backup导入与恢复、再登录项；不安装disabled helper候选。尚未获得“开始”授权，本票仍等待人工验收。

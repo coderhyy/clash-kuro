@@ -59,3 +59,5 @@ ad-hoc 签名、未公证的 App 能否通过 SMAppService 注册为登录项，
 
 - 当前候选更新为上方 `2617cf9` 双绿 CI 包，SHA256 与预期一致，`hdiutil verify` checksum VALID、退出 0。旧 `6ea3720` 包不包含后续改动，保留历史记录但不作为当前验收包。
 - 已把保存原 App、冷备份业务数据、系统代理各协议／PAC／自动发现／bypass、登录项原状态及两次注销的阶段条件集中到人工入口。本轮只核对源码与包；用户尚未开始，真实操作与个人基线读取均未执行，Status 保持 ready-for-human。
+
+2026-11-04 验收产物更新：使用源码`9990da69c565cef973e8560636fd2fb68fddbf15`的[CI 41774486923](https://github.com/coderhyy/clash-kuro/actions/runs/41774486923) App dmg，双平台绿，路径/摘要/只读核验及步骤见[人工验收入口](../../phase2/manual-acceptance.md)。原2617cf9产物留作历史，不再用于当前代码验收。先Backup导入与恢复、再登录项；不安装disabled helper候选。尚未获得“开始”授权，本票仍等待人工验收。

@@ -7,19 +7,24 @@ Blocked by: 用户明确开始并安排同机系统状态操作窗口
 
 ## 有效安装包与预计耗时
 
-- 包：`/tmp/clash-kuro-acceptance-2617cf9/clash-kuro-0.1.0-arm64.dmg`，macOS arm64，App 版本 0.1.0。
-- 来源：[CI 41671769227](https://github.com/coderhyy/clash-kuro/actions/runs/41671769227)，macOS／Windows 双绿，`kuro-macos-arm64` artifact，对应提交 `2617cf9`。正式验收时保留 CI 的完整 commit 记录；结果仅适用于这份产物，不外推后续修改。
-- SHA256：`98db3afba40fedc24905877fe8d04ae6c10904142051ff4a37f0135388b0065f`。本轮只读摘要一致，`hdiutil verify` 报 checksum VALID、退出 0。dmg 完整性不代替安装后签名、原生 UI 和系统行为验收。
-- 备份验收预计 **20–30 分钟**；开机自启预计 **15–25 分钟，包含两次注销／登录**。合计约 35–55 分钟，另留安装、备份原有资料和恢复环境的时间；系统批准或网络问题可能延长。可以分两个窗口完成。
+- **本轮 App 包**：`/tmp/clash-kuro-acceptance-9990da6/kuro-macos-arm64/clash-kuro-0.1.0-arm64.dmg`，macOS arm64，App版本0.1.0。
+- 来源：[CI 41774486923](https://github.com/coderhyy/clash-kuro/actions/runs/41774486923)，macOS和Windows双绿；[草稿PR #3](https://github.com/coderhyy/clash-kuro/pull/3)依赖PR #2，均未合并。
+- 源码提交：`9990da69c565cef973e8560636fd2fb68fddbf15`。下载后的两份`source-commit.txt`与CI headSha一致；本节及后续票据提交只记录结果，不把它冒充构建来源。
+- **App SHA256**：`df1116f64e4719e11135442bc24b4a08b08b36ea0ae4bc57f2314ce6fd1ba130`。已与CI `SHA256SUMS`逐字核验，`hdiutil verify`退出0、checksum VALID；未挂载或启动这个CI包。
+- 备份验收预计**20–30分钟**；登录项预计**15–25分钟，含两次注销/登录**。先完成Backup与恢复，再单独安排登录项；TUN另排。原App/数据保存与环境恢复另留时间。
 
-当前可执行的只读校验命令如下，不会挂载或启动 App：
+只读复核命令（不挂载、不启动App）：
 
 ```sh
-shasum -a 256 /tmp/clash-kuro-acceptance-2617cf9/clash-kuro-0.1.0-arm64.dmg
-hdiutil verify /tmp/clash-kuro-acceptance-2617cf9/clash-kuro-0.1.0-arm64.dmg
+shasum -a 256 /tmp/clash-kuro-acceptance-9990da6/kuro-macos-arm64/clash-kuro-0.1.0-arm64.dmg
+hdiutil verify /tmp/clash-kuro-acceptance-9990da6/kuro-macos-arm64/clash-kuro-0.1.0-arm64.dmg
 ```
 
-摘要不符、文件缺失或 verify 非零时停止，重新从同一 CI 下载并复核；`/tmp` 可能被系统清理。此前 `6ea3720` 和 10 月 31 日的包仅保留为历史记录，不用于本次验收。
+摘要不符、文件缺失或verify非零时停止。`/tmp`可能被清理，正式开始前可复制原包、source-commit和SHA256SUMS到用户选择的私有保存目录，再核验副本。`2617cf9`及更早包仅保留历史，不用于验收本轮代码。
+
+**禁用helper包仅供审阅，不安装到本次Backup/登录项环境：**`/tmp/clash-kuro-acceptance-9990da6/kuro-macos-helper-disabled-arm64/dist/kuro-tun-helper-disabled-0.1.0-arm64.pkg`；SHA256 `1a5711bfd26228d715d1d52b689bb479525457246d1a9429019cd5259b141333`。同一CI/源码提交，pkg摘要、helper.lock、manifest与pkg.json身份一致。它是fresh-only disabled-service候选，真实TUN start关闭，完整鉴权、root配置/broker、网络owner/lease/恢复与升级尚未完成。安装后服务socket未激活，App会保守显示unknown并拒绝普通网络写入，不能把它当可用TUN安装包。本轮仅生成/解包检查本地候选的脚本和BOM，从未执行Installer或脚本。
+
+本机未进行安装、卸载、服务启动、真实代理/路由/登录项变更或注销。Windows CI沿用隔离runner既有WinINet备份/恢复验证，其通过不替代用户机器验收。
 
 ## 开始后先保存的内容
 

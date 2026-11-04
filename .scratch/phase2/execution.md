@@ -51,3 +51,5 @@
 04原生helper、06状态/UI生产调用链与双栈规格并行交付后，由主会话收口：当前692项自动测试通过（API12/Core138/State166/Desktop376），另16项平台跳过；全量typecheck、App production build、本地DMG构建及native隔离编译测试通过。测试数包含参数化用例，不表示692项产品功能或真机场景。原型证据单列，不累加到产品测试数。
 
 实际可运行的是普通Core/Backup/登录项原链路加TUN状态与恢复门禁，native socket/CLI为受限生产实现；尚不能启动真实TUN。04仍缺完整Electron可信链、root有限配置/broker、准确owner与lease、双栈网络归属清理和升级，06真实TUN接管依赖这些入口。disabled helper安装包不等于可用TUN产品，不能混入Backup/登录项验收。08负责同commit CI/dmg/pkg身份记录与后续人工验收；操作顺序仍Backup恢复→登录项，TUN另排且等待明确“开始”。
+
+最终产物源码`9990da69c565cef973e8560636fd2fb68fddbf15`：[CI 41774486923](https://github.com/coderhyy/clash-kuro/actions/runs/41774486923) macOS/Windows均通过，App/helper下载后source-commit与摘要一致，DMG verify VALID。草稿PR #3依赖PR #2，未合并。精确路径、摘要、预计耗时与需保存内容以[人工验收入口](manual-acceptance.md)为准；TUN disabled pkg只审阅，不混入Backup/登录项验收。
