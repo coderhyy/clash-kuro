@@ -10,6 +10,34 @@ static uint64_t KuroMonotonicMilliseconds(void) {
 }
 typedef BOOL (^KuroSessionHook)(NSString **error);
 typedef BOOL (^KuroSessionResumeGate)(KuroSessionHook resume, NSString **error);
+typedef int (*KuroRestartReader)(int,int,uint64_t,void *,int);
+typedef BOOL (^KuroRestartWorkCleanup)(NSDictionary *record,KuroSessionHook stillAbsent,NSString **error);
+// A fresh helper never kills or adopts this PID. Any observed process, including
+// a different start identity, prevents deletion; only explicit ESRCH is absence.
+static BOOL KuroRestartAbsent(NSDictionary *record,KuroRestartReader reader,NSString **error) {
+  struct proc_bsdinfo observed={0}; errno=0;
+  int count=reader([record[@"pid"]intValue],PROC_PIDTBSDINFO,0,&observed,sizeof(observed)); int failure=errno;
+  if(count==0 && failure==ESRCH)return YES;
+  if(count==sizeof(observed)) {
+    BOOL same=observed.pbi_pid==[record[@"pid"]unsignedIntValue] && observed.pbi_start_tvsec==[record[@"startSeconds"]unsignedLongLongValue] && observed.pbi_start_tvusec==[record[@"startMicros"]unsignedLongLongValue];
+    return Fail(error,same?@"old Core identity is still present; no restart PID adoption":@"old Core PID now has a different identity; preserving owner/work");
+  }
+  return Fail(error,@"old Core absence is not observable; preserving owner/work");
+}
+static BOOL KuroRestartRecord(NSDictionary *record,NSString **error) {
+  NSArray *base=@[@"format",@"session",@"pid",@"parent",@"startSeconds",@"startMicros",@"executableSHA256",@"phase",@"processGroup"];
+  if(!KuroMapping(record,base,@[@"launch",@"work"]) || !KuroNumber(record[@"format"],1,2) || !KuroNumber(record[@"pid"],1,INT_MAX) || !KuroNumber(record[@"parent"],1,INT_MAX) ||
+    !KuroNumber(record[@"startSeconds"],1,9007199254740991ULL) || !KuroNumber(record[@"startMicros"],0,999999) || !KuroNumber(record[@"processGroup"],1,INT_MAX) ||
+    !Match(record[@"executableSHA256"],@"\\A[0-9a-f]{64}\\z") || ![record[@"phase"]isEqual:@"prepared"] || ![record[@"session"]isKindOfClass:NSString.class])return Fail(error,@"invalid closed old Core owner receipt");
+  NSUUID *session=[[NSUUID alloc]initWithUUIDString:record[@"session"]]; if(!session || ![session.UUIDString isEqual:record[@"session"]])return Fail(error,@"invalid old Core owner session");
+  NSDictionary *launch=record[@"launch"];
+  if(launch && (!Keys(launch,@[@"configSHA256",@"coreSHA256",@"template"]) || !Match(launch[@"configSHA256"],@"\\A[0-9a-f]{64}\\z") || ![launch[@"coreSHA256"]isEqual:record[@"executableSHA256"]] || ![launch[@"template"]isEqual:@"macos-dual-stack-v1"]))return Fail(error,@"old Core launch evidence does not match its owner");
+  NSDictionary *work=record[@"work"];
+  if([record[@"format"]isEqual:@1])return !work || Fail(error,@"legacy owner cannot carry unversioned work evidence");
+  if(!launch || !Keys(work,@[@"configSHA256",@"socket"]) || !Match(work[@"configSHA256"],@"\\A[0-9a-f]{64}\\z"))return Fail(error,@"old Core work receipt is incomplete");
+  id socket=work[@"socket"];
+  return socket==NSNull.null || (Keys(socket,@[@"device",@"inode"]) && KuroNumber(socket[@"device"],0,9007199254740991ULL) && KuroNumber(socket[@"inode"],1,9007199254740991ULL)) || Fail(error,@"old Core socket receipt is invalid");
+}
 @interface KuroOwnedSession : NSObject {
   pid_t _child;
   pthread_t _thread;
@@ -24,6 +52,12 @@ typedef BOOL (^KuroSessionResumeGate)(KuroSessionHook resume, NSString **error);
 @property(nonatomic, readonly) pid_t child;
 @property(nonatomic, readonly) NSString *identifier;
 @property(nonatomic, readonly) BOOL off;
+#ifdef KURO_TESTING
+@property(nonatomic) KuroRestartReader fixtureRestartReader;
+#endif
+- (BOOL)recordWorkSocket:(NSDictionary *)identity error:(NSString **)error;
+- (BOOL)recoverExitedOwnerWithNetwork:(KuroSessionHook)network workCleanup:(KuroRestartWorkCleanup)workCleanup error:(NSString **)error;
+
 - (instancetype)initWithDirectory:(NSString *)directory owner:(uid_t)owner;
 - (BOOL)spawnExecutable:(NSString *)executable arguments:(NSArray<NSString *> *)arguments beforeResume:(KuroSessionHook)prepare afterReap:(KuroSessionHook)cleanup error:(NSString **)error;
 - (BOOL)setLaunchEvidence:(NSDictionary *)evidence error:(NSString **)error;
@@ -58,6 +92,48 @@ typedef BOOL (^KuroSessionResumeGate)(KuroSessionHook resume, NSString **error);
   int fd = open(_directory.fileSystemRepresentation, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
   BOOL ok = fd >= 0 && !fsync(fd); if (fd >= 0) close(fd);
   return ok || Fail(error, @"owner journal directory could not be synchronized");
+}
+- (BOOL)publishOwner:(NSDictionary *)record replacing:(NSData *)previous error:(NSString **)error {
+  NSString *path=[_directory stringByAppendingPathComponent:@"owner.json"];
+  if(![self directoryProtected:error] || ![ReadProtected(_directory,path,_owner,error)isEqual:previous])return Fail(error,@"owner receipt changed before checkpoint");
+  NSString *temporary=[_directory stringByAppendingPathComponent:[@".owner-" stringByAppendingString:NSUUID.UUID.UUIDString]];
+  if(!WriteNew(temporary,JSONData(record),0600,error))return NO;
+  if(rename(temporary.fileSystemRepresentation,path.fileSystemRepresentation)) { unlink(temporary.fileSystemRepresentation);return Fail(error,@"owner checkpoint publish failed"); }
+  return [self syncDirectory:error];
+}
+- (BOOL)recordWorkSocket:(NSDictionary *)identity error:(NSString **)error {
+  if(![self onThread:error] || !_child || !_journaled || _unknown || !Keys(identity,@[@"device",@"inode"]) || !KuroNumber(identity[@"device"],0,9007199254740991ULL) || !KuroNumber(identity[@"inode"],1,9007199254740991ULL))return Fail(error,@"held session and exact private socket identity required");
+  NSString *path=[_directory stringByAppendingPathComponent:@"owner.json"]; NSData *bytes=ReadProtected(_directory,path,_owner,error);
+  NSDictionary *record=bytes?KuroDecodeJSON(bytes,MessageLimit,error):nil;
+  if(!KuroRestartRecord(record,error) || ![record[@"format"]isEqual:@2] || ![record[@"session"]isEqual:_identifier] || ![record[@"pid"]isEqual:@(_child)])return Fail(error,@"private socket checkpoint has no matching work owner");
+  id previous=record[@"work"][@"socket"];
+  if(previous!=NSNull.null)return [previous isEqual:identity] || Fail(error,@"private socket differs from durable owner checkpoint");
+  NSMutableDictionary *updated=[record mutableCopy],*work=[record[@"work"]mutableCopy]; work[@"socket"]=[identity copy]; updated[@"work"]=work;
+  return [self publishOwner:updated replacing:bytes error:error];
+}
+- (BOOL)recoverExitedOwnerWithNetwork:(KuroSessionHook)network workCleanup:(KuroRestartWorkCleanup)workCleanup error:(NSString **)error {
+  if(![self onThread:error] || _child || _journaled || _unknown || !network || !workCleanup || ![self directoryProtected:error])return Fail(error,@"fresh protected owner context and bounded recovery hooks required");
+  NSString *path=[_directory stringByAppendingPathComponent:@"owner.json"],*work=[_directory stringByAppendingPathComponent:@"session-work"];
+  if(!Exists(path)) {
+    if(Exists(work))return Fail(error,@"unrecorded Core work/ownership cannot be cleared");
+    if(!network(error))return NO;
+    return self.off || Fail(error,@"residual network receipts remain");
+  }
+  NSData *bytes=ReadProtected(_directory,path,_owner,error); NSDictionary *record=bytes?KuroDecodeJSON(bytes,MessageLimit,error):nil;
+  if(!KuroRestartRecord(record,error))return NO;
+  if([record[@"format"]isEqual:@1] && Exists(work))return Fail(error,@"legacy owner lacks runtime/socket evidence; preserving Core work");
+  KuroRestartReader reader=proc_pidinfo;
+#ifdef KURO_TESTING
+  if(self.fixtureRestartReader)reader=self.fixtureRestartReader;
+#endif
+  KuroSessionHook stillAbsent=^BOOL(NSString **failure) {
+    return [self directoryProtected:failure] && [ReadProtected(self->_directory,path,self->_owner,failure)isEqual:bytes] && KuroRestartAbsent(record,reader,failure);
+  };
+  // Sample twice before invoking even a receipt-only network cleanup.
+  if(!stillAbsent(error) || !stillAbsent(error) || !network(error) || !stillAbsent(error) || !workCleanup(record,stillAbsent,error) || !stillAbsent(error))return NO;
+  if(Exists(work) || Exists([_directory stringByAppendingPathComponent:@"network.json"]) || Exists([_directory stringByAppendingPathComponent:@"network-dns.json"]))return Fail(error,@"old Core/network footprint remains; preserving owner receipt");
+  if(unlink(path.fileSystemRepresentation) || ![self syncDirectory:error])return Fail(error,@"old Core owner absence receipt removal was not durable");
+  return self.off || Fail(error,@"old Core recovery did not establish off");
 }
 - (BOOL)setLaunchEvidence:(NSDictionary *)evidence error:(NSString **)error {
   if (![self onThread:error] || _child || _journaled || _unknown) return Fail(error, @"cannot replace active launch evidence");
@@ -117,6 +193,12 @@ typedef BOOL (^KuroSessionResumeGate)(KuroSessionHook resume, NSString **error);
   BOOL known = proc_pidinfo(_child, PROC_PIDTBSDINFO, 0, &process, sizeof(process)) == sizeof(process) && process.pbi_ppid == (uint32_t)getpid() && process.pbi_pgid == (uint32_t)getpgrp();
   NSMutableDictionary *record = [@{ @"format":@1, @"session":_identifier, @"pid":@(_child), @"parent":@(getpid()), @"startSeconds":@(process.pbi_start_tvsec), @"startMicros":@(process.pbi_start_tvusec), @"executableSHA256":Hash(bytes), @"phase":@"prepared", @"processGroup":@(process.pbi_pgid) } mutableCopy];
   if (_launchEvidence) record[@"launch"] = _launchEvidence;
+  if(workingDirectory) {
+    NSData *configuration=ReadProtected(_directory,[workingDirectory stringByAppendingPathComponent:@"config.json"],_owner,error);
+    if(configuration && _launchEvidence) { record[@"format"]=@2; record[@"work"]=@{@"configSHA256":Hash(configuration),@"socket":NSNull.null}; }
+    else known=NO;
+  }
+
   _cleanup = [cleanup copy];
   // Mark uncertainty before creating the journal, including partial-write failures.
   _journaled = YES;

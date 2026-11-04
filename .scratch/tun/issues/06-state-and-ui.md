@@ -53,3 +53,6 @@ LAN/split支持边界具体为：保留现有更具体route及已识别的search
 
 
 2026-11-04 固定候选检查点：最终集成已固定提交 `1ad5f06ad17495fd4e45cc1f94e54979bddf4842`；修复network-only receipts进入恢复hook的前置条件，并独立确认receipt消失才off。全部native fixture通过，不代替实机。跨helper重启Core owner/work清退仍是实现缺口，真实utun/双栈/LAN/split/stop/异常恢复仍缺实机证据。 见[结果与证据](../evidence/auth-observation-1ad5f06/RESULT.md)、[精确产物](../auth-observation-artifact.json)和[执行步骤](../auth-observation-experiment.md)。
+
+
+2026-11-04 离线恢复增量完成：future format2 owner保存runtime配置hash/socket device+inode，重复明确ESRCH、网络absence及精确工作内容匹配后清退owner/work；存活/复用/无法观测PID、未知对象、旧format1有work全部保留，不kill/adopt。17聚焦场景及主会话全量native fixture通过，显式skip Core -t。此处替代上节“完全无跨重启Core owner清退实现”，但仅证明记录进程absence，不证明后代退出，真实mihomo/网络仍须实机；activation保持关。[验证记录](../evidence/owner-recovery-offline-20261104/RESULT.md)。

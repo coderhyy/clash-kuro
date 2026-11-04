@@ -113,17 +113,49 @@ static NSString *KuroPathComponent(NSString *name) {
   @synchronized(self) { if(_busy)return Fail(error,@"session transaction active; recovery refused"); _busy=YES; }
   BOOL ok=NO;
   @try {
-    if((_session && _session.child>0) || Exists([_directory stringByAppendingPathComponent:@"owner.json"]) || Exists([self work]))return Fail(error,@"Core ownership/work residual needs separate recovery; no PID adoption");
-    if(!SafeChain([self anchor],_directory,_owner,YES,error))return NO;
-    // Network receipts are the recovery input, not proof of a live Core.
-    if(!_hooks.recoverResidualNetwork || !_hooks.recoverResidualNetwork(error))return NO;
+    if((_session && _session.child>0) || (_session && Exists([_directory stringByAppendingPathComponent:@"owner.json"])))return Fail(error,@"in-memory Core owner requires its original stop/reconcile; no PID adoption");
+    if(!SafeChain([self anchor],_directory,_owner,YES,error) || !_hooks.recoverResidualNetwork)return NO;
     KuroOwnedSession *observed=[[KuroOwnedSession alloc] initWithDirectory:_directory owner:_owner];
+    if(![observed recoverExitedOwnerWithNetwork:_hooks.recoverResidualNetwork workCleanup:^BOOL(NSDictionary *record,KuroSessionHook stillAbsent,NSString **failure) {
+      return [self recoverExitedWork:record stillAbsent:stillAbsent error:failure];
+    } error:error])return NO;
     ok=observed.off && (!_session || _session.off) && !Exists([self work]);
-    return ok || Fail(error,@"network recovery did not independently clear ownership receipts");
+    return ok || Fail(error,@"network/Core recovery did not independently clear ownership receipts");
   } @finally {
     [self snapshot:ok?@"off":@"unknown" error:ok?nil:@"residual ownership recovery is not proven"];
     @synchronized(self) { _busy=NO; }
   }
+}
+- (BOOL)recoverExitedWork:(NSDictionary *)record stillAbsent:(KuroSessionHook)stillAbsent error:(NSString **)error {
+  NSString *work=[self work]; if(!Exists(work))return YES;
+  if(![record[@"format"]isEqual:@2] || !SafeChain([self anchor],work,_owner,YES,error))return Fail(error,@"old work has no protected versioned runtime receipt");
+  NSArray *names=[[NSFileManager defaultManager]contentsOfDirectoryAtPath:work error:NULL];
+  if(!names)return Fail(error,@"old Core work cannot be enumerated");
+  for(NSString *name in names)if(![@[@"config.json",@"core.sock"]containsObject:name])return Fail(error,@"unknown old Core work is preserved");
+  NSString *config=[work stringByAppendingPathComponent:@"config.json"],*socket=[work stringByAppendingPathComponent:@"core.sock"];
+  NSDictionary *receipt=record[@"work"];
+  // Validate all present objects before removing any work file.
+  if(Exists(config)) {
+    NSData *bytes=ReadProtected([self anchor],config,_owner,error);
+    if(!bytes || ![Hash(bytes)isEqual:receipt[@"configSHA256"]])return Fail(error,@"old runtime config changed; preserving work");
+  }
+  struct stat before={0};
+  if(Exists(socket)) {
+    id expected=receipt[@"socket"];
+    if(!Keys(expected,@[@"device",@"inode"]) || lstat(socket.fileSystemRepresentation,&before) || !S_ISSOCK(before.st_mode) || before.st_uid!=_owner || before.st_nlink!=1 ||
+      (unsigned long long)before.st_dev!=[expected[@"device"]unsignedLongLongValue] || before.st_ino!=[expected[@"inode"]unsignedLongLongValue])return Fail(error,@"old private socket lacks an exact owner receipt; preserving work");
+  }
+  if(Exists(config)) {
+    if(!stillAbsent(error))return NO;
+    NSData *bytes=ReadProtected([self anchor],config,_owner,error);
+    if(!bytes || ![Hash(bytes)isEqual:receipt[@"configSHA256"]] || unlink(config.fileSystemRepresentation))return Fail(error,@"old config absence cleanup could not be confirmed");
+  }
+  if(Exists(socket)) {
+    struct stat current={0}; if(!stillAbsent(error) || lstat(socket.fileSystemRepresentation,&current) || !S_ISSOCK(current.st_mode) || current.st_uid!=_owner || current.st_nlink!=1 || current.st_dev!=before.st_dev || current.st_ino!=before.st_ino || unlink(socket.fileSystemRepresentation))return Fail(error,@"old socket changed before exact removal");
+  }
+  if(!stillAbsent(error) || rmdir(work.fileSystemRepresentation))return Fail(error,@"old Core work remains; preserving owner receipt");
+  int directory=open(_directory.fileSystemRepresentation,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC); BOOL durable=directory>=0 && !fsync(directory); if(directory>=0)close(directory);
+  return durable || Fail(error,@"old work removal directory sync failed");
 }
 - (BOOL)startupAllowed:(NSString **)error { @synchronized(self) { return !_stopRequested || Fail(error,@"stop requested during startup"); } }
 - (NSString *)approvedCore:(NSString **)error {
@@ -156,6 +188,7 @@ static NSString *KuroPathComponent(NSString *name) {
   if(lstat(path.fileSystemRepresentation,&value) || !S_ISSOCK(value.st_mode) || value.st_uid!=_owner || value.st_nlink!=1) return Fail(error,@"private Core socket is not an owned Unix socket");
   NSDictionary *identity=@{@"device":@(value.st_dev),@"inode":@(value.st_ino)};
   if(_socketIdentity && ![_socketIdentity isEqual:identity])return Fail(error,@"private Core socket identity changed");
+  if(!_socketIdentity && (![_session recordWorkSocket:identity error:error]))return NO;
   _socketIdentity=identity; return YES;
 }
 - (BOOL)waitFD:(int)fd events:(short)events until:(uint64_t)deadline error:(NSString **)error {

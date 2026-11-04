@@ -69,7 +69,56 @@ static NSData *ServiceOpen(void) {
   NSMutableDictionary *config=ValidTunConfig(); config[@"groups"]=@[@{@"name":@"G/#",@"type":@"select",@"proxies":@[@"DIRECT",@"REJECT"]}];
   return JSONData(@{@"version":@2,@"operation":@"open",@"config":config});
 }
+static void RestartWorkTests(void) {
+  for(NSUInteger scenario=0;scenario<7;scenario++) {
+    char temporary[]="/tmp/kuro-rwork-XXXXXX";CHECK(mkdtemp(temporary));char canonical[PATH_MAX];CHECK(realpath(temporary,canonical));
+    NSString *directory=[NSString stringWithUTF8String:canonical],*work=[directory stringByAppendingPathComponent:@"session-work"],*journal=[directory stringByAppendingPathComponent:@"owner.json"],*error=nil;
+    NSString *config=[work stringByAppendingPathComponent:@"config.json"],*socketPath=[work stringByAppendingPathComponent:@"core.sock"];
+    Put(config,Bytes(@"runtime config"),0600);
+    struct sockaddr_un address={.sun_family=AF_UNIX};CHECK(strlcpy(address.sun_path,socketPath.fileSystemRepresentation,sizeof(address.sun_path))<sizeof(address.sun_path));
+    int descriptor=socket(AF_UNIX,SOCK_STREAM,0);CHECK(descriptor>=0);CHECK(!bind(descriptor,(struct sockaddr *)&address,sizeof(address)));
+    struct stat value={0};CHECK(!lstat(socketPath.fileSystemRepresentation,&value));
+    NSMutableDictionary *record=RestartRecord();record[@"format"]=@2;
+    record[@"work"]=@{@"configSHA256":Hash(Bytes(@"runtime config")),@"socket":@{@"device":@((unsigned long long)value.st_dev),@"inode":@(value.st_ino)}};
+    if(scenario==1)Put(config,Bytes(@"changed config"),0600);
+    if(scenario==2)record[@"work"]=@{@"configSHA256":Hash(Bytes(@"runtime config")),@"socket":@{@"device":@((unsigned long long)value.st_dev),@"inode":@(value.st_ino+1)}};
+    if(scenario==3)Put([work stringByAppendingPathComponent:@"unknown"],Bytes(@"preserve"),0600);
+    if(scenario==4) {
+      CHECK(!unlink(config.fileSystemRepresentation));NSString *target=[directory stringByAppendingPathComponent:@"empty"];Put(target,NSData.data,0600);CHECK(!symlink(target.fileSystemRepresentation,config.fileSystemRepresentation));
+      record[@"work"]=@{@"configSHA256":Hash(NSData.data),@"socket":record[@"work"][@"socket"]};
+    }
+    Put(journal,JSONData(record),0600);NSData *original=[NSData dataWithContentsOfFile:journal];
+    KuroTunService *service=[[KuroTunService alloc]initFixtureDirectory:directory core:[directory stringByAppendingPathComponent:@"unused"] hooks:ServiceHooks()];
+    KuroOwnedSession *observed=[[KuroOwnedSession alloc]initWithDirectory:directory owner:geteuid()];observed.fixtureRestartReader=RestartReader;
+    RestartObservation=0;RestartMode=0;RestartReappearAt=scenario==6?5:0;
+    __block NSUInteger network=0;
+    BOOL ok=[observed recoverExitedOwnerWithNetwork:^BOOL(NSString **failure) { (void)failure;network++;return YES; }
+      workCleanup:^BOOL(NSDictionary *owner,KuroSessionHook stillAbsent,NSString **failure) {
+        __block NSUInteger checks=0;
+        KuroSessionHook checked=^BOOL(NSString **problem) {
+          checks++;if(scenario==5&&checks==1)CHECK(!chmod(config.fileSystemRepresentation,0777));
+          return stillAbsent(problem);
+        };
+        return [service recoverExitedWork:owner stillAbsent:checked error:failure];
+      } error:&error];
+    CHECK(ok==(scenario==0));CHECK(network==1);CHECK(observed.child==0);
+    if(ok) { CHECK(observed.off);CHECK(!Exists(journal)&&!Exists(work)); }
+    else {
+      CHECK(error.length>0&&!observed.off);CHECK([[NSData dataWithContentsOfFile:journal]isEqual:original]);CHECK(Exists(socketPath));
+      if(scenario!=6)CHECK(Exists(config));
+      if(scenario==6) {
+        CHECK(!Exists(config)); // Config removed, next identity sample refused socket deletion.
+        RestartObservation=0;RestartReappearAt=0;
+        CHECK([observed recoverExitedOwnerWithNetwork:^BOOL(NSString **failure) { (void)failure;return YES; } workCleanup:^BOOL(NSDictionary *owner,KuroSessionHook stillAbsent,NSString **failure) { return [service recoverExitedWork:owner stillAbsent:stillAbsent error:failure]; } error:&error]);
+        CHECK(observed.off&&!Exists(journal)&&!Exists(work));
+      }
+    }
+    close(descriptor);CHECK([[NSFileManager defaultManager]removeItemAtPath:directory error:NULL]);
+  }
+  puts("native restart work: exact runtime/socket cleanup, mismatch/unknown/symlink/unsafe reread rejection and partial cleanup retry passed (temporary sockets only)");
+}
 static void ServiceTests(void) {
+  RestartWorkTests();
   CHECK(geteuid()!=0);
   // A sandbox may allow socketpair yet forbid even a temporary AF_UNIX bind.
   // Fail explicitly; do not skip the production-transport fixture or weaken it.
@@ -150,7 +199,14 @@ static void ServiceTests(void) {
       if(![opened[@"ok"] boolValue])fprintf(stderr,"service scenario %lu open %s\n",(unsigned long)scenario,opened.description.UTF8String);
       CHECK([opened[@"ok"] boolValue] && [opened[@"status"][@"state"] isEqual:@"on"]);
       CHECK([[service statusSnapshot][@"state"] isEqual:@"on"]);
-      if(scenario==0)CHECK([ReadJSON(directory,[directory stringByAppendingPathComponent:@"session-work/config.json"],geteuid(),NULL)[@"interface-name"] isEqual:@"en0"]);
+      if(scenario==0) {
+        NSString *runtimePath=[directory stringByAppendingPathComponent:@"session-work/config.json"];
+        CHECK([ReadJSON(directory,runtimePath,geteuid(),NULL)[@"interface-name"] isEqual:@"en0"]);
+        NSDictionary *owner=ReadJSON(directory,[directory stringByAppendingPathComponent:@"owner.json"],geteuid(),NULL);
+        CHECK([owner[@"format"]isEqual:@2]&&[owner[@"work"][@"configSHA256"]isEqual:Hash(ReadProtected(directory,runtimePath,geteuid(),NULL))]);
+        struct stat socketValue={0};CHECK(!lstat([directory stringByAppendingPathComponent:@"session-work/core.sock"].fileSystemRepresentation,&socketValue));
+        CHECK([owner[@"work"][@"socket"][@"inode"]unsignedLongLongValue]==socketValue.st_ino);
+      }
       NSString *error=nil;
       if(scenario==0)CHECK(![service recoverNetworkOnly:&error] && residualRecoveries==0);
       CHECK([service writeMode:@"global" error:&error]); CHECK(![service writeMode:@"script" error:&error]);
