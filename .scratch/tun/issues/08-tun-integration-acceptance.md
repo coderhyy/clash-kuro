@@ -47,6 +47,10 @@ Owner: 主会话集成与最终验证；验收 agent 准备记录
 
 停止与恢复：摘要/路径/身份不符、normal失败、超时、live/unknown残留就停止后续阶段；仍持有的准确child仅走原有bounded stop。helper死亡后不按旧PID/PGID补杀。安装部分失败尚未bootstrap时，原位保留并报告已写对象；现驱动没有自动回滚，不尝试用要求完整安装的retire伪装清理。完整安装后只用当前stage的精确retire卸job，前提是原进程/组已确认消失；未知对象和证据保留。无代理、路由、DNS、登录项、注销/重启/关机或第三方修改。
 
+### B 当前环境预检结果
+
+只读预检已发现既存经utun1024的IPv4 `/1` 路由，宿主IPv6默认路由查询返回not in table；当前环境不满足生产准入，不能宣布首次双栈TUN窗口已准备完成。需允许使用的双栈测试环境，再冻结实际DNS/Profile/目标；不自动关闭第三方VPN、改路由或退为IPv4-only。此障碍不影响A的无网络测量。原始地址/域名仅本地受限保存，见[脱敏证据](../evidence/tun-readonly-preflight-20261105/RESULT.md)。
+
 ### B 窗口准备完成后的单次确认内容
 
 按现有下方详细命令收敛为：保存现场baseline及现有DNS/精确受限Profile → fresh安装准确生产候选 → 固定 `load -F`（不用`-w`，不fallback enable）/print/kickstart并核对 → 真实安装App inspect/recover证明off → 导入并手动开TUN → 本地A/AAAA与预先明确的双栈/DIRECT/LAN/分域DNS验证 → 手动关闭并核对自有网络/Core/work/停止证明 → 再开后使用实际菜单Quit（不是关闭窗口入托盘）→ 重开保持off → 已确认停止后卸job、精确运行后卸载并核对baseline。任一步失败不进入下一步；同获准范围修复重试不逐包确认。

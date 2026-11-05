@@ -1,0 +1,7 @@
+# Read-only TUN environment preparation
+
+No Core, service, DNS request, route write, proxy write or VPN modification occurred. Read-only commands were ifconfig/netstat/scutil/route-get; raw output stays in owner-only `/private/tmp/kuro-tun-readonly-baseline-j36f30w6` (directory0700/files0600), not committed. Sandbox DNS/route reads were unavailable, so only those reads were repeated on the host with permission. No active connectivity probes were sent.
+
+Observed host IPv4 default interface en0; netstat includes an existing IPv4 `128.0/1` route on utun1024. Host IPv6 default lookup reported `not in table` despite command exit0, so no usable IPv6 default is established. Existing utun interfaces and resolver blocks are present; their owners/configuration are not modified or inferred from names. Proxy state from the initial sandbox read is not accepted as authoritative. This is a preliminary preparation snapshot, not a baseline authorizing later mutations.
+
+Production `tun-production-network.m` preflight rejects pre-existing UP /1 routes and requires both families to have one common physical default egress (lines180/187 at source7820a60). The current environment therefore cannot enter the first fixed dual-stack TUN window. No profile is fabricated to bypass this, no IPv4-only substitution or third-party VPN disable is attempted. A permissible dual-stack test environment is required before freezing actual Profile/DNS/targets. The separate root non-network experiment is unaffected.
