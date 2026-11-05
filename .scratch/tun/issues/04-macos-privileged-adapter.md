@@ -11,6 +11,8 @@ Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
 
 本轮已补齐旧组非空/不可完整观察时的恢复拒绝及升级最后回执fsync重试，两项均通过独立审查和组合隔离测试；不把空组当writer证明，修复尚未进入旧包。[增量证据](../evidence/recovery-followup-20261105/RESULT.md)。
 
+root 无网络窗口的正常收尾采用固定四文件清理：成功 normal/kill 且 job、准确进程/完整组确认退出后移除专用 binary/plist/两份 Core；批准、原始诊断、身份/观察记录及 kill 后 owner/work/cache 保留。部分安装失败或未知身份不套用成功清理；不把保留证据目录称为完整卸载。具体入口、复核和授权范围见 08。
+
 精确产物与证据见 [当前候选](../evidence/finite-candidate-4abee24/RESULT.md)。人工操作集中见 [08 当前窗口](08-tun-integration-acceptance.md#当前人工窗口与前置条件)。历史记录保留，不将旧拒绝门或旧授权描述当作当前状态。
 
 ## 负责范围

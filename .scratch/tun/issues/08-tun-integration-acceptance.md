@@ -31,7 +31,7 @@ Owner: 主会话集成与最终验证；验收 agent 准备记录
 
 | 阶段 | 已准备 | 仍缺什么 | 维护者最少操作 |
 | --- | --- | --- | --- |
-| A：root 固定 Core，无 TUN | 85834ab 冻结执行器/两个独立 epoch/精确清单、normal/kill/retire 驱动，完整步骤可执行 | 新组合窗口授权；真实 launchd 监督结果 | 批准下述约10–15分钟窗口；处理管理员弹窗 |
+| A：root 固定 Core，无 TUN | 85834ab 冻结执行器/两个独立 epoch/精确清单、normal/kill/retire 驱动；另补四固定安装文件cleanup入口 | 新组合窗口授权；真实 launchd 监督结果 | 批准下述约10–15分钟窗口；处理管理员弹窗 |
 | B：首次 TUN 正常启停及实际 App 退出 | 4abee24 finite-session 候选、双平台 CI、生产鉴权/会话/双栈/停止和恢复入口；固定 job 命令 | A 的结果评估；现场只读 baseline、真实 DNS/Profile 可表达性、精确 YAML/hash 与受控 IPv4/IPv6/LAN/分域目标；load-F/rootTUN/实际Quit/运行后卸载实证 | 在上述前置核验后集中批准约35–50分钟窗口；管理员弹窗；必要时确认现有 Profile/受控目标，无需逐参数选择 |
 | C：helper 强杀及下次启动完整恢复 | 精确 DNS 局部恢复、旧 Core 身份拒绝门、工作目录校验 | **实现和实证均缺**：可信且绑定原会话的 writer 退出依据、origin-only cache 清退、完整恢复/停止证明；仍存在的 route 不因记录 PID 获得删除权 | 当前不请求故障注入授权；不得因 A 组观察通过就跳过实现门 |
 | D：实际升级及恢复 | 升级事务/回滚入口、已冻结 App-only 升级对、隔离中断测试；末次fsync重试已修复并通过隔离测试 | 实际升级/失败恢复验收；运行过后升级需先有准确停止证明 | 单独明确非网络升级范围及管理员弹窗；不把 fresh 授权扩大为主动中断升级 |
@@ -40,16 +40,29 @@ Owner: 主会话集成与最终验证；验收 agent 准备记录
 
 精确产物：[85834ab冻结记录](../evidence/lifecycle-core-preparation-85834ab/RESULT.md)，目录 `/private/tmp/kuro-lifecycle-core-review-85834ab`。fixture SHA256 `e5c949f29785297b8ba8ac5a5be76f8483dea17d0bf7daf20860cbd33daeb1f1`；approval SHA256 `c20eb39a0032b73a4b6b5b229377642f2504aac30b77fe9ae592b3bb5ed29ec1`。它是独立监督实验，不是4abee24生产安装包；本轮未修改/重冻它。
 
+补充清理入口：[源码与操作说明](../prototypes/helper-lifecycle/root858-cleanup/README.md)，执行路径 `/private/tmp/kuro-root858-cleanup-candidate/cleanup-root858.py`，SHA256 `768d0938c0d0e321f8152c0328c8a629d0e30379ad57aa3052f1094ccfe482dc`。12项普通用户隔离检查通过，另经未参与实现的agent独立审查；未运行root清理，原858包11项清单重新核验一致。
+
 1. 主会话复核完整 SHA256SUMS、精确四路径和job无冲突、祖先保护；保存结果。维护者处理管理员授权后，仅安装固定实验文件，尚不bootstrap。
 2. 执行一次normal：真实固定Core只私有Unix controller，TUN/DNS/IP监听关闭。必须同时满足接口读回、held-child停止、独立准确进程/组与owner/work消失、job恰好runs1/exit0，才能继续。
 3. 切换独立kill epoch，仅bootout准确normal job并替换精确plist。核对实时身份后，仅向 `system/dev.kuro.tun.lifecycle-a` 发 SIGKILL；约1秒/5秒分别核对supervisor/Core/完整组消失。超时fallback不算launchd通过。
-4. 消失证据充分才retire准确job并确认job absent。**保留** `/Library/PrivilegedHelperTools/dev.kuro.tun.lifecycle-a`、`/Library/LaunchDaemons/dev.kuro.tun.lifecycle-a.plist`、`/Library/Application Support/Clash Kuro/TunLifecycleExperimentA` 内的Core副本和证据，包括kill阶段owner/work/cache。该窗口不承诺删除这些文件或证明生产卸载。
+4. 消失证据充分才retire准确job并确认job absent。随后用单独冻结的 `cleanup-root858.py` 核验两stage成功证据、当前job/准确进程/完整组均absent，先持久化root0600四目标身份批准，再逐个复核并移除下表四个安装文件。每次重试仍重新确认absence；任何身份或证据变化立即停止。此入口不发信号、不卸job、不接受路径参数，也不递归删除目录。
+
+| 对象 | 正常完成后的处理 |
+| --- | --- |
+| `/Library/PrivilegedHelperTools/dev.kuro.tun.lifecycle-a` | 固定摘要、inode/设备/权限核验后删除 |
+| `/Library/LaunchDaemons/dev.kuro.tun.lifecycle-a.plist` | 仅精确kill epoch的plist，job absent后删除 |
+| `TunLifecycleExperimentA/normal/mihomo`、`kill/mihomo` | 固定Core摘要与文件身份核验后删除 |
+| `TunLifecycleExperimentA/approval.json`、两stage原始诊断/配置摘要/身份/成功或观察记录、`cleanup-approved-root858.json` | root受限证据保留；支撑来源、停止和清理中断复核 |
+| `kill/owner.json`、`kill/session-work` 内配置/socket/cache及目录 | 保留原状；原进程/组消失不构成所有脱组writer退出证明，本次不清退这些工作数据 |
+| 未知、被替换或权限变化对象；部分安装失败已写对象 | 保留并报告；本成功清理入口不处理部分安装失败 |
+
+保留根目录为 `/Library/Application Support/Clash Kuro/TunLifecycleExperimentA`，目录0700/证据文件0600。无Installer receipt（独立驱动安装，不调用pkg Installer）；不安装生产App/helper，也没有新增登录项。原冻结review包和外层命令记录留在本地作为来源/执行证据。实验安装文件清理通过不等于生产恢复、完整卸载或脱组后代证明。
 
 停止与恢复：摘要/路径/身份不符、normal失败、超时、live/unknown残留就停止后续阶段；仍持有的准确child仅走原有bounded stop。helper死亡后不按旧PID/PGID补杀。安装部分失败尚未bootstrap时，原位保留并报告已写对象；现驱动没有自动回滚，不尝试用要求完整安装的retire伪装清理。完整安装后只用当前stage的精确retire卸job，前提是原进程/组已确认消失；未知对象和证据保留。无代理、路由、DNS、登录项、注销/重启/关机或第三方修改。
 
 ### B 当前环境预检结果
 
-只读预检已发现既存经utun1024的IPv4 `/1` 路由，宿主IPv6默认路由查询返回not in table；当前环境不满足生产准入，不能宣布首次双栈TUN窗口已准备完成。需允许使用的双栈测试环境，再冻结实际DNS/Profile/目标；不自动关闭第三方VPN、改路由或退为IPv4-only。此障碍不影响A的无网络测量。原始地址/域名仅本地受限保存，见[脱敏证据](../evidence/tun-readonly-preflight-20261105/RESULT.md)。
+只读预检已发现既存经utun1024的IPv4 `/1` 路由，宿主IPv6默认路由查询返回not in table。当前生产预检分别拒绝第三方split-default冲突，以及缺少IPv6默认路由；后者是待修复的IPv4-only兼容性限制，不是已批准的产品启动要求。完整外网双栈验收需要可用IPv6环境；产品本身不能因此要求上游必须双栈。固定本地双栈模板保留，IPv4-only上游兼容性纳入06；不自动关闭第三方VPN、改路由或静默关闭IPv6。现场冲突和Profile/目标尚未冻结，首次TUN窗口仍未准备完成。两项均不影响A的无网络测量。原始地址/域名仅本地受限保存，见[脱敏证据](../evidence/tun-readonly-preflight-20261105/RESULT.md)。
 
 ### B 窗口准备完成后的单次确认内容
 

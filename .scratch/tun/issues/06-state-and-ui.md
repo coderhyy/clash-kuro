@@ -11,6 +11,8 @@ Owner: TUN 接入 agent；主会话统一 Core/State/桌面公共接口与源码
 
 本轮已补齐旧组非空/不可完整观察时的恢复拒绝及升级最后回执fsync重试，两项均通过独立审查和组合隔离测试；不把空组当writer证明，修复尚未进入旧包。[增量证据](../evidence/recovery-followup-20261105/RESULT.md)。
 
+**IPv4-only 兼容性尚有实现缺口**：当前 `tun-production-network.m` 要求两族默认路由同时存在且同物理出口，缺 IPv6 默认路由会拒绝 TUN（不影响 App/普通模式启动）。ADR-0017 未批准此产品限制；应保留双栈固定模板，同时支持仅 IPv4 上游。需核对出口绑定、DNS/代理端点可达性及无 IPv6 上游时的失败行为后修正，不能只删一个 guard 或静默关闭 IPv6。完整外网双栈验收另需可用 IPv6 环境；第三方 split-default 冲突单独处理，绝不自动改第三方设置。
+
 精确产物与证据见 [当前候选](../evidence/finite-candidate-4abee24/RESULT.md)。人工操作集中见 [08 当前窗口](08-tun-integration-acceptance.md#当前人工窗口与前置条件)。历史记录保留，不将旧拒绝门或旧授权描述当作当前状态。
 
 ## 负责范围
