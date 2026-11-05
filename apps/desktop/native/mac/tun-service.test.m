@@ -442,7 +442,7 @@ static void PartialDNSServiceTests(void) {
     if(scenario==4){CHECK([error hasPrefix:@"DNS: remove failed"]&&[service.statusSnapshot[@"error"]isEqual:error]&&Exists([directory stringByAppendingPathComponent:KuroDNSJournal]));}
     else CHECK([dns.records isEqual:baseline]&&!Exists([directory stringByAppendingPathComponent:KuroDNSJournal]));
     if(scenario==3)CHECK([service.statusSnapshot[@"state"]isEqual:@"off"]&&!Exists(work)&&!Exists(ownerPath)&&calls==2);
-    else {CHECK([service.statusSnapshot[@"state"]isEqual:@"unknown"]&&[[NSData dataWithContentsOfFile:ownerPath]isEqual:ownerBytes]);if(scenario==2)CHECK(Exists([work stringByAppendingPathComponent:@"cache.db"])&&[error containsString:@"cache lacks"]);}
+    else {CHECK([service.statusSnapshot[@"state"]isEqual:@"unknown"]&&[[NSData dataWithContentsOfFile:ownerPath]isEqual:ownerBytes]);if(scenario==2)CHECK([[NSData dataWithContentsOfFile:[work stringByAppendingPathComponent:@"cache.db"]]isEqual:Bytes(@"owned cache")]&&[error isEqual:@"origin-only cache requires an explicit installed writer validator; preserve work"]);}
     CHECK(!Exists([directory stringByAppendingPathComponent:@"stopped.json"]));CHECK([[NSFileManager defaultManager]removeItemAtPath:directory error:NULL]);
   }
   puts("native service DNS partial recovery: 5 persisted positive chains retain live/unknown/origin-only owner gates, permit exact final-cache recovery, aggregate real deletion errors and never issue stopped proof; no Core/network");
