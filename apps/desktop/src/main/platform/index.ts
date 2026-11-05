@@ -70,6 +70,19 @@ export async function assertMixedPortAvailable(port: number): Promise<void> {
   })
 }
 
+async function secureUnixSocket(path: string, expected?: { dev: number; ino: number }) {
+  const before = await lstat(path)
+  if (!before.isSocket() || before.uid !== process.getuid?.() || (expected && (before.dev !== expected.dev || before.ino !== expected.ino))) {
+    throw new Error('Core control socket identity changed or is not an owned socket')
+  }
+  await chmod(path, 0o600)
+  const after = await lstat(path)
+  if (!after.isSocket() || after.uid !== before.uid || after.dev !== before.dev || after.ino !== before.ino || (after.mode & 0o7777) !== 0o600) {
+    throw new Error('Core control socket identity or permissions changed')
+  }
+  return after
+}
+
 async function assertCoreReady(channel: ControlChannel, port: number, deadline: number): Promise<void> {
   const remaining = () => Math.min(250, Math.max(1, deadline - Date.now()))
   const res = await createSocketTransport(channel, { timeoutMs: remaining() }).request({ method: 'GET', path: '/version' })
@@ -451,8 +464,10 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
           if (processError) throw processError
           if (started.exitCode !== null || started.signalCode !== null) throw new Error(`Core exited before ready: ${output}`)
           try {
-            if (channel.kind === 'unix') await chmod(channel.path, 0o600)
+            const socket = channel.kind === 'unix' ? await secureUnixSocket(channel.path) : undefined
             await assertCoreReady(channel, mixedPort, deadline)
+            // mihomo chmods 0666 after listen; readiness can race that final write.
+            if (channel.kind === 'unix') await secureUnixSocket(channel.path, socket)
             if (!shuttingDown && started.exitCode === null && started.signalCode === null) return
           } catch (error) { readinessError = errorText(error) }
           await delay(Math.min(25, Math.max(0, deadline - Date.now())))

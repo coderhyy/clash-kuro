@@ -622,3 +622,82 @@ test('macOS stopCore still removes owned ordinary runtime evidence when proxy cl
   await expect(platform.stopCore()).rejects.toThrow('changed')
   expect(await platform.readFile('core.pid')).toBeNull()
 })
+
+test.skipIf(process.platform === 'win32')('start rechecks unix socket mode after readiness can reset its permissions', async () => {
+  let platform: DesktopPlatform
+  let mixedPort: number
+  const result = await fixture({ spawn: (_file, _args, options) => {
+    const channel = platform.controlChannel()
+    if (channel.kind !== 'unix') throw new Error('Expected unix')
+    return spawn(process.execPath, ['-e', `
+      const fs = require('node:fs');
+      require('node:http').createServer((req, res) => {
+        fs.chmodSync(${JSON.stringify(channel.path)}, 0o666);
+        res.end('{"version":"fixture"}');
+      }).listen(${JSON.stringify(channel.path)});
+      require('node:net').createServer(socket => socket.once('data', () => socket.write(Buffer.from([5, 0])))).listen(${mixedPort}, '127.0.0.1');
+    `], options)
+  } })
+  platform = result.platform
+  mixedPort = result.mixedPort
+  await platform.writeFileAtomic('runtime.yaml', 'mode: direct')
+  await platform.startCore()
+  const channel = platform.controlChannel()
+  if (channel.kind !== 'unix') throw new Error('Expected unix')
+  expect((await lstat(channel.path)).mode & 0o777).toBe(0o600)
+})
+
+test.skipIf(process.platform === 'win32')('start refuses replacement control socket throughout the readiness handshake', async () => {
+  let platform: DesktopPlatform
+  let mixedPort: number
+  const result = await fixture({ startTimeoutMs: 250, spawn: (_file, _args, options) => {
+    const channel = platform.controlChannel()
+    if (channel.kind !== 'unix') throw new Error('Expected unix')
+    return spawn(process.execPath, ['-e', `
+      const fs = require('node:fs'), http = require('node:http');
+      function listen() {
+        http.createServer((req, res) => {
+          fs.unlinkSync(${JSON.stringify(channel.path)});
+          listen();
+          res.end('{"version":"replacement"}');
+        }).listen(${JSON.stringify(channel.path)});
+      }
+      listen();
+      require('node:net').createServer(socket => socket.once('data', () => socket.write(Buffer.from([5, 0])))).listen(${mixedPort}, '127.0.0.1');
+    `], options)
+  } })
+  platform = result.platform
+  mixedPort = result.mixedPort
+  await platform.writeFileAtomic('runtime.yaml', 'mode: direct')
+  await expect(platform.startCore()).rejects.toThrow(/readiness timed out: Core control socket identity/)
+  expect(await platform.isCoreRunning()).toBe(false)
+  expect(await platform.readFile('core.pid')).toBeNull()
+})
+
+test.skipIf(process.platform === 'win32')('readiness refuses a socket replaced by a symlink without chmoding its target', async () => {
+  let platform: DesktopPlatform
+  let mixedPort: number
+  let target: string
+  const result = await fixture({ startTimeoutMs: 250, spawn: (_file, _args, options) => {
+    const channel = platform.controlChannel()
+    if (channel.kind !== 'unix') throw new Error('Expected unix')
+    return spawn(process.execPath, ['-e', `
+      const fs = require('node:fs');
+      fs.writeFileSync(${JSON.stringify(target)}, 'preserve', {mode: 0o644});
+      require('node:http').createServer((req, res) => {
+        fs.unlinkSync(${JSON.stringify(channel.path)});
+        fs.symlinkSync(${JSON.stringify(target)}, ${JSON.stringify(channel.path)});
+        res.end('{"version":"symlink"}');
+      }).listen(${JSON.stringify(channel.path)});
+      require('node:net').createServer(socket => socket.once('data', () => socket.write(Buffer.from([5, 0])))).listen(${mixedPort}, '127.0.0.1');
+    `], options)
+  } })
+  platform = result.platform
+  mixedPort = result.mixedPort
+  target = join(result.dataDir, 'preserve-target')
+  await platform.writeFileAtomic('runtime.yaml', 'mode: direct')
+  await expect(platform.startCore()).rejects.toThrow(/readiness timed out: Core control socket identity/)
+  expect((await lstat(target)).mode & 0o777).toBe(0o644)
+  expect(await readFile(target, 'utf8')).toBe('preserve')
+  expect(await platform.isCoreRunning()).toBe(false)
+})
