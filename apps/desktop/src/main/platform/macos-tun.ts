@@ -122,6 +122,7 @@ export function requestTunHelper(operation: Operation, path = socketPath, timeou
 }
 
 export interface TunHelperSession {
+  subscribe?(listener: () => void): () => void
   stop(): Promise<TunStatus>
   error(): Error | undefined
   disconnect(): void
@@ -141,6 +142,7 @@ export async function openTunHelperSession(config: TunSessionConfig, path = sock
     throw new Error('Invalid TUN session timing')
   }
   const socket = createConnection(path)
+  const listeners = new Set<() => void>()
   let bytes = Buffer.alloc(0)
   let failure: Error | undefined
   let finished = false
@@ -160,6 +162,7 @@ export async function openTunHelperSession(config: TunSessionConfig, path = sock
     clearTimeout(heartbeatTimer)
     if (pending) { clearTimeout(pending.timer); pending.reject(error); pending = undefined }
     socket.destroy()
+    for (const listener of listeners) listener()
   }
   const renewLease = (sentAt: number) => {
     leaseDeadline = sentAt + 15000
@@ -242,6 +245,7 @@ export async function openTunHelperSession(config: TunSessionConfig, path = sock
     scheduleHeartbeat()
   } catch (error) { fail(error as Error); throw error }
   return {
+    subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener) } },
     error: () => failure,
     disconnect: () => fail(new Error('TUN session disconnected; network state unknown')),
     stop: async () => {
@@ -271,6 +275,14 @@ export function createMacosTun(options: {
   const open = options.open ?? openTunHelperSession
   const missing: TunStatus = { availability: 'not-installed', state: 'off' }
   let session: TunHelperSession | undefined
+  let detachSession: (() => void) | undefined
+  const listeners = new Set<() => void>()
+  const clearSession = (owner: TunHelperSession) => {
+    if (session !== owner) return
+    detachSession?.()
+    detachSession = undefined
+    session = undefined
+  }
   let busy = false
   const inspect = async (): Promise<TunStatus> => {
     const inspectingSession = session
@@ -281,8 +293,8 @@ export function createMacosTun(options: {
       const failure = inspectingSession?.error()
       if (failure && observed.state !== 'off') throw failure
       if (inspectingSession && session === inspectingSession && observed.state === 'off') {
+        clearSession(inspectingSession)
         inspectingSession.disconnect()
-        session = undefined
       }
       return observed
     } catch (error) {
@@ -306,7 +318,7 @@ export function createMacosTun(options: {
           observed = await request('status')
         }
         if (observed.state !== 'off') throw new Error(observed.error || 'TUN helper state confirmation failed; network state unknown')
-        if (session === ownedSession) session = undefined
+        clearSession(ownedSession)
         return observed
       }
       if (!await present()) {
@@ -319,6 +331,9 @@ export function createMacosTun(options: {
         if (session || before.availability !== 'ready' || before.state !== 'off') throw new Error(before.error || 'TUN helper is not ready for a new session')
         const openedSession = await open(admitted!)
         session = openedSession
+        detachSession = openedSession.subscribe?.(() => {
+          if (session === openedSession) for (const listener of listeners) listener()
+        })
         try {
           const observed = await request('status')
           if (session !== openedSession || openedSession.error() || observed.availability !== 'ready' || observed.state !== 'on') {
@@ -335,5 +350,6 @@ export function createMacosTun(options: {
       return observed
     } finally { busy = false }
   }
-  return { inspect, recover: () => change('recover'), start: config => change('start', config), stop: () => change('stop') }
+  return { subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener) } },
+    inspect, recover: () => change('recover'), start: config => change('start', config), stop: () => change('stop') }
 }

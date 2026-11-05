@@ -62,6 +62,8 @@ export interface TunStatus {
 
 /** The adapter owns configuration admission and exact Core/network cleanup evidence. */
 export interface TunPlatform {
+  /** Invalidates an observed state; consumers must inspect, never infer cleanup or restart. */
+  subscribe?(listener: () => void): () => void
   inspect(): Promise<TunStatus>
   recover(): Promise<TunStatus>
   start(config: TunSessionConfig): Promise<TunStatus>

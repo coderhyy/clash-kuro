@@ -546,3 +546,37 @@ test('resume surfaces connection cleanup failure after restoring ordinary System
   expect(proxy).toHaveBeenCalledOnce()
   expect(app.store.getState().systemProxy.enabled).toBe(true)
 })
+
+
+test('native subscription reconciles behind Commands, never recovers automatically, and disposes its listener', async () => {
+  let notify: (() => void) | undefined
+  const unsubscribe = vi.fn(() => { notify = undefined })
+  const { app, tun, platform } = await setupTun(readyOff, ({ tun }) => {
+    Object.assign(tun, { subscribe: (listener: () => void) => { notify = listener; return unsubscribe } })
+  })
+  const inspect = vi.spyOn(tun, 'inspect')
+  let release!: () => void
+  const held = new Promise<void>(done => { release = done })
+  const persisted = platform.writeFileAtomic.bind(platform)
+  platform.writeFileAtomic = async (name, value) => { await held; await persisted(name, value) }
+  const pending = app.run('setLanguage', { language: 'en' })
+  await Promise.resolve()
+  inspect.mockClear()
+  tun.status = { availability: 'blocked', state: 'unknown', error: 'native owner connection lost' }
+  const recover = vi.spyOn(tun, 'recover'), start = vi.spyOn(tun, 'start')
+  notify!()
+  await Promise.resolve()
+  expect(inspect).not.toHaveBeenCalled()
+  release()
+  await pending
+  await vi.waitFor(() => expect(app.store.getState().tun).toMatchObject({ state: 'unknown', error: 'native owner connection lost' }))
+  expect(recover).not.toHaveBeenCalled()
+  expect(start).not.toHaveBeenCalled()
+  const late = notify!
+  app.dispose()
+  expect(unsubscribe).toHaveBeenCalledOnce()
+  inspect.mockClear()
+  late()
+  await Promise.resolve()
+  expect(inspect).not.toHaveBeenCalled()
+})

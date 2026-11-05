@@ -123,9 +123,15 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
   if(![record[@"format"]isEqual:@2] || !SafeChain([self anchor],work,_owner,YES,error))return Fail(error,@"old work has no protected versioned runtime receipt");
   NSArray *names=[[NSFileManager defaultManager]contentsOfDirectoryAtPath:work error:NULL];
   if(!names)return Fail(error,@"old Core work cannot be enumerated");
-  for(NSString *name in names)if(![@[@"config.json",@"core.sock"]containsObject:name])return Fail(error,@"unknown old Core work is preserved");
+  for(NSString *name in names)if(![@[@"config.json",@"core.sock",@"cache.db"]containsObject:name])return Fail(error,@"unknown old Core work is preserved");
   NSString *config=[work stringByAppendingPathComponent:@"config.json"],*socket=[work stringByAppendingPathComponent:@"core.sock"];
   NSDictionary *receipt=record[@"work"];
+  NSString *cache=[work stringByAppendingPathComponent:@"cache.db"];
+  NSDictionary *cacheIdentity=nil;
+  if(Exists(cache)) {
+    cacheIdentity=KuroWorkCacheSnapshot(_directory,_owner,error);
+    if(!cacheIdentity || ![cacheIdentity isEqual:receipt[@"cache"]])return Fail(error,@"old cache lacks an exact durable receipt; preserving all work");
+  }
   // Validate all present objects before removing any work file.
   if(Exists(config)) {
     NSData *bytes=ReadProtected([self anchor],config,_owner,error);
@@ -144,6 +150,9 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
   }
   if(Exists(socket)) {
     struct stat current={0}; if(!stillAbsent(error) || lstat(socket.fileSystemRepresentation,&current) || !S_ISSOCK(current.st_mode) || current.st_uid!=_owner || current.st_nlink!=1 || current.st_dev!=before.st_dev || current.st_ino!=before.st_ino || unlink(socket.fileSystemRepresentation))return Fail(error,@"old socket changed before exact removal");
+  }
+  if(Exists(cache)) {
+    if(!stillAbsent(error) || ![KuroWorkCacheSnapshot(_directory,_owner,error)isEqual:cacheIdentity] || unlink(cache.fileSystemRepresentation))return Fail(error,@"old cache changed before exact removal");
   }
   if(!stillAbsent(error) || rmdir(work.fileSystemRepresentation))return Fail(error,@"old Core work remains; preserving owner receipt");
   int directory=open(_directory.fileSystemRepresentation,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC); BOOL durable=directory>=0 && !fsync(directory); if(directory>=0)close(directory);
@@ -192,8 +201,14 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
   if(!_workCreated)return YES;
   if(!SafeChain([self anchor],[self work],_owner,YES,error))return NO;
   NSArray *names=[[NSFileManager defaultManager] contentsOfDirectoryAtPath:[self work] error:NULL];
-  for(NSString *name in names) if(![@[@"config.json",@"core.sock"] containsObject:name])return Fail(error,@"unknown Core work files preserved");
+  for(NSString *name in names) if(![@[@"config.json",@"core.sock",@"cache.db"] containsObject:name])return Fail(error,@"unknown Core work files preserved");
   if(!names)return Fail(error,@"Core work directory cannot be observed");
+  NSString *cache=[[self work]stringByAppendingPathComponent:@"cache.db"];
+  NSDictionary *cacheIdentity=nil;
+  if(Exists(cache)) {
+    cacheIdentity=KuroWorkCacheSnapshot(_directory,_owner,error);
+    if(!cacheIdentity || ![_session recordReapedWorkCache:cacheIdentity error:error])return NO;
+  }
   NSString *config=[[self work] stringByAppendingPathComponent:@"config.json"];
   if(Exists(config)) {
     NSData *bytes=ReadProtected([self anchor],config,_owner,error);
@@ -203,6 +218,7 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
   if(Exists([self socket])) {
     if(![self socketProtected:error] || unlink([self socket].fileSystemRepresentation))return Fail(error,@"private Core socket cleanup not proven");
   }
+  if(Exists(cache) && (![KuroWorkCacheSnapshot(_directory,_owner,error)isEqual:cacheIdentity] || unlink(cache.fileSystemRepresentation)))return Fail(error,@"private Core cache changed before exact removal");
   if(rmdir([self work].fileSystemRepresentation))return Fail(error,@"private work directory removal failed");
   _workCreated=NO; return YES;
 }

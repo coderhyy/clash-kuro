@@ -532,6 +532,24 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
     return result
   }
 
+  // Notifications invalidate the native observation; reconcile in the same queue
+  // as Commands. A disconnect never authorizes automatic recovery or a new writer.
+  const unsubscribeTun = platform.tun?.subscribe?.(() => {
+    if (closing) return
+    void enqueue(async () => {
+      if (closing) return
+      try {
+        const status = await inspectTun()
+        if (status.state === 'off') {
+          const running = await platform.isCoreRunning()
+          requireNativeSession()
+          change({ core: { status: running ? 'running' : 'stopped', error: null } })
+        }
+      }
+      catch (error) { if (!closing) blockTun(error) }
+    })
+  })
+
   async function exportBackup(): Promise<string> {
     assertNotImported()
     const { settings, profiles, activeProfileId } = store.getState()
@@ -626,7 +644,7 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
     refreshLaunchAtLogin: () => enqueue(readLaunchAtLogin),
     subscribeTraffic: (listener) => traffic.subscribe(listener),
     subscribeLogs: (listener) => logs.subscribe(listener),
-    dispose() { closing = true; traffic.close(); logs.close() },
+    dispose() { closing = true; unsubscribeTun?.(); traffic.close(); logs.close() },
     subscribe: (listener) => store.subscribe(listener),
     run<K extends CommandName>(name: K, input: CommandInput<K>): Promise<CommandResult<K>> {
       const execute = async (): Promise<CommandResult<K>> => {

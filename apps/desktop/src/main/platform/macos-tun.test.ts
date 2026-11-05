@@ -3,6 +3,11 @@ import { createServer, type Socket } from 'node:net'
 import { join } from 'node:path'
 import { expect, onTestFinished, test, vi } from 'vitest'
 import type { TunSessionConfig, TunStatus } from '@kuro/core'
+import { FakePlatform } from '@kuro/core/fake'
+import { FakeTransport } from '@kuro/api/fake'
+import { createMihomoClient } from '@kuro/api'
+import { createAppStore } from '@kuro/state'
+import { fakeSnapshot } from '@kuro/state/fake'
 import { createMacosTun, openTunHelperSession, parseTunResponse, requestTunHelper } from './macos-tun'
 
 const off: TunStatus = { availability: 'ready', state: 'off' }
@@ -386,4 +391,51 @@ test('a concurrent proven-off inspection invalidates pending start without losin
   release(on)
   await expect(pending).rejects.toThrow('state confirmation failed')
   expect(owner.disconnect).toHaveBeenCalledTimes(2)
+})
+
+// Real V2 socket failure must flow through adapter subscription and the store queue.
+// Only the helper's status reply is injected; no native service/Core is started.
+test.skipIf(process.platform === 'win32').each([on, off])('live socket disconnect reconciles %j to the store without another Command or automatic recovery', async readback => {
+  let peer: Socket | undefined
+  let current = off
+  const { path, dispose } = await fixture((frame, socket) => {
+    if (frame.operation === 'open') { peer = socket; current = on; socket.write(`${JSON.stringify(opened)}\n`) }
+  })
+  onTestFinished(dispose)
+  const request = vi.fn(async (_operation: string) => current)
+  const tun = createMacosTun({ endpointPresent: async () => true, request, open: value => openTunHelperSession(value, path) })
+  const platform = Object.assign(new FakePlatform(), { tun })
+  const snapshot = fakeSnapshot()
+  platform.files.set('settings.json', JSON.stringify({ settings: snapshot.settings, profiles: snapshot.profiles, activeProfileId: 'p1' }))
+  platform.coreRunning = true
+  const start = vi.spyOn(platform, 'startCore')
+  const transport = new FakeTransport().on('GET', '/proxies', { status: 200, body: { proxies: {} } })
+  const app = await createAppStore({ platform, client: createMihomoClient(transport), systemLocale: () => 'en',
+    buildRuntimeConfig: () => 'proxies: []', buildTunConfig: () => config, refreshProfile: async value => value })
+  onTestFinished(() => app.dispose())
+  expect((await app.run('setTun', { enabled: true })).ok).toBe(true)
+  expect(app.store.getState().tun.state).toBe('on')
+  request.mockClear()
+  current = readback
+  peer!.destroy()
+  if (readback.state === 'off') await vi.waitFor(() => { expect(app.store.getState().tun).toEqual(off); expect(app.store.getState().core.status).toBe('stopped') })
+  else await vi.waitFor(() => expect(app.store.getState().tun).toMatchObject({ availability: 'blocked', state: 'unknown', error: expect.stringContaining('disconnected') }))
+  expect(request.mock.calls.flat()).toEqual(['status'])
+  expect(start).not.toHaveBeenCalled()
+  expect((await app.run('setSystemProxy', { enabled: true })).ok).toBe(false)
+})
+
+test.skipIf(process.platform === 'win32')('session failure subscription notifies once and honors unsubscribe', async () => {
+  let peer: Socket | undefined
+  const { path, dispose } = await fixture((frame, socket) => { if (frame.operation === 'open') { peer = socket; socket.write(`${JSON.stringify(opened)}\n`) } })
+  onTestFinished(dispose)
+  const owner = await openTunHelperSession(config, path)
+  const live = vi.fn(), removed = vi.fn()
+  owner.subscribe!(live)
+  owner.subscribe!(removed)()
+  peer!.destroy()
+  await vi.waitFor(() => expect(live).toHaveBeenCalledOnce())
+  owner.disconnect()
+  expect(live).toHaveBeenCalledOnce()
+  expect(removed).not.toHaveBeenCalled()
 })

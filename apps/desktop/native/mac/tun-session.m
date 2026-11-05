@@ -31,6 +31,25 @@ static BOOL KuroRestartAbsent(NSDictionary *record,KuroRestartReader reader,NSSt
   }
   return Fail(error,@"old Core absence is not observable; preserving owner/work");
 }
+// Fixed work/cache.db only. No path is stored or accepted from a caller.
+static BOOL KuroWorkCacheReceipt(id value) {
+  if(!Keys(value,@[@"device",@"inode",@"size",@"mode",@"modifiedSeconds",@"modifiedNanos",@"changedSeconds",@"changedNanos",@"sha256"]))return NO;
+  for(NSString *key in @[@"device",@"inode",@"size",@"mode",@"modifiedSeconds",@"modifiedNanos",@"changedSeconds",@"changedNanos"])
+    if(!KuroNumber(value[key],[key isEqual:@"inode"]?1:0,9007199254740991ULL))return NO;
+  return [value[@"size"]unsignedLongLongValue]<=1024*1024 && [value[@"mode"]unsignedIntValue]<=07777 && !([value[@"mode"]unsignedIntValue]&06022) &&
+    [value[@"modifiedNanos"]unsignedIntValue]<1000000000 && [value[@"changedNanos"]unsignedIntValue]<1000000000 && Match(value[@"sha256"],@"\\A[0-9a-f]{64}\\z");
+}
+static NSDictionary *KuroWorkCacheSnapshot(NSString *directory,uid_t owner,NSString **error) {
+  NSString *path=[[directory stringByAppendingPathComponent:@"session-work"]stringByAppendingPathComponent:@"cache.db"];
+  struct stat before={0},after={0};
+  if(lstat(path.fileSystemRepresentation,&before) || !SafeMetadata(before,owner,NO) || before.st_size<0 || before.st_size>1024*1024) { Fail(error,@"fixed Core cache is not a safe bounded owned regular file");return nil; }
+  NSData *bytes=ReadProtected(directory,path,owner,error);
+  if(!bytes || lstat(path.fileSystemRepresentation,&after) || !SafeMetadata(after,owner,NO) || before.st_dev!=after.st_dev || before.st_ino!=after.st_ino || before.st_size!=after.st_size || before.st_mode!=after.st_mode ||
+    before.st_mtimespec.tv_sec!=after.st_mtimespec.tv_sec || before.st_mtimespec.tv_nsec!=after.st_mtimespec.tv_nsec || before.st_ctimespec.tv_sec!=after.st_ctimespec.tv_sec || before.st_ctimespec.tv_nsec!=after.st_ctimespec.tv_nsec || bytes.length!=(NSUInteger)after.st_size) { Fail(error,@"fixed Core cache changed while reading; preserve work");return nil; }
+  NSDictionary *receipt=@{@"device":@((uint64_t)after.st_dev),@"inode":@((uint64_t)after.st_ino),@"size":@((uint64_t)after.st_size),@"mode":@(after.st_mode&07777),
+    @"modifiedSeconds":@(after.st_mtimespec.tv_sec),@"modifiedNanos":@(after.st_mtimespec.tv_nsec),@"changedSeconds":@(after.st_ctimespec.tv_sec),@"changedNanos":@(after.st_ctimespec.tv_nsec),@"sha256":Hash(bytes)};
+  if(!KuroWorkCacheReceipt(receipt)) { Fail(error,@"fixed Core cache identity exceeds its closed receipt");return nil; } return receipt;
+}
 static BOOL KuroRestartRecord(NSDictionary *record,NSString **error) {
   NSArray *base=@[@"format",@"session",@"pid",@"parent",@"startSeconds",@"startMicros",@"executableSHA256",@"phase",@"processGroup"];
   if(!KuroMapping(record,base,@[@"launch",@"work"]) || !KuroNumber(record[@"format"],1,2) || !KuroNumber(record[@"pid"],1,INT_MAX) || !KuroNumber(record[@"parent"],1,INT_MAX) ||
@@ -41,7 +60,8 @@ static BOOL KuroRestartRecord(NSDictionary *record,NSString **error) {
   if(launch && (!Keys(launch,@[@"configSHA256",@"coreSHA256",@"template"]) || !Match(launch[@"configSHA256"],@"\\A[0-9a-f]{64}\\z") || ![launch[@"coreSHA256"]isEqual:record[@"executableSHA256"]] || !KuroSessionTemplate(launch[@"template"])))return Fail(error,@"old Core launch evidence does not match its owner");
   NSDictionary *work=record[@"work"];
   if([record[@"format"]isEqual:@1])return !work || Fail(error,@"legacy owner cannot carry unversioned work evidence");
-  if(!launch || !Keys(work,@[@"configSHA256",@"socket"]) || !Match(work[@"configSHA256"],@"\\A[0-9a-f]{64}\\z"))return Fail(error,@"old Core work receipt is incomplete");
+  if(!launch || !KuroMapping(work,@[@"configSHA256",@"socket"],@[@"cache"]) || !Match(work[@"configSHA256"],@"\\A[0-9a-f]{64}\\z"))return Fail(error,@"old Core work receipt is incomplete");
+  if(work[@"cache"] && !KuroWorkCacheReceipt(work[@"cache"]))return Fail(error,@"old Core cache receipt is invalid");
   id socket=work[@"socket"];
   return socket==NSNull.null || (Keys(socket,@[@"device",@"inode"]) && KuroNumber(socket[@"device"],0,9007199254740991ULL) && KuroNumber(socket[@"inode"],1,9007199254740991ULL)) || Fail(error,@"old Core socket receipt is invalid");
 }
@@ -81,6 +101,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
 @property(nonatomic) KuroRestartReader fixtureRestartReader;
 #endif
 - (BOOL)recordWorkSocket:(NSDictionary *)identity error:(NSString **)error;
+- (BOOL)recordReapedWorkCache:(NSDictionary *)identity error:(NSString **)error;
 - (BOOL)recoverExitedOwnerWithNetwork:(KuroSessionHook)network workCleanup:(KuroRestartWorkCleanup)workCleanup error:(NSString **)error;
 
 - (instancetype)initWithDirectory:(NSString *)directory owner:(uid_t)owner;
@@ -139,6 +160,18 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   id previous=record[@"work"][@"socket"];
   if(previous!=NSNull.null)return [previous isEqual:identity] || Fail(error,@"private socket differs from durable owner checkpoint");
   NSMutableDictionary *updated=[record mutableCopy],*work=[record[@"work"]mutableCopy]; work[@"socket"]=[identity copy]; updated[@"work"]=work;
+  return [self publishOwner:updated replacing:bytes error:error];
+}
+- (BOOL)recordReapedWorkCache:(NSDictionary *)identity error:(NSString **)error {
+  // Only this instance's waitpid/reap transition can clear a journaled _child.
+  // Fresh contexts and stored PIDs cannot authorize adopting a cache file.
+  if(![self onThread:error] || _child || !_journaled || _unknown || !KuroWorkCacheReceipt(identity))return Fail(error,@"same reaped held session and closed cache identity required");
+  NSString *path=[_directory stringByAppendingPathComponent:@"owner.json"];NSData *bytes=ReadProtected(_directory,path,_owner,error);
+  NSDictionary *record=bytes?KuroDecodeJSON(bytes,MessageLimit,error):nil;
+  if(!KuroRestartRecord(record,error) || ![record[@"format"]isEqual:@2] || ![record[@"session"]isEqual:_identifier])return Fail(error,@"cache checkpoint has no matching work owner");
+  id previous=record[@"work"][@"cache"];
+  if(previous)return ([previous isEqual:identity] && [self syncDirectory:error]) || Fail(error,@"cache differs from durable checkpoint or directory sync failed; preserve work");
+  NSMutableDictionary *updated=[record mutableCopy],*work=[record[@"work"]mutableCopy];work[@"cache"]=[identity copy];updated[@"work"]=work;
   return [self publishOwner:updated replacing:bytes error:error];
 }
 - (BOOL)recoverExitedOwnerWithNetwork:(KuroSessionHook)network workCleanup:(KuroRestartWorkCleanup)workCleanup error:(NSString **)error {

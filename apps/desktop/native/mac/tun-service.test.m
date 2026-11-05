@@ -36,6 +36,7 @@ static int ServiceFixtureMain(int argc,const char **argv) {
         NSDictionary *body=bodyStart.location==NSNotFound ? nil : KuroDecodeJSON(Bytes([request substringFromIndex:NSMaxRange(bodyStart)]),1024,NULL);
         BOOL mode=[request hasPrefix:@"PATCH /configs HTTP/1.1\r\n"] && Keys(body,@[@"mode"]) && [body[@"mode"] isEqual:@"global"];
         BOOL select=[request hasPrefix:@"PUT /proxies/G%2F%23 HTTP/1.1\r\n"] && Keys(body,@[@"name"]) && [body[@"name"] isEqual:@"DIRECT"];
+        if(select && !Exists([work stringByAppendingPathComponent:@"cache.db"]) && !WriteNew([work stringByAppendingPathComponent:@"cache.db"],Bytes(@"fixture bbolt cache"),0600,NULL))return 98;
         if(mode||select)reply=@"HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n";
       }
       if(!reply)reply=@"HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\n\r\n";
@@ -118,8 +119,51 @@ static void RestartWorkTests(void) {
   }
   puts("native restart work: exact runtime/socket cleanup, mismatch/unknown/symlink/unsafe reread rejection and partial cleanup retry passed (temporary sockets only)");
 }
+static void RestartCacheTests(void) {
+  for(NSUInteger scenario=0;scenario<9;scenario++) {
+    char temporary[]="/tmp/kuro-rcache-XXXXXX";CHECK(mkdtemp(temporary));char canonical[PATH_MAX];CHECK(realpath(temporary,canonical));
+    NSString *directory=@(canonical),*work=[directory stringByAppendingPathComponent:@"session-work"],*journal=[directory stringByAppendingPathComponent:@"owner.json"],*error=nil;
+    NSString *config=[work stringByAppendingPathComponent:@"config.json"],*cache=[work stringByAppendingPathComponent:@"cache.db"];
+    Put(config,Bytes(@"runtime config"),0600);Put(cache,Bytes(@"fixture bbolt cache"),0600);
+    NSDictionary *cacheIdentity=KuroWorkCacheSnapshot(directory,geteuid(),&error);CHECK(cacheIdentity&&KuroWorkCacheReceipt(cacheIdentity));
+    NSMutableDictionary *record=RestartRecord();record[@"format"]=@2;
+    NSMutableDictionary *receipt=[@{@"configSHA256":Hash(Bytes(@"runtime config")),@"socket":NSNull.null,@"cache":cacheIdentity}mutableCopy];record[@"work"]=receipt;
+    if(scenario==1)[receipt removeObjectForKey:@"cache"]; // Legacy format2 cannot adopt a newly discovered cache.
+    if(scenario==2)Put(cache,Bytes(@"changed"),0600);
+    if(scenario==3) { CHECK(!unlink(cache.fileSystemRepresentation));CHECK(!symlink(config.fileSystemRepresentation,cache.fileSystemRepresentation)); }
+    if(scenario==4)CHECK(!chmod(cache.fileSystemRepresentation,0666));
+    if(scenario==5)Put([work stringByAppendingPathComponent:@"unknown"],Bytes(@"preserve"),0600);
+    if(scenario==8) { NSMutableDictionary *bad=[cacheIdentity mutableCopy];bad[@"path"]=@"/tmp/arbitrary";receipt[@"cache"]=bad; }
+    Put(journal,JSONData(record),0600);NSData *original=[NSData dataWithContentsOfFile:journal];
+    KuroTunService *service=[[KuroTunService alloc]initFixtureDirectory:directory core:[directory stringByAppendingPathComponent:@"unused"] hooks:ServiceHooks()];
+    KuroOwnedSession *observed=[[KuroOwnedSession alloc]initWithDirectory:directory owner:geteuid()];observed.fixtureRestartReader=RestartReader;
+    CHECK(![observed recordReapedWorkCache:cacheIdentity error:&error]); // No held/reaped owner in a fresh instance.
+    RestartObservation=0;RestartMode=0;RestartReappearAt=0;__block NSUInteger network=0,checks=0;
+    BOOL ok=[observed recoverExitedOwnerWithNetwork:^BOOL(NSString **failure) { (void)failure;network++;return YES; } workCleanup:^BOOL(NSDictionary *owner,KuroSessionHook stillAbsent,NSString **failure) {
+      return [service recoverExitedWork:owner stillAbsent:^BOOL(NSString **problem) {
+        checks++;if(checks==2 && scenario==6)Put(cache,Bytes(@"changed before unlink"),0600);
+        if(checks==2 && scenario==7)return Fail(problem,@"fixture identity observation uncertain after partial cleanup");
+        return stillAbsent(problem);
+      } error:failure];
+    } error:&error];
+    CHECK(ok==(scenario==0));CHECK(observed.child==0);
+    if(ok)CHECK(observed.off&&!Exists(work)&&!Exists(journal));
+    else {
+      CHECK(error.length>0&&Exists(cache)&&[[NSData dataWithContentsOfFile:journal]isEqual:original]);
+      if(scenario<=5 || scenario==8)CHECK(Exists(config)); // Complete validation precedes any removal.
+      if(scenario==7) {
+        CHECK(!Exists(config)); // Retry accepts an already-removed exact work item.
+        CHECK([observed recoverExitedOwnerWithNetwork:^BOOL(NSString **failure) { (void)failure;return YES; } workCleanup:^BOOL(NSDictionary *owner,KuroSessionHook stillAbsent,NSString **failure) { return [service recoverExitedWork:owner stillAbsent:stillAbsent error:failure]; } error:&error]);
+        CHECK(observed.off&&!Exists(work)&&!Exists(journal));
+      }
+    }
+    CHECK(network==(scenario==8?0:1));CHECK([[NSFileManager defaultManager]removeItemAtPath:directory error:NULL]);
+  }
+  puts("native production cache: closed durable receipt, legacy refusal, changed/symlink/writable/unknown preservation, exact removal and partial cleanup retry passed; no Core/network");
+}
 static void ServiceTests(void) {
   RestartWorkTests();
+  RestartCacheTests();
   CHECK(geteuid()!=0);
   // A sandbox may allow socketpair yet forbid even a temporary AF_UNIX bind.
   // Fail explicitly; do not skip the production-transport fixture or weaken it.

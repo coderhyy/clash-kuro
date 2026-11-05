@@ -67,3 +67,7 @@ LAN/split支持边界具体为：保留现有更具体route及已识别的search
 2026-11-05 离线源码核对证实v1.19.33 select会先初始化cache.db，再判断store-selected=false；本轮仅实验增加已reap后安全类型/owner/nlink/大小、稳定dev/inode/时间/内容hash的精确cache清退，未知/替换对象保留。生产root旧owner/work schema并未据此开放cache删除，继续列为其集成缺口。Unix controller不验证Bearer，私有目录和socket身份才是访问边界；并不宣称同UID隔离。
 
 2026-11-05 新候选8ee323a仅运行一次normal：Core原始错误 `Parse config error: yaml: found unknown escape character`，自行exit1，阶段private-version-readiness；EOF未执行，未改配置或重试。日志完整保留，Core/owner/work及组消失证据已记录；失败策略保留固定Core副本与诊断。授权结束，见 [执行记录](../evidence/core-control-execution-8ee323a/RESULT.md)。
+
+2026-11-05 真实固定Core前置闭环通过：`98f1afbe6822999bab02723d62820a96c395571e`同epoch normal及EOF均runner0；version、mode/选择读回、stop ACK/owner EOF、SIGTERM→Core exit0与独立进程/整个运行目录消失通过。无root/TUN网络操作，不等于实际Electron退出/后代全退出或网络恢复；诊断保留。见 [证据](../evidence/core-control-execution-98f1afb/RESULT.md)。04/06/08继续开放。
+
+2026-11-05 集成生产cache归属清退和owner断链状态通知：cache仅同held/reaped实例记录闭合receipt，未知/旧无receipt/改变对象保留；App断链进入既有队列独立inspect，unknown锁写，仅明确off再同步普通Core，不自动recover/start。完整native suite含固定Core-t通过，TS148focused和State/main类型检查通过，独立未参与实现review无阻塞。见 [集成证据](../evidence/production-integration-20261105/)。仍未证明真实root/TUN网络。

@@ -88,3 +88,5 @@ CI配置已串联native隔离测试→App dmg→disabled helper pkg，并保存s
 已完成固定Core -t差分：仅将保存配置的 `\/` 改为 `/`，结果从相同unknown escape错误/exit1变为exit0。专用目录只含配置和日志；原始证据见 [差分结果](../evidence/yaml-core-differential/result.json)。该结果不等于normal/EOF或TUN通过。
 
 2026-11-05 `6b45cb4`真实normal已完成固定Core v1.19.33控制接口、mode/选择读回、两次NoIP观测和stop ACK→SIGTERM→exit0，Core/组/整个base消失。严格success schema拒绝worker.ownerAbsent/workAbsent的数字1（应为boolean），runner exit2、无normal-success，EOF未执行；按已有长期授权修producer类型与真实worker到receipt回归后另冻epoch，不放宽schema。[证据](../evidence/core-control-execution-6b45cb4/RESULT.md)。
+
+2026-11-05 真实固定Core前置闭环通过：`98f1afbe6822999bab02723d62820a96c395571e`同epoch normal及EOF均runner0；version、mode/选择读回、stop ACK/owner EOF、SIGTERM→Core exit0与独立进程/整个运行目录消失通过。无root/TUN网络操作，不等于实际Electron退出/后代全退出或网络恢复；诊断保留。见 [证据](../evidence/core-control-execution-98f1afb/RESULT.md)。04/06/08继续开放。

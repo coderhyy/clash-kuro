@@ -1,0 +1,26 @@
+{
+  "cwd": "/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro",
+  "commands": {
+    "subscription-tests": [
+      "node_modules/.bin/vitest",
+      "run",
+      "packages/state/src/tun.test.ts",
+      "apps/desktop/src/main/platform/macos-tun.test.ts",
+      "apps/desktop/src/main/platform/platform.test.ts",
+      "apps/desktop/src/renderer/src/app.test.tsx",
+      "--maxWorkers=2"
+    ],
+    "state-typecheck": [
+      "node_modules/.bin/tsc",
+      "-p",
+      "packages/state/tsconfig.json"
+    ],
+    "main-typecheck": [
+      "node_modules/.bin/tsc",
+      "-p",
+      "apps/desktop/tsconfig.node.json",
+      "--noEmit"
+    ]
+  },
+  "scope": "shared-tree TS fixtures and typecheck only; no Core/-t/system network/install"
+}

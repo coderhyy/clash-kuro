@@ -172,6 +172,7 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
   let shutdown: Promise<void> | undefined
   let tunStart: Promise<TunStatus> | undefined
   const tun: TunPlatform | undefined = options.tun && {
+    ...(options.tun.subscribe ? { subscribe: (listener: () => void) => options.tun!.subscribe!(listener) } : {}),
     inspect: () => options.tun!.inspect(),
     recover: () => options.tun!.recover(),
     stop: () => options.tun!.stop(),

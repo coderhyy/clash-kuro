@@ -535,3 +535,20 @@ test('a failed Backup import on real disk restores the pre-import data', async (
   expect(JSON.parse(await readFile(join(dataDir, 'backups', recovery!), 'utf8'))).toMatchObject({ settings: saved, override: before.override })
   expect(await app.run('setMode', { mode: 'direct' })).toMatchObject({ ok: true })
 })
+
+
+test('desktop TUN wrapper preserves native observation subscriptions and unsubscribe', () => {
+  let notify: (() => void) | undefined
+  const unsubscribe = vi.fn(() => { notify = undefined })
+  const status: TunStatus = { availability: 'ready', state: 'off' }
+  const tun: TunPlatform = { inspect: async () => status, recover: async () => status, start: async () => status, stop: async () => status,
+    subscribe: listener => { notify = listener; return unsubscribe } }
+  const platform = createDesktopPlatform({ dataDir: '/tmp/kt-subscribe', corePath: '/tmp/unused', mixedPort: 7890, tun, exec: vi.fn() })
+  const changed = vi.fn()
+  const stop = platform.tun!.subscribe!(changed)
+  notify!()
+  expect(changed).toHaveBeenCalledOnce()
+  stop()
+  expect(unsubscribe).toHaveBeenCalledOnce()
+  expect(notify).toBeUndefined()
+})
