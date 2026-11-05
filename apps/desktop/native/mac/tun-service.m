@@ -183,7 +183,7 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
   KuroControlCall *_recoveryCall;
   NSCondition *_recoveryWake;
   BOOL _workCreated;
-  BOOL _resumeCheckpointAttempted, _stopCheckpointAttempted, _stopCheckpointComplete;
+  BOOL _resumeCheckpointAttempted, _stopCheckpointAttempted, _stopCheckpointComplete, _stopProofArmed;
   NSString *_stopCheckpointFailure;
   NSString *_configDigest;
   NSString *_runtimeDigest;
@@ -412,6 +412,21 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
   NSDictionary *snapshot=KuroProtectedInstallationSnapshot(prefix,owner,helper,error);
   return snapshot && KuroInstalledRestartWriter(record,snapshot,error);
 }
+- (BOOL)replayStoppedEvidenceForOwner:(NSDictionary *)record error:(NSString **)error {
+  if(!Exists([_directory stringByAppendingPathComponent:@"stopped.json"]))return YES;
+  NSString *prefix=@"",*helper=Executable();uid_t owner=0;
+#ifdef KURO_TESTING
+  if(_fixtureCore && self.fixtureInstallationPrefix) {
+    prefix=self.fixtureInstallationPrefix;owner=_owner;
+    if(![_directory isEqual:At(prefix,State)])return Fail(error,@"isolated stopped replay requires the fixed State layout");
+    NSDictionary *installed=ReadJSON(prefix,At(prefix,[State stringByAppendingPathComponent:@"installed.json"]),owner,error);
+    if(!Match(installed[@"release"],@"\\A[A-Za-z0-9.-]{1,120}\\z"))return Fail(error,@"isolated stopped replay installation unavailable");
+    helper=[At(prefix,Tools)stringByAppendingPathComponent:[@"versions"stringByAppendingPathComponent:[installed[@"release"]stringByAppendingPathComponent:@"helper"]]];
+  } else
+#endif
+  if(geteuid()!=0 || ![_directory isEqual:State])return Fail(error,@"fixed protected root stopped replay required");
+  return KuroReplayStoppedCheckpoint(prefix,owner,helper,record,error);
+}
 - (BOOL)recoverNetworkOnly:(NSString **)error {
   NSString *held=nil;
   @synchronized(self) {
@@ -427,6 +442,7 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
     // absence or a final cache receipt. Overall off still requires all old gates.
     NSString *networkFailure=nil;
     if(!_hooks.recoverResidualNetwork(&networkFailure))return Fail(error,networkFailure?:@"residual network recovery not confirmed");
+    if(!Exists([_directory stringByAppendingPathComponent:@"owner.json"]) && ![self replayStoppedEvidenceForOwner:nil error:error])return NO;
     KuroOwnedSession *observed=[[KuroOwnedSession alloc] initWithDirectory:_directory owner:_owner];
 #ifdef KURO_TESTING
     observed.fixtureRestartReader=self.fixtureRestartReader;observed.fixtureRestartGroupReader=self.fixtureRestartGroupReader;
@@ -435,6 +451,7 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
       return [self restartWriterValid:record error:failure];
     } workCleanup:^BOOL(NSDictionary *record,KuroSessionHook stillAbsent,NSString **failure) {
       if(record[@"supervision"][@"installation"] && ![self restartWriterValid:record error:failure])return NO;
+      if(![self replayStoppedEvidenceForOwner:record error:failure])return NO;
       return [self recoverExitedWork:record stillAbsent:stillAbsent error:failure];
     } error:error])return NO;
     ok=observed.off && (!_session || _session.off) && !Exists([self work]);
@@ -647,7 +664,7 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
     if(_busy || _shutdownRequested) { KuroServiceReply(peer,KuroServiceError(@"a session owner is already active or shutting down")); return Fail(error,@"single owner busy"); }
     previouslyOff=[_snapshot[@"state"] isEqual:@"off"];
     _busy=YES; _stopRequested=NO; _nextNetworkCheck=0;
-    _resumeCheckpointAttempted=NO; _stopCheckpointAttempted=NO; _stopCheckpointComplete=NO; _stopCheckpointFailure=nil;
+    _resumeCheckpointAttempted=NO; _stopCheckpointAttempted=NO; _stopCheckpointComplete=NO; _stopCheckpointFailure=nil; _stopProofArmed=NO;
     _snapshot=@{@"availability":@"blocked",@"state":@"unknown",@"error":@"session startup transaction is active"};
   }
   BOOL success=NO,acknowledged=NO; NSString *failure=nil; __block NSString *stage=@"open decode";
@@ -664,6 +681,16 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
     if(!SafeChain([self anchor],_directory,_owner,YES,&failure) || Exists([self work])) { failure=@"protected clean session directory is required"; return NO; }
     stage=@"clean ownership"; _session=[[KuroOwnedSession alloc] initWithDirectory:_directory owner:_owner];
     if(!_session.off) { failure=@"persisted ownership cannot be proven off"; return NO; }
+    __weak KuroTunService *checkpointOwner=self;
+    if(![_session setBeforeOwnerRemoval:^BOOL(NSDictionary *process,NSString **problem) {
+      KuroTunService *strong=checkpointOwner;if(!strong)return Fail(problem,@"held-stop owner disappeared");
+      if(!strong->_stopProofArmed)return YES;
+      NSString *checkpointFailure=nil;BOOL saved=strong->_hooks.confirmStopped && strong->_hooks.confirmStopped(process,&checkpointFailure);
+      strong->_stopCheckpointAttempted=YES;strong->_stopCheckpointComplete=saved;
+      strong->_stopCheckpointFailure=saved?nil:[@"cleanup confirmed, uninstall checkpoint failed: "stringByAppendingString:checkpointFailure?:@"held-stop confirmation hook unavailable"];
+      return saved || Fail(problem,strong->_stopCheckpointFailure);
+    } error:&failure])return NO;
+
 #ifdef KURO_TESTING
     if(_fixtureCore && self.fixtureSupervisionSource) {if(![_session setSupervisionSource:self.fixtureSupervisionSource error:&failure])return NO;}
     if(!_fixtureCore)
@@ -730,6 +757,7 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
         }
         strong->_resumeCheckpointAttempted=YES;
         if(!strong->_hooks.beforeStart(problem)) {if(problem&&*problem)strong->_primaryFailure=*problem;return NO;}
+        strong->_stopProofArmed=YES;
         if(!strong->_hooks.beforeResume(problem)) {if(problem&&*problem)strong->_primaryFailure=*problem;return NO;}
         BOOL resumed=resume(problem);if(!resumed&&problem&&*problem)strong->_primaryFailure=*problem;return resumed;
       }

@@ -1,0 +1,6 @@
+{
+  "command": "KURO_SKIP_CORE_SYNTAX=1 node apps/desktop/scripts/build-macos-helper.mjs --test",
+  "exit": 0,
+  "log": "/private/tmp/kuro-held-integrated-native-unsandboxed.log",
+  "sha256": "faefbb770b9f6a512cb4fcfddce8885d8ed84dd0f06b2fa530889c8028968c34"
+}

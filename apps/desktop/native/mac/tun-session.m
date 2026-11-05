@@ -9,6 +9,7 @@ static uint64_t KuroMonotonicMilliseconds(void) {
   return (uint64_t)now.tv_sec * 1000 + (uint64_t)now.tv_nsec / 1000000;
 }
 typedef BOOL (^KuroSessionHook)(NSString **error);
+typedef BOOL (^KuroSessionStopEvidenceCheckpoint)(NSDictionary *process,NSString **error);
 typedef NSDictionary *(^KuroSessionSupervisionSource)(NSString **error);
 static BOOL KuroSessionTemplate(NSString *value) {
 #ifdef KURO_CORE_EXPERIMENT
@@ -167,6 +168,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   NSDictionary *_initialSupervision;
   pid_t _reapedOwnedChild;
   NSDictionary *_completedStop;
+  KuroSessionStopEvidenceCheckpoint _beforeOwnerRemoval;
   NSData *_heldOwnerBytes;
   NSDictionary *_workCacheInitial;
   NSDictionary *_workCacheOrigin;
@@ -196,6 +198,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
 @property(nonatomic) KuroRestartGroupReader fixtureRestartGroupReader;
 @property(nonatomic) BOOL fixtureFailWorkCacheSync;
 @property(nonatomic) BOOL fixtureFailOwnerPublish;
+@property(nonatomic) BOOL fixtureFailOwnerUnlink;
 @property(nonatomic) BOOL fixtureFailDirectorySync;
 #endif
 - (BOOL)prepareWorkCache:(NSString **)error;
@@ -210,6 +213,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
 - (BOOL)setSupervisionSource:(KuroSessionSupervisionSource)source error:(NSString **)error;
 - (BOOL)spawnExecutable:(NSString *)executable arguments:(NSArray<NSString *> *)arguments workingDirectory:(NSString *)workingDirectory beforeResume:(KuroSessionHook)prepare afterReap:(KuroSessionHook)cleanup error:(NSString **)error;
 - (BOOL)spawnExecutable:(NSString *)executable arguments:(NSArray<NSString *> *)arguments workingDirectory:(NSString *)workingDirectory beforeResume:(KuroSessionHook)prepare afterReap:(KuroSessionHook)cleanup resumeGate:(KuroSessionResumeGate)resumeGate error:(NSString **)error;
+- (BOOL)setBeforeOwnerRemoval:(KuroSessionStopEvidenceCheckpoint)checkpoint error:(NSString **)error;
 - (BOOL)stop:(NSString **)error;
 - (BOOL)heldCleanupCanRetry;
 - (NSDictionary *)completedStopEvidence:(NSString **)error;
@@ -532,6 +536,10 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
 - (BOOL)heldCleanupCanRetry {
   return [self onThread:NULL] && _journaled && !_unknown && !_child && _reapedOwnedChild>0;
 }
+- (BOOL)setBeforeOwnerRemoval:(KuroSessionStopEvidenceCheckpoint)checkpoint error:(NSString **)error {
+  if(![self onThread:error] || _child || _journaled || _unknown || !checkpoint)return Fail(error,@"clean session and internal held-stop checkpoint required");
+  _beforeOwnerRemoval=[checkpoint copy];return YES;
+}
 - (BOOL)stop:(NSString **)error {
   if (![self onThread:error]) return NO;
   if (_unknown) return Fail(error, @"session ownership is unknown");
@@ -569,6 +577,12 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
     NSDictionary *completed=nil;
     if(_reapedOwnedChild && [record[@"pid"]intValue]==_reapedOwnedChild && KuroRestartRecord(record,NULL))
       completed=@{@"format":@1,@"session":_identifier,@"owner":record,@"ownerSHA256":Hash(bytes),@"childReaped":@YES,@"cleanupComplete":@YES};
+    // Persist genuine held/reaped evidence while the exact owner still survives.
+    // Consumers must continue to refuse the remaining owner footprint.
+    if(_beforeOwnerRemoval && (!completed || !_beforeOwnerRemoval(completed,error)))return Fail(error,@"held-stop checkpoint is not durable; owner preserved");
+#ifdef KURO_TESTING
+    if(self.fixtureFailOwnerUnlink)return Fail(error,@"injected owner unlink failure; held proof and owner preserved");
+#endif
     if(![ReadProtected(_directory,path,_owner,error)isEqual:bytes] || unlink(path.fileSystemRepresentation))return Fail(error,@"owner journal removal is not durable");
     _ownerRemovalPending=YES;_completedStop=completed;
     if(![self syncDirectory:error])return Fail(error,@"owner journal removal is not durable");

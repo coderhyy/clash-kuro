@@ -308,15 +308,69 @@ static BOOL KuroRevokeStoppedProof(NSString *prefix,uid_t owner,NSString **error
   // Also sync when neverStarted is already false; absence alone is not durability.
   return SyncInstallDirectory(directory,error);
 }
+#ifdef KURO_TESTING
+// Narrow durability fault points for the real fixed stopped-file path only.
+static NSUInteger KuroStoppedFault, KuroStoppedFileSyncs, KuroStoppedDirectorySyncs;
+#endif
+static BOOL KuroSyncStoppedCheckpoint(NSString *prefix,uid_t owner,NSData *expected,NSString **error) {
+  NSString *directory=At(prefix,State),*path=[directory stringByAppendingPathComponent:@"stopped.json"];
+  if(!expected || ![ReadProtected(prefix,path,owner,error)isEqual:expected])return Fail(error,@"stopped checkpoint changed before durability retry");
+  int fd=open(path.fileSystemRepresentation,O_RDONLY|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC);struct stat before={0},after={0},named={0};
+  BOOL ok=fd>=0 && !fstat(fd,&before) && SafeMetadata(before,owner,NO) && (before.st_mode&07777)==0600;
+#ifdef KURO_TESTING
+  KuroStoppedFileSyncs++;if(KuroStoppedFault==2)ok=NO;
+#endif
+  ok=ok && !fsync(fd) && !fstat(fd,&after) && before.st_dev==after.st_dev && before.st_ino==after.st_ino && before.st_size==after.st_size &&
+    !lstat(path.fileSystemRepresentation,&named) && named.st_dev==before.st_dev && named.st_ino==before.st_ino && SafeMetadata(named,owner,NO) && (named.st_mode&07777)==0600;
+  if(fd>=0)close(fd);
+  if(!ok || ![ReadProtected(prefix,path,owner,error)isEqual:expected])return Fail(error,@"stopped checkpoint file sync or exact identity failed");
+#ifdef KURO_TESTING
+  KuroStoppedDirectorySyncs++;if(KuroStoppedFault==3)return Fail(error,@"injected stopped checkpoint directory sync failure");
+#endif
+  return SyncInstallDirectory(directory,error);
+}
+static BOOL KuroStoppedOwnerMatches(NSString *prefix,uid_t owner,NSDictionary *process,NSString **error) {
+  NSString *directory=At(prefix,State),*path=[directory stringByAppendingPathComponent:@"owner.json"];
+  for(NSString *name in @[@"session-work",@"network.json",@"network-dns.json"])
+    if(Exists([directory stringByAppendingPathComponent:name]))return Fail(error,@"held process/network work remains; stopped checkpoint refused");
+  if(!Exists(path))return YES;
+  NSData *bytes=ReadProtected(prefix,path,owner,error);
+  return (bytes && [Hash(bytes)isEqual:process[@"ownerSHA256"]] && [bytes isEqual:JSONData(process[@"owner"])]) || Fail(error,@"stopped checkpoint does not match the exact remaining owner");
+}
 static BOOL KuroMarkSessionStopped(NSString *prefix,uid_t owner,NSString *executingHelper,NSDictionary *process,NSDictionary *network,NSString **error) {
-  if(!KuroSessionActivationAt(prefix,owner,executingHelper,error) || !KuroCompletedStopEvidence(process) || HasOwnershipFootprint(prefix) || Exists(At(prefix,[State stringByAppendingPathComponent:@"session-work"])))return Fail(error,@"held session cleanup is incomplete; stopped checkpoint refused");
+  if(!KuroSessionActivationAt(prefix,owner,executingHelper,error) || !KuroCompletedStopEvidence(process) || !KuroStoppedOwnerMatches(prefix,owner,process,error))return Fail(error,@"held session cleanup is incomplete; stopped checkpoint refused");
   NSString *directory=At(prefix,State),*path=[directory stringByAppendingPathComponent:@"stopped.json"];
   NSDictionary *receipt=ReadFreshReceipt(prefix,owner,error),*installed=ReadJSON(prefix,[directory stringByAppendingPathComponent:@"installed.json"],owner,error),*manifest=receipt[@"manifest"];
-  NSDictionary *proof=@{@"format":@1,@"release":installed[@"release"],@"helperSHA256":installed[@"helperSHA256"],@"coreSHA256":manifest[@"core"][@"sha256"],@"manifestSHA256":Hash(receipt[@"manifestBytes"]),@"inventorySHA256":Hash(receipt[@"inventoryBytes"]),@"installedSHA256":Hash(JSONData(installed)),@"session":process[@"session"],@"process":process,@"network":network?:@{}};
-  if(!KuroStoppedProofValid(proof,manifest,receipt[@"manifestBytes"],receipt[@"inventoryBytes"],installed))return Fail(error,@"independent process/route/DNS stop proof does not bind this installed payload");
+  if(!receipt || !installed)return NO;
+  // An armed but never-resumed child may be reaped before the sticky history
+  // flips. Validate the same real cleanup without inventing a started history.
+  NSMutableDictionary *started=[installed mutableCopy];started[@"neverStarted"]=@NO;
+  NSDictionary *proof=@{@"format":@1,@"release":installed[@"release"],@"helperSHA256":installed[@"helperSHA256"],@"coreSHA256":manifest[@"core"][@"sha256"],@"manifestSHA256":Hash(receipt[@"manifestBytes"]),@"inventorySHA256":Hash(receipt[@"inventoryBytes"]),@"installedSHA256":Hash(JSONData(started)),@"session":process[@"session"],@"process":process,@"network":network?:@{}};
+  if(!KuroStoppedProofValid(proof,manifest,receipt[@"manifestBytes"],receipt[@"inventoryBytes"],started))return Fail(error,@"independent process/route/DNS stop proof does not bind this installed payload");
+  if([installed[@"neverStarted"]boolValue])return (!Exists(path) && SyncInstallDirectory(directory,error)) || Fail(error,@"never-started cleanup has an unexpected stopped checkpoint");
   NSData *bytes=JSONData(proof);
-  if(Exists(path))return [ReadProtected(prefix,path,owner,error)isEqual:bytes] && SyncInstallDirectory(directory,error);
-  return WriteNew(path,bytes,0600,error) && SyncInstallDirectory(directory,error);
+  if(!Exists(path)) {
+#ifdef KURO_TESTING
+    if(KuroStoppedFault==1)return Fail(error,@"injected stopped checkpoint write failure");
+#endif
+    if(!WriteNew(path,bytes,0600,error))return NO;
+  }
+  return KuroStoppedOwnerMatches(prefix,owner,process,error) && KuroSyncStoppedCheckpoint(prefix,owner,bytes,error);
+}
+// A new helper can re-sync only a genuine proof already issued by the held
+// instance. Current absence observations never manufacture childReaped evidence.
+static BOOL KuroReplayStoppedCheckpoint(NSString *prefix,uid_t owner,NSString *executingHelper,NSDictionary *record,NSString **error) {
+  NSString *directory=At(prefix,State),*path=[directory stringByAppendingPathComponent:@"stopped.json"];
+  if(!Exists(path))return YES;
+  if(!KuroSessionActivationAt(prefix,owner,executingHelper,error))return NO;
+  NSDictionary *receipt=ReadFreshReceipt(prefix,owner,error),*installed=ReadJSON(prefix,[directory stringByAppendingPathComponent:@"installed.json"],owner,error);
+  NSData *bytes=ReadProtected(prefix,path,owner,error);NSDictionary *proof=bytes?KuroDecodeJSON(bytes,MessageLimit,error):nil;
+  if(!receipt || !KuroStoppedBoundToReceipt(proof,receipt,installed))return Fail(error,@"existing held stop checkpoint is not bound to this installation");
+  if(record) {
+    NSDictionary *process=proof[@"process"];
+    if(!KuroCompletedStopEvidence(process) || ![process[@"owner"]isEqual:record] || !KuroStoppedOwnerMatches(prefix,owner,process,error))return Fail(error,@"existing held stop checkpoint belongs to a different owner");
+  } else if(HasOwnershipFootprint(prefix) || Exists([directory stringByAppendingPathComponent:@"session-work"]))return Fail(error,@"stopped checkpoint replay requires complete ownership absence");
+  return KuroSyncStoppedCheckpoint(prefix,owner,bytes,error);
 }
 // A failed checkpoint never resumes Core. False is sticky: even a later launch
 // failure cannot restore the weaker never-started uninstall authority.

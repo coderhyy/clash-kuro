@@ -2,10 +2,13 @@
 
 Status: ready-for-agent（生产有限会话已接通；补 writer 恢复与升级缺口，root 窗口完成，TUN 窗口待准备）
 Type: task
-Blocked by: 首次正常启停：现场冲突、新 baseline 与网络窗口授权；正式交付：真实异常恢复、崩溃卸载/升级验收
+Blocked by: 首次正常启停：修复生产初始状态与客户端恢复短路、冻结新候选；正式交付：真实异常恢复及崩溃卸载/升级验收
 Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
 
 ## 当前状态（2026-11-05，49f7dd6）
+
+- **最新真实窗口**：49f7dd6 fresh安装、实际App字节核验及helper启动成功，但生产初始blocked/off与客户端off短路导致无法ready；未运行Core/TUN。已正常退出App、卸载准确job/安装/receipt，代理/DNS/双族路由与新基线一致。[结果](../evidence/first-tun-window-20261105/RESULT.md)。窗口已结束；修复正在隔离实现并独立审查，不重试原包。
+- 真实held停止证明在owner清退前耐久保存的四文件修复已通过独立审查并集成；完整写出前崩溃仍不能合成held证明。它不在49包内，也不算真实TUN恢复通过。以下保留前一阶段状态。
 
 - `3728bc7` CI 已通过；生产候选 `49f7dd6e610e18b2a4c59c85b92f2c29045b95d4` 的 CI 亦通过：https://github.com/coderhyy/clash-kuro/actions/runs/42017796326 。标准原生测试、固定 Core 普通用户 `-t`、硬化 App 和 fresh finite-session 包构建完成，未安装或运行新候选。
 - 已接通真实安装版本/manifest/receipt/Core/helper、会话与工作目录身份绑定；origin-only 缓存通过重复稳定快照、文件同步与持久检查点恢复，拒绝跨安装或未知对象。不凭旧 PID、空组或实验通过扩大删除权。[实现证据](../evidence/installed-recovery-20261105/RESULT.md)。

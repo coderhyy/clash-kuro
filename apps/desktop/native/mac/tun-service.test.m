@@ -263,7 +263,7 @@ static void RetainedRecoveryTests(void) {
     };
     hooks.confirmStopped=^BOOL(NSDictionary *proof,NSString **error) {
       CHECK(pthread_equal(owner,pthread_self()));CHECK(KuroCompletedStopEvidence(proof));
-      CHECK(!Exists(journal)&&!Exists(work));@synchronized(guard){proofs++;}
+      CHECK(Exists(journal)&&!Exists(work));CHECK([Hash(ReadProtected(directory,journal,geteuid(),NULL))isEqual:proof[@"ownerSHA256"]]);@synchronized(guard){proofs++;}
       return KuroCompletedStopEvidence(proof)||Fail(error,@"fixture stop evidence missing");
     };
     KuroTunService *service=[[KuroTunService alloc]initFixtureDirectory:directory core:core hooks:hooks];
@@ -635,7 +635,125 @@ static void StoppedRevocationTests(void) {
  CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);
 }
 
+// Real held harmless children + real protected installed trees. Only process-group
+// enumeration and network state are isolated fixtures; no Core/launchd/network runs.
+static int HeldStopEmptyGroup(uint32_t kind,uint32_t group,void *bytes,int size) {
+  CHECK(kind==PROC_PGRP_ONLY && group==(uint32_t)getpgrp());memset(bytes,0,(size_t)size);errno=0;return 0;
+}
+static void HeldStopCheckpointTests(void) {
+  CHECK(geteuid()!=0);char temporary[]="/tmp/ks-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));NSString *base=@(canonical),*error=nil;
+  NSString *source=[base stringByAppendingPathComponent:@"source"],*next=[base stringByAppendingPathComponent:@"next"];
+  NSData *binary=[NSData dataWithContentsOfFile:Executable()];
+  NSDictionary *manifest=UpgradeFixtureSource(source,@"held-proof-old",@"held-proof original fixture",binary);
+  NSDictionary *nextManifest=UpgradeFixtureSource(next,@"held-proof-next",@"held-proof successor fixture",binary);(void)nextManifest;
+  for(NSUInteger scenario=0;scenario<13;scenario++) {
+    NSString *prefix=[base stringByAppendingPathComponent:[NSString stringWithFormat:@"s%lu",(unsigned long)scenario]];
+    UpgradeFixtureInstall(source,prefix,manifest,NO);
+    NSString *state=At(prefix,State),*path=[state stringByAppendingPathComponent:@"owner.json"],*stopped=[state stringByAppendingPathComponent:@"stopped.json"],*installed=[state stringByAppendingPathComponent:@"installed.json"],*child=[state stringByAppendingPathComponent:@"fixture-child"];
+    NSString *helper=[At(prefix,Tools)stringByAppendingPathComponent:@"versions/held-proof-old/helper"];
+    if(scenario==8||scenario==9||scenario==12) {
+      NSString *core=[state stringByAppendingPathComponent:@"core"];Put(core,binary,0755);__block NSUInteger armed=0,attempts=0,proofs=0;__block pthread_t originalThread;
+      KuroTunServiceHooks *hooks=ServiceHooks();hooks.beforeStart=^BOOL(NSString **failure){armed++;originalThread=pthread_self();return KuroRevokeStoppedProof(prefix,geteuid(),failure);};
+      hooks.beforeResume=^BOOL(NSString **failure){attempts++;if(scenario!=9 && !KuroMarkSessionStarted(prefix,geteuid(),helper,failure))return NO;return scenario==12 || Fail(failure,@"injected armed beforeResume refusal");};
+      hooks.confirmStopped=^BOOL(NSDictionary *process,NSString **failure){proofs++;CHECK(pthread_equal(originalThread,pthread_self()));CHECK(Exists(path));NSDictionary *network=@{@"format":@1,@"session":process[@"session"],@"routesOff":@YES,@"dnsOff":@YES,@"routeJournalSHA256":NSNull.null,@"dnsJournalSHA256":NSNull.null};return KuroMarkSessionStopped(prefix,geteuid(),helper,process,network,failure);};
+      hooks.recoverNetwork=^BOOL(NSString *session,NSString **failure){(void)session;(void)failure;CHECK(pthread_equal(originalThread,pthread_self()));return YES;};
+      KuroTunService *service=[[KuroTunService alloc]initFixtureDirectory:state core:core hooks:hooks];__weak KuroTunService *weak=service;
+      dispatch_semaphore_t retained=dispatch_semaphore_create(0),done=dispatch_semaphore_create(0);
+      service.fixtureRetained=^{if(scenario==12)dispatch_semaphore_signal(retained);else [weak requestShutdown];};
+      int peers[2];CHECK(!socketpair(AF_UNIX,SOCK_STREAM,0,peers));
+      if(scenario==12) {
+        KuroStoppedFault=2;int peer=peers[0];__block BOOL result=YES;
+        dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT,0),^{NSString *failure=nil;result=[service serveOpenFrame:ServiceOpen()peer:peer error:&failure];close(peer);dispatch_semaphore_signal(done);});
+        NSDictionary *open=ServiceRead(peers[1]);CHECK([open[@"ok"]boolValue]);ServiceSend(peers[1],@{@"version":@2,@"operation":@"stop",@"session":open[@"session"],@"sequence":@1});CHECK(![ServiceRead(peers[1])[@"ok"]boolValue]);ServiceWait(retained);
+        CHECK(Exists(path)&&Exists(stopped)&&!Exists([state stringByAppendingPathComponent:@"session-work"]));CHECK([service.statusSnapshot[@"state"]isEqual:@"unknown"]);CHECK(!Uninstall(prefix,geteuid(),NO,At(prefix,Recovery),&error));
+        KuroStoppedFault=0;CHECK(ServiceRecoverySocket(service));ServiceWait(done);CHECK(!result&&proofs>=2);close(peers[1]);
+      } else {
+        CHECK(![service serveOpenFrame:ServiceOpen()peer:peers[0]error:&error]);close(peers[0]);close(peers[1]);
+        CHECK([error containsString:@"injected armed beforeResume refusal"]&&proofs==1);
+      }
+      CHECK(armed==1&&attempts==1);
+      CHECK([service.statusSnapshot[@"state"]isEqual:@"off"]&&!Exists(path)&&!Exists([state stringByAppendingPathComponent:@"session-work"]));
+      CHECK([ReadJSON(prefix,installed,geteuid(),NULL)[@"neverStarted"]boolValue]==(scenario==9));CHECK(Exists(stopped)==(scenario!=9));CHECK(!unlink(core.fileSystemRepresentation));
+      CHECK([[NSFileManager defaultManager]moveItemAtPath:[state stringByAppendingPathComponent:@"TunDiagnostics"]toPath:[state.stringByDeletingLastPathComponent stringByAppendingPathComponent:@"TunDiagnostics"]error:NULL]);
+      CHECK(Uninstall(prefix,geteuid(),NO,At(prefix,Recovery),&error));printf("held checkpoint %lu: actual service checkpoint/retained retry; neverStarted=%s preserved, exact uninstall passed\n",(unsigned long)scenario,scenario==9?"true":"false");continue;
+    }
+    Put(child,binary,0755);KuroOwnedSession *held=[[KuroOwnedSession alloc]initWithDirectory:state owner:geteuid()];
+    CHECK(([held setLaunchEvidence:@{@"configSHA256":Hash(Bytes(@"inert held proof fixture")),@"coreSHA256":manifest[@"core"][@"sha256"],@"template":@"macos-dual-stack-v1"}error:&error]));
+    __block NSUInteger calls=0;__block NSDictionary *genuine=nil;__block BOOL cleanupAllowed=scenario!=10;
+    __weak KuroOwnedSession *weakHeld=held;
+    CHECK(([held setBeforeOwnerRemoval:^BOOL(NSDictionary *process,NSString **failure) {
+      calls++;CHECK(KuroCompletedStopEvidence(process));CHECK(Exists(path));CHECK(![weakHeld completedStopEvidence:NULL]);
+      genuine=process;NSDictionary *network=@{@"format":@1,@"session":process[@"session"],@"routesOff":@YES,@"dnsOff":@YES,@"routeJournalSHA256":NSNull.null,@"dnsJournalSHA256":NSNull.null};
+      BOOL saved=KuroMarkSessionStopped(prefix,geteuid(),helper,process,network,failure);
+      if(saved && scenario==5)weakHeld.fixtureFailDirectorySync=YES;
+      return saved;
+    }error:&error]));
+    if(scenario==4)held.fixtureFailOwnerUnlink=YES;
+    BOOL launched=[held spawnExecutable:child arguments:@[@"--session-child"]beforeResume:^BOOL(NSString **failure) {
+      CHECK(KuroRevokeStoppedProof(prefix,geteuid(),failure));
+      if(scenario!=9 && !KuroMarkSessionStarted(prefix,geteuid(),helper,failure))return NO;
+      return (scenario!=8 && scenario!=9) || Fail(failure,@"injected beforeResume refusal");
+    }afterReap:^BOOL(NSString **failure) {
+      if(!cleanupAllowed)return Fail(failure,@"fixture network cleanup incomplete");
+      if(Exists(child))CHECK(!unlink(child.fileSystemRepresentation));return YES;
+    }error:&error];
+    CHECK(launched==(scenario!=8&&scenario!=9));
+    KuroStoppedFault=scenario>=1&&scenario<=3?scenario:0;
+    BOOL saved=[held stop:&error];
+    CHECK(saved==(scenario==0||scenario==6||scenario==7||scenario==11));
+    CHECK(!held.child); // waitpid is from the original held object, not a stored PID.
+    if(scenario==10) {CHECK(calls==0&&Exists(path)&&!Exists(stopped));cleanupAllowed=YES;CHECK([held stop:&error]);}
+    if(scenario==1) {CHECK(Exists(path)&&!Exists(stopped)&&!held.off);CHECK(![held stop:&error]&&Exists(path));KuroStoppedFault=0;CHECK([held stop:&error]);}
+    if(scenario==2||scenario==3||scenario==4||scenario==5) {
+      CHECK(Exists(stopped)&&!held.off&&!Exists([state stringByAppendingPathComponent:@"session-work"]));
+      CHECK(Exists(path)==(scenario!=5));CHECK(![held completedStopEvidence:NULL]);
+      // A still-running helper holds this lock even after owner unlink.
+      int serviceLock=ServiceLock(prefix,geteuid(),&error);CHECK(serviceLock>=0);
+      CHECK(!Uninstall(prefix,geteuid(),NO,At(prefix,Recovery),&error));
+      CHECK(!BeginClientUpgradeFromScripts(prefix,geteuid(),NO,[next stringByAppendingPathComponent:@"scripts"],&error));
+      close(serviceLock); // Model restart only after the old service released its lock.
+      KuroTunServiceHooks *hooks=ServiceHooks();hooks.recoverResidualNetwork=^BOOL(NSString **failure){(void)failure;return YES;};
+      KuroTunService *(^fresh)(void)=^KuroTunService *{
+        KuroTunService *service=[[KuroTunService alloc]initFixtureDirectory:state core:child hooks:hooks];service.fixtureInstallationPrefix=prefix;service.fixtureRestartGroupReader=HeldStopEmptyGroup;return service;
+      };
+      if(scenario==2||scenario==3||scenario==5) {
+        if(scenario==5)KuroStoppedFault=3;
+        CHECK(![fresh() recoverNetworkOnly:&error]);CHECK(Exists(path)==(scenario!=5));CHECK(![fresh() recoverNetworkOnly:&error]);
+      }
+      KuroStoppedFault=0;NSUInteger files=KuroStoppedFileSyncs,dirs=KuroStoppedDirectorySyncs;
+      KuroTunService *recovered=fresh();CHECK([recovered recoverNetworkOnly:&error]);CHECK([recovered.statusSnapshot[@"state"]isEqual:@"off"]);CHECK(!Exists(path));
+      CHECK(KuroStoppedFileSyncs>files&&KuroStoppedDirectorySyncs>dirs);
+    }
+    KuroStoppedFault=0;CHECK(genuine&&Exists(stopped));NSData *proofBytes=ReadProtected(prefix,stopped,geteuid(),NULL);
+    if(scenario==6||scenario==7) {
+      // A durable proof is not a wildcard for a changed record or replacement.
+      Put(path,scenario==6?JSONData(genuine[@"owner"]):Bytes(@"unknown owner"),0600);
+      if(scenario==6)Put(stopped,Bytes(@"{}"),0600);
+      CHECK(!KuroReplayStoppedCheckpoint(prefix,geteuid(),helper,genuine[@"owner"],&error));
+      CHECK(Exists(path)&&Exists(stopped));CHECK(!Uninstall(prefix,geteuid(),NO,At(prefix,Recovery),&error));
+      Put(stopped,proofBytes,0600);Put(path,JSONData(genuine[@"owner"]),0600);
+      CHECK(KuroReplayStoppedCheckpoint(prefix,geteuid(),helper,genuine[@"owner"],&error));CHECK(!unlink(path.fileSystemRepresentation));CHECK(SyncInstallDirectory(state,&error));
+    }
+    if(scenario==11) {
+      CHECK(!unlink(stopped.fileSystemRepresentation)); // Missing proof never becomes childReaped on replay.
+      CHECK(KuroReplayStoppedCheckpoint(prefix,geteuid(),helper,nil,&error)&&!Exists(stopped));
+      CHECK(!Uninstall(prefix,geteuid(),NO,At(prefix,Recovery),&error));Put(stopped,proofBytes,0600);
+    }
+    if(scenario==0) {
+      // Actual transactional upgrade consumes the proof only after owner absence.
+      CHECK(BeginClientUpgradeFromScripts(prefix,geteuid(),NO,[next stringByAppendingPathComponent:@"scripts"],&error));UpgradeFixturePayload(next,prefix);
+      CHECK(CompleteClientUpgradeFromScripts(prefix,geteuid(),NO,[next stringByAppendingPathComponent:@"scripts"],&error));
+      CHECK([ReadJSON(prefix,installed,geteuid(),NULL)[@"neverStarted"]isEqual:@NO]);
+    }
+    CHECK(Uninstall(prefix,geteuid(),NO,At(prefix,Recovery),&error));CHECK(!Exists(state)&&!Exists(At(prefix,Tools)));
+    printf("held checkpoint %lu: real reap, durable exact proof, fresh retry/absence gates and actual uninstall passed\n",(unsigned long)scenario);
+  }
+  KuroStoppedFault=0;CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);
+  puts("PASS 13 held-stop checkpoint cases: proof write/file-sync/directory-sync, owner unlink/sync, changed proof/owner, both sticky histories, network failure and missing-proof refusal; no Core/launchd/network");
+}
+
 static void ServiceTests(void) {
+  HeldStopCheckpointTests();
   StoppedRevocationTests();
   pid_t supervision=0;char *supervisionArgs[]={(char *)Executable().fileSystemRepresentation,"--supervision-tests",NULL};
   extern char **environ;CHECK(!posix_spawn(&supervision,supervisionArgs[0],NULL,NULL,supervisionArgs,environ));int supervisionStatus=0;CHECK(waitpid(supervision,&supervisionStatus,0)==supervision&&WIFEXITED(supervisionStatus)&&!WEXITSTATUS(supervisionStatus));
@@ -770,14 +888,14 @@ static void ServiceTests(void) {
         }
       }
     } else CHECK(opened && ![opened[@"ok"] boolValue]);
-    if(scenario==8||scenario==9||scenario==20){ServiceWait(retainedOwner);[service requestShutdown];}
+    if(scenario==8||scenario==9||scenario==20||scenario==26){ServiceWait(retainedOwner);[service requestShutdown];}
     [finished lock]; NSDate *deadline=[NSDate dateWithTimeIntervalSinceNow:4]; while(!done && [finished waitUntilDate:deadline]) {} CHECK(done);[finished unlock];
     char trailing[256]; CHECK(recv(pair[1],trailing,sizeof(trailing),MSG_DONTWAIT)==0); close(pair[1]); starting=nil;
     if(scenario==8||scenario==9||scenario==20) {
       CHECK(!result && [[service statusSnapshot][@"state"] isEqual:@"unknown"]);
       CHECK(Exists([directory stringByAppendingPathComponent:@"owner.json"]));
       CHECK(Exists([directory stringByAppendingPathComponent:@"session-work"]));
-    } else if(scenario==26) {CHECK(!result&&[[service statusSnapshot][@"state"]isEqual:@"off"]&&[[service statusSnapshot][@"error"]containsString:@"uninstall checkpoint failed"]);CHECK(!Exists([directory stringByAppendingPathComponent:@"owner.json"])&&!Exists([directory stringByAppendingPathComponent:@"session-work"]));CHECK(![service checkpointStopped:NULL]);CHECK([[service statusSnapshot][@"state"]isEqual:@"off"]&&[[service statusSnapshot][@"error"]containsString:@"uninstall checkpoint failed"]);CHECK([service recoverNetworkOnly:NULL]);CHECK([[service statusSnapshot][@"state"]isEqual:@"off"]&&[[service statusSnapshot][@"availability"]isEqual:@"blocked"]&&[[service statusSnapshot][@"error"]containsString:@"uninstall checkpoint failed"]);
+    } else if(scenario==26) {CHECK(!result&&[[service statusSnapshot][@"state"]isEqual:@"unknown"]);CHECK(Exists([directory stringByAppendingPathComponent:@"owner.json"])&&!Exists([directory stringByAppendingPathComponent:@"session-work"]));CHECK(![service checkpointStopped:NULL]);CHECK(![service recoverNetworkOnly:NULL]);
     } else if(accepted) { CHECK(result && [[service statusSnapshot][@"state"] isEqual:@"off"]); CHECK(!Exists([directory stringByAppendingPathComponent:@"owner.json"])); CHECK(!Exists([directory stringByAppendingPathComponent:@"session-work"])); }
     else CHECK(!result && failure);
     if(scenario==1||scenario==2||scenario==3||scenario==10||scenario==12||scenario==13||scenario==16||scenario==25) { CHECK(applied==0 && recovered==0); CHECK(Exists([directory stringByAppendingPathComponent:@"owner.json"])==(scenario==12)); }

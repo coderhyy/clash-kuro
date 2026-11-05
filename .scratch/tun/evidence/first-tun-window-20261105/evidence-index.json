@@ -1,0 +1,17 @@
+{
+  "installed-app.json": "09b67888ad21fbb5931e8f8911e5dea76d6bce9a843bdcdd44903cf93bd0ba1a",
+  "installed-readback.json": "9eb3b1a9ec35c470820f53e50242796c3b5bc635697e42107041d3e9d41d1579",
+  "uninstall-result.json": "ef94c6eb5afe9f00a3e734a8edb604eb4c363d9d7f662c6f7c1cc9ceb7f2fd93",
+  "fresh-cleanup-before.json": "132fb43f9813227089e56cfb97b513edb7b1a13d95f1cef8f4fe3d10b55ff9d5",
+  "final/paths.json": "945f2171e7e00cae22df91a5e7bfa6ab6cc8c6531350b00099804149c1f7cfb0",
+  "final/job.json": "d4bd2a1e111e4cd859a11c4364507325306ec4bc22c8ff76f10631f13192c280",
+  "final/receipts.json": "1dbe7701f954ba75c55a0e2abf6a33d2a783295c9400bca3ffe724efd7bb9ea6",
+  "final/proxy.json": "d40693b5bab3ac8cefea97350ebbd1de82ef1e4c5e7fbcf0f38cea341749f0e4",
+  "final/dns.json": "28dd98b65943198edaffa93cee25199593a05a799fbc5b5e34f41ec1a015f69f",
+  "final/routes4.json": "6006bb7dca02d8be1591cb5dfaa21be95ea909b4ecd442b31e3858468a75b412",
+  "final/routes6.json": "c204c0b05e0c27908ed77756e7e71657ba24b8a68a9e07381a22c89251d86e8d",
+  "receipt-cleanup.log": "34d4eac4393fa00e0fa27d5b96a1d300937bb3d83b4c75b8e11cd0bc5ef0ecca",
+  "installer-receipt.plist": "ac422538b9d784a97f7b49b863f297148c0879146099b137555b54681577d885",
+  "install.log": "339ea62f39e569fad493de1dbe3a8444e79c2fa50a4a3d0ac24ea12bba0df222",
+  "helper-job.txt": "89a2754c1640103832e0de2b72eae2700048a8ccdc8b66d0362ee9041bcc7a22"
+}
