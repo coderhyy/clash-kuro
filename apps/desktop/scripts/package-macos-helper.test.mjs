@@ -73,3 +73,38 @@ test('native and ordinary-user clients agree on fixed protected socket endpoints
   expect(externalNodeClient).toContain(JSON.stringify(authEndpoint))
   for (const endpoint of [authEndpoint, control]) expect(Buffer.byteLength(endpoint) + 1).toBeLessThanOrEqual(104)
 })
+
+test('helper package modes default to disabled and keep --with-client auth-only', async () => {
+  const { parsePackageArguments } = await import('./package-macos-helper.mjs')
+  expect(parsePackageArguments([]).mode).toBe('disabled')
+  expect(parsePackageArguments(['--with-client']).mode).toBe('auth-only')
+  expect(parsePackageArguments(['darwin-arm64', '--mode=finite-session'])).toEqual({ target: 'darwin-arm64', mode: 'finite-session' })
+  expect(() => parsePackageArguments(['--mode=true'])).toThrow()
+  expect(() => parsePackageArguments(['--with-client', '--mode=finite-session'])).toThrow(/exactly one/)
+})
+
+test('finite package admission binds newly built normal App and mandatory native suite to exact clean commit/hash', async () => {
+  const { assertCandidateBuild } = await import('./package-macos-helper.mjs')
+  const commit = 'a'.repeat(40), helper = 'b'.repeat(64)
+  const client = { format: 2, cdhash: 'c'.repeat(40), executableSHA256: 'd'.repeat(64), infoSHA256: 'e'.repeat(64), asarSHA256: 'f'.repeat(64) }
+  const metadata = { kuroSourceCommit: commit, kuroCandidateMode: 'finite-session', kuroAuthObservationOnly: false }
+  const native = { sourceCommit: commit, sourceClean: true, sha256: helper, tests: true, coreSyntaxSkipped: false }
+  const app = { format: 1, mode: 'finite-session', sourceCommit: commit, sourceClean: true, fromSource: true, client }
+  const admit = (m = metadata, n = native, a = app, p = client) => assertCandidateBuild('finite-session', commit, m, n, helper, a, p)
+  expect(admit()).toBe(true)
+  for (const changed of [ { ...native, sourceCommit: '1'.repeat(40) }, { ...native, sourceClean: false }, { ...native, sha256: '2'.repeat(64) }, { ...native, tests: false }, { ...native, coreSyntaxSkipped: true } ]) expect(() => admit(metadata, changed)).toThrow(/Native helper/)
+  for (const changed of [ undefined, { ...app, sourceCommit: '1'.repeat(40) }, { ...app, sourceClean: false }, { ...app, fromSource: false }, { ...app, client: { ...client, asarSHA256: '1'.repeat(64) } } ]) {
+    // Explicit undefined must bypass the helper default and represent a missing record.
+    expect(() => assertCandidateBuild('finite-session', commit, metadata, native, helper, changed, client)).toThrow(/source-build record/)
+  }
+  expect(() => admit({ ...metadata, kuroAuthObservationOnly: true })).toThrow(/normal App/)
+  expect(assertCandidateBuild('auth-only', commit, { kuroSourceCommit: commit, kuroAuthObservationOnly: true }, { ...native, coreSyntaxSkipped: true }, helper)).toBe(false)
+  expect(() => assertCandidateBuild('auth-only', commit, metadata, native, helper)).toThrow(/forbid normal/)
+})
+
+macTest('finite package mode cannot acquire activation without its actual client before staging', async () => {
+  const f = await fixture()
+  await expect(stageMacosHelperPackage(f.payload, f.stage, 'darwin-arm64', '0.1.0', undefined, { mode: 'finite-session' })).rejects.toThrow(/corresponding client/)
+  await expect(lstat(join(f.stage, 'scripts'))).rejects.toThrow(/ENOENT/)
+  expect(JSON.parse(await readFile(join(f.payload, 'manifest.json'), 'utf8')).activationAllowed).toBe(false)
+})

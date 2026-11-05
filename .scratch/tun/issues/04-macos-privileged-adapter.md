@@ -130,3 +130,5 @@ Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
 2026-11-05 新候选8ee323a仅运行一次normal：Core原始错误 `Parse config error: yaml: found unknown escape character`，自行exit1，阶段private-version-readiness；EOF未执行，未改配置或重试。日志完整保留，Core/owner/work及组消失证据已记录；失败策略保留固定Core副本与诊断。授权结束，见 [执行记录](../evidence/core-control-execution-8ee323a/RESULT.md)。
 
 2026-11-05 真实固定Core前置闭环通过：`98f1afbe6822999bab02723d62820a96c395571e`同epoch normal及EOF均runner0；version、mode/选择读回、stop ACK/owner EOF、SIGTERM→Core exit0与独立进程/整个运行目录消失通过。无root/TUN网络操作，不等于实际Electron退出/后代全退出或网络恢复；诊断保留。见 [证据](../evidence/core-control-execution-98f1afb/RESULT.md)。04/06/08继续开放。
+
+2026-11-05 已实现same-held停止证明与运行后准确卸载，beforeStart/resume持久撤销旧proof，neverStarted=false不回真；已集成finite-session源码候选构建/严格同commit身份打包及固定测试数据隔离，auth-only不扩权。独立审查无阻塞，全native含固定Core-t通过。真实root/TUN仍未验，升级事务未实现；[准备证据](../evidence/stopped-proof-preparation/RESULT.md)。

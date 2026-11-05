@@ -90,3 +90,39 @@ CI配置已串联native隔离测试→App dmg→disabled helper pkg，并保存s
 2026-11-05 `6b45cb4`真实normal已完成固定Core v1.19.33控制接口、mode/选择读回、两次NoIP观测和stop ACK→SIGTERM→exit0，Core/组/整个base消失。严格success schema拒绝worker.ownerAbsent/workAbsent的数字1（应为boolean），runner exit2、无normal-success，EOF未执行；按已有长期授权修producer类型与真实worker到receipt回归后另冻epoch，不放宽schema。[证据](../evidence/core-control-execution-6b45cb4/RESULT.md)。
 
 2026-11-05 真实固定Core前置闭环通过：`98f1afbe6822999bab02723d62820a96c395571e`同epoch normal及EOF均runner0；version、mode/选择读回、stop ACK/owner EOF、SIGTERM→Core exit0与独立进程/整个运行目录消失通过。无root/TUN网络操作，不等于实际Electron退出/后代全退出或网络恢复；诊断保留。见 [证据](../evidence/core-control-execution-98f1afb/RESULT.md)。04/06/08继续开放。
+
+
+## 首次真实 TUN 完整窗口草案（2026-11-05，尚未执行）
+
+本节沿用本票，覆盖历史“下一实验仍是auth/nonTUN”的顺序说明；长期授权已允许既定无TUN实验，**首次真实TUN网络窗口仍须主会话在候选与恢复条件齐全后集中确认**，此处不请求现在开始。`98f1afb`只证明普通UID固定Core normal/EOF；[本轮共享树148项/类型检查](../evidence/production-integration-20261105/RESULT.md)只证明TS订阅整合。两者均不证明root实际TUN。
+
+### 进入条件与窗口范围
+
+- 同一干净提交的 App/helper/Core/manifest/安装与恢复入口冻结并核对摘要、签名/资源/调用者pin；有限activation显式绑定该候选，auth-only/disabled包不获得启动能力。最终native与TS检查、真实安装布局离线验证通过；提供候选实际具备的执行/停止/恢复步骤后才约窗口，本文不编造可运行命令。
+- 必须先补齐并fixture验证：首次resume持久记为已运行，cleanup完整成功后才持久记录准确停止证明，**运行后卸载**验证该证明并能保留失败恢复入口。`neverStarted=false`不能靠改回true或删除记录绕过。新旧安装/升级当前fresh-only，不覆盖现有安装；升级/回滚仍是04交付缺口，独立验收，不把fresh窗口通过写成升级通过。
+- 明确所测每个故障的可执行恢复路径。跨helper现有absence-only恢复不能移除仍存在DNS/route，记录进程ESRCH也不证明后代全部退出；**在这些路径未补齐前不加入helper SIGKILL、跨helper restart或断电**。不能为了检验故障先制造已知无法安全恢复的root网络残留。
+- 主会话独占本机系统时段；预留约**35–50分钟**（不含新修复构建），管理员弹窗由用户操作。每段完成并读回后才进下一段；故障修复/重新冻结后，同窗口同范围重试沿长期授权执行，超出约定影响则停止。注销/重启/关机、第三方设置修改另行授权。
+
+### 只读 baseline 与允许影响
+
+进入网络段前保存精确但本地受限的baseline：physical接口名/index/flags/地址、两族默认及更具体/scoped routes和flags、完整resolver优先级/search/supplemental/scoped DNS及自有store key不存在、HTTP/HTTPS代理状态、已存在utun/VPN、相关准确进程/服务、owner/network/DNS/work/install/恢复回执。明确哪些系统自动变化可解释；不能把所有系统进程或整张route表逐字相等当作归属证明。证据不提交Profile/订阅秘密。
+
+不禁用第三方VPN、不flush路由、不reset DNS/代理、不修改网络服务顺序/永久配置、不关闭IPv6。baseline出现第三方split-default、固定地址冲突、分离双默认出口、无法证明保留的LAN/DNS路径或其它当前preflight不支持场景就**不写网络并结束该段**，不临时改第三方配置以获得绿色结果。已有System Proxy必须先明确归属并用当前批准的互斥停止/读回，不清除未知所有者设置。
+
+允许的网络影响仅为本次候选准确Core持有的utun/固定双栈地址、计划内四条`/1`自有route和自有临时DNS key；保留已有默认/更具体route、LAN/scoped DNS。内部readiness只查询固定`.invalid`静态A/AAAA，不新增上游DNS供应商；后续数据面只用提前列明的本机/自有受控目的端与Profile已有DNS，未明确测试目的端时暂不测外网。无独立kill switch，显式DIRECT和路由消失后OS可能直连均在窗口说明中保留，不承诺全流量接管/防泄漏。
+
+### 最小阶段与每段停止证明
+
+| 阶段 / 预算 | 执行范围与进入条件 | 通过 / 停止 / 恢复 |
+| --- | --- | --- |
+| 0 基线与fresh安装，8–12分钟 | 摘要/布局/无冲突baseline通过后，有限授权安装；安装本身不启动Core/TUN。 | 合法App动态鉴权、首次状态off且无网络变化。任何身份/事务/保护祖先不符立即停止；仅按本次批准清单恢复安装，不覆盖旧目标。 |
+| 1 首次手动开启与内部双栈就绪，5–8分钟 | 使用root closed schema接受的固定配置；准入先于停止旧模式。先验证准确Core/utun/address/flags，再由journal写自有route/DNS，独立读回；只测本机静态A/AAAA。 | 任一就绪/双族/readback/receipt不一致立即走正常stop。不得靠延时、换公共resolver、关闭IPv6或忽略失败变成on。停止后确认准确Core退出、utun消失及自有网络恢复。 |
+| 2 有限数据面与正常停止，5–8分钟 | 仅阶段1通过后重开；使用事先明确的受控IPv4/IPv6目标，核验预期DIRECT/代理选择、既有LAN与split/scoped DNS优先级。若无外部IPv6，仅记本机双栈结果，外网IPv6未测。 | 独立捕获实际路径/DNS结果，不以UI为证明；只检查约定流量，不声称无任何绕过。验证stop ACK后独立status off、owner/work/cache清退、自有route/key消失及baseline保持。 |
+| 3 实际App退出/断链与重开，5–8分钟 | 前两段稳定且准确会话终止/清理路径可恢复后，先正常App退出，再一次受控客户端连接失联；不强杀root helper、不按旧PID杀Core。 | 有界停止与独立网络/进程读回；UI断链由真实通知进入unknown/恢复状态，不自动开启或切换模式。重开先残留检查、off、手动再启；残留不明则阻止新writer，结束本段。 |
+| 4 运行后卸载与最终基线，8–12分钟 | 最后一次正常停止证明齐全；从候选实际固定恢复入口执行精确卸载，允许批准对象缺失重试。 | 运行过的安装能安全卸载；准确自有文件/服务/socket/回执清退，第三方状态不变。Installer receipt仅核对本次身份后处理，不代替文件删除。任何未知对象/记录变化保留并报具体差异，不能泛化删除。 |
+
+**统一停止条件：** 摘要/身份变化，baseline归属冲突，管理员取消，Core/utun/双栈DNS或route读回失败，lease/状态矛盾，第三方设置变化，网络不可达影响超出候选预期，或任一步无法证明清理。先停止发起新流量与新模式写入，走准确持有会话的正常stop，再独立读取网络/进程/回执。仅比较并恢复本应用已证明拥有的项；不采用持久PID kill、全局reset、未知文件删除或关闭系统IPv6。恢复失败就保持unknown和证据，列具体残留与已知影响，由主会话提供另审的最小恢复方案；不反复开启或借卸载丢失恢复材料。
+
+helper死亡/跨重启对仍存在route/DNS的恢复、真实Core可能detach的后代约束、网络接口切换/单族回退、升级与回滚，继续保留在04/06/08验收清单；缺能力的段不在首窗口冒险执行，未测项目明确不通过，也不因窗口其它段成功关闭主票。
+
+2026-11-05 已实现same-held停止证明与运行后准确卸载，beforeStart/resume持久撤销旧proof，neverStarted=false不回真；已集成finite-session源码候选构建/严格同commit身份打包及固定测试数据隔离，auth-only不扩权。独立审查无阻塞，全native含固定Core-t通过。真实root/TUN仍未验，升级事务未实现；[准备证据](../evidence/stopped-proof-preparation/RESULT.md)。

@@ -15,7 +15,7 @@ import { prepareResidentStartup } from './app/resident-startup'
 import { IPC, type BackupResult, type StreamKind } from './ipc-channels'
 import { trayIcon } from './tray-icon'
 import { t } from '../shared/i18n'
-import { assertObservationCandidateLaunch, inspectPackagedArguments, prepareVerificationDirectory, runAuthenticationVerification, runRuntimeVerification, safeWebPreferences } from './runtime-verification'
+import { assertObservationCandidateLaunch, inspectPackagedArguments, prepareSessionCandidateDirectory, prepareVerificationDirectory, runAuthenticationVerification, runRuntimeVerification, safeWebPreferences } from './runtime-verification'
 
 // KURO_RELEASE_REPO=owner/name overrides the release source (e.g. for forks).
 const RELEASE_REPO = process.env.KURO_RELEASE_REPO ?? 'coderhyy/clash-kuro'
@@ -37,6 +37,9 @@ if (app.isPackaged) {
       const paths = prepareVerificationDirectory(verificationDirectory)
       for (const [name, path] of Object.entries(paths)) app.setPath(name as 'userData' | 'sessionData' | 'crashDumps', path)
       app.disableHardwareAcceleration()
+    } else {
+      const paths = prepareSessionCandidateDirectory(sealedMetadata, app.getPath('appData'))
+      if (paths) for (const [name, path] of Object.entries(paths)) app.setPath(name as 'userData' | 'sessionData' | 'crashDumps', path)
     }
   } catch (error) {
     startupRefused = true

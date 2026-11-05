@@ -58,6 +58,7 @@ static void ProductionNetworkTests(void) {
     environment.probeDNS=^BOOL(KuroCoreInterface expected,NSString **failure) { (void)expected; probes++; return dnsReady || Fail(failure,@"injected static-host probe refusal"); };
     KuroProductionNetwork *network=[[KuroProductionNetwork alloc]initWithDirectory:directory owner:geteuid() routes:routeBackend dns:dnsBackend environment:environment];
     CHECK(!network.runtimeInterfaceName && !routeBackend.snapshots && !dnsBackend.snapshots && !probes);
+    CHECK(![network stoppedEvidenceForSession:session error:&error]);
     if (scenario==1) { [routeBackend.entries removeLastObject]; [routeBackend.entries removeLastObject]; }
     if (scenario==2) { NSMutableDictionary *changed=[routeBackend.entries[1]mutableCopy]; changed[@"interfaceName"]=@"en1"; routeBackend.entries[1]=changed; }
     if (scenario==13 || scenario==14) {
@@ -104,7 +105,7 @@ static void ProductionNetworkTests(void) {
       NSIndexSet *own=[routeBackend.entries indexesOfObjectsPassingTest:^BOOL(NSDictionary *entry,NSUInteger index,BOOL *stop) { (void)index;(void)stop; return ([entry[@"flags"]unsignedIntValue]&RTF_PROTO2)!=0; }]; [routeBackend.entries removeObjectsAtIndexes:own];
       if (scenario==8) { CHECK(![restarted recoverSession:nil error:&error] && !dnsBackend.removals); }
       [dnsBackend.records removeObjectForKey:KuroDNSKey(session)];
-      CHECK([restarted recoverSession:nil error:&error] && restarted.networkOff && !routeBackend.deletions && !dnsBackend.removals); continue;
+      CHECK([restarted recoverSession:nil error:&error] && restarted.networkOff && !routeBackend.deletions && !dnsBackend.removals); CHECK(![restarted stoppedEvidenceForSession:session error:&error]); continue;
     }
     if (scenario==9) {
       owner=KuroRouteOwnerExitedInterfaceGone;
@@ -113,6 +114,9 @@ static void ProductionNetworkTests(void) {
     CHECK([network recoverSession:session error:&error] && network.networkOff && [dnsBackend.records isEqual:baselineDNS]);
     CHECK(routeBackend.deletions==(scenario==9?0:scenario==11?3:4) && dnsBackend.removals==1 && !network.runtimeInterfaceName);
     CHECK(!Exists([directory stringByAppendingPathComponent:KuroRouteJournal]) && !Exists([directory stringByAppendingPathComponent:KuroDNSJournal]));
+    NSDictionary *stopped=[network stoppedEvidenceForSession:session error:&error];CHECK(stopped&&KuroBool(stopped[@"routesOff"])&&KuroBool(stopped[@"dnsOff"])&&[stopped[@"routesOff"]boolValue]&&[stopped[@"dnsOff"]boolValue]);
+    CHECK(Match(stopped[@"routeJournalSHA256"],@"\\A[0-9a-f]{64}\\z")&&Match(stopped[@"dnsJournalSHA256"],@"\\A[0-9a-f]{64}\\z"));
+    CHECK(![network stoppedEvidenceForSession:@"11112233-4455-6677-8899-AABBCCDDEEFF" error:&error]);
   }
   CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);
   puts("production network: inert construction, local-only DNS packets, baseline admission, dual-stack apply, partial failure, held-owner and restart absence fixtures passed (no system network calls)");

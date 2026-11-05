@@ -168,6 +168,50 @@ static void SessionActivationTests(void) {
     }
     if(scenario==11) { CHECK(!unlink(observer.fileSystemRepresentation));CHECK(KuroSessionActivationAt(prefix,geteuid(),helper,&error)); }
   }
+  // A harmless held native child exercises the real session -> protected
+  // stopped checkpoint -> uninstall path. Route/DNS acknowledgements are mocks.
+  manifest[@"activationAllowed"]=@YES;NSMutableDictionary *realCore=[manifest[@"core"]mutableCopy];realCore[@"sha256"]=Hash([NSData dataWithContentsOfFile:Executable()]);manifest[@"core"]=realCore;
+  Put([scripts stringByAppendingPathComponent:@"manifest.json"],JSONData(manifest),0600);
+  for(NSUInteger scenario=0;scenario<11;scenario++) {
+    NSString *prefix=[base stringByAppendingPathComponent:[NSString stringWithFormat:@"stopped%lu",(unsigned long)scenario]];FixtureDirectory(prefix);
+    CHECK(BeginClientInstallFromScripts(prefix,geteuid(),NO,scripts,&error));CopyFreshPayload(source,prefix,manifest);
+    Put(At(prefix,[State stringByAppendingPathComponent:@"Inbox/mihomo"]),[NSData dataWithContentsOfFile:Executable()],0755);
+    NSString *client=At(prefix,ClientBundle);FixtureDirectory(client.stringByDeletingLastPathComponent);CHECK([[NSFileManager defaultManager]copyItemAtPath:bundle toPath:client error:NULL]);CHECK(Install(prefix,geteuid(),NO,&error));
+    NSString *version=[At(prefix,Tools)stringByAppendingPathComponent:[@"versions"stringByAppendingPathComponent:manifest[@"release"]]],*helper=[version stringByAppendingPathComponent:@"helper"],*core=[version stringByAppendingPathComponent:@"mihomo"],*state=At(prefix,State),*installedPath=[state stringByAppendingPathComponent:@"installed.json"],*stoppedPath=[state stringByAppendingPathComponent:@"stopped.json"];
+    KuroOwnedSession *session=[[KuroOwnedSession alloc]initWithDirectory:state owner:geteuid()];
+    CHECK(([session setLaunchEvidence:@{@"configSHA256":Hash(Bytes(@"inert stopped fixture")),@"coreSHA256":realCore[@"sha256"],@"template":@"macos-dual-stack-v1"} error:&error]));
+    NSString *fixtureChild=[state stringByAppendingPathComponent:@"fixture-child"];Put(fixtureChild,[NSData dataWithContentsOfFile:core],0755);
+    CHECK([session spawnExecutable:fixtureChild arguments:@[@"--session-child"] beforeResume:^BOOL(NSString **failure) {return KuroMarkSessionStarted(prefix,geteuid(),helper,failure);} afterReap:^BOOL(NSString **failure) {(void)failure;return YES;} error:&error]);
+    CHECK([ReadJSON(prefix,installedPath,geteuid(),NULL)[@"neverStarted"]isEqual:@NO]);CHECK(![session completedStopEvidence:&error]);CHECK([session stop:&error]);
+    NSDictionary *process=[session completedStopEvidence:&error];CHECK(KuroCompletedStopEvidence(process));CHECK(!unlink(fixtureChild.fileSystemRepresentation));
+    NSMutableDictionary *network=[@{@"format":@1,@"session":session.identifier,@"routesOff":@YES,@"dnsOff":@YES,@"routeJournalSHA256":NSNull.null,@"dnsJournalSHA256":NSNull.null}mutableCopy];
+    if(scenario==2)network[@"dnsOff"]=@NO;
+    if(scenario==3)network[@"session"]=@"00000000-0000-4000-8000-000000000001";
+    BOOL checkpoint=KuroMarkSessionStopped(prefix,geteuid(),helper,process,network,&error);CHECK(checkpoint==(scenario!=2&&scenario!=3));
+    if(scenario==1)CHECK(!unlink(stoppedPath.fileSystemRepresentation));
+    if(scenario==4) {NSMutableDictionary *installed=[ReadJSON(prefix,installedPath,geteuid(),NULL)mutableCopy];installed[@"release"]=@"other-release";Put(installedPath,JSONData(installed),0600);}
+    if(scenario==5)Put([state stringByAppendingPathComponent:@"owner.json"],Bytes(@"unknown owner"),0600);
+    if(scenario==6)Put([client stringByAppendingPathComponent:@"unknown"],Bytes(@"preserve"),0644);
+    if(scenario==7) {CHECK(KuroMarkSessionStarted(prefix,geteuid(),helper,&error));CHECK(!Exists(stoppedPath));CHECK([ReadJSON(prefix,installedPath,geteuid(),NULL)[@"neverStarted"]isEqual:@NO]);}
+    if(scenario==9) {CHECK(!unlink(stoppedPath.fileSystemRepresentation));CHECK(!symlink(installedPath.fileSystemRepresentation,stoppedPath.fileSystemRepresentation));}
+    int active=scenario==10?ServiceLock(prefix,geteuid(),&error):-1;if(scenario==10)CHECK(active>=0);
+    if(scenario==8)CHECK(!chmod(state.fileSystemRepresentation,0500));
+    BOOL removed=Uninstall(prefix,geteuid(),NO,At(prefix,Recovery),&error);
+    CHECK(removed==(scenario==0));
+    if(scenario==8) {
+      CHECK(ReadFreshReceipt(prefix,geteuid(),&error)[@"uninstall"]);CHECK(!Exists(client));
+      CHECK(!chmod(state.fileSystemRepresentation,0700));
+      // Model interruption after approved State records were removed; external
+      // approval still binds exact old bytes and never grants another start.
+      CHECK(!unlink(installedPath.fileSystemRepresentation));CHECK(!unlink(stoppedPath.fileSystemRepresentation));
+      CHECK(!KuroSessionActivationAt(prefix,geteuid(),helper,&error));
+      CHECK(Uninstall(prefix,geteuid(),NO,At(prefix,Recovery),&error));removed=YES;
+    }
+    if(active>=0)close(active);
+    if(removed) {CHECK(!Exists(client)&&!Exists(At(prefix,Tools))&&!Exists(state)&&!Exists(At(prefix,Recovery))&&!Exists(At(prefix,FreshReceipt))&&!Exists(At(prefix,SocketDirectory)));}
+    else {CHECK(Exists(client)&&Exists(helper));CHECK([ReadJSON(prefix,installedPath,geteuid(),NULL)[@"neverStarted"]isEqual:@NO]);}
+  }
+  puts("native stopped uninstall: 11 held harmless child fixtures cover complete proof, missing/false/mismatched/changed/active preservation, sticky history, durable revocation and partial cleanup retry; network proofs mocked");
   CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);
   puts("native finite activation: explicit boolean/client/inventory, completed protected install, fixed helper identity, receipt binding and temporary auth-observer refusal passed; no service/Core/network");
 }

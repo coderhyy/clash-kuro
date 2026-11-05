@@ -5,10 +5,13 @@ typedef BOOL (^KuroServiceAuthorize)(int peer, NSString *configDigest, NSString 
 typedef BOOL (^KuroServicePreflight)(NSDictionary *config, NSString **error);
 typedef BOOL (^KuroServiceProcessHook)(pid_t child, NSString *session, NSString **error);
 typedef BOOL (^KuroServiceRecovery)(NSString *session, NSString **error);
+typedef BOOL (^KuroServiceStopped)(NSDictionary *sessionEvidence, NSString **error);
 @interface KuroTunServiceHooks : NSObject
 @property(nonatomic, copy) KuroServiceAuthorize authorize;
 @property(nonatomic, copy) KuroServicePreflight preflight;
+@property(nonatomic, copy) KuroSessionHook beforeStart;
 @property(nonatomic, copy) KuroSessionHook beforeResume;
+@property(nonatomic, copy) KuroServiceStopped confirmStopped;
 @property(nonatomic, copy) KuroServiceProcessHook ready;
 @property(nonatomic, copy) KuroServiceProcessHook applyNetwork;
 @property(nonatomic, copy) KuroServiceRecovery recoverNetwork;
@@ -47,6 +50,8 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
   BOOL _busy;
   BOOL _stopRequested;
   BOOL _workCreated;
+  BOOL _resumeCheckpointAttempted, _stopCheckpointAttempted, _stopCheckpointComplete;
+  NSString *_stopCheckpointFailure;
   NSString *_configDigest;
   NSString *_runtimeDigest;
   NSString *_secret;
@@ -222,6 +227,21 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
   if(rmdir([self work].fileSystemRepresentation))return Fail(error,@"private work directory removal failed");
   _workCreated=NO; return YES;
 }
+- (BOOL)checkpointStopped:(NSString **)error {
+  if(!_session || !_session.off || _workCreated)return Fail(error,@"session cleanup is not complete");
+  // Physical off remains true even when its uninstall checkpoint cannot be saved.
+  [self snapshot:@"off" error:nil];
+  if(!_resumeCheckpointAttempted)return YES;
+  if(_stopCheckpointAttempted)return _stopCheckpointComplete || Fail(error,_stopCheckpointFailure);
+  _stopCheckpointAttempted=YES;
+  NSString *failure=nil;NSDictionary *evidence=[_session completedStopEvidence:&failure];
+  _stopCheckpointComplete=evidence && _hooks.confirmStopped && _hooks.confirmStopped(evidence,&failure);
+  if(!_stopCheckpointComplete) {
+    _stopCheckpointFailure=[@"cleanup confirmed, uninstall checkpoint failed: "stringByAppendingString:failure?:@"same-session confirmation hook unavailable"];
+    [self snapshot:@"off" error:_stopCheckpointFailure];return Fail(error,_stopCheckpointFailure);
+  }
+  return YES;
+}
 - (void)finishPending {
   NSArray *pending; @synchronized(self) { pending=[_commands copy]; [_commands removeAllObjects]; }
   for(KuroControlCall *call in pending) { [call.condition lock]; call.failure=@"session is no longer active"; call.done=YES; [call.condition broadcast]; [call.condition unlock]; }
@@ -273,6 +293,7 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
     if(_busy) { KuroServiceReply(peer,KuroServiceError(@"a session owner is already active")); return Fail(error,@"single owner busy"); }
     previouslyOff=[_snapshot[@"state"] isEqual:@"off"];
     _busy=YES; _stopRequested=NO; _nextNetworkCheck=0;
+    _resumeCheckpointAttempted=NO; _stopCheckpointAttempted=NO; _stopCheckpointComplete=NO; _stopCheckpointFailure=nil;
     _snapshot=@{@"availability":@"blocked",@"state":@"unknown",@"error":@"session startup transaction is active"};
   }
   BOOL success=NO,acknowledged=NO; NSString *failure=nil; NSString *stage=@"open decode";
@@ -281,13 +302,14 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
     if(!Keys(open,@[@"version",@"operation",@"config"]) || !KuroNumber(open[@"version"],2,2) || ![open[@"operation"] isEqual:@"open"] || ![open[@"config"] isKindOfClass:NSDictionary.class]) { failure=@"invalid closed version-2 open frame"; return NO; }
     NSData *canonical=[NSJSONSerialization dataWithJSONObject:open[@"config"] options:NSJSONWritingSortedKeys|NSJSONWritingWithoutEscapingSlashes error:NULL];
     stage=@"closed config validation"; _admitted=KuroValidateTunConfig(canonical,&failure); if(!_admitted)return NO; _configDigest=Hash(canonical);
-    if(!_hooks.authorize||!_hooks.preflight||!_hooks.beforeResume||!_hooks.ready||!_hooks.applyNetwork||!_hooks.recoverNetwork||!_hooks.identityValid) { failure=@"complete authorization, process and network hooks are required"; return NO; }
+    if(!_hooks.authorize||!_hooks.preflight||!_hooks.beforeStart||!_hooks.beforeResume||!_hooks.confirmStopped||!_hooks.ready||!_hooks.applyNetwork||!_hooks.recoverNetwork||!_hooks.identityValid) { failure=@"complete authorization, process and network hooks are required"; return NO; }
     if(!_hooks.authorize(peer,_configDigest,&failure) || !_hooks.identityValid(peer) || !_hooks.preflight(_admitted,&failure)) { failure=failure ?: @"caller or process/network prerequisites are not proven"; return NO; }
     if(![self startupAllowed:&failure])return NO;
     stage=@"fixed Core approval"; NSString *core=[self approvedCore:&failure]; if(!core)return NO;
     if(!SafeChain([self anchor],_directory,_owner,YES,&failure) || Exists([self work])) { failure=@"protected clean session directory is required"; return NO; }
     stage=@"clean ownership"; _session=[[KuroOwnedSession alloc] initWithDirectory:_directory owner:_owner];
     if(!_session.off) { failure=@"persisted ownership cannot be proven off"; return NO; }
+    stage=@"prior stopped proof revocation";if(!_hooks.beforeStart(&failure))return NO;
     _secret=NSUUID.UUID.UUIDString; _socketIdentity=nil;
     stage=@"runtime generation"; NSData *runtime=KuroTunRuntimeJSON(canonical,&failure); if(!runtime)return NO;
     NSMutableDictionary *mapping=[KuroDecodeJSON(runtime,128*1024,&failure) mutableCopy];
@@ -320,6 +342,7 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
       // Cancellation and SIGCONT share the lock with requestStop.
       @synchronized(strong) {
         if(![strong startupAllowed:problem] || !strong->_hooks.identityValid(peer))return Fail(problem,@"stop or identity loss before Core resume");
+        strong->_resumeCheckpointAttempted=YES;
         if(!strong->_hooks.beforeResume(problem))return NO;
         return resume(problem);
       }
@@ -339,7 +362,7 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
     [self snapshot:@"on" error:nil];
     if(!KuroServiceReply(peer,@{@"version":@2,@"ok":@YES,@"session":_session.identifier,@"leaseMilliseconds":@15000,@"sequence":@0,@"status":[self statusSnapshot]})) { failure=@"open acknowledgement failed"; return NO; }
     acknowledged=YES;
-    success=[_session superviseSocket:peer leaseMilliseconds:15000 identityValid:^BOOL { KuroTunService *strong=weakSelf; return strong && strong->_hooks.identityValid(peer); } tick:^BOOL(NSString **problem) { return [weakSelf tick:problem]; } stopConfirmed:^{ [weakSelf snapshot:@"off" error:nil]; } error:&failure];
+    success=[_session superviseSocket:peer leaseMilliseconds:15000 identityValid:^BOOL { KuroTunService *strong=weakSelf; return strong && strong->_hooks.identityValid(peer); } tick:^BOOL(NSString **problem) { return [weakSelf tick:problem]; } stopCheckpoint:^BOOL(NSString **problem) { return [weakSelf checkpointStopped:problem]; } error:&failure];
 #ifdef KURO_TESTING
     if(self.fixtureAfterSupervise)self.fixtureAfterSupervise();
 #endif
@@ -348,7 +371,11 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
     if(_session && !_session.off) { NSString *cleanup=nil; if(![_session stop:&cleanup])failure=cleanup ?: failure; }
     if(_workCreated && (!_session || _session.off)) { NSString *cleanup=nil; if(![self removeWork:&cleanup])failure=cleanup ?: failure; }
     BOOL off=(_session ? _session.off : previouslyOff) && !_workCreated;
-    if(off)[self snapshot:@"off" error:nil];
+    if(off) {
+      NSString *checkpoint=nil;
+      if(_session && ![self checkpointStopped:&checkpoint]) {success=NO;failure=checkpoint;}
+      [self snapshot:@"off" error:_stopCheckpointFailure];
+    }
     else if(_session||_workCreated)[self snapshot:@"unknown" error:failure ?: @"cleanup cannot be proven"];
     if(!success && !failure)failure=[@"failed stage: " stringByAppendingString:stage];
     if(!success && !acknowledged)KuroServiceReply(peer,KuroServiceError(failure));

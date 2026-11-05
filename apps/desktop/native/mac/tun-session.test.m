@@ -57,8 +57,9 @@ static void SessionTests(void) {
     FixtureDirectory(directory);
     NSString *child = [directory stringByAppendingPathComponent:@"child"]; Put(child, [NSData dataWithContentsOfFile:binary], 0755);
     KuroOwnedSession *session = [[KuroOwnedSession alloc] initWithDirectory:directory owner:geteuid()];
+    CHECK(![session completedStopEvidence:&error]);
     CHECK(![session setLaunchEvidence:@{@"template":@"arbitrary"} error:&error]);
-    NSDictionary *evidence=@{@"configSHA256":Hash(Bytes(@"config")),@"coreSHA256":Hash(Bytes(@"core")),@"template":@"macos-dual-stack-v1"};
+    NSDictionary *evidence=@{@"configSHA256":Hash(Bytes(@"config")),@"coreSHA256":Hash([NSData dataWithContentsOfFile:child]),@"template":@"macos-dual-stack-v1"};
     CHECK([session setLaunchEvidence:evidence error:&error]);
     __block BOOL cleanupAllowed = scenario != 5; __block NSUInteger cleanups = 0;
     CHECK(([session spawnExecutable:child arguments:@[@"--session-child", @"ignore-term"] beforeResume:^BOOL(NSString **failure) {
@@ -68,7 +69,7 @@ static void SessionTests(void) {
       CHECK([record[@"phase"] isEqual:@"prepared"]); CHECK([record[@"launch"] isEqual:evidence]); CHECK([record[@"processGroup"] intValue]==getpgrp()); return YES;
     } afterReap:^BOOL(NSString **failure) { (void)failure; cleanups++; return cleanupAllowed; } error:&error]));
     CHECK(![session setLaunchEvidence:evidence error:&error]);
-    pid_t owned = session.child; CHECK(owned > 0 && !session.off);
+    pid_t owned = session.child; CHECK(owned > 0 && !session.off);CHECK(![session completedStopEvidence:&error]);
     int pair[2]; CHECK(!socketpair(AF_UNIX, SOCK_STREAM, 0, pair));
     pid_t writer = 0;
     if (scenario == 0) { close(pair[1]); pair[1] = -1; }
@@ -101,6 +102,8 @@ static void SessionTests(void) {
     else CHECK(stopped);
     CHECK(session.off && !Exists([directory stringByAppendingPathComponent:@"owner.json"]));
     CHECK([session stop:&error]); CHECK(cleanups == (scenario == 5 ? 2 : 1));
+    NSDictionary *proof=[session completedStopEvidence:&error];CHECK(KuroCompletedStopEvidence(proof)&&[proof[@"owner"][@"pid"]intValue]==owned);
+    KuroOwnedSession *fresh=[[KuroOwnedSession alloc]initWithDirectory:directory owner:geteuid()];CHECK(fresh.off&&![fresh completedStopEvidence:&error]);
   }
   NSString *failedDirectory = [base stringByAppendingPathComponent:@"prepare-failed"]; FixtureDirectory(failedDirectory);
   NSString *child = [failedDirectory stringByAppendingPathComponent:@"child"]; Put(child, [NSData dataWithContentsOfFile:binary], 0755);

@@ -62,3 +62,20 @@ export async function clientInventory(bundle) {
   await inspectClientTree(bundle)
   return Buffer.from(`${JSON.stringify(inventory)}\n`)
 }
+
+// Build admission only: metadata is sealed in the actual ASAR, not a sidecar flag.
+export function assertMacosCandidateMode(metadata, mode, sourceCommit) {
+  if (!['auth-only', 'finite-session'].includes(mode) || !/^[a-f0-9]{40}$/.test(sourceCommit) ||
+      metadata?.kuroSourceCommit !== sourceCommit) throw new Error('Sealed App must match the exact candidate mode and source commit')
+  if (mode === 'auth-only') {
+    if (metadata.kuroAuthObservationOnly !== true || (metadata.kuroCandidateMode !== undefined && metadata.kuroCandidateMode !== mode)) throw new Error('Authentication candidate must forbid normal product launch')
+  } else if (metadata.kuroCandidateMode !== mode || metadata.kuroAuthObservationOnly !== false) {
+    throw new Error('Finite-session candidate must be a newly built normal App, not an authentication-only App')
+  }
+}
+
+export async function macosCandidateMetadata(bundle) {
+  const builder = createRequire(require.resolve('electron-builder'))
+  const packager = createRequire(builder.resolve('app-builder-lib'))
+  return JSON.parse(packager('@electron/asar').extractFile(join(bundle, 'Contents/Resources/app.asar'), 'package.json'))
+}

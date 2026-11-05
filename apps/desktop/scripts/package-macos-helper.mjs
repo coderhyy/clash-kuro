@@ -1,5 +1,5 @@
 import { authEndpoint } from './prepare-electron-auth-negatives.mjs'
-// Offline disabled installer package. Never invokes Installer, launchctl or helper.
+// Offline installer package. Never invokes Installer, launchctl, App or helper.
 // Usage: node scripts/package-macos-helper.mjs [darwin-arm64|darwin-x64]
 import { execFileSync } from 'node:child_process'
 import { constants } from 'node:fs'
@@ -7,9 +7,8 @@ import { copyFile, cp, lstat, mkdir, mkdtemp, readFile, realpath, rm, writeFile 
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { createRequire } from 'node:module'
 import { sha256, verify } from './fetch-core.mjs'
-import { macosClientPin, protectedClientBundle, clientInventory } from './macos-client-pin.mjs'
+import { assertMacosCandidateMode, macosCandidateMetadata, macosClientPin, protectedClientBundle, clientInventory } from './macos-client-pin.mjs'
 
 const desktopRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const label = 'dev.kuro.tun'
@@ -27,8 +26,37 @@ async function absent(path) {
   try { await lstat(path); throw new Error(`output already exists: ${path}`) } catch (error) { if (error.code !== 'ENOENT') throw error }
 }
 
+const modes = ['disabled', 'auth-only', 'finite-session']
+export function parsePackageArguments(args) {
+  let target, mode = 'disabled', selected = false
+  for (const arg of args) {
+    if (arg === '--with-client' || arg.startsWith('--mode=')) {
+      if (selected) throw new Error('Select exactly one helper package mode')
+      mode = arg === '--with-client' ? 'auth-only' : arg.slice('--mode='.length)
+      selected = true
+    } else if (!arg.startsWith('-') && target === undefined) target = arg
+    else throw new Error('Unsupported helper package argument')
+  }
+  if (!modes.includes(mode)) throw new Error('Unknown helper package mode')
+  return { target: target || `darwin-${process.arch}`, mode }
+}
+
+// Values are checked again against the actual sealed App and helper bytes at staging.
+export function assertCandidateBuild(mode, sourceCommit, metadata, nativeBuild, helperSHA256, appBuild, client) {
+  assertMacosCandidateMode(metadata, mode, sourceCommit)
+  if (nativeBuild?.sourceCommit !== sourceCommit || nativeBuild.sourceClean !== true || nativeBuild.sha256 !== helperSHA256 || nativeBuild.tests !== true ||
+      nativeBuild.coreSyntaxSkipped !== (mode === 'auth-only')) throw new Error('Native helper requires the same clean commit, exact hash, passing mandatory tests and matching Core syntax policy')
+  if (mode === 'finite-session' && (appBuild?.format !== 1 || appBuild.mode !== mode || appBuild.sourceCommit !== sourceCommit ||
+      appBuild.sourceClean !== true || appBuild.fromSource !== true || !client || JSON.stringify(appBuild.client) !== JSON.stringify(client))) {
+    throw new Error('Finite-session App requires a matching fresh source-build record and exact client pin')
+  }
+  return mode === 'finite-session'
+}
+
 // Build/test seam only. The CLI never accepts payload or destination paths.
-export async function stageMacosHelperPackage(payload, destination, target, version, clientBundle) {
+export async function stageMacosHelperPackage(payload, destination, target, version, clientBundle, admission = {}) {
+  const mode = admission.mode || (clientBundle ? 'auth-only' : 'disabled')
+  if (!modes.includes(mode) || Boolean(clientBundle) !== (mode !== 'disabled')) throw new Error('Helper package mode requires the corresponding client')
   if (!targets.includes(target) || !/^\d+\.\d+\.\d+$/.test(version)) throw new Error('invalid fixed package target/version')
   const info = await lstat(payload)
   if (!info.isDirectory() || info.isSymbolicLink() || (info.mode & 0o022)) throw new Error('unsafe payload directory')
@@ -42,6 +70,10 @@ export async function stageMacosHelperPackage(payload, destination, target, vers
   verify(files.mihomo, manifest.core.sha256, 'package Core')
   if (clientBundle) {
     manifest.client = await macosClientPin(clientBundle)
+    const activationAllowed = assertCandidateBuild(mode, admission.sourceCommit, await macosCandidateMetadata(clientBundle), admission.nativeBuild, manifest.helper.sha256, admission.appBuild, manifest.client)
+    // Only this final, newly bound package gains the finite capability. Prepared
+    // payloads and authentication-only packages always remain activation=false.
+    manifest.activationAllowed = activationAllowed
     files['client-inventory.json'] = await clientInventory(clientBundle)
     manifest.clientInventorySHA256 = sha256(files['client-inventory.json'])
     files['manifest.json'] = Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`)
@@ -81,7 +113,9 @@ export async function stageMacosHelperPackage(payload, destination, target, vers
   return { root, scripts, manifest }
 }
 
-export async function packageMacosHelper(target, withClient = false) {
+export async function packageMacosHelper(target, mode = 'disabled') {
+  if (!modes.includes(mode)) throw new Error('Unknown helper package mode')
+  const withClient = mode !== 'disabled'
   if (process.platform !== 'darwin' || !targets.includes(target)) throw new Error('macOS packaging requires darwin-arm64 or darwin-x64')
   const arch = target.slice('darwin-'.length)
   const { version } = JSON.parse(await readFile(join(desktopRoot, 'package.json'), 'utf8'))
@@ -91,26 +125,17 @@ export async function packageMacosHelper(target, withClient = false) {
   if (!info.isDirectory() || info.isSymbolicLink() || (info.mode & 0o022)) throw new Error('unsafe package output directory')
   const sourceCommit = withClient ? execFileSync('git', ['rev-parse', 'HEAD'], { cwd: desktopRoot, encoding: 'utf8' }).trim() : undefined
   if (withClient && execFileSync('git', ['status', '--porcelain', '--untracked-files=all', '--', 'apps/desktop', 'packages'], { cwd: resolve(desktopRoot, '../..'), encoding: 'utf8' }).trim()) throw new Error('Commit candidate implementation before packaging')
-  const output = join(dist, withClient ? `kuro-tun-auth-observation-${version}-${arch}-${sourceCommit.slice(0, 12)}.pkg` : `kuro-tun-helper-disabled-${version}-${arch}.pkg`)
+  const output = join(dist, withClient ? `kuro-tun-${mode === 'auth-only' ? 'auth-observation' : 'finite-session'}-${version}-${arch}-${sourceCommit.slice(0, 12)}.pkg` : `kuro-tun-helper-disabled-${version}-${arch}.pkg`)
   await absent(output)
   await absent(`${output}.json`)
   const temporary = await realpath(await mkdtemp(join(tmpdir(), 'kuro-helper-package-')))
   try {
-    const candidate = withClient ? join(dist, 'electron-runtime-candidate', arch === 'arm64' ? 'mac-arm64' : 'mac', 'Clash Kuro.app') : undefined
-    if (withClient) {
-      const require = createRequire(import.meta.url)
-      const builder = createRequire(require.resolve('electron-builder'))
-      const packager = createRequire(builder.resolve('app-builder-lib'))
-      const asar = packager('@electron/asar')
-      const sealed = JSON.parse(asar.extractFile(join(candidate, 'Contents/Resources/app.asar'), 'package.json'))
-      if (sealed.kuroSourceCommit !== sourceCommit || sealed.kuroAuthObservationOnly !== true) throw new Error('Sealed App must match candidate commit and forbid normal product launch')
-    }
-    const { root, scripts, manifest } = await stageMacosHelperPackage(join(desktopRoot, 'resources/mac', arch, 'helper-payload'), temporary, target, version, candidate)
-    let nativeBuild
-    if (withClient) {
-      nativeBuild = JSON.parse(await readFile(join(desktopRoot, 'resources/mac', arch, 'kuro-tun-helper.build.json'), 'utf8'))
-      if (nativeBuild.sourceCommit !== sourceCommit || !nativeBuild.sourceClean || nativeBuild.sha256 !== manifest.helper.sha256 || !nativeBuild.tests || !nativeBuild.coreSyntaxSkipped) throw new Error('Native helper requires the same clean commit, passing tests and explicit Core syntax skip')
-    }
+    const candidateDirectory = join(dist, mode === 'finite-session' ? `electron-finite-session-candidate-${sourceCommit.slice(0, 12)}` : 'electron-runtime-candidate')
+    const candidate = withClient ? join(candidateDirectory, arch === 'arm64' ? 'mac-arm64' : 'mac', 'Clash Kuro.app') : undefined
+    const nativeBuild = withClient ? JSON.parse(await readFile(join(desktopRoot, 'resources/mac', arch, 'kuro-tun-helper.build.json'), 'utf8')) : undefined
+    const appBuild = mode === 'finite-session' ? JSON.parse(await sourceBytes(candidateDirectory, 'build.json')) : undefined
+    const { root, scripts, manifest } = await stageMacosHelperPackage(join(desktopRoot, 'resources/mac', arch, 'helper-payload'), temporary, target, version, candidate,
+      { mode, sourceCommit, nativeBuild, appBuild })
     const built = join(temporary, 'disabled.pkg')
     const components = join(temporary, 'components.plist')
     execFileSync('/usr/bin/pkgbuild', ['--analyze', '--root', root, components], { stdio: 'pipe' })
@@ -129,22 +154,29 @@ export async function packageMacosHelper(target, withClient = false) {
     execFileSync('/usr/bin/pkgbuild', ['--root', root, '--component-plist', components, '--scripts', scripts, '--identifier', `${label}.disabled`, '--version', version, '--install-location', '/', '--ownership', 'recommended', built], { stdio: 'inherit' })
     const metadata = {
       format: 1, target, version, release: manifest.release,
-      ...(sourceCommit ? { sourceCommit, authEndpoint, experiment: 'authenticate-only', observationSeconds: 300, emergencyExitSeconds: 310, productionActivation: false,
-        buildParameters: { electronBuilder: 'mac --dir --arm64', identity: '-', hardenedRuntime: true, sourceCommitInSealedASAR: true, nativeBuild } } : {}),
-      disabled: true, startAvailable: false, clientAttestationComplete: false, rootCoreConfigurationValidated: false,
+      ...(sourceCommit ? { sourceCommit, candidateMode: mode, productionActivation: manifest.activationAllowed,
+        ...(mode === 'auth-only' ? { authEndpoint, experiment: 'authenticate-only', observationSeconds: 300, emergencyExitSeconds: 310 } : { appBuild }),
+        buildParameters: { electronBuilder: `mac --dir --${arch}`, identity: '-', hardenedRuntime: true, sourceCommitInSealedASAR: true, nativeBuild } } : {}),
+      disabled: true, serviceAutoStart: false, startAvailable: manifest.activationAllowed, realTunAccepted: false, clientAttestationComplete: false, rootCoreConfigurationValidated: false,
+      ...(mode === 'finite-session' ? { userDataPolicy: 'Sealed finite-session builds use only appData/Clash Kuro TUN Candidate with private userData/sessionData/crash subdirectories and a fixed ownership marker. Candidate versions retain these test data; normal product profiles are not imported. No external user-data-dir argument is accepted. Uninstall does not delete ordinary-user candidate data.' } : {}),
       packageSHA256: sha256(await readFile(built)), helperSHA256: manifest.helper.sha256, coreSHA256: manifest.core.sha256,
       ...(manifest.client ? { client: manifest.client, clientInventorySHA256: manifest.clientInventorySHA256, clientInstallPath: `/${protectedClientBundle}`, clientRemoval: 'Fresh-install receipt permits exact removal of this installed App and helper only; modified or unknown content is preserved.' } : {}),
-      limitation: 'Fresh disabled install only; existing/partial installations refused. Production start and network hooks remain gated pending integrated admission and real-system acceptance. No publisher identity or full root-install acceptance claimed.',
+      limitation: mode === 'finite-session'
+        ? 'Fresh install only; finite sessions require dynamic authentication and protected installation admission. Service remains disabled until explicitly operated. Runtime uninstall, network recovery and upgrades need their own real acceptance; this package is not a TUN test pass.'
+        : 'Fresh disabled install only; existing/partial installations refused. Production activation is denied. No publisher identity or full root-install acceptance claimed.',
     }
+    if (withClient && (execFileSync('git', ['rev-parse', 'HEAD'], { cwd: desktopRoot, encoding: 'utf8' }).trim() !== sourceCommit ||
+      execFileSync('git', ['status', '--porcelain', '--untracked-files=all', '--', 'apps/desktop', 'packages'], { cwd: resolve(desktopRoot, '../..'), encoding: 'utf8' }).trim())) throw new Error('Candidate source changed during packaging')
     await copyFile(built, output, constants.COPYFILE_EXCL)
     await writeFile(`${output}.json`, `${JSON.stringify(metadata, null, 2)}\n`, { mode: 0o644, flag: 'wx' })
-    console.log(`Disabled helper package: ${output}; metadata: ${output}.json (not installed)`)
+    console.log(`${mode} helper package: ${output}; metadata: ${output}.json (not installed)`)
     return output
   } finally { await rm(temporary, { recursive: true, force: true }) }
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const args = process.argv.slice(2).filter(value => value !== '--with-client')
-  if (args.length > 1) { console.error('Usage: package-macos-helper.mjs [darwin-arm64|darwin-x64]'); process.exitCode = 1 }
-  else packageMacosHelper(args[0] || `darwin-${process.arch}`, process.argv.includes('--with-client')).catch((error) => { console.error(error.message); process.exitCode = 1 })
+  try {
+    const { target, mode } = parsePackageArguments(process.argv.slice(2))
+    packageMacosHelper(target, mode).catch((error) => { console.error(error.message); process.exitCode = 1 })
+  } catch (error) { console.error(error.message); process.exitCode = 1 }
 }

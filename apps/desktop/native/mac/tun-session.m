@@ -65,6 +65,14 @@ static BOOL KuroRestartRecord(NSDictionary *record,NSString **error) {
   id socket=work[@"socket"];
   return socket==NSNull.null || (Keys(socket,@[@"device",@"inode"]) && KuroNumber(socket[@"device"],0,9007199254740991ULL) && KuroNumber(socket[@"inode"],1,9007199254740991ULL)) || Fail(error,@"old Core socket receipt is invalid");
 }
+// This evidence is issued only by the serial instance that held and reaped
+// the child. It proves that direct child and our recorded writers, not detached descendants.
+static BOOL KuroCompletedStopEvidence(id value) {
+  if(!Keys(value,@[@"format",@"session",@"owner",@"ownerSHA256",@"childReaped",@"cleanupComplete"]) || !KuroNumber(value[@"format"],1,1) ||
+    !KuroBool(value[@"childReaped"]) || ![value[@"childReaped"]boolValue] || !KuroBool(value[@"cleanupComplete"]) || ![value[@"cleanupComplete"]boolValue] ||
+    !KuroRestartRecord(value[@"owner"],NULL) || ![value[@"session"]isEqual:value[@"owner"][@"session"]] || ![Hash(JSONData(value[@"owner"]))isEqual:value[@"ownerSHA256"]])return NO;
+  return YES;
+}
 #ifdef KURO_CORE_EXPERIMENT
 typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   KuroExperimentStopNone,KuroExperimentStopUnexpected,KuroExperimentStopOwnerRequest,KuroExperimentStopOwnerEOF
@@ -80,6 +88,8 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   BOOL _unknown;
   KuroSessionHook _cleanup;
   NSDictionary *_launchEvidence;
+  pid_t _reapedOwnedChild;
+  NSDictionary *_completedStop;
 #ifdef KURO_CORE_EXPERIMENT
   NSString *_terminationRequest;
   NSDictionary *_terminationEvidence;
@@ -110,9 +120,11 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
 - (BOOL)spawnExecutable:(NSString *)executable arguments:(NSArray<NSString *> *)arguments workingDirectory:(NSString *)workingDirectory beforeResume:(KuroSessionHook)prepare afterReap:(KuroSessionHook)cleanup error:(NSString **)error;
 - (BOOL)spawnExecutable:(NSString *)executable arguments:(NSArray<NSString *> *)arguments workingDirectory:(NSString *)workingDirectory beforeResume:(KuroSessionHook)prepare afterReap:(KuroSessionHook)cleanup resumeGate:(KuroSessionResumeGate)resumeGate error:(NSString **)error;
 - (BOOL)stop:(NSString **)error;
+- (NSDictionary *)completedStopEvidence:(NSString **)error;
 - (BOOL)superviseSocket:(int)socket leaseMilliseconds:(NSUInteger)lease identityValid:(BOOL (^)(void))identityValid error:(NSString **)error;
 - (BOOL)superviseSocket:(int)socket leaseMilliseconds:(NSUInteger)lease identityValid:(BOOL (^)(void))identityValid tick:(KuroSessionHook)tick error:(NSString **)error;
 - (BOOL)superviseSocket:(int)socket leaseMilliseconds:(NSUInteger)lease identityValid:(BOOL (^)(void))identityValid tick:(KuroSessionHook)tick stopConfirmed:(void (^)(void))stopConfirmed error:(NSString **)error;
+- (BOOL)superviseSocket:(int)socket leaseMilliseconds:(NSUInteger)lease identityValid:(BOOL (^)(void))identityValid tick:(KuroSessionHook)tick stopCheckpoint:(KuroSessionHook)stopCheckpoint error:(NSString **)error;
 @end
 @implementation KuroOwnedSession
 - (instancetype)initWithDirectory:(NSString *)directory owner:(uid_t)owner {
@@ -198,6 +210,12 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   if(unlink(path.fileSystemRepresentation) || ![self syncDirectory:error])return Fail(error,@"old Core owner absence receipt removal was not durable");
   return self.off || Fail(error,@"old Core recovery did not establish off");
 }
+- (NSDictionary *)completedStopEvidence:(NSString **)error {
+  if(![self onThread:error] || !_reapedOwnedChild || !KuroCompletedStopEvidence(_completedStop) || !self.off || Exists([_directory stringByAppendingPathComponent:@"session-work"])) {
+    Fail(error,@"same held/reaped session and durable complete cleanup are required; no proof from absent receipts");return nil;
+  }
+  return [_completedStop copy];
+}
 - (BOOL)setLaunchEvidence:(NSDictionary *)evidence error:(NSString **)error {
   if (![self onThread:error] || _child || _journaled || _unknown) return Fail(error, @"cannot replace active launch evidence");
   if (!Keys(evidence, @[@"configSHA256", @"coreSHA256", @"template"]) ||
@@ -276,6 +294,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
     else known=NO;
   }
 
+  _reapedOwnedChild=0; _completedStop=nil;
   _cleanup = [cleanup copy];
   // Mark uncertainty before creating the journal, including partial-write failures.
   _journaled = YES;
@@ -295,6 +314,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   while (_child) {
     int status=0;pid_t result = waitpid(_child, &status, WNOHANG);
     if (result == _child) {
+      _reapedOwnedChild=_child;
 #ifdef KURO_CORE_EXPERIMENT
       _terminationEvidence=@{@"request":_terminationRequest ?: @"none",@"observed":@YES,@"exitCode":WIFEXITED(status)?@(WEXITSTATUS(status)):NSNull.null,@"signal":WIFSIGNALED(status)?@(WTERMSIG(status)):NSNull.null};
 #endif
@@ -332,10 +352,14 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   if (_journaled) {
     if (!_cleanup || !_cleanup(error)) return Fail(error, @"child reaped but network restoration is not proven");
     NSString *path = [_directory stringByAppendingPathComponent:@"owner.json"];
-    NSDictionary *record = ReadJSON(_directory, path, _owner, error);
+    NSData *bytes=ReadProtected(_directory,path,_owner,error);
+    NSDictionary *record=bytes?KuroDecodeJSON(bytes,MessageLimit,error):nil;
     if (![record[@"session"] isEqual:_identifier]) return Fail(error, @"owner journal is incomplete or belongs to another session");
-    if (unlink(path.fileSystemRepresentation) || ![self syncDirectory:error]) return Fail(error, @"owner journal removal is not durable");
-    _journaled = NO; _cleanup = nil;
+    NSDictionary *completed=nil;
+    if(_reapedOwnedChild && [record[@"pid"]intValue]==_reapedOwnedChild && KuroRestartRecord(record,NULL))
+      completed=@{@"format":@1,@"session":_identifier,@"owner":record,@"ownerSHA256":Hash(bytes),@"childReaped":@YES,@"cleanupComplete":@YES};
+    if(![ReadProtected(_directory,path,_owner,error)isEqual:bytes] || unlink(path.fileSystemRepresentation) || ![self syncDirectory:error]) return Fail(error, @"owner journal removal is not durable");
+    _journaled = NO; _cleanup = nil; _completedStop=completed;
   }
   return YES;
 }
@@ -346,6 +370,10 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   return [self superviseSocket:socket leaseMilliseconds:lease identityValid:identityValid tick:tick stopConfirmed:nil error:error];
 }
 - (BOOL)superviseSocket:(int)socket leaseMilliseconds:(NSUInteger)lease identityValid:(BOOL (^)(void))identityValid tick:(KuroSessionHook)tick stopConfirmed:(void (^)(void))stopConfirmed error:(NSString **)error {
+  KuroSessionHook checkpoint=stopConfirmed?^BOOL(NSString **failure) { (void)failure;stopConfirmed();return YES; }:nil;
+  return [self superviseSocket:socket leaseMilliseconds:lease identityValid:identityValid tick:tick stopCheckpoint:checkpoint error:error];
+}
+- (BOOL)superviseSocket:(int)socket leaseMilliseconds:(NSUInteger)lease identityValid:(BOOL (^)(void))identityValid tick:(KuroSessionHook)tick stopCheckpoint:(KuroSessionHook)stopCheckpoint error:(NSString **)error {
   if (![self onThread:error]) return NO;
   if (!_child || !_journaled || !identityValid || lease < 50 || lease > 30000) {
     NSString *ignored = nil; [self stop:&ignored];
@@ -393,7 +421,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
 #endif
       BOOL stopped = [self stop:error] && self.off;
       // Publish proven off before the client can receive its stop acknowledgement.
-      if (stopped && stopConfirmed) stopConfirmed();
+      if (stopped && stopCheckpoint && !stopCheckpoint(error)) stopped=NO;
       NSDictionary *reply = stopped ? @{@"version":@2,@"ok":@YES,@"sequence":@(sequence),@"status":@{@"availability":@"ready",@"state":@"off"}} : @{@"version":@2,@"ok":@NO,@"error":(error && *error) ? *error : @"cleanup is not proven"};
       NSMutableData *encoded = [JSONData(reply) mutableCopy]; [encoded appendBytes:"\n" length:1];
 #ifdef KURO_CORE_EXPERIMENT
@@ -409,7 +437,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
     if (send(socket, replyBytes, length, MSG_NOSIGNAL | MSG_DONTWAIT) != (ssize_t)length) { reason = @"session acknowledgement failed"; break; }
   }
   BOOL stopped = [self stop:error] && self.off;
-  if (stopped && stopConfirmed) stopConfirmed();
+  if (stopped && stopCheckpoint && !stopCheckpoint(error)) stopped=NO;
   if (stopped && error) *error = reason;
   return stopped;
 }

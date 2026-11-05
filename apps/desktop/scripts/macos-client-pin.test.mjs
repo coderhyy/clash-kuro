@@ -31,3 +31,17 @@ test.skipIf(process.platform !== 'darwin')('client tree permits protected relati
   await symlink('Contents/Frameworks/Test.framework/Versions/A/resource', join(root, 'outside-frameworks'))
   await expect(inspectClientTree(root)).rejects.toThrow(/escapes/)
 })
+
+test('sealed candidate mode preserves old auth-only rejection and requires an explicit normal finite build', async () => {
+  const { assertMacosCandidateMode } = await import('./macos-client-pin.mjs')
+  const commit = 'a'.repeat(40)
+  const auth = { kuroSourceCommit: commit, kuroAuthObservationOnly: true }
+  const finite = { kuroSourceCommit: commit, kuroCandidateMode: 'finite-session', kuroAuthObservationOnly: false }
+  expect(() => assertMacosCandidateMode(auth, 'auth-only', commit)).not.toThrow()
+  expect(() => assertMacosCandidateMode(finite, 'finite-session', commit)).not.toThrow()
+  expect(() => assertMacosCandidateMode(auth, 'finite-session', commit)).toThrow(/newly built normal App/)
+  expect(() => assertMacosCandidateMode(finite, 'auth-only', commit)).toThrow(/forbid normal/)
+  expect(() => assertMacosCandidateMode({ ...finite, kuroAuthObservationOnly: 'false' }, 'finite-session', commit)).toThrow()
+  expect(() => assertMacosCandidateMode({ ...finite, kuroCandidateMode: undefined }, 'finite-session', commit)).toThrow()
+  expect(() => assertMacosCandidateMode(finite, 'finite-session', 'b'.repeat(40))).toThrow(/commit/)
+})

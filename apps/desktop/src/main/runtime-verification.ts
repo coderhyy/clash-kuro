@@ -1,4 +1,4 @@
-import { lstatSync, mkdirSync, readdirSync, realpathSync, writeFileSync } from 'node:fs'
+import { lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import { createConnection } from 'node:net'
 import { tmpdir } from 'node:os'
@@ -35,8 +35,35 @@ export function assertObservationCandidateLaunch(metadata: unknown, directory?: 
   }
 }
 
+/** Sealed finite-session builds use persistent test data, never the installed product's profiles. */
+export function prepareSessionCandidateDirectory(metadata: unknown, appData: string): Record<'userData' | 'sessionData' | 'crashDumps', string> | undefined {
+  if (!metadata || typeof metadata !== 'object' || !('kuroCandidateMode' in metadata) || metadata.kuroCandidateMode !== 'finite-session') return
+  if (typeof process.getuid !== 'function') throw new Error('Finite-session candidate data requires POSIX ownership checks')
+  if (!('kuroAuthObservationOnly' in metadata) || metadata.kuroAuthObservationOnly !== false || !('kuroSourceCommit' in metadata) || typeof metadata.kuroSourceCommit !== 'string' || !/^[0-9a-f]{40}$/.test(metadata.kuroSourceCommit)) throw new Error('Invalid sealed finite-session candidate')
+  const parent = realpathSync(appData)
+  const root = join(parent, 'Clash Kuro TUN Candidate')
+  const marker = join(root, 'candidate-data.txt'), expected = 'Clash Kuro finite-session candidate data v1\n'
+  function owned(path: string, directory: boolean): void {
+    const info = lstatSync(path)
+    if (info.isSymbolicLink() || info.isDirectory() !== directory || (!directory && (!info.isFile() || info.nlink !== 1)) || info.uid !== process.getuid?.() || (info.mode & 0o077)) throw new Error('Unprotected finite-session candidate data')
+  }
+  try {
+    mkdirSync(root, { mode: 0o700 })
+    writeFileSync(marker, expected, { mode: 0o600, flag: 'wx' })
+  } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error }
+  owned(root, true); owned(marker, false)
+  if (readFileSync(marker, 'utf8') !== expected) throw new Error('Unknown candidate data preserved')
+  const paths = { userData: join(root, 'userData'), sessionData: join(root, 'sessionData'), crashDumps: join(root, 'crashDumps') }
+  for (const path of Object.values(paths)) {
+    try { mkdirSync(path, { mode: 0o700 }) } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error }
+    owned(path, true)
+  }
+  return paths
+}
+
 /** Only a fresh private OS-temp child can receive Chromium data/report writes. */
 export function prepareVerificationDirectory(directory: string): Record<'userData' | 'sessionData' | 'crashDumps', string> {
+  if (typeof process.getuid !== 'function') throw new Error('Verification directory requires POSIX ownership checks')
   const root = realpathSync(tmpdir())
   const target = resolve(directory)
   if (target !== directory || dirname(target) !== root || !/^kuro-electron-runtime-[A-Za-z0-9_-]+$/.test(basename(target))) throw new Error('Verification requires a fresh private OS-temp directory')

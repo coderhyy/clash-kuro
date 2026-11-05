@@ -346,6 +346,7 @@ static KuroTunService *ProductionService(void) {
     identity = [KuroPeerIdentity observePeer:peer error:error]; return identity != nil;
   };
   hooks.identityValid = ^BOOL(int peer) { (void)peer; return identity && identity.isLive; };
+  hooks.beforeStart=^BOOL(NSString **error) { return KuroRevokeStoppedProof(@"",0,error); };
   hooks.beforeResume = ^BOOL(NSString **error) { return KuroMarkSessionStarted(@"",0,Executable(),error); };
   hooks.preflight = ^BOOL(NSDictionary *config, NSString **error) {
     network=[[KuroProductionNetwork alloc] initWithDirectory:State owner:0];
@@ -356,6 +357,10 @@ static KuroTunService *ProductionService(void) {
   hooks.ready=^BOOL(pid_t child,NSString *session,NSString **error) { return [network readyChild:child session:session error:error]; };
   hooks.applyNetwork=^BOOL(pid_t child,NSString *session,NSString **error) { return [network applyChild:child session:session error:error]; };
   hooks.recoverNetwork=^BOOL(NSString *session,NSString **error) { return [network recoverSession:session error:error]; };
+  hooks.confirmStopped=^BOOL(NSDictionary *process,NSString **error) {
+    NSDictionary *proof=[network stoppedEvidenceForSession:process[@"session"] error:error];
+    return proof && KuroMarkSessionStopped(@"",0,Executable(),process,proof,error);
+  };
   hooks.verifyNetwork=^BOOL(NSString *session,NSString **error) { return [network confirmSession:session error:error]; };
   hooks.recoverResidualNetwork=^BOOL(NSString **error) {
     KuroProductionNetwork *recovery=[[KuroProductionNetwork alloc] initWithDirectory:State owner:0];

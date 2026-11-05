@@ -135,6 +135,7 @@ static BOOL KuroPreservedEndpoint(NSString *text, NSArray *routes, NSString *phy
   KuroOwnedRoutes *_routes; KuroOwnedDNS *_dns;
   NSArray *_baselineRoutes; NSDictionary *_baselineDNS; NSString *_physical, *_session;
   KuroCoreInterface _association; BOOL _prepared, _networkOff;
+  NSDictionary *_stoppedEvidence;
 }
 @property(nonatomic,readonly) NSString *runtimeInterfaceName;
 @property(nonatomic,readonly) BOOL networkOff;
@@ -145,6 +146,7 @@ static BOOL KuroPreservedEndpoint(NSString *text, NSArray *routes, NSString *phy
 - (BOOL)applyChild:(pid_t)child session:(NSString *)session error:(NSString **)error;
 - (BOOL)recoverSession:(NSString *)session error:(NSString **)error;
 - (BOOL)confirmSession:(NSString *)session error:(NSString **)error;
+- (NSDictionary *)stoppedEvidenceForSession:(NSString *)session error:(NSString **)error;
 @end
 @implementation KuroProductionNetwork
 - (instancetype)initWithDirectory:(NSString *)directory owner:(uid_t)owner {
@@ -163,6 +165,7 @@ static BOOL KuroPreservedEndpoint(NSString *text, NSArray *routes, NSString *phy
   return YES;
 }
 - (BOOL)preflightConfig:(NSDictionary *)config error:(NSString **)error {
+  _stoppedEvidence=nil;
   _networkOff=NO;
   if (_session) return Fail(error,@"network preflight cannot replace active session");
   if (![self adapters:error]) return NO;
@@ -267,7 +270,23 @@ static BOOL KuroPreservedEndpoint(NSString *text, NSArray *routes, NSString *phy
     !KuroCoreAddressesReady(_association,_environment.interfaces(error),error) || !_environment.probeDNS(_association,error)) return NO;
   return _environment.ownership(_association,error)==KuroRouteOwnerLive || Fail(error,@"held Core owner changed during active network confirmation");
 }
+- (NSDictionary *)stoppedEvidenceForSession:(NSString *)session error:(NSString **)error {
+  if(!pthread_equal(_thread,pthread_self()) || !session || ![_stoppedEvidence[@"session"]isEqual:session] || !_networkOff || !_routes.routesOff || !_dns.dnsOff ||
+    Exists([_directory stringByAppendingPathComponent:KuroRouteJournal]) || Exists([_directory stringByAppendingPathComponent:KuroDNSJournal])) {
+    Fail(error,@"this session has no independent route and DNS cleanup confirmation");return nil;
+  }
+  return [_stoppedEvidence copy];
+}
 - (BOOL)recoverSession:(NSString *)session error:(NSString **)error {
+  NSDictionary *previous=_stoppedEvidence; _stoppedEvidence=nil;
+  BOOL held=session && ([_session isEqual:session] || _prepared || [previous[@"session"]isEqual:session]);
+  NSMutableDictionary *journals=[NSMutableDictionary dictionary];
+  for(NSString *name in @[KuroRouteJournal,KuroDNSJournal]) {
+    NSString *path=[_directory stringByAppendingPathComponent:name];
+    NSData *bytes=Exists(path)?ReadProtected(_directory,path,_owner,error):nil;
+    if(Exists(path)&&!bytes)return NO;
+    journals[name]=bytes?Hash(bytes):(id)NSNull.null;
+  }
   _networkOff=NO; if (![self adapters:error]) return NO;
   if (session && !KuroDNSKey(session)) return Fail(error,@"recovery session identifier is invalid");
   if (_session && ![_session isEqual:session]) return Fail(error,@"network recovery cannot replace the held session owner");
@@ -281,6 +300,10 @@ static BOOL KuroPreservedEndpoint(NSString *text, NSArray *routes, NSString *phy
     if (![_routes recoverRecordedAbsence:error] || ![_dns recoverDNSAbsence:error]) return NO;
   }
   _networkOff=_routes.routesOff && _dns.dnsOff;
+  if(_networkOff && held) {
+    _stoppedEvidence=@{@"format":@1,@"session":session,@"routesOff":@YES,@"dnsOff":@YES,
+      @"routeJournalSHA256":previous[@"routeJournalSHA256"]?:journals[KuroRouteJournal],@"dnsJournalSHA256":previous[@"dnsJournalSHA256"]?:journals[KuroDNSJournal]};
+  }
   if (_networkOff) { _session=nil; memset(&_association,0,sizeof(_association)); _prepared=NO; _physical=nil; _baselineRoutes=nil; _baselineDNS=nil; }
   return _networkOff || Fail(error,@"network recovery lacks independent route/DNS absence proofs");
 }

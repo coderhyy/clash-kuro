@@ -220,13 +220,33 @@ static BOOL InstallScriptsProtected(NSString *scripts,uid_t owner,NSString **err
   }
   return YES;
 }
+static BOOL KuroStoppedProofValid(NSDictionary *proof,NSDictionary *manifest,NSData *manifestBytes,NSData *inventoryBytes,NSDictionary *installed) {
+  if(!Keys(proof,@[@"format",@"release",@"helperSHA256",@"coreSHA256",@"manifestSHA256",@"inventorySHA256",@"installedSHA256",@"session",@"process",@"network"]) || !KuroNumber(proof[@"format"],1,1) ||
+    !Keys(installed,@[@"format",@"release",@"helperSHA256",@"neverStarted"]) || !KuroNumber(installed[@"format"],1,1) || !KuroBool(installed[@"neverStarted"]) || [installed[@"neverStarted"]boolValue] ||
+    ![proof[@"release"]isEqual:installed[@"release"]] || ![proof[@"release"]isEqual:manifest[@"release"]] || ![proof[@"helperSHA256"]isEqual:installed[@"helperSHA256"]] || ![proof[@"helperSHA256"]isEqual:manifest[@"helper"][@"sha256"]] ||
+    ![proof[@"coreSHA256"]isEqual:manifest[@"core"][@"sha256"]] || ![proof[@"manifestSHA256"]isEqual:Hash(manifestBytes)] || ![proof[@"inventorySHA256"]isEqual:Hash(inventoryBytes)] || ![proof[@"installedSHA256"]isEqual:Hash(JSONData(installed))] ||
+    !KuroCompletedStopEvidence(proof[@"process"]) || ![proof[@"session"]isEqual:proof[@"process"][@"session"]] || ![proof[@"coreSHA256"]isEqual:proof[@"process"][@"owner"][@"executableSHA256"]] ||
+    ![proof[@"process"][@"owner"][@"launch"][@"template"]isEqual:@"macos-dual-stack-v1"])return NO;
+  NSDictionary *network=proof[@"network"];
+  if(!Keys(network,@[@"format",@"session",@"routesOff",@"dnsOff",@"routeJournalSHA256",@"dnsJournalSHA256"]) || !KuroNumber(network[@"format"],1,1) || ![network[@"session"]isEqual:proof[@"session"]])return NO;
+  for(NSString *key in @[@"routesOff",@"dnsOff"])if(!KuroBool(network[key]) || ![network[key]boolValue])return NO;
+  for(NSString *key in @[@"routeJournalSHA256",@"dnsJournalSHA256"])if(network[key]!=NSNull.null && !Match(network[key],@"\\A[0-9a-f]{64}\\z"))return NO;
+  return YES;
+}
 static NSDictionary *ReadFreshReceipt(NSString *prefix,uid_t owner,NSString **error) {
   NSData *raw=ReadProtected(prefix,At(prefix,FreshReceipt),owner,error);id receipt=KuroDecodeJSON(raw,InventoryLimit*2,error);
-  if(!Keys(receipt,@[@"format",@"helperSHA256",@"manifestJSON",@"inventoryJSON",@"plistBase64"]) || !KuroNumber(receipt[@"format"],1,1) || ![receipt[@"manifestJSON"] isKindOfClass:NSString.class] || ![receipt[@"inventoryJSON"] isKindOfClass:NSString.class] || ![receipt[@"plistBase64"] isKindOfClass:NSString.class]) {Fail(error,@"invalid fresh installation receipt");return nil;}
+  if(!KuroMapping(receipt,@[@"format",@"helperSHA256",@"manifestJSON",@"inventoryJSON",@"plistBase64"],@[@"uninstallJSON"]) || !KuroNumber(receipt[@"format"],1,1) || ![receipt[@"manifestJSON"] isKindOfClass:NSString.class] || ![receipt[@"inventoryJSON"] isKindOfClass:NSString.class] || ![receipt[@"plistBase64"] isKindOfClass:NSString.class]) {Fail(error,@"invalid fresh installation receipt");return nil;}
   NSData *manifestBytes=[receipt[@"manifestJSON"] dataUsingEncoding:NSUTF8StringEncoding],*inventoryBytes=[receipt[@"inventoryJSON"] dataUsingEncoding:NSUTF8StringEncoding];
   NSDictionary *manifest=KuroDecodeJSON(manifestBytes,MessageLimit,error),*inventory=KuroDecodeJSON(inventoryBytes,InventoryLimit,error);NSData *plist=[[NSData alloc] initWithBase64EncodedString:receipt[@"plistBase64"] options:0];
   if(!ValidManifest(manifest,error) || !manifest[@"client"] || ![Hash(inventoryBytes) isEqual:manifest[@"clientInventorySHA256"]] || ![receipt[@"helperSHA256"] isEqual:manifest[@"helper"][@"sha256"]] || !FixedPlist(plist,manifest[@"release"],error) || !InventoryEntries(inventory,error)) {Fail(error,@"fresh receipt payload binding failed");return nil;}
-  return @{@"manifest":manifest,@"manifestBytes":manifestBytes,@"inventory":inventory,@"inventoryBytes":inventoryBytes,@"plist":plist};
+  NSMutableDictionary *result=[@{@"manifest":manifest,@"manifestBytes":manifestBytes,@"inventory":inventory,@"inventoryBytes":inventoryBytes,@"plist":plist}mutableCopy];
+  if(receipt[@"uninstallJSON"]) {
+    if(![receipt[@"uninstallJSON"]isKindOfClass:NSString.class]) {Fail(error,@"invalid stopped uninstall approval");return nil;}
+    NSDictionary *approval=KuroDecodeJSON([receipt[@"uninstallJSON"]dataUsingEncoding:NSUTF8StringEncoding],MessageLimit,error);
+    if(!Keys(approval,@[@"format",@"installed",@"stopped"]) || !KuroNumber(approval[@"format"],1,1) || !KuroStoppedProofValid(approval[@"stopped"],manifest,manifestBytes,inventoryBytes,approval[@"installed"])) {Fail(error,@"stopped uninstall approval does not match this payload");return nil;}
+    result[@"uninstall"]=approval;
+  }
+  return result;
 }
 // Capability admission follows dynamic peer authentication. Neither this receipt
 // nor an auth-only connection grants arbitrary commands or automatic startup.
@@ -245,12 +265,33 @@ static BOOL KuroSessionActivationAt(NSString *prefix,uid_t owner,NSString *execu
   NSDictionary *receipt=ReadFreshReceipt(prefix,owner,error);
   NSData *inventory=ReadProtected(prefix,At(prefix,[State stringByAppendingPathComponent:@"Inbox/client-inventory.json"]),owner,error);
   NSDictionary *client=ReadJSON(prefix,At(prefix,[State stringByAppendingPathComponent:@"client.json"]),owner,error);
-  if(!receipt || ![receipt[@"manifestBytes"]isEqual:manifestBytes] || !inventory || ![inventory isEqual:receipt[@"inventoryBytes"]] || ![Hash(inventory)isEqual:manifest[@"clientInventorySHA256"]] ||
+  if(!receipt || receipt[@"uninstall"] || ![receipt[@"manifestBytes"]isEqual:manifestBytes] || !inventory || ![inventory isEqual:receipt[@"inventoryBytes"]] || ![Hash(inventory)isEqual:manifest[@"clientInventorySHA256"]] ||
     ![client isEqual:manifest[@"client"]])return Fail(error,@"finite session activation is not bound to the administrator-approved client inventory");
   NSData *plist=ReadProtected(prefix,At(prefix,Plist),owner,error),*recovery=ReadProtected(prefix,At(prefix,Recovery),owner,error);
   if(!plist || ![plist isEqual:receipt[@"plist"]] || !FixedPlist(plist,installed[@"release"],error) || !recovery || !MachExecutable(recovery) || ![Hash(recovery)isEqual:installed[@"helperSHA256"]])return Fail(error,@"finite session activation requires the exact installed plist and recovery executable");
   if(Exists(At(prefix,[State stringByAppendingPathComponent:@"auth-observer.json"])))return Fail(error,@"auth observation is active or retained; finite session activation refused");
   return YES;
+}
+static BOOL KuroRevokeStoppedProof(NSString *prefix,uid_t owner,NSString **error) {
+  NSString *directory=At(prefix,State),*path=[directory stringByAppendingPathComponent:@"stopped.json"];
+  if(Exists(path)) {
+    NSDictionary *receipt=ReadFreshReceipt(prefix,owner,error),*installed=ReadJSON(prefix,[directory stringByAppendingPathComponent:@"installed.json"],owner,error);
+    NSData *bytes=ReadProtected(prefix,path,owner,error);NSDictionary *proof=bytes?KuroDecodeJSON(bytes,MessageLimit,error):nil;
+    if(!receipt || receipt[@"uninstall"] || !KuroStoppedProofValid(proof,receipt[@"manifest"],receipt[@"manifestBytes"],receipt[@"inventoryBytes"],installed) ||
+      ![ReadProtected(prefix,path,owner,error)isEqual:bytes] || unlink(path.fileSystemRepresentation))return Fail(error,@"stopped proof could not be safely revoked; new session refused");
+  }
+  // Also sync when neverStarted is already false; absence alone is not durability.
+  return SyncInstallDirectory(directory,error);
+}
+static BOOL KuroMarkSessionStopped(NSString *prefix,uid_t owner,NSString *executingHelper,NSDictionary *process,NSDictionary *network,NSString **error) {
+  if(!KuroSessionActivationAt(prefix,owner,executingHelper,error) || !KuroCompletedStopEvidence(process) || HasOwnershipFootprint(prefix) || Exists(At(prefix,[State stringByAppendingPathComponent:@"session-work"])))return Fail(error,@"held session cleanup is incomplete; stopped checkpoint refused");
+  NSString *directory=At(prefix,State),*path=[directory stringByAppendingPathComponent:@"stopped.json"];
+  NSDictionary *receipt=ReadFreshReceipt(prefix,owner,error),*installed=ReadJSON(prefix,[directory stringByAppendingPathComponent:@"installed.json"],owner,error),*manifest=receipt[@"manifest"];
+  NSDictionary *proof=@{@"format":@1,@"release":installed[@"release"],@"helperSHA256":installed[@"helperSHA256"],@"coreSHA256":manifest[@"core"][@"sha256"],@"manifestSHA256":Hash(receipt[@"manifestBytes"]),@"inventorySHA256":Hash(receipt[@"inventoryBytes"]),@"installedSHA256":Hash(JSONData(installed)),@"session":process[@"session"],@"process":process,@"network":network?:@{}};
+  if(!KuroStoppedProofValid(proof,manifest,receipt[@"manifestBytes"],receipt[@"inventoryBytes"],installed))return Fail(error,@"independent process/route/DNS stop proof does not bind this installed payload");
+  NSData *bytes=JSONData(proof);
+  if(Exists(path))return [ReadProtected(prefix,path,owner,error)isEqual:bytes] && SyncInstallDirectory(directory,error);
+  return WriteNew(path,bytes,0600,error) && SyncInstallDirectory(directory,error);
 }
 // A failed checkpoint never resumes Core. False is sticky: even a later launch
 // failure cannot restore the weaker never-started uninstall authority.
@@ -259,6 +300,7 @@ static BOOL KuroMarkSessionStarted(NSString *prefix,uid_t owner,NSString *execut
   NSString *directory=At(prefix,State),*path=[directory stringByAppendingPathComponent:@"installed.json"];
   NSData *before=ReadProtected(prefix,path,owner,error);NSDictionary *record=before?KuroDecodeJSON(before,MessageLimit,error):nil;
   if(!Keys(record,@[@"format",@"release",@"helperSHA256",@"neverStarted"]) || !KuroBool(record[@"neverStarted"]))return Fail(error,@"startup checkpoint installation record is unavailable");
+  if(!KuroRevokeStoppedProof(prefix,owner,error))return NO;
   if(![record[@"neverStarted"]boolValue])return SyncInstallDirectory(directory,error);
   NSMutableDictionary *updated=[record mutableCopy];updated[@"neverStarted"]=@NO;
   NSString *temporary=[directory stringByAppendingPathComponent:[@".installed-" stringByAppendingString:NSUUID.UUID.UUIDString]];
@@ -398,7 +440,7 @@ static BOOL UninstallFresh(NSString *prefix,uid_t owner,BOOL system,NSString *en
   if(![@[At(prefix,Recovery),[At(prefix,Tools) stringByAppendingPathComponent:@"installer"]] containsObject:entry] || (system&&![Executable() isEqual:entry]) || ![InstallFileHash(prefix,entry,owner,error) isEqual:helper] || ![InstallFileHash(prefix,At(prefix,Recovery),owner,error) isEqual:helper])return Fail(error,@"fresh recovery executable identity mismatch");
   if(HasOwnershipFootprint(prefix)||Exists(At(prefix,RecoveryRecord)))return Fail(error,@"unknown active ownership or recovery approval preserved");
   if(system) {int present=Launchctl(@[@"print",@"system/dev.kuro.tun"]);if(present!=3&&present!=113)return Fail(error,@"fresh cleanup requires absent launchd service");}
-  if(!OnlyNames(prefix,At(prefix,Tools),owner,@[@"installer",@"versions"],error)||!OnlyNames(prefix,versions,owner,@[manifest[@"release"]],error)||!OnlyNames(prefix,version,owner,@[@"helper",@"mihomo",@"manifest.json"],error)||!OnlyNames(prefix,At(prefix,State),owner,@[@"installed.json",@"client.json",@"transaction.json",@"auth-observer.json",@"Inbox"],error)||!OnlyNames(prefix,inbox,owner,@[@"helper",@"mihomo",@"manifest.json",@"dev.kuro.tun.plist",@"client-inventory.json"],error)||!OnlyNames(prefix,At(prefix,SocketDirectory),owner,@[@"service.lock",@"auth.sock"],error)||!ClientSubset(prefix,owner,entries,@"",error))return NO;
+  if(!OnlyNames(prefix,At(prefix,Tools),owner,@[@"installer",@"versions"],error)||!OnlyNames(prefix,versions,owner,@[manifest[@"release"]],error)||!OnlyNames(prefix,version,owner,@[@"helper",@"mihomo",@"manifest.json"],error)||!OnlyNames(prefix,At(prefix,State),owner,@[@"installed.json",@"stopped.json",@"client.json",@"transaction.json",@"auth-observer.json",@"Inbox"],error)||!OnlyNames(prefix,inbox,owner,@[@"helper",@"mihomo",@"manifest.json",@"dev.kuro.tun.plist",@"client-inventory.json"],error)||!OnlyNames(prefix,At(prefix,SocketDirectory),owner,@[@"service.lock",@"auth.sock"],error)||!ClientSubset(prefix,owner,entries,@"",error))return NO;
   NSMutableDictionary *expected=[NSMutableDictionary dictionary];
   for(NSString *directory in @[version,inbox]) {
     expected[[directory stringByAppendingPathComponent:@"helper"]]=helper;
@@ -410,12 +452,34 @@ static BOOL UninstallFresh(NSString *prefix,uid_t owner,BOOL system,NSString *en
   expected[At(prefix,Plist)]=Hash(receipt[@"plist"]);
   expected[[At(prefix,Tools) stringByAppendingPathComponent:@"installer"]]=helper;
   expected[At(prefix,[State stringByAppendingPathComponent:@"client.json"])]=Hash(JSONData(manifest[@"client"]));
-  expected[At(prefix,[State stringByAppendingPathComponent:@"installed.json"])]=Hash(JSONData(@{@"format":@1,@"release":manifest[@"release"],@"helperSHA256":helper,@"neverStarted":@YES}));
+  NSString *installedPath=At(prefix,[State stringByAppendingPathComponent:@"installed.json"]),*stoppedPath=At(prefix,[State stringByAppendingPathComponent:@"stopped.json"]);
+  NSDictionary *installed=Exists(installedPath)?ReadJSON(prefix,installedPath,owner,error):nil;
+  NSDictionary *approval=receipt[@"uninstall"];
+  BOOL started=approval || (KuroBool(installed[@"neverStarted"]) && ![installed[@"neverStarted"]boolValue]);
+  if(started) {
+    if(!approval) {
+      NSDictionary *stopped=ReadJSON(prefix,stoppedPath,owner,error);
+      if(!KuroStoppedProofValid(stopped,manifest,receipt[@"manifestBytes"],receipt[@"inventoryBytes"],installed))return Fail(error,@"running-history install requires its protected completed-stop checkpoint");
+      approval=@{@"format":@1,@"installed":installed,@"stopped":stopped};
+    }
+    if((installed && ![installed isEqual:approval[@"installed"]]) || Exists(At(prefix,[State stringByAppendingPathComponent:@"session-work"])))return Fail(error,@"started installation identity or runtime changed; preserving install");
+    expected[installedPath]=Hash(JSONData(approval[@"installed"]));expected[stoppedPath]=Hash(JSONData(approval[@"stopped"]));
+  } else {
+    if(Exists(stoppedPath))return Fail(error,@"unexpected stopped proof on never-started installation preserved");
+    expected[installedPath]=Hash(JSONData(@{@"format":@1,@"release":manifest[@"release"],@"helperSHA256":helper,@"neverStarted":@YES}));
+  }
   expected[At(prefix,[State stringByAppendingPathComponent:@"transaction.json"])]=Hash(JSONData(@{@"format":@1,@"release":manifest[@"release"],@"stage":@"copying"}));
   int lock=ServiceLock(prefix,owner,error);if(lock<0)return NO;
   @try {
     // Complete verification precedes any deletion. Missing approved files are retryable.
     for(NSString *path in expected)if(Exists(path)&&![InstallFileHash(prefix,path,owner,error) isEqual:expected[path]])return Fail(error,@"changed partial installation preserved");
+    if(started && !receipt[@"uninstall"]) {
+      NSString *receiptPath=At(prefix,FreshReceipt);NSData *before=ReadProtected(prefix,receiptPath,owner,error);
+      NSMutableDictionary *updated=[KuroDecodeJSON(before,InventoryLimit*2,error)mutableCopy];if(!updated)return NO;
+      updated[@"uninstallJSON"]=[[NSString alloc]initWithData:JSONData(approval) encoding:NSUTF8StringEncoding];
+      NSString *temporary=[receiptPath stringByAppendingString:[@".pending-"stringByAppendingString:NSUUID.UUID.UUIDString]];
+      if(!WriteNew(temporary,JSONData(updated),0600,error) || ![ReadProtected(prefix,receiptPath,owner,error)isEqual:before] || rename(temporary.fileSystemRepresentation,receiptPath.fileSystemRepresentation) || !SyncInstallDirectory(receiptPath.stringByDeletingLastPathComponent,error))return Fail(error,@"completed-stop uninstall approval could not be persisted; installation preserved");
+    }
     NSData *authRecord=nil;if(!FreshAuthEvidence(prefix,owner,helper,&authRecord,error))return NO;
     if(!RemoveClientSubset(prefix,owner,entries,error))return NO;
     if(authRecord) {
