@@ -1,0 +1,9 @@
+{
+  "REPORT.md": "5521a940409f691ebf07b1e452ac2fb7b1634447135e12d7425133b1ab6d0e17",
+  "verification.json": "abfd0f469d6365f219290a8d3cd4b80911cd0d2c98156ca71c27f5c687eca134",
+  "verify.mjs": "f4abdd48486bcd8fbaf609fe1775ef3dbacbbd6d0d23d714de8d6d87158d1f63",
+  "package.json": "80734b194bbbdb7c80d01eef4229bd5b13a91fe46ef8cd75eb45d9b5ad245839",
+  "verify.stdout.log": "1e69c4f3efdd5cbcd8eb80a774aa067f8060780d5b9efdf5e85a59cdce89872c",
+  "verify.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "bom.txt": "594c6f240fbe5eff26c6f30439f526aa2c3203299f0cb29bcdf2354d79c13fbd"
+}

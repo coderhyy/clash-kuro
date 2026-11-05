@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process'
 import { EventEmitter } from 'node:events'
+import { createServer as createHttpServer } from 'node:http'
 import { createSocket } from 'node:dgram'
 import { lstat, mkdir, mkdtemp, readdir, readFile, rm, symlink } from 'node:fs/promises'
 import { createConnection, createServer, Socket } from 'node:net'
@@ -238,12 +239,35 @@ test.each(['direct', 'resident'] as const)('%s rejects UDP-only occupancy before
 
 test('direct API-ready Core without a mixed listener fails readiness and is stopped', async () => {
   let platform: DesktopPlatform
-  let mixedPort: number
-  const result = await fixture({ spawn: fakeCore(() => platform, () => mixedPort, false, false), startTimeoutMs: 500 })
+  const requests: Array<{ method: string | undefined; path: string | undefined }> = []
+  let completedResponses = 0
+  let childClosed = false
+  const api = createHttpServer((request, response) => {
+    requests.push({ method: request.method, path: request.url })
+    response.once('finish', () => { completedResponses++ })
+    response.setHeader('connection', 'close')
+    response.end('{"version":"fake"}')
+  })
+  const result = await fixture({ startTimeoutMs: 500, spawn: (_file, _args, options) => {
+    const channel = platform.controlChannel()
+    // Bind after startCore removes the old endpoint; keep API readiness independent
+    // of a second Node process's cold-start scheduling within the shared deadline.
+    api.listen(channel.kind === 'unix' ? channel.path : channel.name)
+    const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], options)
+    child.once('close', () => { childClosed = true })
+    return child
+  } })
+  cleanups.push(() => new Promise<void>((resolve, reject) => {
+    if (!api.listening) return resolve()
+    api.close(error => error ? reject(error) : resolve())
+  }))
   platform = result.platform
-  mixedPort = result.mixedPort
   await platform.writeFileAtomic('runtime.yaml', 'mode: direct')
   await expect(platform.startCore()).rejects.toThrow(/readiness timed out.*mixed-port/s)
+  expect(requests.length).toBeGreaterThan(0)
+  expect(requests.every(request => request.method === 'GET' && request.path === '/version')).toBe(true)
+  expect(completedResponses).toBeGreaterThan(0)
+  expect(childClosed, 'readiness failure must await the exact owned child close').toBe(true)
   expect(await platform.isCoreRunning()).toBe(false)
   expect(await platform.readFile('core.pid')).toBeNull()
 })
