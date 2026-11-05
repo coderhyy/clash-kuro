@@ -1,14 +1,18 @@
 # macOS 特权 helper
 
-Status: ready-for-agent（生产有限会话已接通；补 writer 恢复与升级缺口，root 窗口完成，TUN 窗口待准备）
+Status: ready-for-agent（eb4 生产候选已构建、CI通过；独立包审查通过；真实正常窗口待授权）
 Type: task
-Blocked by: 首次正常启停：修复生产初始状态与客户端恢复短路、冻结新候选；正式交付：真实异常恢复及崩溃卸载/升级验收
+Blocked by: 首次正常启停：现场基线/Profile一致性及主会话统一窗口；正式交付：真实异常恢复与升级验收
 Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
 
-## 当前状态（2026-11-05，49f7dd6）
+## 当前状态（2026-11-05，eb4beec）
 
-- **当前集成**：生产startup blocked/off必须经已鉴权恢复，不再off短路；完整临时安装身份/manifest→native Status/授权恢复→actual main/store/Profile/adapter→有限V2 start/stop组合7/7通过，错误身份/配置、auth-only、恢复失败拒绝。独立审查通过；实际Electron/root/TUN仍待新窗口。
-- held停止证明、同安装format3恢复证明及普通Core socket就绪权限竞态均已集成并通过隔离验证；新候选待整合CI通过后冻结。下方历史49失败与先前状态保留。
+- **当前候选**：源码 `eb4beec05283c60dd99715bf2b702a58c0fb9d44`，包 `kuro-tun-finite-session-0.1.0-arm64-eb4beec05283.pkg`，SHA256 `78cc71471ca1674e19caf4630798878330b452fb5b6ef2894fbdbda0fbc717d7`。[CI 42057942407](https://github.com/coderhyy/clash-kuro/actions/runs/42057942407) 双平台成功；标准原生测试含真实固定 Core `-t`、7条准入组合链通过。App 未运行；**独立离线包审查通过**，实际展开文件与本次构建及源码字节核对一致；[证据](../evidence/production-admission-20261105/offline-package-eb4/RESULT.md)。
+- **实现与门禁**：初始 `blocked/off` 必须经实际 App 鉴权恢复并独立读回 `ready/off`；held 停止证明、同安装 format3 恢复证明和普通 Core socket 就绪权限修复已集成。metadata 的 `disabled=true` / `serviceAutoStart=false` 表示安装时不自动启动服务；finite `startAvailable=true` / `productionActivation=true` 表示候选具备有限启动能力，实际运行仍需通过鉴权、恢复及网络读回门禁。
+- **下一窗口**：按 [NEXT-WINDOW](../evidence/production-admission-20261105/NEXT-WINDOW.md) 串行执行 fresh → 实际 App 鉴权/recover → 基线一致才使用已确认 router Profile → TUN 正常启停 → Core 流量/utun 与停止证明 → Quit/准确卸载，预计25–40分钟。第三方工具由用户关闭；基线变动不静默改 Profile。外网 IPv6、helper 强杀、TUN-on App 退出及实际升级不属于此窗口。
+- 49f7dd6 窗口未启动 Core/TUN且已清理；它是历史失败证据，不代表当前包已执行。当前验收仍未完成，下列历史记录保留时间与产物边界。
+
+## 历史记录（不作为 eb4 当前完成状态）
 
 - **最新真实窗口**：49f7dd6 fresh安装、实际App字节核验及helper启动成功，但生产初始blocked/off与客户端off短路导致无法ready；未运行Core/TUN。已正常退出App、卸载准确job/安装/receipt，代理/DNS/双族路由与新基线一致。[结果](../evidence/first-tun-window-20261105/RESULT.md)。窗口已结束；修复正在隔离实现并独立审查，不重试原包。
 - 真实held停止证明在owner清退前耐久保存的四文件修复已通过独立审查并集成；完整写出前崩溃仍不能合成held证明。它不在49包内，也不算真实TUN恢复通过。以下保留前一阶段状态。
