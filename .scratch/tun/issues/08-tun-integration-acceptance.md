@@ -1,15 +1,15 @@
 # macOS TUN 集成验收
 
-Status: ready-for-human（root 无网络窗口待批准；独立实现仍由 agent 推进）
+Status: ready-for-agent（root 无网络窗口完成；补生产恢复前置后安排首次 TUN 验收）
 Type: validation
-Blocked by: root 无网络实验窗口授权；首次 TUN 窗口的 baseline/Profile 与恢复前置；实际升级验收
+Blocked by: 首次 TUN 窗口的 baseline/Profile 与恢复前置；实际升级验收
 Owner: 主会话集成与最终验证；验收 agent 准备记录
 
 ## 当前状态（2026-11-05）
 
-- 替代源码 `69728e6abeb27f45f1bbea5b47b5e638d5f0ae9e` 已冻结；13项清单、27项源码blob、实际driver、固定恢复依赖和生成cleanup已独立核验，旧822候选不再执行。[精确产物与完整窗口](../evidence/next-root-window-20261105/WINDOW.md)。
-- 22项driver、8项独立恢复回归通过；停止证明修复通过完整原生fixture和独立生产调用链复核。该提交macOS／Windows CI均已通过；未重复本机真实Core或root实验。
-- 下一窗口包含旧四文件退役/证据归档、fresh安装、normal→kill、独立恢复及精确清理，待集中授权。跨helper writer证明、origin-only清退、真实TUN及升级验收仍未完成；IPv4-only上游保留双栈能力，真实网络验证另安排。
+- `69728e6` root无网络窗口已完成：真实normal私有接口/有限操作/持有停止通过；独立job SIGKILL后1s/5s准确Core及完整组消失，非30秒兜底。job及四安装文件已清除，证据和kill owner/work按约定保留。[本次证据](../evidence/root697-window-20261105/RESULT.md)。
+- 本次系统授权已结束。固定Core监督策略的真实证据缺口已解除；生产旧helper身份/装载绑定、origin-only清退及崩溃后卸载/升级仍需实现，不能把本次实验receipt变成生产停止证明。
+- `69728e6` macOS／Windows CI通过；双栈/IPv4-only上游实现仍待首次TUN网络窗口验证，不改第三方配置。
 
 ## 负责范围
 
@@ -281,3 +281,9 @@ helper死亡/跨重启对仍存在route/DNS的恢复、真实Core可能detach的
 - 下一窗口覆盖旧四文件退役/证据归档、fresh安装、normal→kill、独立恢复和精确清理。主会话21项driver＋9项archive集成测试通过；生产跨helper writer证明、origin-only工作目录清退和真实TUN网络仍未通过。
 - 诊断fixture取证已接入，有限10次/80场景未复现旧失败；历史exit97和零输出TERM15仍缺根因，不增加timeout/重试。[证据边界](../evidence/service-diagnostic-ci-20261105/RESULT.md)。
 - IPv4-only上游兼容修复已在源码；双栈能力保留，实际网络与第三方冲突验收另需窗口。正常重开保持TUN关闭。
+
+### root697执行前状态（历史）
+
+- 替代源码 `69728e6abeb27f45f1bbea5b47b5e638d5f0ae9e` 已冻结；13项清单、27项源码blob、实际driver、固定恢复依赖和生成cleanup已独立核验，旧822候选不再执行。[精确产物与完整窗口](../evidence/next-root-window-20261105/WINDOW.md)。
+- 22项driver、8项独立恢复回归通过；停止证明修复通过完整原生fixture和独立生产调用链复核。该提交macOS／Windows CI均已通过；未重复本机真实Core或root实验。
+- 下一窗口包含旧四文件退役/证据归档、fresh安装、normal→kill、独立恢复及精确清理，待集中授权。跨helper writer证明、origin-only清退、真实TUN及升级验收仍未完成；IPv4-only上游保留双栈能力，真实网络验证另安排。

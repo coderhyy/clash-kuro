@@ -1,3 +1,5 @@
+> Executed once and closed: see [root697 results](../root697-window-20261105/RESULT.md). This historical authorization is exhausted; do not rerun.
+
 # Root no-network window — pending one explicit authorization
 
 Source: `69728e6abeb27f45f1bbea5b47b5e638d5f0ae9e`.
