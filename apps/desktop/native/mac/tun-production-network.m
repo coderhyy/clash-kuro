@@ -111,12 +111,15 @@ static BOOL KuroPrivateEndpoint(NSString *text) {
   text=KuroCanonicalEndpoint(text); NSData *v4=KuroRouteIP(text,4); if (v4) { const unsigned char *a=v4.bytes; return a[0]==10 || a[0]==127 || (a[0]==172 && a[1]>=16 && a[1]<=31) || (a[0]==192 && a[1]==168) || (a[0]==169 && a[1]==254); }
   NSData *v6=KuroRouteIP(text,6); if (v6) { const unsigned char *a=v6.bytes; struct in6_addr ip; memcpy(&ip,a,16); return (a[0]&0xfe)==0xfc || IN6_IS_ADDR_LINKLOCAL(&ip) || IN6_IS_ADDR_LOOPBACK(&ip); } return NO;
 }
-static BOOL KuroPreservedEndpoint(NSString *text, NSArray *routes, NSString *physical, BOOL coreBound, NSString **error) {
+static BOOL KuroPreservedEndpoint(NSString *text, NSArray *routes, NSString *physical, BOOL coreBound, BOOL missingIPv6Default, NSString **error) {
   // A domain proxy address is resolved by the admitted Profile. This function
   // only claims preservation for literal endpoints observable in this baseline.
   struct in6_addr mapped={0};
   if ([text isKindOfClass:NSString.class] && inet_pton(AF_INET6,text.UTF8String,&mapped)==1 && IN6_IS_ADDR_V4MAPPED(&mapped)) return Fail(error,@"IPv4-mapped IPv6 endpoint is unsupported; cannot prove address-family route preservation");
-  if (!KuroPrivateEndpoint(text)) return YES;
+  // Missing external IPv6 does not disable local dual stack. Literal IPv6
+  // endpoints still need a preserved path outside the new split-default routes.
+  BOOL needsIPv6Route=missingIPv6Default && KuroRouteIP(KuroCanonicalEndpoint(text),6)!=nil;
+  if (!KuroPrivateEndpoint(text) && !needsIPv6Route) return YES;
   NSInteger longest=-1; NSMutableArray *matches=[NSMutableArray array];
   for (NSDictionary *route in routes) if (KuroRouteContainsIP(route,text) && [route[@"prefix"]intValue]>1 && ([route[@"flags"]unsignedIntValue]&RTF_UP)) {
     NSInteger prefix=[route[@"prefix"]integerValue];
@@ -125,7 +128,7 @@ static BOOL KuroPreservedEndpoint(NSString *text, NSArray *routes, NSString *phy
   }
   if (matches.count>1) return Fail(error,@"LAN/DNS endpoint has ambiguous longest-prefix scoped routes; preserving baseline");
   NSDictionary *best=matches.firstObject;
-  if (!best || ([best[@"flags"]unsignedIntValue]&(RTF_REJECT|RTF_BLACKHOLE)) || (coreBound && ![best[@"interfaceName"]isEqual:physical])) return Fail(error,[NSString stringWithFormat:@"LAN/DNS endpoint %@ has no provably preserved more-specific %@route; default-only private paths are unsupported",text,coreBound?@"physical ":@""]);
+  if (!best || ([best[@"flags"]unsignedIntValue]&(RTF_REJECT|RTF_BLACKHOLE)) || (coreBound && ![best[@"interfaceName"]isEqual:physical])) return Fail(error,[NSString stringWithFormat:@"LAN/DNS endpoint %@ has no provably preserved more-specific %@route%@; preserving configured endpoint",text,coreBound?@"physical ":@"",needsIPv6Route?@" while no IPv6 default exists":@""]);
   return YES;
 }
 
@@ -184,7 +187,7 @@ static BOOL KuroPreservedEndpoint(NSString *text, NSArray *routes, NSString *phy
     NSNumber *family=route[@"family"]; if (defaults[family]) return Fail(error,@"multiple unscoped default routes are unsupported"); defaults[family]=route;
   }
   NSDictionary *v4=defaults[@4],*v6=defaults[@6];
-  if (!v4 || !v6 || ![v4[@"interfaceName"]isEqual:v6[@"interfaceName"]] || ![v4[@"interfaceIndex"]isEqual:v6[@"interfaceIndex"]]) return Fail(error,@"IPv4 and IPv6 need one common observable physical default egress");
+  if (!v4 || (v6 && (![v4[@"interfaceName"]isEqual:v6[@"interfaceName"]] || ![v4[@"interfaceIndex"]isEqual:v6[@"interfaceIndex"]]))) return Fail(error,@"one observable IPv4 default egress is required; IPv6 must use the common observable physical egress when present");
   NSString *physical=v4[@"interfaceName"]; BOOL verified=NO;
   for (NSDictionary *entry in interfaces) if ([entry[@"family"]isEqual:@0] && [entry[@"name"]isEqual:physical] && [entry[@"index"]isEqual:v4[@"interfaceIndex"]] && [entry[@"linkType"]isEqual:@(IFT_ETHER)] &&
     ([entry[@"flags"]unsignedIntValue]&(IFF_UP|IFF_RUNNING|IFF_LOOPBACK|IFF_POINTOPOINT))==(IFF_UP|IFF_RUNNING)) verified=YES;
@@ -198,8 +201,8 @@ static BOOL KuroPreservedEndpoint(NSString *text, NSArray *routes, NSString *phy
     for (NSDictionary *entry in interfaces) if ((!scoped || [entry[@"name"]isEqual:scoped]) && (!index || [entry[@"index"]isEqual:index])) known=YES;
     if (!known) return Fail(error,@"scoped DNS interface is unavailable; preserving existing resolver");
     for (NSString *address in record[@"ServerAddresses"]) {
-      if (!KuroPreservedEndpoint(address,routes,physical,NO,error)) return NO;
-      if ((scoped || index) && KuroPrivateEndpoint(address)) {
+      if (!KuroPreservedEndpoint(address,routes,physical,NO,!v6,error)) return NO;
+      if ((scoped || index) && (KuroPrivateEndpoint(address) || (!v6 && KuroRouteIP(KuroCanonicalEndpoint(address),6)))) {
         BOOL preserved=NO; for (NSDictionary *route in routes) if ([route[@"prefix"]intValue]>1 && KuroRouteContainsIP(route,address) &&
           (!scoped || [route[@"interfaceName"]isEqual:scoped]) && (!index || [route[@"interfaceIndex"]isEqual:index]) && ([route[@"flags"]unsignedIntValue]&RTF_UP) && !([route[@"flags"]unsignedIntValue]&(RTF_REJECT|RTF_BLACKHOLE))) preserved=YES;
         if (!preserved) return Fail(error,@"scoped LAN DNS server has no preserved route on its original interface");
@@ -210,7 +213,7 @@ static BOOL KuroPreservedEndpoint(NSString *text, NSArray *routes, NSString *phy
   for (NSString *field in @[@"nameservers",@"bootstrap",@"proxyNameservers"]) [endpoints addObjectsFromArray:settings[field]];
   for (NSDictionary *policy in settings[@"policies"]) [endpoints addObjectsFromArray:policy[@"nameservers"]];
   for (NSDictionary *proxy in config[@"proxies"]) [endpoints addObject:proxy[@"server"]];
-  for (NSString *address in endpoints) if (!KuroPreservedEndpoint(address,routes,physical,YES,error)) return NO;
+  for (NSString *address in endpoints) if (!KuroPreservedEndpoint(address,routes,physical,YES,!v6,error)) return NO;
   _baselineRoutes=routes; _baselineDNS=dns; _physical=[physical copy]; _prepared=YES; return YES;
 }
 - (BOOL)unchangedBaseline:(NSString **)error { return [self unchangedBaselineInstalled:NO error:error]; }

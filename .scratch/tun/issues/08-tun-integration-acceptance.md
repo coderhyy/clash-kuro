@@ -7,6 +7,8 @@ Owner: 主会话集成与最终验证；验收 agent 准备记录
 
 ## 当前状态（2026-11-05，覆盖下方历史检查点）
 
+**最新真实窗口：** root normal 的 Core 私有接口、SIGTERM exit0及 native清退通过，但观察器把布尔输出为数字1，严格驱动拒绝；kill未执行。原retire同门失败，job仍注册但not running，四安装文件及受限证据保留；本次授权已结束。[结果与准确残留](../evidence/root-core-window-20261105/RESULT.md)。
+
 冻结生产候选 4abee2431de852244e43bf5ecab86cfcf91fb259，同提交 macOS/Windows CI 与离线包核验通过；普通用户真实 Core normal/EOF 通过。本轮恢复/升级增量单独提交，尚未进入该包；首次相关验收前再冻结，不为文档或未变链路重打。下一步 root Core → TUN 正常启停 → 实际 App 退出 → 条件满足后异常恢复。未批准的系统操作不执行；相关实现未变不重复普通用户实验或重打包。
 
 本轮[恢复/升级增量](../evidence/recovery-followup-20261105/RESULT.md)已通过独立审查和组合隔离测试；未据此重跑真实Core或生成新包。
@@ -31,12 +33,12 @@ Owner: 主会话集成与最终验证；验收 agent 准备记录
 
 | 阶段 | 已准备 | 仍缺什么 | 维护者最少操作 |
 | --- | --- | --- | --- |
-| A：root 固定 Core，无 TUN | 85834ab 冻结执行器/两个独立 epoch/精确清单、normal/kill/retire 驱动；另补四固定安装文件cleanup入口 | 新组合窗口授权；真实 launchd 监督结果 | 批准下述约10–15分钟窗口；处理管理员弹窗 |
+| A：root 固定 Core，无 TUN | 85834ab 冻结执行器/两个独立 epoch/精确清单、normal/kill/retire 驱动；另补四固定安装文件cleanup入口 | normal观察协议修复及准确残留恢复；kill未执行，不沿用原授权 | 需另行确认最小恢复；不重试原epoch |
 | B：首次 TUN 正常启停及实际 App 退出 | 4abee24 finite-session 候选、双平台 CI、生产鉴权/会话/双栈/停止和恢复入口；固定 job 命令 | A 的结果评估；现场只读 baseline、真实 DNS/Profile 可表达性、精确 YAML/hash 与受控 IPv4/IPv6/LAN/分域目标；load-F/rootTUN/实际Quit/运行后卸载实证 | 在上述前置核验后集中批准约35–50分钟窗口；管理员弹窗；必要时确认现有 Profile/受控目标，无需逐参数选择 |
 | C：helper 强杀及下次启动完整恢复 | 精确 DNS 局部恢复、旧 Core 身份拒绝门、工作目录校验 | **实现和实证均缺**：可信且绑定原会话的 writer 退出依据、origin-only cache 清退、完整恢复/停止证明；仍存在的 route 不因记录 PID 获得删除权 | 当前不请求故障注入授权；不得因 A 组观察通过就跳过实现门 |
 | D：实际升级及恢复 | 升级事务/回滚入口、已冻结 App-only 升级对、隔离中断测试；末次fsync重试已修复并通过隔离测试 | 实际升级/失败恢复验收；运行过后升级需先有准确停止证明 | 单独明确非网络升级范围及管理员弹窗；不把 fresh 授权扩大为主动中断升级 |
 
-### 现在可批准的 A 窗口
+### A 窗口历史授权范围（已执行并因观察协议失败停止，勿重试）
 
 精确产物：[85834ab冻结记录](../evidence/lifecycle-core-preparation-85834ab/RESULT.md)，目录 `/private/tmp/kuro-lifecycle-core-review-85834ab`。fixture SHA256 `e5c949f29785297b8ba8ac5a5be76f8483dea17d0bf7daf20860cbd33daeb1f1`；approval SHA256 `c20eb39a0032b73a4b6b5b229377642f2504aac30b77fe9ae592b3bb5ed29ec1`。它是独立监督实验，不是4abee24生产安装包；本轮未修改/重冻它。
 
@@ -62,7 +64,7 @@ Owner: 主会话集成与最终验证；验收 agent 准备记录
 
 ### B 当前环境预检结果
 
-只读预检已发现既存经utun1024的IPv4 `/1` 路由，宿主IPv6默认路由查询返回not in table。当前生产预检分别拒绝第三方split-default冲突，以及缺少IPv6默认路由；后者是待修复的IPv4-only兼容性限制，不是已批准的产品启动要求。完整外网双栈验收需要可用IPv6环境；产品本身不能因此要求上游必须双栈。固定本地双栈模板保留，IPv4-only上游兼容性纳入06；不自动关闭第三方VPN、改路由或静默关闭IPv6。现场冲突和Profile/目标尚未冻结，首次TUN窗口仍未准备完成。两项均不影响A的无网络测量。原始地址/域名仅本地受限保存，见[脱敏证据](../evidence/tun-readonly-preflight-20261105/RESULT.md)。
+只读预检已发现既存经utun1024的IPv4 `/1` 路由，宿主IPv6默认路由查询返回not in table。当前生产预检分别拒绝第三方split-default冲突，以及缺少IPv6默认路由；后者是旧候选的IPv4-only兼容性限制，不是已批准的产品启动要求；当前源码已补兼容与端点保护，隔离检查通过，旧冻结包尚未更新。完整外网双栈验收需要可用IPv6环境；产品本身不能因此要求上游必须双栈。固定本地双栈模板保留，IPv4-only上游兼容性纳入06；不自动关闭第三方VPN、改路由或静默关闭IPv6。现场冲突和Profile/目标尚未冻结，首次TUN窗口仍未准备完成。两项均不影响A的无网络测量。原始地址/域名仅本地受限保存，见[脱敏证据](../evidence/tun-readonly-preflight-20261105/RESULT.md)。
 
 ### B 窗口准备完成后的单次确认内容
 

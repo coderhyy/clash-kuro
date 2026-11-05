@@ -7,6 +7,8 @@ Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
 
 ## 当前状态（2026-11-05，覆盖下方历史检查点）
 
+**最新真实窗口：** root normal 的 Core 私有接口、SIGTERM exit0及 native清退通过，但观察器把布尔输出为数字1，严格驱动拒绝；kill未执行。原retire同门失败，job仍注册但not running，四安装文件及受限证据保留；本次授权已结束。[结果与准确残留](../evidence/root-core-window-20261105/RESULT.md)。
+
 安装鉴权、有限控制、held-child 停止证明、升级事务及精确卸载已有实现/隔离证据；真实普通用户 Core normal/EOF 已通过。fresh 安装/卸载历史验收通过，不代表升级或运行后卸载通过。跨 helper 精确 DNS 可独立清理；origin-only cache 和未知 writer 继续保留，不能报告完整恢复。
 
 本轮已补齐旧组非空/不可完整观察时的恢复拒绝及升级最后回执fsync重试，两项均通过独立审查和组合隔离测试；不把空组当writer证明，修复尚未进入旧包。[增量证据](../evidence/recovery-followup-20261105/RESULT.md)。

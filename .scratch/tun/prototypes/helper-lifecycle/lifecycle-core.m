@@ -138,11 +138,15 @@ static int LCRun(NSDictionary *approval,NSString *base,NSString *core,NSString *
   if(!passed)fprintf(stderr,"BLOCKED %s (%s)\n",(error?:saved?:@"incomplete experiment").UTF8String,failureStage.UTF8String);
   NSData *encoded=JSONData(result);fwrite(encoded.bytes,1,encoded.length,stdout);puts("");return passed?0:2;
 }
+static NSDictionary *LCInspectResult(NSString *epoch,NSDictionary *supervisor,NSDictionary *child,NSArray *members,uint64_t elapsed,BOOL workExists,BOOL ownerExists,NSString *error) {
+  BOOL groupObservationKnown=members!=nil;
+  return @{@"epoch":epoch,@"supervisor":supervisor,@"child":child,@"groupMembers":members?:@[],@"groupObservationKnown":@(groupObservationKnown),@"elapsedMilliseconds":@(elapsed),@"workExists":@(workExists),@"ownerExists":@(ownerExists),@"error":error?:@""};
+}
 static int LCInspect(NSDictionary *approval,NSString *stage) {
   NSString *base=[LCBase stringByAppendingPathComponent:stage];NSDictionary *evidence=ReadJSON(LCBase,[base stringByAppendingPathComponent:@"evidence.json"],0,NULL);
   if(![evidence[@"epoch"]isEqual:approval[[stage stringByAppendingString:@"Epoch"]]])return 2;
   NSString *error=nil;NSArray *members=ExperimentGroupMembers([evidence[@"supervisor"][@"processGroup"]intValue],&error);
-  NSDictionary *result=@{@"epoch":evidence[@"epoch"],@"supervisor":LCObservation(evidence[@"supervisor"]),@"child":LCObservation(evidence[@"child"]),@"groupMembers":members?:@[],@"groupObservationKnown":@(members!=nil),@"elapsedMilliseconds":@(KuroMonotonicMilliseconds()-[evidence[@"startedMilliseconds"]unsignedLongLongValue]),@"workExists":@(Exists([base stringByAppendingPathComponent:@"session-work"])),@"ownerExists":@(Exists([base stringByAppendingPathComponent:@"owner.json"])),@"error":error?:@""};
+  NSDictionary *result=LCInspectResult(evidence[@"epoch"],LCObservation(evidence[@"supervisor"]),LCObservation(evidence[@"child"]),members,KuroMonotonicMilliseconds()-[evidence[@"startedMilliseconds"]unsignedLongLongValue],Exists([base stringByAppendingPathComponent:@"session-work"]),Exists([base stringByAppendingPathComponent:@"owner.json"]),error);
   NSData *data=JSONData(result);fwrite(data.bytes,1,data.length,stdout);puts("");return 0;
 }
 static int LCSelfTest(void) {

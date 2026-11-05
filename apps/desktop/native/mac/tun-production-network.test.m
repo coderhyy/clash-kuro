@@ -30,7 +30,9 @@ static KuroNetworkEnvironment *RecoveryFixtureEnvironment(void) {
   environment.ownership=^KuroRouteOwnerState(KuroCoreInterface value,NSString **error){(void)value;(void)error;CHECK(NO);return KuroRouteOwnerUnknown;};
   environment.probeDNS=^BOOL(KuroCoreInterface value,NSString **error){(void)value;(void)error;CHECK(NO);return NO;};return environment;
 }
+static void IPv4UpstreamTests(void);
 static void ProductionNetworkTests(void) {
+  IPv4UpstreamTests();
   CHECK(geteuid()!=0); NSString *error=nil,*session=@"00112233-4455-6677-8899-AABBCCDDEEFF";
   CHECK(([KuroProductionRuntimeFields()[@"hosts"][KuroReadinessDomain]isEqual:@[@"198.18.0.1",@"fdfe:dcba:9876::1"]]));
   for (NSNumber *family in @[@4,@6]) {
@@ -42,12 +44,12 @@ static void ProductionNetworkTests(void) {
   KuroCoreInterface association=RouteFixtureInterface();
   CHECK(KuroCoreAddressesReady(association,ProductionInterfaces(YES),&error));
   CHECK(!KuroCoreAddressesReady(association,ProductionInterfaces(NO),&error));
-  CHECK(!KuroPreservedEndpoint(@"fd00:0000:0000:0000:0000:0000:0000:0001",ProductionBaseline(),@"en0",YES,&error));
-  CHECK(!KuroPreservedEndpoint(@"::ffff:c0a8:101",ProductionBaseline(),@"en0",YES,&error));
-  CHECK(KuroPreservedEndpoint(@"192.168.1.53",ProductionBaseline(),@"en0",YES,&error));
+  CHECK(!KuroPreservedEndpoint(@"fd00:0000:0000:0000:0000:0000:0000:0001",ProductionBaseline(),@"en0",YES,NO,&error));
+  CHECK(!KuroPreservedEndpoint(@"::ffff:c0a8:101",ProductionBaseline(),@"en0",YES,NO,&error));
+  CHECK(KuroPreservedEndpoint(@"192.168.1.53",ProductionBaseline(),@"en0",YES,NO,&error));
   NSArray *specificLast=@[ProductionRoute(4,@"192.168.0.0",16,@"link",@"en0",2,RTF_UP),ProductionRoute(4,@"192.168.0.0",16,@"link",@"en1",3,RTF_UP),ProductionBaseline()[2]];
-  CHECK(KuroPreservedEndpoint(@"192.168.1.53",specificLast,@"en0",YES,&error));
-  CHECK(!KuroPreservedEndpoint(@"192.168.2.53",specificLast,@"en0",YES,&error));
+  CHECK(KuroPreservedEndpoint(@"192.168.1.53",specificLast,@"en0",YES,NO,&error));
+  CHECK(!KuroPreservedEndpoint(@"192.168.2.53",specificLast,@"en0",YES,NO,&error));
   NSMutableArray *wrongAddresses=[ProductionInterfaces(YES)mutableCopy]; NSMutableDictionary *wrong=[wrongAddresses.lastObject mutableCopy]; wrong[@"prefix"]=@64; wrongAddresses[wrongAddresses.count-1]=wrong;
   CHECK(!KuroCoreAddressesReady(association,wrongAddresses,&error));
   char temporary[]="/tmp/kuro-production-network-XXXXXX"; CHECK(mkdtemp(temporary)); char canonical[PATH_MAX]; CHECK(realpath(temporary,canonical)); NSString *base=@(canonical);
@@ -138,4 +140,78 @@ static void ProductionNetworkTests(void) {
   }
   CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);
   puts("production network: inert construction, local-only DNS packets, baseline admission, dual-stack apply, partial failure, held-owner and restart absence fixtures passed (no system network calls)");
+}
+
+// No external IPv6 reachability is claimed: both local TUN families stay required.
+static void IPv4UpstreamTests(void) {
+  NSString *session=@"00112233-4455-6677-8899-AABBCCDDEEFF";
+  char temporary[]="/tmp/kuro-ipv4-upstream-XXXXXX";CHECK(mkdtemp(temporary));char canonical[PATH_MAX];CHECK(realpath(temporary,canonical));NSString *base=@(canonical);
+  KuroCoreInterface association=RouteFixtureInterface();
+  for(NSUInteger scenario=0;scenario<18;scenario++) {
+    NSString *directory=[base stringByAppendingPathComponent:[NSString stringWithFormat:@"case%lu",(unsigned long)scenario]],*error=nil;FixtureDirectory(directory);
+    KuroFakeRouteStore *routes=[KuroFakeRouteStore new];routes.directory=directory;routes.entries=[ProductionBaseline()mutableCopy];[routes.entries removeObjectAtIndex:1];
+    KuroFakeDNSStore *dns=[KuroFakeDNSStore new];dns.directory=directory;
+    dns.records[@"State:/Network/Service/corp/DNS"]=@{@"ServerAddresses":@[@"192.168.1.53"],@"SupplementalMatchDomains":@[@"corp.example"],@"SupplementalMatchOrders":@[@100]};
+    NSMutableDictionary *config=[ProductionConfig()mutableCopy],*settings=[config[@"dns"]mutableCopy];settings[@"bootstrap"]=@[@"192.0.2.53"];config[@"dns"]=settings;
+    __block NSArray *interfaces=ProductionInterfaces(NO);__block NSUInteger probes=0;
+    if(scenario>=1&&scenario<=3)settings[@[@"nameservers",@"bootstrap",@"proxyNameservers"][scenario-1]]=@[@"2001:db8::53"];
+    if(scenario==4)settings[@"policies"]=@[@{@"domain":@"corp.example",@"nameservers":@[@"2001:db8::53"]}];
+    if(scenario==5)config[@"proxies"]=@[@{@"type":@"http",@"name":@"edge",@"server":@"2001:db8::53",@"port":@8080}];
+    if(scenario==6)dns.records[@"State:/Network/Service/default/DNS"]=@{@"ServerAddresses":@[@"2001:db8::53"]};
+    if(scenario==7) {
+      dns.records[@"State:/Network/Interface/en1/DNS"]=@{@"ServerAddresses":@[@"2001:db8::53"],@"InterfaceIndex":@3,@"SupplementalMatchDomains":@[@"corp.example"]};
+      interfaces=[interfaces arrayByAddingObject:@{@"family":@0,@"name":@"en1",@"index":@3,@"flags":@(IFF_UP|IFF_RUNNING),@"linkType":@(IFT_ETHER)}];
+      [routes.entries addObject:ProductionRoute(6,@"2001:db8::",64,@"link",@"en0",2,RTF_UP)];
+    }
+    if(scenario==8||scenario==12||scenario==13) {
+      settings[@"bootstrap"]=@[@"2001:db8::53"];
+      [routes.entries addObject:ProductionRoute(6,@"2001:db8::",64,@"link",@"en0",2,RTF_UP|(scenario==13?RTF_REJECT:0))];
+      if(scenario==12)[routes.entries addObject:ProductionRoute(6,@"2001:db8::",64,@"link",@"en1",3,RTF_UP)];
+    }
+    if(scenario==9)[routes.entries removeObjectAtIndex:0];
+    if(scenario==10||scenario==11) {NSMutableDictionary *v6=[ProductionBaseline()[1]mutableCopy];v6[scenario==10?@"interfaceName":@"interfaceIndex"]=scenario==10?(id)@"en1":@3;[routes.entries addObject:v6];}
+    if(scenario==15) {
+      dns.records[@"State:/Network/Interface/en1/DNS"]=@{@"ServerAddresses":@[@"fd00::53"],@"InterfaceIndex":@3,@"SupplementalMatchDomains":@[@"corp.example"]};
+      interfaces=[interfaces arrayByAddingObject:@{@"family":@0,@"name":@"en1",@"index":@3,@"flags":@(IFF_UP|IFF_RUNNING),@"linkType":@(IFT_ETHER)}];
+      [routes.entries addObject:ProductionRoute(6,@"fd00::",64,@"link",@"en1",3,RTF_UP)];
+    }
+    if(scenario==16) {NSMutableArray *changed=[interfaces mutableCopy];NSMutableDictionary *physical=[changed[0]mutableCopy];physical[@"flags"]=@(IFF_UP);changed[0]=physical;interfaces=changed;}
+    if(scenario==17)config[@"proxies"]=@[@{@"type":@"http",@"name":@"edge",@"server":@"proxy.example",@"port":@8080}];
+    NSData *originalConfig=JSONData(config);NSDictionary *originalDNS=[dns.records copy];NSArray *originalRoutes=[routes.entries copy];
+    KuroNetworkEnvironment *environment=[KuroNetworkEnvironment new];
+    environment.interfaces=^NSArray *(NSString **failure){(void)failure;return interfaces;};
+    environment.observeChild=^BOOL(pid_t child,KuroCoreInterface *result,NSString **failure){(void)failure;CHECK(child==association.process.pid);*result=association;return YES;};
+    environment.ownership=^KuroRouteOwnerState(KuroCoreInterface expected,NSString **failure){(void)failure;CHECK([KuroRouteAssociation(expected)isEqual:KuroRouteAssociation(association)]);return KuroRouteOwnerLive;};
+    environment.probeDNS=^BOOL(KuroCoreInterface expected,NSString **failure){(void)expected;(void)failure;probes++;return YES;};
+    KuroProductionNetwork *network=[[KuroProductionNetwork alloc]initWithDirectory:directory owner:geteuid() routes:routes dns:dns environment:environment];
+    BOOL accepted=[network preflightConfig:config error:&error],expected=scenario==0||scenario==8||scenario==14||scenario==15||scenario==17;
+    CHECK(accepted==expected);CHECK([JSONData(config)isEqual:originalConfig]&&[dns.records isEqual:originalDNS]&&[routes.entries isEqual:originalRoutes]);
+    CHECK(!routes.additions&&!dns.additions&&!probes);
+    if(!expected) {
+      CHECK(error.length&&!network.runtimeInterfaceName);
+      if((scenario>=1&&scenario<=6)||scenario==13)CHECK([error containsString:@"2001:db8::53"]&&[error containsString:@"no IPv6 default"]);
+      if(scenario==7)CHECK([error containsString:@"original interface"]);
+      if(scenario==9)CHECK([error containsString:@"IPv4 default"]);
+      if(scenario==10||scenario==11)CHECK([error containsString:@"common observable"]);
+      if(scenario==12)CHECK([error containsString:@"ambiguous"]);
+      if(scenario==16)CHECK([error containsString:@"verified running"]);
+      continue;
+    }
+    CHECK([network.runtimeInterfaceName isEqual:@"en0"]);
+    NSDictionary *runtime=KuroDecodeJSON(KuroTunRuntimeJSON(originalConfig,&error),128*1024,&error);
+    CHECK([runtime[@"ipv6"]isEqual:@YES]&&[runtime[@"dns"][@"ipv6"]isEqual:@YES]);
+    CHECK([runtime[@"dns"][@"default-nameserver"]isEqual:settings[@"bootstrap"]]);
+    CHECK(([runtime[@"tun"][@"inet6-address"]isEqual:@[@"fdfe:dcba:9876::1/126"]]));
+    NSMutableArray *readyInterfaces=[interfaces mutableCopy];for(NSDictionary *entry in ProductionInterfaces(YES))if([entry[@"name"]isEqual:@"utun7"])[readyInterfaces addObject:entry];interfaces=readyInterfaces;
+    [routes.entries addObject:ProductionRoute(4,@"198.18.0.0",30,@"link",@"utun7",7,RTF_UP)];[routes.entries addObject:ProductionRoute(6,@"fdfe:dcba:9876::",126,@"link",@"utun7",7,RTF_UP)];
+    if(scenario==14) { [routes.entries addObject:ProductionBaseline()[1]];CHECK(![network readyChild:association.process.pid session:session error:&error]);CHECK([error containsString:@"unexpected route"]&&!routes.additions&&!dns.additions);continue; }
+    CHECK([network readyChild:association.process.pid session:session error:&error]);CHECK([network applyChild:association.process.pid session:session error:&error]);
+    CHECK(routes.additions==4&&dns.additions==1&&probes>0);
+    CHECK(([dns.records[KuroDNSKey(session)][@"ServerAddresses"]isEqual:@[@"198.18.0.2",@"fdfe:dcba:9876::2"]]));
+    CHECK([network confirmSession:session error:&error]);CHECK([network recoverSession:session error:&error]&&network.networkOff);
+    CHECK(routes.deletions==4&&dns.removals==1&&[dns.records isEqual:originalDNS]);
+    for(NSDictionary *entry in originalRoutes)CHECK([routes.entries containsObject:entry]);
+  }
+  CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);
+  puts("IPv4-only upstream: 18 admission/apply/recovery cases preserve dual-stack TUN, four routes, both DNS addresses and existing LAN/scoped DNS; unsafe literal paths and egress changes rejected (mock only)");
 }

@@ -1,6 +1,7 @@
 import hashlib
 import importlib.util
 import json
+import subprocess
 from pathlib import Path
 import tempfile
 import unittest
@@ -27,6 +28,41 @@ def receipt():
             'termination':{'request':'SIGTERM','observed':True,'exitCode':0,'signal':None}, 'error':''}
 
 class CoreDriverTests(unittest.TestCase):
+    def test_native_observer_serialization_preserves_boolean_wire_types(self):
+        # Compile the exact production result builder and serializer, not @YES samples.
+        source = (p.HERE / 'lifecycle-core.m').read_text()
+        builder = source[source.index('static NSDictionary *LCInspectResult('):source.index('static int LCInspect(')]
+        inspect = source[source.index('static int LCInspect('):source.index('static int LCSelfTest(')]
+        self.assertIn('LCInspectResult(', inspect)
+        helper = (p.REPO / 'apps/desktop/native/mac/kuro-tun-helper.m').read_text()
+        serializer = next(line for line in helper.splitlines() if line.startswith('static NSData *JSONData('))
+        main = r'''int main(void) { @autoreleasepool {
+          for (unsigned bits=0;bits<8;bits++) {
+            NSArray *members=(bits&1)?@[]:nil;
+            NSDictionary *result=LCInspectResult(@"9913EF14-7359-4007-A87D-D0C396905221",@{@"state":@"absent"},@{@"state":@"absent"},members,5,(BOOL)((bits&2)!=0),(BOOL)((bits&4)!=0),nil);
+            NSData *bytes=JSONData(result);fwrite(bytes.bytes,1,bytes.length,stdout);puts("");
+          }
+        } return 0; }'''
+        with tempfile.TemporaryDirectory() as directory:
+            native = Path(directory) / 'wire.m'; binary = Path(directory) / 'wire'
+            native.write_text('#import <Foundation/Foundation.h>\n' + serializer + '\n' + builder + main)
+            subprocess.run(['/usr/bin/clang', '-fobjc-arc', '-Wall', '-Wextra', '-Werror', '-O2', '-framework', 'Foundation', str(native), '-o', str(binary)], check=True, capture_output=True, timeout=30)
+            values = [json.loads(line) for line in subprocess.check_output([str(binary)], text=True, timeout=5).splitlines()]
+        self.assertEqual(len(values), 8)
+        for bits, value in enumerate(values):
+            for field, mask in (('groupObservationKnown', 1), ('workExists', 2), ('ownerExists', 4)):
+                self.assertIs(type(value[field]), bool)
+                self.assertIs(value[field], bool(bits & mask))
+            if bits & 1:
+                d.absent(value)
+            else:
+                with self.assertRaises(RuntimeError): d.absent(value)
+        legacy = dict(values[1], groupObservationKnown=1)
+        with self.assertRaises(RuntimeError): d.absent(legacy)
+        with patch.object(d, 'installed'), patch.object(d, 'inspect', return_value=legacy), patch.object(d.u, 'launch') as launch:
+            with self.assertRaises(RuntimeError): d.retire(A, 'normal')
+            launch.assert_not_called()
+
     def test_exact_plist_inherits_group_and_closed_cli(self):
         value = p.plist_for(A, 'normal')
         self.assertEqual(value, d.plist_for(A, 'normal'))
@@ -94,9 +130,10 @@ class CoreDriverTests(unittest.TestCase):
 
     def test_kill_unknown_cannot_signal_persisted_pid(self):
         evidence={'epoch':A['killEpoch'],'supervisor':{'pid':42},'child':{'pid':43}}
-        with patch.object(d,'start'),patch.object(d,'read',return_value=json.dumps(evidence).encode()),patch.object(d,'inspect',return_value=dict(ABSENT,child={'state':'unknown'})),patch.object(d.u,'launch') as launch,patch.object(d.time,'monotonic',side_effect=[1,100]):
-            with self.assertRaises(RuntimeError):d.kill_test(A)
-            launch.assert_not_called()
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(d,'BASE',Path(directory)),patch.object(d,'start'),patch.object(d,'read',return_value=json.dumps(evidence).encode()),patch.object(d,'inspect',return_value=dict(ABSENT,child={'state':'unknown'})),patch.object(d.u,'launch') as launch,patch.object(d.time,'monotonic',side_effect=[1,100]):
+                with self.assertRaises(RuntimeError):d.kill_test(A)
+                launch.assert_not_called()
 
     def test_retire_unknown_cannot_bootout_or_delete(self):
         with patch.object(d,'installed'),patch.object(d,'inspect',return_value=dict(ABSENT,child={'state':'unknown'})),patch.object(d.u,'launch') as launch:

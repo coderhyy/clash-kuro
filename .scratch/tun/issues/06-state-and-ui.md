@@ -7,11 +7,13 @@ Owner: TUN 接入 agent；主会话统一 Core/State/桌面公共接口与源码
 
 ## 当前状态（2026-11-05，覆盖下方历史检查点）
 
+**最新真实窗口：** root normal 的 Core 私有接口、SIGTERM exit0及 native清退通过，但观察器把布尔输出为数字1，严格驱动拒绝；kill未执行。原retire同门失败，job仍注册但not running，四安装文件及受限证据保留；本次授权已结束。[结果与准确残留](../evidence/root-core-window-20261105/RESULT.md)。
+
 配置准入、有限会话、模式互斥、启动/停止、恢复入口与最小 UI 已接线；停止证据不足仍拒绝 Backup/模式切换。固定双栈/LAN/分域 DNS 已实现但未完成真实网络验收；owner EOF 实验不等于 Electron 退出。正常重开保持 TUN 关闭，不自动恢复。
 
 本轮已补齐旧组非空/不可完整观察时的恢复拒绝及升级最后回执fsync重试，两项均通过独立审查和组合隔离测试；不把空组当writer证明，修复尚未进入旧包。[增量证据](../evidence/recovery-followup-20261105/RESULT.md)。
 
-**IPv4-only 兼容性尚有实现缺口**：当前 `tun-production-network.m` 要求两族默认路由同时存在且同物理出口，缺 IPv6 默认路由会拒绝 TUN（不影响 App/普通模式启动）。ADR-0017 未批准此产品限制；应保留双栈固定模板，同时支持仅 IPv4 上游。需核对出口绑定、DNS/代理端点可达性及无 IPv6 上游时的失败行为后修正，不能只删一个 guard 或静默关闭 IPv6。完整外网双栈验收另需可用 IPv6 环境；第三方 split-default 冲突单独处理，绝不自动改第三方设置。
+**IPv4-only 上游准入已修复，真机未验收**：可信IPv4默认出口必需，IPv6默认出口可缺；存在时仍要求同物理出口。无IPv6默认时literal IPv6 DNS/代理端点须有明确可保留路径，不能静默删DNS/换供应商。保留双栈utun、四路由、A/AAAA及恢复门；18个新增隔离场景和原网络场景通过独立审查及主会话集成验证。冻结旧生产包尚不含本修复，第三方split-default冲突依然独立拒绝。
 
 精确产物与证据见 [当前候选](../evidence/finite-candidate-4abee24/RESULT.md)。人工操作集中见 [08 当前窗口](08-tun-integration-acceptance.md#当前人工窗口与前置条件)。历史记录保留，不将旧拒绝门或旧授权描述当作当前状态。
 
