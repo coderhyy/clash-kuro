@@ -1,3 +1,4 @@
+#import "tun-core-control.m"
 // Included after the fixed installer helpers. Internal APIs only; this class
 // never takes a caller-supplied executable, HTTP method/path, or working directory.
 typedef BOOL (^KuroServiceAuthorize)(int peer, NSString *configDigest, NSString **error);
@@ -7,6 +8,7 @@ typedef BOOL (^KuroServiceRecovery)(NSString *session, NSString **error);
 @interface KuroTunServiceHooks : NSObject
 @property(nonatomic, copy) KuroServiceAuthorize authorize;
 @property(nonatomic, copy) KuroServicePreflight preflight;
+@property(nonatomic, copy) KuroSessionHook beforeResume;
 @property(nonatomic, copy) KuroServiceProcessHook ready;
 @property(nonatomic, copy) KuroServiceProcessHook applyNetwork;
 @property(nonatomic, copy) KuroServiceRecovery recoverNetwork;
@@ -22,16 +24,6 @@ static NSDictionary *KuroServiceError(NSString *message) { return @{@"version":@
 static BOOL KuroServiceReply(int peer, NSDictionary *value) {
   NSMutableData *bytes=[JSONData(value) mutableCopy]; [bytes appendBytes:"\n" length:1];
   return send(peer,bytes.bytes,bytes.length,MSG_NOSIGNAL|MSG_DONTWAIT)==(ssize_t)bytes.length;
-}
-static NSString *KuroPathComponent(NSString *name) {
-  NSData *bytes=[name dataUsingEncoding:NSUTF8StringEncoding]; NSMutableString *encoded=[NSMutableString string];
-  const unsigned char *input=bytes.bytes;
-  for(NSUInteger i=0;i<bytes.length;i++) {
-    unsigned char c=input[i];
-    if((c>='a'&&c<='z')||(c>='A'&&c<='Z')||(c>='0'&&c<='9')||c=='-'||c=='_'||c=='.'||c=='~') [encoded appendFormat:@"%c",c];
-    else [encoded appendFormat:@"%%%02X",c];
-  }
-  return encoded;
 }
 @interface KuroControlCall : NSObject
 @property(nonatomic) NSCondition *condition;
@@ -170,7 +162,7 @@ static NSString *KuroPathComponent(NSString *name) {
   if(!Keys(installed,@[@"format",@"release",@"helperSHA256",@"neverStarted"]) || !KuroNumber(installed[@"format"],1,1) || !KuroBool(installed[@"neverStarted"]) || !Match(installed[@"release"],@"\\A[A-Za-z0-9.-]{1,120}\\z")) { Fail(error,@"installed ownership record is not approved"); return nil; }
   NSString *version=[Tools stringByAppendingPathComponent:[@"versions" stringByAppendingPathComponent:installed[@"release"]]];
   NSDictionary *manifest=ReadJSON(@"",[version stringByAppendingPathComponent:@"manifest.json"],0,error);
-  if(!ValidManifest(manifest,error) || !KuroMapping(manifest,@[@"format",@"label",@"release",@"target",@"protocol",@"activationAllowed",@"core",@"helper"],@[@"client"]) || !KuroNumber(manifest[@"format"],1,1) || ![manifest[@"label"] isEqual:Label] || ![manifest[@"release"] isEqual:installed[@"release"]] || !KuroNumber(manifest[@"protocol"],1,1) || !KuroBool(manifest[@"activationAllowed"]) || ![manifest[@"activationAllowed"] boolValue] ||
+  if(!ValidManifest(manifest,error) || !KuroMapping(manifest,@[@"format",@"label",@"release",@"target",@"protocol",@"activationAllowed",@"core",@"helper"],@[@"client",@"clientInventorySHA256"]) || !KuroNumber(manifest[@"format"],1,1) || ![manifest[@"label"] isEqual:Label] || ![manifest[@"release"] isEqual:installed[@"release"]] || !KuroNumber(manifest[@"protocol"],1,1) || !KuroBool(manifest[@"activationAllowed"]) || ![manifest[@"activationAllowed"] boolValue] ||
      !Keys(manifest[@"core"],@[@"file",@"version",@"sha256",@"archiveSha256"]) || !Keys(manifest[@"helper"],@[@"file",@"version",@"sha256"]) || ![manifest[@"core"][@"file"] isEqual:@"mihomo"] || ![manifest[@"helper"][@"file"] isEqual:@"helper"]) { Fail(error,@"installed payload does not explicitly permit activation"); return nil; }
 #if defined(__arm64__)
   NSString *target=@"darwin-arm64";
@@ -191,84 +183,10 @@ static NSString *KuroPathComponent(NSString *name) {
   if(!_socketIdentity && (![_session recordWorkSocket:identity error:error]))return NO;
   _socketIdentity=identity; return YES;
 }
-- (BOOL)waitFD:(int)fd events:(short)events until:(uint64_t)deadline error:(NSString **)error {
-  while(KuroMonotonicMilliseconds()<deadline) {
-    struct pollfd value={.fd=fd,.events=events};
-    uint64_t now=KuroMonotonicMilliseconds(); int remaining=now<deadline ? (int)(deadline-now) : 0;
-    int count=poll(&value,1,MAX(remaining,0));
-    if(count<0&&errno==EINTR)continue;
-    if(count>0 && (value.revents&events))return YES;
-    break;
-  }
-  return Fail(error,@"private Core request timed out or disconnected");
-}
-// Only callers below construct these three fixed request variants.
 - (id)coreRequest:(NSDictionary *)command error:(NSString **)error {
-  NSString *method=nil,*path=nil; NSDictionary *body=nil;
-  if(Keys(command,@[@"operation"]) && [command[@"operation"] isEqual:@"version"]) { method=@"GET"; path=@"/version"; }
-  else if(Keys(command,@[@"operation",@"mode"]) && [command[@"operation"] isEqual:@"mode"] && [@[@"rule",@"global",@"direct"] containsObject:command[@"mode"]]) { method=@"PATCH"; path=@"/configs"; body=@{@"mode":command[@"mode"]}; }
-  else if(Keys(command,@[@"operation",@"group",@"proxy"]) && [command[@"operation"] isEqual:@"select"] && KuroText(command[@"group"],128) && KuroText(command[@"proxy"],128)) {
-    BOOL allowed=NO;
-    for(NSDictionary *group in _admitted[@"groups"]) if([group[@"name"] isEqual:command[@"group"]] && [group[@"proxies"] containsObject:command[@"proxy"]])allowed=YES;
-    if(!allowed) { Fail(error,@"selection was not admitted by the session schema"); return nil; }
-    method=@"PUT"; path=[@"/proxies/" stringByAppendingString:KuroPathComponent(command[@"group"])]; body=@{@"name":command[@"proxy"]};
-  } else { Fail(error,@"unsupported typed Core control operation"); return nil; }
-  if(![self socketProtected:error])return nil;
-  NSData *payload=body ? JSONData(body) : [NSData data];
-  NSString *header=[NSString stringWithFormat:@"%@ %@ HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer %@\r\nConnection: close\r\nContent-Type: application/json\r\nContent-Length: %lu\r\n\r\n",method,path,_secret,(unsigned long)payload.length];
-  NSMutableData *request=[[header dataUsingEncoding:NSUTF8StringEncoding] mutableCopy]; [request appendData:payload];
-  struct sockaddr_un address={.sun_family=AF_UNIX}; NSString *socketPath=[self socket];
-  if([socketPath lengthOfBytesUsingEncoding:NSUTF8StringEncoding]>=sizeof(address.sun_path)) { Fail(error,@"fixed private socket path is too long"); return nil; }
-  strlcpy(address.sun_path,socketPath.fileSystemRepresentation,sizeof(address.sun_path));
-  int fd=socket(AF_UNIX,SOCK_STREAM,0);
-  if(fd<0) { Fail(error,@"private Core socket unavailable"); return nil; }
-  fcntl(fd,F_SETFD,FD_CLOEXEC); int flags=fcntl(fd,F_GETFL); fcntl(fd,F_SETFL,flags|O_NONBLOCK);
-  uint64_t deadline=KuroMonotonicMilliseconds()+500;
-  BOOL ok=connect(fd,(struct sockaddr *)&address,sizeof(address))==0;
-  if(!ok&&errno==EINPROGRESS) {
-    ok=[self waitFD:fd events:POLLOUT until:deadline error:error]; int failure=0; socklen_t size=sizeof(failure);
-    ok=ok && !getsockopt(fd,SOL_SOCKET,SO_ERROR,&failure,&size) && !failure;
-  }
-  NSUInteger offset=0;
-  while(ok&&offset<request.length) {
-    ssize_t count=send(fd,(const char *)request.bytes+offset,request.length-offset,MSG_NOSIGNAL);
-    if(count<0&&(errno==EINTR||errno==EAGAIN)) { ok=[self waitFD:fd events:POLLOUT until:deadline error:error]; continue; }
-    if(count<=0) { ok=NO; break; } offset+=(NSUInteger)count;
-  }
-  NSMutableData *response=[NSMutableData data]; BOOL ended=NO;
-  while(ok && response.length<=MessageLimit) {
-    unsigned char bytes[4096]; ssize_t count=recv(fd,bytes,sizeof(bytes),0);
-    if(count<0&&(errno==EINTR||errno==EAGAIN)) { ok=[self waitFD:fd events:POLLIN until:deadline error:error]; continue; }
-    if(count<0) { ok=NO; break; } if(!count) { ended=YES; break; }
-    [response appendBytes:bytes length:(NSUInteger)count];
-  }
-  close(fd);
-  if(!ok || !ended || response.length>MessageLimit) { Fail(error,@"private Core response is incomplete or oversized"); return nil; }
-  NSData *delimiter=[@"\r\n\r\n" dataUsingEncoding:NSUTF8StringEncoding]; NSRange range=[response rangeOfData:delimiter options:0 range:NSMakeRange(0,response.length)];
-  if(range.location==NSNotFound || range.location>8192) { Fail(error,@"private Core response headers invalid"); return nil; }
-  NSString *headers=[[NSString alloc] initWithData:[response subdataWithRange:NSMakeRange(0,range.location)] encoding:NSASCIIStringEncoding];
-  NSArray *lines=[headers componentsSeparatedByString:@"\r\n"];
-  if(!lines.count || !Match(lines[0],@"\\AHTTP/1\\.[01] (?:200|204)(?: [^\\r\\n]*)?\\z")) { Fail(error,@"private Core operation was not accepted"); return nil; }
-  NSMutableDictionary *fields=[NSMutableDictionary dictionary];
-  for(NSUInteger i=1;i<lines.count;i++) {
-    NSRange separator=[lines[i] rangeOfString:@":"];
-    if(separator.location==NSNotFound) { Fail(error,@"malformed private Core header"); return nil; }
-    NSString *key=[[lines[i] substringToIndex:separator.location] lowercaseString];
-    if(fields[key]) { Fail(error,@"duplicate private Core header"); return nil; }
-    fields[key]=[[lines[i] substringFromIndex:separator.location+1] stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
-  }
-  NSData *content=[response subdataWithRange:NSMakeRange(NSMaxRange(range),response.length-NSMaxRange(range))];
-  BOOL noContent=[lines[0] hasPrefix:@"HTTP/1.1 204"] || [lines[0] hasPrefix:@"HTTP/1.0 204"];
-  BOOL lengthOK=fields[@"content-length"] ? Match(fields[@"content-length"],@"\\A(?:0|[1-9][0-9]{0,5})\\z") && (unsigned long long)[fields[@"content-length"] longLongValue]==content.length : noContent && content.length==0;
-  if(fields[@"transfer-encoding"] || !lengthOK || (noContent && content.length)) { Fail(error,@"private Core response must have one bounded content length"); return nil; }
-  if([command[@"operation"] isEqual:@"version"]) {
-    if(noContent) { Fail(error,@"version readiness requires a JSON response"); return nil; }
-    id value=KuroDecodeJSON(content,MessageLimit,error);
-    if(![value isKindOfClass:NSDictionary.class] || !KuroText(value[@"version"],128)) { Fail(error,@"Core version readiness response invalid"); return nil; }
-    return value;
-  }
-  if(!noContent) { Fail(error,@"typed Core writes require an empty 204 response"); return nil; }
-  return @{};
+  return KuroCoreControlRequest([self socket],_secret,_admitted[@"groups"],^BOOL(NSString **failure) {
+    return [self socketProtected:failure];
+  },command,error);
 }
 - (BOOL)removeWork:(NSString **)error {
   if(!_workCreated)return YES;
@@ -347,7 +265,7 @@ static NSString *KuroPathComponent(NSString *name) {
     if(!Keys(open,@[@"version",@"operation",@"config"]) || !KuroNumber(open[@"version"],2,2) || ![open[@"operation"] isEqual:@"open"] || ![open[@"config"] isKindOfClass:NSDictionary.class]) { failure=@"invalid closed version-2 open frame"; return NO; }
     NSData *canonical=[NSJSONSerialization dataWithJSONObject:open[@"config"] options:NSJSONWritingSortedKeys|NSJSONWritingWithoutEscapingSlashes error:NULL];
     stage=@"closed config validation"; _admitted=KuroValidateTunConfig(canonical,&failure); if(!_admitted)return NO; _configDigest=Hash(canonical);
-    if(!_hooks.authorize||!_hooks.preflight||!_hooks.ready||!_hooks.applyNetwork||!_hooks.recoverNetwork||!_hooks.identityValid) { failure=@"complete authorization, process and network hooks are required"; return NO; }
+    if(!_hooks.authorize||!_hooks.preflight||!_hooks.beforeResume||!_hooks.ready||!_hooks.applyNetwork||!_hooks.recoverNetwork||!_hooks.identityValid) { failure=@"complete authorization, process and network hooks are required"; return NO; }
     if(!_hooks.authorize(peer,_configDigest,&failure) || !_hooks.identityValid(peer) || !_hooks.preflight(_admitted,&failure)) { failure=failure ?: @"caller or process/network prerequisites are not proven"; return NO; }
     if(![self startupAllowed:&failure])return NO;
     stage=@"fixed Core approval"; NSString *core=[self approvedCore:&failure]; if(!core)return NO;
@@ -386,6 +304,7 @@ static NSString *KuroPathComponent(NSString *name) {
       // Cancellation and SIGCONT share the lock with requestStop.
       @synchronized(strong) {
         if(![strong startupAllowed:problem] || !strong->_hooks.identityValid(peer))return Fail(problem,@"stop or identity loss before Core resume");
+        if(!strong->_hooks.beforeResume(problem))return NO;
         return resume(problem);
       }
     } error:&failure];

@@ -56,3 +56,6 @@ LAN/split支持边界具体为：保留现有更具体route及已识别的search
 
 
 2026-11-04 离线恢复增量完成：future format2 owner保存runtime配置hash/socket device+inode，重复明确ESRCH、网络absence及精确工作内容匹配后清退owner/work；存活/复用/无法观测PID、未知对象、旧format1有work全部保留，不kill/adopt。17聚焦场景及主会话全量native fixture通过，显式skip Core -t。此处替代上节“完全无跨重启Core owner清退实现”，但仅证明记录进程absence，不证明后代退出，真实mihomo/网络仍须实机；activation保持关。[验证记录](../evidence/owner-recovery-offline-20261104/RESULT.md)。
+
+
+2026-11-05：既有format2 owner/work恢复保留证据边界：反复明确ESRCH只证明记录进程不存在，不能证明全部后代退出；未知工作文件仍保留。真实固定Core的私有控制/退出/工作目录行为先由[普通UID nonTUN实验](../core-control-experiment.md)验证。生产网络预检新增拒绝已有default REJECT/BLACKHOLE，防止新split-default绕过管理员阻断路由；现有dual-stack归属与同session恢复接线继续保留。跨helper重启对仍存在的网络项目前仅保守阻塞/absence恢复，不记作完整异常恢复已交付。真实utun、LAN/split DNS、双栈路由及停止后的恢复尚未运行。

@@ -115,3 +115,8 @@ Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
 
 
 2026-11-04 e8ae1dc/98562290有限鉴权实验实际通过且清理完成：root fresh安装和App seal/inventory/client/fresh身份核验通过；实际安装Electron authenticated=true；重签App明确身份拒绝、外部Node硬化拒绝；正例后start/open/stop/recover/exec全部拒绝。observer正常exit0，准确卸载与receipt forget exit0，最终路径/进程/socket/身份回执/job/receipt无残留；本次授权结束。[实际证据](../evidence/auth-execution-e8ae1dc/RESULT.md)。不是Core/TUN/网络/升级验收，不开放生产门。
+
+
+2026-11-05 下一交付收敛：已通过的auth-only安装实验不重跑，原包继续禁止会话操作。生产动态AuthorizeClient之后增加安装绑定的有限session准入：显式boolean activation、完成事务、执行helper/manifest/client/inventory/fresh管理员receipt、实际plist及恢复入口必须相互匹配。首次Core resume前须持久废止neverStarted；运行过后不能再使用原fresh-only卸载证明。准备器仍默认activationAllowed=false，不提供已获授权的root启动候选。运行后准确卸载、完整升级与root组合实验证据仍未完成。
+
+先准备[普通UID固定Core实验](../core-control-experiment.md)，复用实际有限Unix控制与准确direct-child监督，独立编译nonTUN模板；不伪造生产utun ready。normal→EOF按证据顺序执行，helper强杀不在本次实验入口。新实验须冻结源码/产物并获新授权，普通UID通过也不等于root App/helper组合通过。

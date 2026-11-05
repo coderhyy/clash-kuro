@@ -59,6 +59,7 @@ static KuroTunServiceHooks *ServiceHooks(void) {
   KuroTunServiceHooks *hooks=[KuroTunServiceHooks new];
   hooks.authorize=^BOOL(int peer,NSString *digest,NSString **error) { (void)peer;(void)error;return Match(digest,@"\\A[0-9a-f]{64}\\z"); };
   hooks.preflight=^BOOL(NSDictionary *config,NSString **error) { (void)error;return config!=nil; };
+  hooks.beforeResume=^BOOL(NSString **error) { (void)error;return YES; };
   hooks.ready=^BOOL(pid_t child,NSString *session,NSString **error) { (void)session;struct proc_bsdinfo value={0};int read=proc_pidinfo(child,PROC_PIDTBSDINFO,0,&value,sizeof(value));return (read==sizeof(value) && value.pbi_ppid==(uint32_t)getpid()) || Fail(error,[NSString stringWithFormat:@"fixture readiness process read=%d parent=%u expected=%d child=%d",read,value.pbi_ppid,getpid(),child]); };
   hooks.applyNetwork=^BOOL(pid_t child,NSString *session,NSString **error) { (void)child;(void)session;(void)error;return YES; };
   hooks.recoverNetwork=^BOOL(NSString *session,NSString **error) { (void)session;(void)error;return YES; };
@@ -130,7 +131,7 @@ static void ServiceTests(void) {
   close(probe); if(!bound)CHECK(!unlink(probePath.fileSystemRepresentation)); CHECK(!rmdir(probeDirectory));
   if(bound)fprintf(stderr,"service fixture requires temporary AF_UNIX bind: %s (errno %d); ordinary-user sandbox permission is required, no Core or network is executed\n",strerror(bindError),bindError);
   CHECK(!bound);
-  for(NSUInteger scenario=0;scenario<23;scenario++) {
+  for(NSUInteger scenario=0;scenario<25;scenario++) {
     char temporary[]="/tmp/kuro-service-XXXXXX"; CHECK(mkdtemp(temporary)); char canonical[PATH_MAX]; CHECK(realpath(temporary,canonical));
     NSString *directory=[NSString stringWithUTF8String:canonical];
     NSString *name=scenario==6?@"core-exit":scenario==7?@"core-chunked":scenario==8?@"core-unknown-work":scenario==17?@"core-duplicate-header":scenario==18?@"core-bad-version":scenario==20?@"core-config-changed":scenario==22?@"core-must-not-run":@"core";
@@ -142,6 +143,8 @@ static void ServiceTests(void) {
     if(scenario==16)hooks.preflight=^BOOL(NSDictionary *config,NSString **error) { (void)config;(void)error;[starting requestStop];return YES; };
     if(scenario==1)hooks.authorize=^BOOL(int peer,NSString *digest,NSString **error) { (void)peer;(void)digest;return Fail(error,@"test caller denied"); };
     if(scenario==2)hooks.preflight=^BOOL(NSDictionary *config,NSString **error) { (void)config;return Fail(error,@"test preflight denied"); };
+    if(scenario==23)hooks.beforeResume=nil;
+    if(scenario==24)hooks.beforeResume=^BOOL(NSString **error) { return Fail(error,@"durability gate denied"); };
     if(scenario==3)hooks.ready=nil;
     if(scenario==4)hooks.ready=^BOOL(pid_t child,NSString *session,NSString **error) { (void)child;(void)session;return Fail(error,@"test readiness denied"); };
     hooks.applyNetwork=^BOOL(pid_t child,NSString *session,NSString **error) { (void)child;(void)session;applied++;return scenario==5?Fail(error,@"test apply failed"):YES; };
@@ -277,5 +280,5 @@ static void ServiceTests(void) {
     }
     CHECK([[NSFileManager defaultManager] removeItemAtPath:directory error:NULL]);
   }
-  puts("native service: 23 fixture cases cover closed open, preflight gates, private HTTP, typed control, concurrent status, single owner, stop, bounded network-only receipt recovery, Core-owner refusal and work preservation");
+  puts("native service: 25 fixture cases cover closed open, preflight gates, private HTTP, typed control, concurrent status, single owner, stop, bounded network-only receipt recovery, Core-owner refusal and work preservation");
 }

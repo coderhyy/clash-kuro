@@ -63,7 +63,8 @@ static BOOL ValidManifest(NSDictionary *manifest, NSString **error) {
   if (!Keys(manifest, manifestKeys) || (manifest[@"client"] && !KuroClientPinValid(manifest[@"client"])) ||
       ((manifest[@"client"]!=nil)!=(manifest[@"clientInventorySHA256"]!=nil)) ||
       (manifest[@"clientInventorySHA256"] && !Match(manifest[@"clientInventorySHA256"], @"\\A[0-9a-f]{64}\\z")) ||
-      ![manifest[@"format"] isEqual:@1] || ![manifest[@"protocol"] isEqual:@1] || ![manifest[@"label"] isEqual:Label] || ![manifest[@"activationAllowed"] isEqual:@NO] ||
+      !KuroNumber(manifest[@"format"],1,1) || !KuroNumber(manifest[@"protocol"],1,1) || ![manifest[@"label"] isEqual:Label] || !KuroBool(manifest[@"activationAllowed"]) ||
+      ([manifest[@"activationAllowed"]boolValue] && (!manifest[@"client"] || !manifest[@"clientInventorySHA256"])) ||
       !Match(manifest[@"release"], @"\\A[A-Za-z0-9.-]{1,120}\\z") ||
       !Keys(manifest[@"core"], @[@"file", @"version", @"sha256", @"archiveSha256"]) || !Keys(manifest[@"helper"], @[@"file", @"version", @"sha256"]) ||
       ![manifest[@"core"][@"file"] isEqual:@"mihomo"] || ![manifest[@"helper"][@"file"] isEqual:@"helper"] ||
@@ -227,6 +228,46 @@ static NSDictionary *ReadFreshReceipt(NSString *prefix,uid_t owner,NSString **er
   if(!ValidManifest(manifest,error) || !manifest[@"client"] || ![Hash(inventoryBytes) isEqual:manifest[@"clientInventorySHA256"]] || ![receipt[@"helperSHA256"] isEqual:manifest[@"helper"][@"sha256"]] || !FixedPlist(plist,manifest[@"release"],error) || !InventoryEntries(inventory,error)) {Fail(error,@"fresh receipt payload binding failed");return nil;}
   return @{@"manifest":manifest,@"manifestBytes":manifestBytes,@"inventory":inventory,@"inventoryBytes":inventoryBytes,@"plist":plist};
 }
+// Capability admission follows dynamic peer authentication. Neither this receipt
+// nor an auth-only connection grants arbitrary commands or automatic startup.
+static BOOL KuroSessionActivationAt(NSString *prefix,uid_t owner,NSString *executingHelper,NSString **error) {
+  if(Exists(At(prefix,[State stringByAppendingPathComponent:@"transaction.json"])))return Fail(error,@"finite session activation requires a completed installation transaction");
+  NSDictionary *installed=ReadJSON(prefix,At(prefix,[State stringByAppendingPathComponent:@"installed.json"]),owner,error);
+  if(!Keys(installed,@[@"format",@"release",@"helperSHA256",@"neverStarted"]) || !KuroNumber(installed[@"format"],1,1) || !KuroBool(installed[@"neverStarted"]) ||
+    !Match(installed[@"release"],@"\\A[A-Za-z0-9.-]{1,120}\\z") || !Match(installed[@"helperSHA256"],@"\\A[0-9a-f]{64}\\z"))return Fail(error,@"finite session activation requires a protected installation record");
+  NSString *version=[At(prefix,Tools) stringByAppendingPathComponent:[@"versions" stringByAppendingPathComponent:installed[@"release"]]],*helper=[version stringByAppendingPathComponent:@"helper"];
+  NSData *manifestBytes=ReadProtected(prefix,[version stringByAppendingPathComponent:@"manifest.json"],owner,error);
+  NSDictionary *manifest=manifestBytes?KuroDecodeJSON(manifestBytes,MessageLimit,error):nil;
+  if(!ValidManifest(manifest,error) || ![manifest[@"activationAllowed"]boolValue] || !manifest[@"client"] || !manifest[@"clientInventorySHA256"])return Fail(error,@"installed manifest does not explicitly permit finite TUN sessions");
+  NSData *helperBytes=ReadProtected(prefix,helper,owner,error);
+  if(![helper isEqual:executingHelper] || ![manifest[@"release"]isEqual:installed[@"release"]] || !helperBytes || !MachExecutable(helperBytes) ||
+    ![Hash(helperBytes)isEqual:installed[@"helperSHA256"]] || ![manifest[@"helper"][@"sha256"]isEqual:installed[@"helperSHA256"]])return Fail(error,@"finite session activation helper/installation identity mismatch");
+  NSDictionary *receipt=ReadFreshReceipt(prefix,owner,error);
+  NSData *inventory=ReadProtected(prefix,At(prefix,[State stringByAppendingPathComponent:@"Inbox/client-inventory.json"]),owner,error);
+  NSDictionary *client=ReadJSON(prefix,At(prefix,[State stringByAppendingPathComponent:@"client.json"]),owner,error);
+  if(!receipt || ![receipt[@"manifestBytes"]isEqual:manifestBytes] || !inventory || ![inventory isEqual:receipt[@"inventoryBytes"]] || ![Hash(inventory)isEqual:manifest[@"clientInventorySHA256"]] ||
+    ![client isEqual:manifest[@"client"]])return Fail(error,@"finite session activation is not bound to the administrator-approved client inventory");
+  NSData *plist=ReadProtected(prefix,At(prefix,Plist),owner,error),*recovery=ReadProtected(prefix,At(prefix,Recovery),owner,error);
+  if(!plist || ![plist isEqual:receipt[@"plist"]] || !FixedPlist(plist,installed[@"release"],error) || !recovery || !MachExecutable(recovery) || ![Hash(recovery)isEqual:installed[@"helperSHA256"]])return Fail(error,@"finite session activation requires the exact installed plist and recovery executable");
+  if(Exists(At(prefix,[State stringByAppendingPathComponent:@"auth-observer.json"])))return Fail(error,@"auth observation is active or retained; finite session activation refused");
+  return YES;
+}
+// A failed checkpoint never resumes Core. False is sticky: even a later launch
+// failure cannot restore the weaker never-started uninstall authority.
+static BOOL KuroMarkSessionStarted(NSString *prefix,uid_t owner,NSString *executingHelper,NSString **error) {
+  if(!KuroSessionActivationAt(prefix,owner,executingHelper,error))return NO;
+  NSString *directory=At(prefix,State),*path=[directory stringByAppendingPathComponent:@"installed.json"];
+  NSData *before=ReadProtected(prefix,path,owner,error);NSDictionary *record=before?KuroDecodeJSON(before,MessageLimit,error):nil;
+  if(!Keys(record,@[@"format",@"release",@"helperSHA256",@"neverStarted"]) || !KuroBool(record[@"neverStarted"]))return Fail(error,@"startup checkpoint installation record is unavailable");
+  if(![record[@"neverStarted"]boolValue])return SyncInstallDirectory(directory,error);
+  NSMutableDictionary *updated=[record mutableCopy];updated[@"neverStarted"]=@NO;
+  NSString *temporary=[directory stringByAppendingPathComponent:[@".installed-" stringByAppendingString:NSUUID.UUID.UUIDString]];
+  if(!WriteNew(temporary,JSONData(updated),0600,error))return NO;
+  if(![ReadProtected(prefix,path,owner,error)isEqual:before] || rename(temporary.fileSystemRepresentation,path.fileSystemRepresentation)) {
+    unlink(temporary.fileSystemRepresentation);return Fail(error,@"startup checkpoint changed or could not be published; resume refused");
+  }
+  return SyncInstallDirectory(directory,error);
+}
 static BOOL BeginClientInstallFromScripts(NSString *prefix,uid_t owner,BOOL system,NSString *scripts,NSString **error) {
   if(!PreflightInstall(prefix,owner,system,error) || !InstallScriptsProtected(scripts,owner,error))return NO;
   NSString *client=At(prefix,ClientBundle);if(Exists(client))return Fail(error,@"existing protected App preserved; fresh install refused");
@@ -255,7 +296,7 @@ static BOOL Install(NSString *prefix, uid_t owner, BOOL system, NSString **error
   if (manifest[@"clientInventorySHA256"]) {
     NSDictionary *receipt=ReadFreshReceipt(prefix,owner,error);
     NSData *inventory=ReadProtected(prefix,[inbox stringByAppendingPathComponent:@"client-inventory.json"],owner,error);
-    if(!receipt || ![receipt[@"manifestBytes"] isEqual:ReadProtected(prefix,[inbox stringByAppendingPathComponent:@"manifest.json"],owner,error)] || ![Hash(inventory) isEqual:manifest[@"clientInventorySHA256"]] || !ClientSubset(prefix,owner,InventoryEntries(receipt[@"inventory"],error),@"",error))return Fail(error,@"client copy does not match its fresh administrator receipt");
+    if(!receipt || ![receipt[@"manifestBytes"] isEqual:ReadProtected(prefix,[inbox stringByAppendingPathComponent:@"manifest.json"],owner,error)] || !inventory || ![Hash(inventory) isEqual:manifest[@"clientInventorySHA256"]] || !ClientSubset(prefix,owner,InventoryEntries(receipt[@"inventory"],error),@"",error))return Fail(error,@"client copy does not match its fresh administrator receipt");
   }
   if (client && ![KuroClientSnapshot(prefix, At(prefix, ClientBundle), owner, error) isEqual:client]) return Fail(error, @"installed protected App does not match the administrator-approved payload");
   NSMutableDictionary *files = [NSMutableDictionary dictionary];

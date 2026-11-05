@@ -239,10 +239,10 @@ static BOOL AuthorizeClientAt(int peer, NSString *prefix, uid_t owner, NSString 
   return YES;
 }
 static BOOL AuthorizeClient(int peer, NSString **error) { return AuthorizeClientAt(peer, @"", 0, error); }
+static BOOL KuroSessionActivationAt(NSString *prefix,uid_t owner,NSString *executingHelper,NSString **error);
 static BOOL Authorize(int peer, NSString **error) {
   if (!AuthorizeClient(peer, error)) return NO;
-  // Authentication observation grants no production Core/network capabilities.
-  return Fail(error, @"production TUN activation awaits controlled integration acceptance");
+  return KuroSessionActivationAt(@"",0,Executable(),error);
 }
 
 #import "tun-peer.m"
@@ -346,6 +346,7 @@ static KuroTunService *ProductionService(void) {
     identity = [KuroPeerIdentity observePeer:peer error:error]; return identity != nil;
   };
   hooks.identityValid = ^BOOL(int peer) { (void)peer; return identity && identity.isLive; };
+  hooks.beforeResume = ^BOOL(NSString **error) { return KuroMarkSessionStarted(@"",0,Executable(),error); };
   hooks.preflight = ^BOOL(NSDictionary *config, NSString **error) {
     network=[[KuroProductionNetwork alloc] initWithDirectory:State owner:0];
     return [network preflightConfig:config error:error];
@@ -399,7 +400,7 @@ static int Serve(void) {
   close(lock);
   return 0;
 }
-#ifndef KURO_TESTING
+#if !defined(KURO_TESTING) && !defined(KURO_CORE_EXPERIMENT)
 int main(int argc, const char **argv) {
   @autoreleasepool {
     if (geteuid() != 0 || argc != 2) { fprintf(stderr, "root-only fixed CLI: --serve | --preflight-install | --install | --uninstall\n"); return 1; }

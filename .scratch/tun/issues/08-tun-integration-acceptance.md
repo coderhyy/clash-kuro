@@ -64,3 +64,6 @@ CI配置已串联native隔离测试→App dmg→disabled helper pkg，并保存s
 
 
 2026-11-04 e8ae1dc/98562290有限鉴权实验实际通过且清理完成：root fresh安装和App seal/inventory/client/fresh身份核验通过；实际安装Electron authenticated=true；重签App明确身份拒绝、外部Node硬化拒绝；正例后start/open/stop/recover/exec全部拒绝。observer正常exit0，准确卸载与receipt forget exit0，最终路径/进程/socket/身份回执/job/receipt无残留；本次授权结束。[实际证据](../evidence/auth-execution-e8ae1dc/RESULT.md)。不是Core/TUN/网络/升级验收，不开放生产门。
+
+
+2026-11-05 当前下一实验改为[普通UID固定Core有限控制](../core-control-experiment.md)：不安装、不启动job、不改系统网络；需要另行授权真实Core执行。只准备normal与成功后EOF，不提供helper强杀入口。验收以实际version/有限控制读回、准确child退出、工作目录及socket清理为准；配置和fixture不替代实证。生产root启动前还缺运行后可卸载的停止证明及完整候选，升级继续保留交付要求。原鉴权实验通过范围不变，授权已结束。

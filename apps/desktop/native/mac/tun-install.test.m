@@ -109,7 +109,70 @@ static void SocketMigrationTests(void) {
   close(lock);CHECK([[NSFileManager defaultManager] removeItemAtPath:prefix error:NULL]);
   puts("native socket migration: legacy metadata/path rejection, public 0700 ancestor/run refusal, fixed/prefixed/overlong addresses and two protected ordinary-user endpoint connections passed; no system service");
 }
+static void SessionActivationTests(void) {
+  CHECK(geteuid()!=0);NSString *error=nil;
+  char temporary[]="/tmp/kuro-act-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));NSString *base=@(canonical),*source=[base stringByAppendingPathComponent:@"source"],*bundle=[source stringByAppendingPathComponent:@"fixture.app"];
+  Put([bundle stringByAppendingPathComponent:ClientExecutable],[NSData dataWithContentsOfFile:Executable()],0755);
+  NSDictionary *info=@{@"CFBundleIdentifier":@"dev.kuro.desktop",@"CFBundleExecutable":@"Clash Kuro",@"CFBundlePackageType":@"APPL",@"CFBundleVersion":@"1"};
+  Put([bundle stringByAppendingPathComponent:@"Contents/Info.plist"],[NSPropertyListSerialization dataWithPropertyList:info format:NSPropertyListXMLFormat_v1_0 options:0 error:NULL],0644);
+  Put([bundle stringByAppendingPathComponent:@"Contents/Resources/app.asar"],Bytes(@"inert activation fixture"),0644);
+  char *sign[]={"/usr/bin/codesign","--force","--sign","-","--options","runtime",(char *)bundle.fileSystemRepresentation,NULL},*environment[]={"PATH=/usr/bin:/bin","LANG=C",NULL};pid_t signer;int status;
+  CHECK(!posix_spawn(&signer,sign[0],NULL,NULL,sign,environment));CHECK(waitpid(signer,&status,0)==signer&&WIFEXITED(status)&&!WEXITSTATUS(status));
+  NSDictionary *pin=KuroClientSnapshot(source,bundle,geteuid(),&error),*inventory=FixtureInventory(bundle);CHECK(pin);
+  NSMutableDictionary *manifest=[FreshFixtureScripts(source,pin,inventory)mutableCopy];
+  CHECK([manifest[@"activationAllowed"]isEqual:@NO]);
+  for(id invalid in @[@1,@0,@"true",NSNull.null]) { manifest[@"activationAllowed"]=invalid;CHECK(!ValidManifest(manifest,&error)); }
+  manifest[@"activationAllowed"]=@YES;CHECK(ValidManifest(manifest,&error));
+  NSMutableDictionary *unbound=[manifest mutableCopy];[unbound removeObjectForKey:@"client"];[unbound removeObjectForKey:@"clientInventorySHA256"];CHECK(!ValidManifest(unbound,&error));
+  NSString *scripts=[source stringByAppendingPathComponent:@"scripts"];
+  for(NSUInteger scenario=0;scenario<18;scenario++) {
+    NSString *prefix=[base stringByAppendingPathComponent:[NSString stringWithFormat:@"case%lu",(unsigned long)scenario]];FixtureDirectory(prefix);
+    manifest[@"activationAllowed"]=scenario==0?@NO:@YES; // Actual completed ordinary-user installation layout.
+    Put([scripts stringByAppendingPathComponent:@"manifest.json"],JSONData(manifest),0600);
+    BOOL began=BeginClientInstallFromScripts(prefix,geteuid(),NO,scripts,&error);if(!began)fprintf(stderr,"activation case %lu begin: %s\n",(unsigned long)scenario,error.UTF8String);CHECK(began);CopyFreshPayload(source,prefix,manifest);
+    NSString *client=At(prefix,ClientBundle);FixtureDirectory(client.stringByDeletingLastPathComponent);CHECK([[NSFileManager defaultManager]copyItemAtPath:bundle toPath:client error:NULL]);
+    CHECK(Install(prefix,geteuid(),NO,&error));
+    NSString *version=[At(prefix,Tools)stringByAppendingPathComponent:[@"versions" stringByAppendingPathComponent:manifest[@"release"]]],*helper=[version stringByAppendingPathComponent:@"helper"],*executing=helper;
+    NSString *installedPath=At(prefix,[State stringByAppendingPathComponent:@"installed.json"]),*inventoryPath=At(prefix,[State stringByAppendingPathComponent:@"Inbox/client-inventory.json"]),*clientPath=At(prefix,[State stringByAppendingPathComponent:@"client.json"]),*observer=At(prefix,[State stringByAppendingPathComponent:@"auth-observer.json"]);
+    if(scenario==2)executing=[At(prefix,Tools)stringByAppendingPathComponent:@"installer"];
+    if(scenario==3||scenario==5) { NSMutableDictionary *installed=[ReadJSON(prefix,installedPath,geteuid(),NULL)mutableCopy];installed[scenario==3?@"release":@"helperSHA256"]=scenario==3?@"different-release":Hash(Bytes(@"different helper"));Put(installedPath,JSONData(installed),0600); }
+    if(scenario==4)Put(helper,Bytes(@"changed helper"),0755);
+    if(scenario==6) { NSMutableDictionary *changed=[manifest mutableCopy];changed[@"clientInventorySHA256"]=Hash(Bytes(@"other inventory"));Put([version stringByAppendingPathComponent:@"manifest.json"],JSONData(changed),0600); }
+    if(scenario==7)CHECK(!unlink(inventoryPath.fileSystemRepresentation));
+    if(scenario==8)Put(inventoryPath,Bytes(@"changed inventory"),0600);
+    if(scenario==9)CHECK(!unlink(At(prefix,FreshReceipt).fileSystemRepresentation));
+    if(scenario==10)Put(clientPath,Bytes(@"{}"),0600);
+    if(scenario==11)Put(observer,Bytes(@"active or retained auth observation"),0600);
+    if(scenario==12)Put(At(prefix,[State stringByAppendingPathComponent:@"transaction.json"]),Bytes(@"unfinished installation"),0600);
+    if(scenario==13)CHECK(!unlink(At(prefix,Plist).fileSystemRepresentation));
+    if(scenario==14)Put(At(prefix,Plist),Bytes(@"changed plist"),0644);
+    if(scenario==15)CHECK(!unlink(At(prefix,Recovery).fileSystemRepresentation));
+    if(scenario==16)Put(At(prefix,Recovery),Bytes(@"changed recovery"),0755);
+    if(scenario==17)CHECK(!chmod(helper.fileSystemRepresentation,0777));
+    BOOL allowed=KuroSessionActivationAt(prefix,geteuid(),executing,&error);
+    CHECK(allowed==(scenario==1));
+    if(!allowed) { CHECK(error.length>0);CHECK(!KuroMarkSessionStarted(prefix,geteuid(),executing,&error));CHECK([ReadJSON(prefix,installedPath,geteuid(),NULL)[@"neverStarted"]isEqual:@YES]); }
+    if(scenario==0) {
+      NSMutableDictionary *patched=[manifest mutableCopy];patched[@"activationAllowed"]=@YES;
+      Put([version stringByAppendingPathComponent:@"manifest.json"],JSONData(patched),0600);
+      CHECK(!KuroSessionActivationAt(prefix,geteuid(),helper,&error)); // Auth-only receipt cannot be upgraded by patching just the installed flag.
+    }
+    if(scenario==1) {
+      CHECK(!chmod(At(prefix,State).fileSystemRepresentation,0500));
+      CHECK(!KuroMarkSessionStarted(prefix,geteuid(),helper,&error));CHECK([ReadJSON(prefix,installedPath,geteuid(),NULL)[@"neverStarted"]isEqual:@YES]);
+      CHECK(!chmod(At(prefix,State).fileSystemRepresentation,0700));
+      CHECK(KuroMarkSessionStarted(prefix,geteuid(),helper,&error));CHECK([ReadJSON(prefix,installedPath,geteuid(),NULL)[@"neverStarted"]isEqual:@NO]);
+      CHECK(KuroMarkSessionStarted(prefix,geteuid(),helper,&error)&&KuroSessionActivationAt(prefix,geteuid(),helper,&error));
+      NSDictionary *never=nil;CHECK(!ProveNeverStarted(prefix,geteuid(),&never,&error));
+      CHECK(!Uninstall(prefix,geteuid(),NO,At(prefix,Recovery),&error));CHECK(Exists(client)&&Exists(helper));
+    }
+    if(scenario==11) { CHECK(!unlink(observer.fileSystemRepresentation));CHECK(KuroSessionActivationAt(prefix,geteuid(),helper,&error)); }
+  }
+  CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);
+  puts("native finite activation: explicit boolean/client/inventory, completed protected install, fixed helper identity, receipt binding and temporary auth-observer refusal passed; no service/Core/network");
+}
 static void FreshInstallTests(void) {
+  SessionActivationTests();
   CHECK(geteuid()!=0);
   InstallerScriptsACLTests();
   SocketMigrationTests();

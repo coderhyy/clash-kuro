@@ -176,6 +176,8 @@ static BOOL KuroPreservedEndpoint(NSString *text, NSArray *routes, NSString *phy
     unsigned int flags=[route[@"flags"]unsignedIntValue];
     if ((flags&RTF_PROTO2) || ([route[@"prefix"]intValue]==1 && [route[@"flags"]unsignedIntValue]&RTF_UP)) return Fail(error,@"retained marked route or existing split-default owner conflicts with fixed plan");
     if ([route[@"prefix"]intValue]!=0 || !(flags&RTF_UP) || (flags&RTF_IFSCOPE)) continue;
+    // A split default must not bypass an administrator's existing drop route.
+    if (flags&(RTF_REJECT|RTF_BLACKHOLE)) return Fail(error,@"default egress is an existing reject/blackhole route; refusing to bypass it");
     NSNumber *family=route[@"family"]; if (defaults[family]) return Fail(error,@"multiple unscoped default routes are unsupported"); defaults[family]=route;
   }
   NSDictionary *v4=defaults[@4],*v6=defaults[@6];

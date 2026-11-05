@@ -44,7 +44,7 @@ static void ProductionNetworkTests(void) {
   NSMutableArray *wrongAddresses=[ProductionInterfaces(YES)mutableCopy]; NSMutableDictionary *wrong=[wrongAddresses.lastObject mutableCopy]; wrong[@"prefix"]=@64; wrongAddresses[wrongAddresses.count-1]=wrong;
   CHECK(!KuroCoreAddressesReady(association,wrongAddresses,&error));
   char temporary[]="/tmp/kuro-production-network-XXXXXX"; CHECK(mkdtemp(temporary)); char canonical[PATH_MAX]; CHECK(realpath(temporary,canonical)); NSString *base=@(canonical);
-  for (NSUInteger scenario=0;scenario<13;scenario++) {
+  for (NSUInteger scenario=0;scenario<15;scenario++) {
     NSString *directory=[base stringByAppendingPathComponent:[NSString stringWithFormat:@"case%lu",(unsigned long)scenario]]; FixtureDirectory(directory);
     KuroFakeRouteStore *routeBackend=[KuroFakeRouteStore new]; routeBackend.directory=directory; routeBackend.entries=[ProductionBaseline()mutableCopy];
     KuroFakeDNSStore *dnsBackend=[KuroFakeDNSStore new]; dnsBackend.directory=directory;
@@ -60,9 +60,13 @@ static void ProductionNetworkTests(void) {
     CHECK(!network.runtimeInterfaceName && !routeBackend.snapshots && !dnsBackend.snapshots && !probes);
     if (scenario==1) { [routeBackend.entries removeLastObject]; [routeBackend.entries removeLastObject]; }
     if (scenario==2) { NSMutableDictionary *changed=[routeBackend.entries[1]mutableCopy]; changed[@"interfaceName"]=@"en1"; routeBackend.entries[1]=changed; }
-    if (scenario==1 || scenario==2) {
+    if (scenario==13 || scenario==14) {
+      NSUInteger index=scenario==13?0:1;NSMutableDictionary *blocked=[routeBackend.entries[index]mutableCopy];
+      blocked[@"flags"]=@([blocked[@"flags"]unsignedIntValue]|(scenario==13?RTF_REJECT:RTF_BLACKHOLE));routeBackend.entries[index]=blocked;
+    }
+    if (scenario==1 || scenario==2 || scenario==13 || scenario==14) {
       CHECK(![network preflightConfig:ProductionConfig() error:&error] && !network.runtimeInterfaceName && !routeBackend.additions && !dnsBackend.additions);
-      CHECK([error containsString:scenario==1?@"more-specific":@"common observable"]); continue;
+      CHECK([error containsString:scenario==1?@"more-specific":scenario==2?@"common observable":@"reject/blackhole"]); continue;
     }
     CHECK([network preflightConfig:ProductionConfig() error:&error] && [network.runtimeInterfaceName isEqual:@"en0"]);
     interfaces=ProductionInterfaces(YES);

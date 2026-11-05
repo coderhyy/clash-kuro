@@ -9,6 +9,13 @@ static uint64_t KuroMonotonicMilliseconds(void) {
   return (uint64_t)now.tv_sec * 1000 + (uint64_t)now.tv_nsec / 1000000;
 }
 typedef BOOL (^KuroSessionHook)(NSString **error);
+static BOOL KuroSessionTemplate(NSString *value) {
+#ifdef KURO_CORE_EXPERIMENT
+  return [value isEqual:@"core-control-experiment-v1"];
+#else
+  return [value isEqual:@"macos-dual-stack-v1"];
+#endif
+}
 typedef BOOL (^KuroSessionResumeGate)(KuroSessionHook resume, NSString **error);
 typedef int (*KuroRestartReader)(int,int,uint64_t,void *,int);
 typedef BOOL (^KuroRestartWorkCleanup)(NSDictionary *record,KuroSessionHook stillAbsent,NSString **error);
@@ -31,7 +38,7 @@ static BOOL KuroRestartRecord(NSDictionary *record,NSString **error) {
     !Match(record[@"executableSHA256"],@"\\A[0-9a-f]{64}\\z") || ![record[@"phase"]isEqual:@"prepared"] || ![record[@"session"]isKindOfClass:NSString.class])return Fail(error,@"invalid closed old Core owner receipt");
   NSUUID *session=[[NSUUID alloc]initWithUUIDString:record[@"session"]]; if(!session || ![session.UUIDString isEqual:record[@"session"]])return Fail(error,@"invalid old Core owner session");
   NSDictionary *launch=record[@"launch"];
-  if(launch && (!Keys(launch,@[@"configSHA256",@"coreSHA256",@"template"]) || !Match(launch[@"configSHA256"],@"\\A[0-9a-f]{64}\\z") || ![launch[@"coreSHA256"]isEqual:record[@"executableSHA256"]] || ![launch[@"template"]isEqual:@"macos-dual-stack-v1"]))return Fail(error,@"old Core launch evidence does not match its owner");
+  if(launch && (!Keys(launch,@[@"configSHA256",@"coreSHA256",@"template"]) || !Match(launch[@"configSHA256"],@"\\A[0-9a-f]{64}\\z") || ![launch[@"coreSHA256"]isEqual:record[@"executableSHA256"]] || !KuroSessionTemplate(launch[@"template"])))return Fail(error,@"old Core launch evidence does not match its owner");
   NSDictionary *work=record[@"work"];
   if([record[@"format"]isEqual:@1])return !work || Fail(error,@"legacy owner cannot carry unversioned work evidence");
   if(!launch || !Keys(work,@[@"configSHA256",@"socket"]) || !Match(work[@"configSHA256"],@"\\A[0-9a-f]{64}\\z"))return Fail(error,@"old Core work receipt is incomplete");
@@ -48,10 +55,17 @@ static BOOL KuroRestartRecord(NSDictionary *record,NSString **error) {
   BOOL _unknown;
   KuroSessionHook _cleanup;
   NSDictionary *_launchEvidence;
+#ifdef KURO_CORE_EXPERIMENT
+  NSString *_terminationRequest;
+  NSDictionary *_terminationEvidence;
+#endif
 }
 @property(nonatomic, readonly) pid_t child;
 @property(nonatomic, readonly) NSString *identifier;
 @property(nonatomic, readonly) BOOL off;
+#ifdef KURO_CORE_EXPERIMENT
+@property(nonatomic, readonly) NSDictionary *terminationEvidence;
+#endif
 #ifdef KURO_TESTING
 @property(nonatomic) KuroRestartReader fixtureRestartReader;
 #endif
@@ -75,6 +89,9 @@ static BOOL KuroRestartRecord(NSDictionary *record,NSString **error) {
 }
 - (pid_t)child { return _child; }
 - (NSString *)identifier { return _identifier; }
+#ifdef KURO_CORE_EXPERIMENT
+- (NSDictionary *)terminationEvidence { return _terminationEvidence ?: @{@"request":@"none",@"observed":@NO}; }
+#endif
 - (BOOL)off {
   if (_child || _journaled || _unknown) return NO;
   for (NSString *name in @[@"owner.json", @"network.json", @"network-dns.json"]) if (Exists([_directory stringByAppendingPathComponent:name])) return NO;
@@ -82,7 +99,7 @@ static BOOL KuroRestartRecord(NSDictionary *record,NSString **error) {
 }
 - (BOOL)directoryProtected:(NSString **)error {
   NSString *anchor = @"";
-#ifdef KURO_TESTING
+#if defined(KURO_TESTING) || defined(KURO_CORE_EXPERIMENT)
   anchor = _directory;
 #endif
   return SafeChain(anchor, _directory, _owner, YES, error);
@@ -139,7 +156,7 @@ static BOOL KuroRestartRecord(NSDictionary *record,NSString **error) {
   if (![self onThread:error] || _child || _journaled || _unknown) return Fail(error, @"cannot replace active launch evidence");
   if (!Keys(evidence, @[@"configSHA256", @"coreSHA256", @"template"]) ||
       !Match(evidence[@"configSHA256"], @"\\A[0-9a-f]{64}\\z") || !Match(evidence[@"coreSHA256"], @"\\A[0-9a-f]{64}\\z") ||
-      ![evidence[@"template"] isEqual:@"macos-dual-stack-v1"]) return Fail(error, @"invalid fixed launch evidence");
+      !KuroSessionTemplate(evidence[@"template"])) return Fail(error, @"invalid fixed launch evidence");
   _launchEvidence = [evidence copy]; return YES;
 }
 - (BOOL)spawnExecutable:(NSString *)executable arguments:(NSArray<NSString *> *)arguments beforeResume:(KuroSessionHook)prepare afterReap:(KuroSessionHook)cleanup error:(NSString **)error {
@@ -155,7 +172,7 @@ static BOOL KuroRestartRecord(NSDictionary *record,NSString **error) {
   NSString *journal = [_directory stringByAppendingPathComponent:@"owner.json"];
   if (![self directoryProtected:error] || !self.off || Exists(journal)) return Fail(error, @"protected clean owner directory is required");
   NSString *launchAnchor = @"";
-#ifdef KURO_TESTING
+#if defined(KURO_TESTING) || defined(KURO_CORE_EXPERIMENT)
   launchAnchor = _directory;
 #endif
   NSData *bytes = ReadProtected(launchAnchor, executable, _owner, error);
@@ -216,8 +233,13 @@ static BOOL KuroRestartRecord(NSDictionary *record,NSString **error) {
 }
 - (BOOL)reapUntil:(uint64_t)deadline error:(NSString **)error {
   while (_child) {
-    pid_t result = waitpid(_child, NULL, WNOHANG);
-    if (result == _child) { _child = 0; return YES; }
+    int status=0;pid_t result = waitpid(_child, &status, WNOHANG);
+    if (result == _child) {
+#ifdef KURO_CORE_EXPERIMENT
+      _terminationEvidence=@{@"request":_terminationRequest ?: @"none",@"observed":@YES,@"exitCode":WIFEXITED(status)?@(WEXITSTATUS(status)):NSNull.null,@"signal":WIFSIGNALED(status)?@(WTERMSIG(status)):NSNull.null};
+#endif
+      _child = 0; return YES;
+    }
     if (result < 0 && errno != EINTR) { _unknown = YES; return Fail(error, @"direct child ownership was lost; refusing PID-based cleanup"); }
     if (KuroMonotonicMilliseconds() >= deadline) return NO;
     struct timespec pause = {.tv_nsec = 5000000}; nanosleep(&pause, NULL);
@@ -232,9 +254,17 @@ static BOOL KuroRestartRecord(NSDictionary *record,NSString **error) {
     // component may waitpid this child. ECHILD above never leads to kill(pid).
     [self reapUntil:KuroMonotonicMilliseconds() error:error];
     if (_unknown) return NO;
-    if (_child) { if (kill(_child, SIGTERM) && errno != ESRCH) return Fail(error, @"owned child termination failed"); }
+    if (_child) {
+#ifdef KURO_CORE_EXPERIMENT
+      _terminationRequest=@"SIGTERM";
+#endif
+      if (kill(_child, SIGTERM) && errno != ESRCH) return Fail(error, @"owned child termination failed");
+    }
     if (_child && ![self reapUntil:KuroMonotonicMilliseconds() + 150 error:error]) {
       if (_unknown) return NO;
+#ifdef KURO_CORE_EXPERIMENT
+      _terminationRequest=@"SIGKILL";
+#endif
       if (kill(_child, SIGKILL) && errno != ESRCH) return Fail(error, @"owned child forced termination failed");
       if (![self reapUntil:KuroMonotonicMilliseconds() + 1000 error:error]) return Fail(error, @"owned child has not been reaped");
     }
