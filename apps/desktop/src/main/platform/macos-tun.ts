@@ -284,12 +284,31 @@ export function createMacosTun(options: {
     session = undefined
   }
   let busy = false
+  let recoveryFailure: { before: TunStatus; reason: string } | undefined
+  const recoveredStatus = (status: TunStatus): TunStatus => {
+    const prior = recoveryFailure
+    if (!prior) return status
+    if (status.availability !== prior.before.availability || status.state !== prior.before.state || status.error !== prior.before.error) {
+      recoveryFailure = undefined
+      return status
+    }
+    return { ...status, error: [status.error, `Recovery failed: ${prior.reason}`].filter(Boolean).join('; ') }
+  }
+  const recover = async (before: TunStatus): Promise<TunStatus> => {
+    try { const result = await request('recover'); recoveryFailure = undefined; return result }
+    catch (error) {
+      if (before.availability === 'blocked' && before.state === 'off') {
+        recoveryFailure = { before: { ...before }, reason: error instanceof Error ? error.message : String(error) }
+      }
+      throw error
+    }
+  }
   const inspect = async (): Promise<TunStatus> => {
     const inspectingSession = session
     try {
       const installed = await present()
       if (!installed && inspectingSession) throw new Error('TUN helper disappeared; network state unknown')
-      const observed = installed ? await request('status') : { ...missing }
+      const observed = recoveredStatus(installed ? await request('status') : { ...missing })
       const failure = inspectingSession?.error()
       if (failure && observed.state !== 'off') throw failure
       if (inspectingSession && session === inspectingSession && observed.state === 'off') {
@@ -312,8 +331,8 @@ export function createMacosTun(options: {
         catch { /* A lost acknowledgement is not evidence of failure or cleanup; read back independently. */ }
         ownedSession.disconnect()
         let observed = await request('status')
-        if (observed.state !== 'off' && operation === 'recover') {
-          const recovered = await request('recover')
+        if (operation === 'recover' && (observed.state !== 'off' || observed.availability !== 'ready')) {
+          const recovered = await recover(observed)
           if (recovered.state !== 'off') throw new Error(recovered.error || 'TUN helper recovery could not confirm cleanup')
           observed = await request('status')
         }
@@ -328,7 +347,7 @@ export function createMacosTun(options: {
       }
       const before = await request('status')
       if (operation === 'start') {
-        if (session || before.availability !== 'ready' || before.state !== 'off') throw new Error(before.error || 'TUN helper is not ready for a new session')
+        if (session || before.availability !== 'ready' || before.state !== 'off') throw new Error(recoveredStatus(before).error || 'TUN helper is not ready for a new session')
         const openedSession = await open(admitted!)
         session = openedSession
         detachSession = openedSession.subscribe?.(() => {
@@ -342,8 +361,8 @@ export function createMacosTun(options: {
           return observed
         } catch (error) { openedSession.disconnect(); throw error }
       }
-      if (before.state === 'off') return before
-      const result = await request(operation)
+      if (before.state === 'off' && operation === 'stop') return before
+      const result = operation === 'recover' ? await recover(before) : await request(operation)
       if (result.state !== 'off') throw new Error(result.error || 'TUN helper could not confirm the requested network state')
       const observed = await request('status')
       if (observed.state !== 'off') throw new Error(observed.error || 'TUN helper state confirmation failed')

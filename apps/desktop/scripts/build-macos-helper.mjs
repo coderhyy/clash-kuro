@@ -39,8 +39,17 @@ export async function buildMacosHelper(target, test = false) {
       const binary = join(temporary, 'tests')
       execFileSync('/usr/bin/clang', [...flags, '-Wno-unused-function', join(source, 'kuro-tun-helper.test.m'), '-o', binary], { stdio: 'inherit' })
       // Tests reject root; only socketpair and private temporary-directory operations.
-      execFileSync(binary, [], { stdio: 'inherit', timeout: 30_000 })
+      // The full install/recovery matrix exceeds 30s on hosted runners; individual waits stay bounded.
+      execFileSync(binary, [], { stdio: 'inherit', timeout: 90_000 })
       execFileSync(binary, ['--upgrade-tests'], { stdio: 'inherit', timeout: 180_000 })
+      // Exercise the production client/store against the signed native fixture before removing it.
+      const admissionReport = join(temporary, 'admission.json')
+      execFileSync('node', [join(root, '../../node_modules/vitest/vitest.mjs'), 'run', 'src/main/candidate-startup.test.ts', '-t', 'authenticated native admission', '--maxWorkers=1', '--reporter=default', '--reporter=json', `--outputFile.json=${admissionReport}`], {
+        cwd: root, env: { ...process.env, KURO_ADMISSION_FIXTURE: binary }, stdio: 'inherit', timeout: 120_000,
+      })
+      const admission = JSON.parse(await readFile(admissionReport, 'utf8')).testResults.flatMap(result => result.assertionResults)
+        .filter(result => result.fullName.includes('authenticated native admission'))
+      if (admission.length !== 7 || admission.some(result => result.status !== 'passed')) throw new Error('All seven production admission chains must execute and pass')
       const outputTests = join(temporary, 'output-tests')
       execFileSync('/usr/bin/clang', [...flags, '-Wno-unused-function', join(source, 'tun-output.test.m'), '-o', outputTests], { stdio: 'inherit' })
       execFileSync(outputTests, [], { stdio: 'inherit', timeout: 20_000 })

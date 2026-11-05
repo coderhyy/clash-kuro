@@ -509,7 +509,7 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
   if (platform.tun) {
     try { await inspectTun() } catch (error) { blockTun(error) }
     try {
-      if (store.getState().tun.state !== 'off') await performTun('recover')
+      if (store.getState().tun.state !== 'off' || store.getState().tun.availability === 'blocked') await performTun('recover')
       const currentRunning = await platform.isCoreRunning()
       change({ core: { status: currentRunning ? 'running' : 'stopped', error: null } })
     } catch (error) {

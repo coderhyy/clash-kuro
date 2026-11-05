@@ -49,11 +49,13 @@ static NSDictionary *Payload(NSString *prefix) {
 #import "tun-client.test.m"
 #import "tun-auth.test.m"
 #import "tun-service.test.m"
+#import "tun-admission.test.m"
 int main(int argc, const char **argv) {
   @autoreleasepool {
     if(argc==4&&!strcmp(argv[1],"--upgrade-package-layout-fixture")){char canonical[PATH_MAX];CHECK(geteuid()!=0&&realpath(argv[2],canonical));NSString *error=nil;BOOL ok=UpgradePackageLayoutFixture(@(canonical),@(argv[3]),&error);if(!ok)fprintf(stderr,"package layout: %s\n",error.UTF8String);return ok?0:1;}
     if(argc==2&&!strcmp(argv[1],"--upgrade-tests")){UpgradeTests();return 0;}
     if(argc==3&&!strcmp(argv[1],"--upgrade-recover-fixture")){CHECK(geteuid()!=0);NSString *prefix=@(argv[2]),*error=nil;BOOL ok=RecoverClientUpgrade(prefix,geteuid(),NO,Executable(),&error);if(!ok)fprintf(stderr,"upgrade recovery fixture: %s\n",error.UTF8String);return ok?0:1;}
+    int admissionFixture=AdmissionFixtureMain(argc,argv); if(admissionFixture>=0)return admissionFixture;
     int authFixture=AuthFixtureMain(argc,argv); if(authFixture>=0)return authFixture;
     if(argc==2 && !strcmp(argv[1],"--auth-tests")) { CHECK(geteuid()!=0); alarm(20); AuthTests(); return 0; }
     int fixture = ServiceFixtureMain(argc, argv); if (fixture >= 0) return fixture;
@@ -77,7 +79,8 @@ int main(int argc, const char **argv) {
       CHECK(Uninstall(prefix, geteuid(), NO, Executable(), &error));
       return 0;
     }
-    CHECK(geteuid() != 0); alarm(40);
+    // Whole-suite watchdog; individual process and protocol deadlines remain unchanged.
+    CHECK(geteuid() != 0); alarm(80);
     SessionTests();
     ConfigTests();
     PeerIdentityTests();

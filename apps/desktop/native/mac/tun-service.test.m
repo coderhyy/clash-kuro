@@ -526,7 +526,7 @@ static void SupervisionServiceTests(void) {
 }
 // Actual protected temporary installation model; only the process/job observations
 // are isolated fixtures. No Installer, launchctl, real Core or network operation.
-static NSDictionary *InstallationBindingFixture(NSString *base) {
+static NSDictionary *InstallationBindingFixtureAt(NSString *base, NSString *prefix, BOOL activation) {
   NSString *source=[base stringByAppendingPathComponent:@"source"],*bundle=[source stringByAppendingPathComponent:@"fixture.app"],*error=nil;
   NSData *executable=[NSData dataWithContentsOfFile:Executable()];Put([bundle stringByAppendingPathComponent:ClientExecutable],executable,0755);
   NSDictionary *info=@{@"CFBundleIdentifier":@"dev.kuro.desktop",@"CFBundleExecutable":@"Clash Kuro",@"CFBundlePackageType":@"APPL",@"CFBundleVersion":@"1"};
@@ -535,12 +535,45 @@ static NSDictionary *InstallationBindingFixture(NSString *base) {
   char *sign[]={"/usr/bin/codesign","--force","--sign","-","--options","runtime",(char *)bundle.fileSystemRepresentation,NULL},*env[]={"PATH=/usr/bin:/bin","LANG=C",NULL};pid_t signer=0;int status=0;
   CHECK(!posix_spawn(&signer,sign[0],NULL,NULL,sign,env)&&waitpid(signer,&status,0)==signer&&WIFEXITED(status)&&!WEXITSTATUS(status));
   NSDictionary *pin=KuroClientSnapshot(source,bundle,geteuid(),&error),*inventory=FixtureInventory(bundle);CHECK(pin);
-  NSMutableDictionary *manifest=[FreshFixtureScripts(source,pin,inventory)mutableCopy],*core=[manifest[@"core"]mutableCopy];manifest[@"activationAllowed"]=@YES;core[@"sha256"]=Hash(executable);manifest[@"core"]=core;
-  NSString *scripts=[source stringByAppendingPathComponent:@"scripts"],*prefix=[base stringByAppendingPathComponent:@"installed"];Put([scripts stringByAppendingPathComponent:@"manifest.json"],JSONData(manifest),0600);FixtureDirectory(prefix);
+  NSMutableDictionary *manifest=[FreshFixtureScripts(source,pin,inventory)mutableCopy],*core=[manifest[@"core"]mutableCopy];manifest[@"activationAllowed"]=@(activation);core[@"sha256"]=Hash(executable);manifest[@"core"]=core;
+  NSString *scripts=[source stringByAppendingPathComponent:@"scripts"];Put([scripts stringByAppendingPathComponent:@"manifest.json"],JSONData(manifest),0600);FixtureDirectory(prefix);
   CHECK(BeginClientInstallFromScripts(prefix,geteuid(),NO,scripts,&error));CopyFreshPayload(source,prefix,manifest);Put(At(prefix,[State stringByAppendingPathComponent:@"Inbox/mihomo"]),executable,0755);
   NSString *client=At(prefix,ClientBundle);FixtureDirectory(client.stringByDeletingLastPathComponent);CHECK([[NSFileManager defaultManager]copyItemAtPath:bundle toPath:client error:NULL]);CHECK(Install(prefix,geteuid(),NO,&error));
   NSString *version=[At(prefix,Tools)stringByAppendingPathComponent:[@"versions"stringByAppendingPathComponent:manifest[@"release"]]];
   return @{@"prefix":prefix,@"helper":[version stringByAppendingPathComponent:@"helper"],@"core":[version stringByAppendingPathComponent:@"mihomo"],@"manifest":[version stringByAppendingPathComponent:@"manifest.json"]};
+}
+static NSDictionary *InstallationBindingFixtureMode(NSString *base, BOOL activation) { return InstallationBindingFixtureAt(base,[base stringByAppendingPathComponent:@"installed"],activation); }
+static NSDictionary *InstallationBindingFixture(NSString *base) { return InstallationBindingFixtureMode(base,YES); }
+// The same capability admission used by ServicePeer's Authorize; audit/SecCode
+// peer authentication is not substituted or claimed by this ordinary-UID fixture.
+static NSDictionary *FreshAdmissionRequest(KuroTunService *service, NSDictionary *installation, NSString *operation) {
+  NSString *error=nil;
+  if([operation isEqual:@"status"])return @{@"version":@1,@"ok":@YES,@"status":service.statusSnapshot};
+  if(![operation isEqual:@"recover"] || !KuroSessionActivationAt(installation[@"prefix"],geteuid(),installation[@"helper"],&error))return ErrorResponse(error?:@"fixture only accepts status/recover");
+  return [service recoverNetworkOnly:&error]?@{@"version":@1,@"ok":@YES,@"status":service.statusSnapshot}:ErrorResponse(error);
+}
+static void FreshAdmissionTests(void) {
+  for(NSUInteger scenario=0;scenario<4;scenario++) {
+    char tmp[]="/tmp/kuro-fresh-admit-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(tmp)&&realpath(tmp,canonical));NSString *base=@(canonical);
+    NSDictionary *installation=InstallationBindingFixtureMode(base,scenario!=1);NSString *state=At(installation[@"prefix"],State),*journal=[state stringByAppendingPathComponent:@"network.json"];
+    if(scenario==2)Put(journal,Bytes(@"unknown route evidence must remain"),0600);
+    KuroTunServiceHooks *hooks=ServiceHooks();__block NSUInteger recoveries=0;
+    hooks.recoverResidualNetwork=^BOOL(NSString **error){recoveries++;return scenario!=2||Fail(error,@"unknown route evidence retained");};
+    KuroTunService *service=[[KuroTunService alloc]initFixtureInstallation:installation hooks:hooks];
+    if(scenario==3)[service setValue:@"uninstall checkpoint failed" forKey:@"stopCheckpointFailure"]; // Existing real held-checkpoint case 26 covers the producer.
+    NSDictionary *initial=FreshAdmissionRequest(service,installation,@"status")[@"status"];
+    CHECK([initial[@"availability"]isEqual:@"blocked"]&&[initial[@"state"]isEqual:scenario==2?@"unknown":@"off"]);
+    CHECK(scenario==2||[initial[@"error"]isEqual:@"authenticated recovery is required before a new TUN session"]);
+    NSDictionary *reply=FreshAdmissionRequest(service,installation,@"recover"),*observed=FreshAdmissionRequest(service,installation,@"status")[@"status"];
+    CHECK([reply[@"ok"]boolValue]==(scenario==0||scenario==3));
+    if(scenario==0)CHECK(([observed isEqual:@{@"availability":@"ready",@"state":@"off"}]));
+    if(scenario==1)CHECK(recoveries==0&&[reply[@"error"]containsString:@"does not explicitly permit"]&&[observed isEqual:initial]);
+    if(scenario==2)CHECK(recoveries==1&&[observed[@"state"]isEqual:@"unknown"]&&[observed[@"availability"]isEqual:@"blocked"]&&[ReadProtected(installation[@"prefix"],journal,geteuid(),NULL)isEqual:Bytes(@"unknown route evidence must remain")]);
+    if(scenario==3)CHECK([observed[@"availability"]isEqual:@"blocked"]&&[observed[@"state"]isEqual:@"off"]&&[observed[@"error"]isEqual:@"uninstall checkpoint failed"]);
+    CHECK(!Exists([state stringByAppendingPathComponent:@"owner.json"])&&!Exists([state stringByAppendingPathComponent:@"session-work"]));
+    CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);
+  }
+  puts("fresh admission: actual temporary install/Status + dispatch capability gate + real recovery; finite ready/off, auth-only denied, unknown route retained, checkpoint blocked/off preserved; no Core/root/network writes");
 }
 static void InstallationBindingTests(void) {
   char temporary[]="/tmp/kuro-install-bind-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));NSString *base=@(canonical),*error=nil;
@@ -854,6 +887,7 @@ static void RecoveredStopCheckpointTests(void) {
 }
 
 static void ServiceTests(void) {
+  FreshAdmissionTests();
   RecoveredStopCheckpointTests();
   HeldStopCheckpointTests();
   StoppedRevocationTests();

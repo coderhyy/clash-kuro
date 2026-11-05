@@ -267,7 +267,7 @@ static NSDictionary *Status(NSString *prefix, uid_t owner) {
     off = off && [helperPath isEqual:Executable()];
 #endif
   }
-  return @{@"version":@1, @"ok":@YES, @"status":@{@"availability":@"blocked", @"state":off ? @"off" : @"unknown", @"error":off ? @"root Core configuration and client attestation are not enabled" : @"owned process/network cleanup cannot be proven"}};
+  return @{@"version":@1, @"ok":@YES, @"status":@{@"availability":@"blocked", @"state":off ? @"off" : @"unknown", @"error":off ? @"authenticated recovery is required before a new TUN session" : @"owned process/network cleanup cannot be proven"}};
 }
 static NSDictionary *ProcessRequest(NSData *data, int peer, NSString *prefix, uid_t owner) {
   NSString *error = nil;

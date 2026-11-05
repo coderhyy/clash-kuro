@@ -439,3 +439,79 @@ test.skipIf(process.platform === 'win32')('session failure subscription notifies
   expect(live).toHaveBeenCalledOnce()
   expect(removed).not.toHaveBeenCalled()
 })
+
+// Startup must exercise the adapter recovery protocol even when fresh status proves off.
+test.each(['ready', 'denied', 'checkpoint', 'unknown'] as const)('store startup reconciles fresh blocked/off through actual adapter (%s)', async outcome => {
+  const initial: TunStatus = { availability: 'blocked', state: 'off', error: 'authenticated recovery is required before a new TUN session' }
+  let current = initial
+  const request = vi.fn(async (operation: string) => {
+    if (operation === 'recover') {
+      if (outcome === 'denied') throw new Error('installed manifest does not explicitly permit finite TUN sessions')
+      current = outcome === 'ready' ? off : outcome === 'checkpoint'
+        ? { availability: 'blocked', state: 'off', error: 'uninstall checkpoint failed' }
+        : { availability: 'blocked', state: 'unknown', error: 'unknown route evidence retained' }
+    }
+    return current
+  })
+  const open = vi.fn()
+  const tun = createMacosTun({ endpointPresent: async () => true, request, open })
+  const platform = Object.assign(new FakePlatform(), { tun })
+  const start = vi.spyOn(platform, 'startCore'), proxy = vi.spyOn(platform, 'setSystemProxy')
+  const app = await createAppStore({ platform, client: createMihomoClient(new FakeTransport()), systemLocale: () => 'en',
+    buildRuntimeConfig: () => 'proxies: []', refreshProfile: async value => value })
+  onTestFinished(() => app.dispose())
+  expect(request.mock.calls.flat()).toContain('recover')
+  expect(request.mock.calls.flat().filter(value => value === 'recover')).toHaveLength(1)
+  expect(app.store.getState().tun).toEqual(outcome === 'denied'
+    ? { ...initial, error: 'installed manifest does not explicitly permit finite TUN sessions' } : current)
+  if (outcome !== 'ready') expect(app.store.getState().tun.availability).toBe('blocked')
+  expect(start).not.toHaveBeenCalled(); expect(proxy).not.toHaveBeenCalled(); expect(open).not.toHaveBeenCalled()
+})
+
+test('explicit recovery of an owned but blocked/off session preserves native checkpoint error', async () => {
+  const blocked: TunStatus = { availability: 'blocked', state: 'off', error: 'uninstall checkpoint failed' }
+  const request = vi.fn().mockResolvedValueOnce(off).mockResolvedValueOnce(on)
+    .mockResolvedValue(blocked)
+  const owner = { stop: vi.fn(async () => blocked), error: () => undefined, disconnect: vi.fn() }
+  const tun = createMacosTun({ endpointPresent: async () => true, request, open: async () => owner })
+  await tun.start(config)
+  expect(await tun.recover()).toEqual(blocked)
+  expect(request.mock.calls.flat()).toEqual(['status', 'status', 'status', 'recover', 'status'])
+})
+
+
+test('owned recovery returns independently proven ready/off while the successful stop worker is still finalizing', async () => {
+  let finalizing = false
+  const request = vi.fn(async (operation: string) => {
+    if (operation === 'recover') throw new Error('session transaction active or shutting down; recovery refused')
+    return finalizing ? off : on
+  })
+  const owner = { stop: vi.fn(async () => { finalizing = true; return off }), error: () => undefined, disconnect: vi.fn() }
+  request.mockResolvedValueOnce(off)
+  const tun = createMacosTun({ endpointPresent: async () => true, request, open: async () => owner })
+  await tun.start(config)
+  expect(await tun.recover()).toEqual(off)
+  expect(finalizing).toBe(true)
+  expect(request.mock.calls.flat()).toEqual(['status', 'status', 'status'])
+})
+
+
+test('rejected recovery reason survives unchanged pending status but never overrides changed native evidence', async () => {
+  const initial: TunStatus = { availability: 'blocked', state: 'off', error: 'authenticated recovery is required' }
+  let current = initial, denied = true
+  const tun = createMacosTun({ endpointPresent: async () => true, request: async operation => {
+    if (operation === 'recover' && denied) throw new Error('installed manifest does not permit finite sessions')
+    return current
+  } })
+  await expect(tun.recover()).rejects.toThrow('installed manifest')
+  expect(await tun.inspect()).toMatchObject({ ...initial, error: expect.stringContaining('installed manifest') })
+  current = { availability: 'blocked', state: 'off', error: 'uninstall checkpoint failed' }
+  expect(await tun.inspect()).toEqual(current)
+  await expect(tun.recover()).rejects.toThrow('installed manifest')
+  expect((await tun.inspect()).error).toContain('uninstall checkpoint failed')
+  denied = false
+  expect(await tun.recover()).toEqual(current)
+  expect(await tun.inspect()).toEqual(current)
+  current = off
+  expect(await tun.inspect()).toEqual(off)
+})

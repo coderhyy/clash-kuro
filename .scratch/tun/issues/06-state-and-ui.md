@@ -7,6 +7,9 @@ Owner: TUN 接入 agent；主会话统一 Core/State/桌面公共接口与源码
 
 ## 当前状态（2026-11-05，49f7dd6）
 
+- **当前集成**：生产startup blocked/off必须经已鉴权恢复，不再off短路；完整临时安装身份/manifest→native Status/授权恢复→actual main/store/Profile/adapter→有限V2 start/stop组合7/7通过，错误身份/配置、auth-only、恢复失败拒绝。独立审查通过；实际Electron/root/TUN仍待新窗口。
+- held停止证明、同安装format3恢复证明及普通Core socket就绪权限竞态均已集成并通过隔离验证；新候选待整合CI通过后冻结。下方历史49失败与先前状态保留。
+
 - **最新真实窗口**：49f7dd6 fresh安装、实际App字节核验及helper启动成功，但生产初始blocked/off与客户端off短路导致无法ready；未运行Core/TUN。已正常退出App、卸载准确job/安装/receipt，代理/DNS/双族路由与新基线一致。[结果](../evidence/first-tun-window-20261105/RESULT.md)。窗口已结束；修复正在隔离实现并独立审查，不重试原包。
 - 真实held停止证明在owner清退前耐久保存的四文件修复已通过独立审查并集成；完整写出前崩溃仍不能合成held证明。它不在49包内，也不算真实TUN恢复通过。以下保留前一阶段状态。
 

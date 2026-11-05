@@ -206,6 +206,7 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
 - (instancetype)initWithHooks:(KuroTunServiceHooks *)hooks;
 #ifdef KURO_TESTING
 - (instancetype)initFixtureDirectory:(NSString *)directory core:(NSString *)core hooks:(KuroTunServiceHooks *)hooks;
+- (instancetype)initFixtureInstallation:(NSDictionary *)installation hooks:(KuroTunServiceHooks *)hooks;
 @property(nonatomic, copy) void (^fixtureAfterSupervise)(void);
 @property(nonatomic, copy) KuroSessionSupervisionSource fixtureSupervisionSource;
 @property(nonatomic, copy) NSString *fixtureInstallationPrefix;
@@ -239,6 +240,14 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
   return self;
 }
 #ifdef KURO_TESTING
+- (instancetype)initFixtureInstallation:(NSDictionary *)installation hooks:(KuroTunServiceHooks *)hooks {
+  NSString *prefix=installation[@"prefix"];
+  if((self=[self initFixtureDirectory:At(prefix,State) core:installation[@"core"] hooks:hooks])) {
+    self.fixtureInstallationPrefix=prefix;
+    _snapshot=[Status(prefix,geteuid())[@"status"] copy];
+  }
+  return self;
+}
 - (instancetype)initFixtureDirectory:(NSString *)directory core:(NSString *)core hooks:(KuroTunServiceHooks *)hooks {
   if((self=[super init])) {
     _directory=[directory copy]; _owner=geteuid(); _fixtureCore=[core copy]; _hooks=hooks; _commands=[NSMutableArray array]; _recoveryWake=[NSCondition new];
