@@ -154,3 +154,5 @@ Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
 2026-11-05 恢复增量：精确归属 DNS 可在旧 Core/work 门阻塞时独立清退；总体仍保留 live/unknown Core 与 origin-only cache 拒绝，fresh 不造 held-stop 证明。owner/socket/DNS/routes 同步失败必须重试成功才可 off；同实例保留原始停止证据。双实现 agent＋独立 reviewer 无阻塞，隔离测试通过，主会话合并验证及新产物随后记录。见 [实现与证据边界](../evidence/recovery-durability-20261105/RESULT.md)。
 
 2026-11-05 `4a8c7ac`组合native＋固定Core -t及真实normal→独立absence→EOF通过，两个Core均SIGTERM后exit0；同源码finite-session包已构建并独立离线解包核验，未安装/未TUN。CI原生通过但旧readiness TS用例API超时失败，现仅修测试前置条件并保留500ms/原断言，等待新CI。证据见[恢复验证](../evidence/recovery-durability-20261105/RESULT.md)。
+
+2026-11-05 最终候选源码`4abee2431de852244e43bf5ecab86cfcf91fb259`：macOS/Windows CI通过，同提交fresh finite-session包SHA`f283dc18921aaf03980ca341c139d3721b38e5fffaafed15b711951f4365f4f6`已构建并独立离线核验。原生与刚通过真实normal/EOF的4a字节相同，不把旧执行重标为新执行。尚未安装该包、未获/执行root真实Core监督死亡或首次TUN窗口；异常writer退出证明、实际升级和运行后卸载仍开放。见[最终候选证据](../evidence/finite-candidate-4abee24/RESULT.md)。
