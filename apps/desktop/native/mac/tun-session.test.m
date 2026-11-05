@@ -243,3 +243,43 @@ static void SessionTests(void) {
   CHECK([[NSFileManager defaultManager] removeItemAtPath:base error:NULL]);
   puts("native owner/session: EOF, lease, heartbeat, replay, peer exit, cleanup retry, stop, preparation refusal passed");
 }
+
+// Runs only in a harmless ordinary-user subprocess with its own group. The
+// injected source models launchd admission; this is not actual launchd evidence.
+static void SupervisionSessionTests(void) {
+  CHECK(geteuid()!=0);CHECK(getpgrp()==getpid() || !setpgid(0,0));CHECK(getpgrp()==getpid());
+  for(NSUInteger scenario=0;scenario<6;scenario++) {
+    char temporary[]="/tmp/kuro-supervision-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));
+    NSString *directory=@(canonical),*work=[directory stringByAppendingPathComponent:@"session-work"],*child=[directory stringByAppendingPathComponent:@"child"],*journal=[directory stringByAppendingPathComponent:@"owner.json"],*error=nil;
+    NSData *executable=[NSData dataWithContentsOfFile:Executable()],*config=Bytes(@"{}");Put(child,executable,0755);
+    KuroOwnedSession *session=[[KuroOwnedSession alloc]initWithDirectory:directory owner:geteuid()];KuroCoreOutput *output=[[KuroCoreOutput alloc]initWithSecrets:@[@"isolated-unused-secret"]];
+    CHECK([session setOutputStdout:[output writer:0] stderr:[output writer:1] error:&error]);
+    struct proc_bsdinfo selfInfo={0};CHECK(proc_pidinfo(getpid(),PROC_PIDTBSDINFO,0,&selfInfo,sizeof(selfInfo))==sizeof(selfInfo));
+    NSDictionary *identity=@{@"policy":@"fixed-mihomo-launchd-v1",@"helperSHA256":Hash(executable),@"startSeconds":@(selfInfo.pbi_start_tvsec),@"startMicros":@(selfInfo.pbi_start_tvusec)};
+    __block NSUInteger reads=0,prepared=0,cleaned=0;
+    BOOL admitted=[session setSupervisionSource:^NSDictionary *(NSString **problem) {
+      reads++;if(scenario==1 && reads==1){Fail(problem,@"isolated source unavailable");return nil;}
+      if((scenario==2 && reads==2)||(scenario==3 && reads==3)){NSMutableDictionary *changed=[identity mutableCopy];changed[@"startMicros"]=@((selfInfo.pbi_start_tvusec+1)%1000000);return changed;}
+      if(scenario==4 && reads==1){NSMutableDictionary *changed=[identity mutableCopy];changed[@"extra"]=@YES;return changed;}
+      return identity;
+    } error:&error];
+    CHECK(admitted==(scenario!=1&&scenario!=4));CHECK(reads==1&&!session.child&&!Exists(work)&&!Exists(journal)&&session.off);
+    if(!admitted) {
+      CHECK([error containsString:@"before work creation"]);
+      [output closeWriters];CHECK([output finishTo:directory error:&error]);CHECK([[NSFileManager defaultManager]removeItemAtPath:directory error:NULL]);continue;
+    }
+    Put([work stringByAppendingPathComponent:@"config.json"],config,0600);CHECK([session prepareWorkCache:&error]);
+    if(scenario!=5)CHECK(([session setLaunchEvidence:@{@"configSHA256":Hash(config),@"coreSHA256":Hash(executable),@"template":@"macos-dual-stack-v1"} error:&error]));
+    BOOL launched=[session spawnExecutable:child arguments:@[@"--session-child"] workingDirectory:work beforeResume:^BOOL(NSString **problem) {
+      (void)problem;prepared++;NSDictionary *record=ReadJSON(directory,journal,geteuid(),NULL);CHECK(KuroRestartRecord(record,NULL));CHECK([record[@"supervision"]isEqual:identity]);return YES;
+    } afterReap:^BOOL(NSString **problem) {
+      cleaned++;NSDictionary *cache=KuroWorkCacheSnapshot(directory,geteuid(),problem);if(!cache||![session recordReapedWorkCache:cache error:problem])return NO;
+      return !unlink([work stringByAppendingPathComponent:@"cache.db"].fileSystemRepresentation)&&!unlink([work stringByAppendingPathComponent:@"config.json"].fileSystemRepresentation)&&!rmdir(work.fileSystemRepresentation);
+    } error:&error];
+    CHECK(launched==(scenario==0));CHECK(reads==(scenario==0||scenario==3?3:scenario==2?2:1));
+    if(launched) {CHECK(prepared==1&&Exists(journal)&&session.child>0);CHECK(![session setSupervisionSource:^NSDictionary *(NSString **failure){(void)failure;return identity;} error:&error]);CHECK([session stop:&error]);CHECK(session.off&&cleaned==1);NSDictionary *proof=[session completedStopEvidence:&error];CHECK(KuroCompletedStopEvidence(proof)&&[proof[@"owner"][@"supervision"]isEqual:identity]);}
+    else {CHECK(!session.child);CHECK(prepared==(scenario==3?1:0));if(scenario==2){CHECK(!session.off&&Exists(work)&&!Exists(journal)&&!cleaned);}if(scenario==3){CHECK(session.off&&cleaned==1);}CHECK(scenario==2 || !Exists(journal));}
+    [output closeWriters];CHECK([output finishTo:directory error:&error]);CHECK([[NSFileManager defaultManager]removeItemAtPath:directory error:NULL]);
+  }
+  puts("native supervision session: setter first snapshot rejects nil/malformed before work; 6 admission/held-child cases preserve three samples and publish/resume mismatch refusal; optional held provenance only, no restart authority");
+}

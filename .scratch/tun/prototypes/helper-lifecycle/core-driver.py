@@ -2,7 +2,7 @@
 """Finite fixed-path experiment driver. System operations require a separate window."""
 import argparse
 import hashlib
-import importlib.util
+import types
 import json
 import os
 from pathlib import Path
@@ -12,12 +12,9 @@ import stat
 import subprocess
 import time
 
-spec = importlib.util.spec_from_file_location('lifecycle_a_util', Path(__file__).with_name('experiment-a.py'))
-u = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(u)
-BASE, BINARY, PLIST, LABEL = u.DIRECTORY, u.BINARY, u.PLIST, u.LABEL
-require, digest, write_new = u.require, u.digest, u.write_new
-STAGES = ('normal', 'kill')
+def require(condition, message):
+    if not condition:
+        raise RuntimeError(message)
 
 def read(path, owner=None, limit=128 * 1024 * 1024):
     fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
@@ -35,6 +32,17 @@ def read(path, owner=None, limit=128 * 1024 * 1024):
         return bytes(data)
     finally:
         os.close(fd)
+
+# Execute exactly the pinned source; Python's valid bytecode cache is not covered by the inventory.
+utility_path = Path(__file__).with_name('experiment-a.py')
+utility_bytes = read(utility_path, limit=262144)
+require(hashlib.sha256(utility_bytes).hexdigest() == '4b1c05025816da23ffe702eaaaa7598c12d4663c0c8836c608f059479ee64953', 'utility source pin changed')
+u = types.ModuleType('lifecycle_a_util')
+u.__file__ = str(utility_path)
+exec(compile(utility_bytes, str(utility_path), 'exec'), u.__dict__)
+BASE, BINARY, PLIST, LABEL = u.DIRECTORY, u.BINARY, u.PLIST, u.LABEL
+digest, write_new = u.digest, u.write_new
+STAGES = ('normal', 'kill')
 
 def sync(directory):
     fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)

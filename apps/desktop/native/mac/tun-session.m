@@ -9,6 +9,7 @@ static uint64_t KuroMonotonicMilliseconds(void) {
   return (uint64_t)now.tv_sec * 1000 + (uint64_t)now.tv_nsec / 1000000;
 }
 typedef BOOL (^KuroSessionHook)(NSString **error);
+typedef NSDictionary *(^KuroSessionSupervisionSource)(NSString **error);
 static BOOL KuroSessionTemplate(NSString *value) {
 #ifdef KURO_CORE_EXPERIMENT
   return [value isEqual:@"core-control-experiment-v1"];
@@ -73,12 +74,20 @@ static BOOL KuroWorkCacheMatchesOrigin(NSDictionary *snapshot,NSDictionary *orig
   return KuroWorkCacheReceipt(snapshot) && KuroWorkCacheOrigin(origin) && [origin[@"owner"]unsignedLongLongValue]==owner &&
     [snapshot[@"device"]isEqual:origin[@"device"]] && [snapshot[@"inode"]isEqual:origin[@"inode"]] && [snapshot[@"mode"]isEqual:origin[@"mode"]];
 }
+// Provenance only. This does not prove writer exit or grant restart deletion rights.
+static BOOL KuroSupervisionEvidence(id value) {
+  return Keys(value,@[@"policy",@"helperSHA256",@"startSeconds",@"startMicros"]) &&
+    [value[@"policy"]isEqual:@"fixed-mihomo-launchd-v1"] && Match(value[@"helperSHA256"],@"\\A[0-9a-f]{64}\\z") &&
+    KuroNumber(value[@"startSeconds"],1,9007199254740991ULL) && KuroNumber(value[@"startMicros"],0,999999);
+}
 static BOOL KuroRestartRecord(NSDictionary *record,NSString **error) {
   NSArray *base=@[@"format",@"session",@"pid",@"parent",@"startSeconds",@"startMicros",@"executableSHA256",@"phase",@"processGroup"];
-  if(!KuroMapping(record,base,@[@"launch",@"work"]) || !KuroNumber(record[@"format"],1,2) || !KuroNumber(record[@"pid"],1,INT_MAX) || !KuroNumber(record[@"parent"],1,INT_MAX) ||
+  if(!KuroMapping(record,base,@[@"launch",@"work",@"supervision"]) || !KuroNumber(record[@"format"],1,2) || !KuroNumber(record[@"pid"],1,INT_MAX) || !KuroNumber(record[@"parent"],1,INT_MAX) ||
     !KuroNumber(record[@"startSeconds"],1,9007199254740991ULL) || !KuroNumber(record[@"startMicros"],0,999999) || !KuroNumber(record[@"processGroup"],1,INT_MAX) ||
     !Match(record[@"executableSHA256"],@"\\A[0-9a-f]{64}\\z") || ![record[@"phase"]isEqual:@"prepared"] || ![record[@"session"]isKindOfClass:NSString.class])return Fail(error,@"invalid closed old Core owner receipt");
   NSUUID *session=[[NSUUID alloc]initWithUUIDString:record[@"session"]]; if(!session || ![session.UUIDString isEqual:record[@"session"]])return Fail(error,@"invalid old Core owner session");
+  if(record[@"supervision"] && (!KuroSupervisionEvidence(record[@"supervision"]) || !KuroNumber(record[@"format"],2,2) ||
+     ![record[@"parent"]isEqual:record[@"processGroup"]] || [record[@"pid"]isEqual:record[@"parent"]]))return Fail(error,@"invalid closed helper supervision provenance");
   NSDictionary *launch=record[@"launch"];
   if(launch && (!Keys(launch,@[@"configSHA256",@"coreSHA256",@"template"]) || !Match(launch[@"configSHA256"],@"\\A[0-9a-f]{64}\\z") || ![launch[@"coreSHA256"]isEqual:record[@"executableSHA256"]] || !KuroSessionTemplate(launch[@"template"])))return Fail(error,@"old Core launch evidence does not match its owner");
   NSDictionary *work=record[@"work"];
@@ -122,6 +131,8 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   BOOL _ownerRemovalPending;
   KuroSessionHook _cleanup;
   NSDictionary *_launchEvidence;
+  KuroSessionSupervisionSource _supervisionSource;
+  NSDictionary *_initialSupervision;
   pid_t _reapedOwnedChild;
   NSDictionary *_completedStop;
   NSData *_heldOwnerBytes;
@@ -163,6 +174,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
 - (instancetype)initWithDirectory:(NSString *)directory owner:(uid_t)owner;
 - (BOOL)spawnExecutable:(NSString *)executable arguments:(NSArray<NSString *> *)arguments beforeResume:(KuroSessionHook)prepare afterReap:(KuroSessionHook)cleanup error:(NSString **)error;
 - (BOOL)setLaunchEvidence:(NSDictionary *)evidence error:(NSString **)error;
+- (BOOL)setSupervisionSource:(KuroSessionSupervisionSource)source error:(NSString **)error;
 - (BOOL)spawnExecutable:(NSString *)executable arguments:(NSArray<NSString *> *)arguments workingDirectory:(NSString *)workingDirectory beforeResume:(KuroSessionHook)prepare afterReap:(KuroSessionHook)cleanup error:(NSString **)error;
 - (BOOL)spawnExecutable:(NSString *)executable arguments:(NSArray<NSString *> *)arguments workingDirectory:(NSString *)workingDirectory beforeResume:(KuroSessionHook)prepare afterReap:(KuroSessionHook)cleanup resumeGate:(KuroSessionResumeGate)resumeGate error:(NSString **)error;
 - (BOOL)stop:(NSString **)error;
@@ -193,6 +205,13 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
 - (BOOL)setOutputStdout:(int)output stderr:(int)errors error:(NSString **)error {
   if(![self onThread:error] || _child || _journaled || _unknown || !KuroCaptureWriters(output,errors,error))return Fail(error,@"clean session and valid output capture writers required");
   _stdoutDescriptor=output;_stderrDescriptor=errors;return YES;
+}
+- (BOOL)setSupervisionSource:(KuroSessionSupervisionSource)source error:(NSString **)error {
+  if(![self onThread:error] || _child || _journaled || _unknown || !source)return Fail(error,@"clean session and internal supervision source required");
+  NSDictionary *observed=source(error);
+  if(!KuroSupervisionEvidence(observed) || getpgrp()!=getpid())return Fail(error,@"fixed launchd supervision could not be established before work creation");
+  NSDictionary *initial=[[NSDictionary alloc]initWithDictionary:observed copyItems:YES];
+  _supervisionSource=[source copy];_initialSupervision=initial;return YES;
 }
 - (BOOL)off {
   if (_child || _journaled || _unknown || _directorySyncPending || _ownerRemovalPending) return NO;
@@ -337,6 +356,15 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   // Test fixtures use the ordinary user's protected executable; production root
   // launch requires root-owned fixed Core and validated config at its caller.
   if (!bytes || !executable.isAbsolutePath || arguments.count > 32) return Fail(error, @"protected executable is required");
+  NSDictionary *supervision=nil;
+  if(_supervisionSource) {
+    if(!workingDirectory || !_launchEvidence)return Fail(error,@"supervision requires a versioned fixed launch/work receipt before spawn");
+    supervision=_initialSupervision;
+    if(!KuroSupervisionEvidence(supervision) || !workingDirectory || getpgrp()!=getpid())return Fail(error,@"fixed launchd supervision could not be established before spawn");
+  }
+#if !defined(KURO_TESTING) && !defined(KURO_CORE_EXPERIMENT)
+  else return Fail(error,@"production Core requires fixed launchd supervision provenance");
+#endif
   _identifier = NSUUID.UUID.UUIDString;
   char *argv[34] = {0}; argv[0] = (char *)executable.fileSystemRepresentation;
   for (NSUInteger i = 0; i < arguments.count; i++) {
@@ -383,6 +411,11 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
     else known=NO;
   }
 
+  if(supervision) {
+    NSDictionary *current=_supervisionSource(error);
+    known=known && KuroSupervisionEvidence(current) && [supervision isEqual:current];
+    record[@"supervision"]=supervision;
+  }
   _reapedOwnedChild=0; _completedStop=nil;
   _cleanup = [cleanup copy];
   // Mark uncertainty before creating the journal, including partial-write failures.
@@ -397,6 +430,10 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   __block BOOL resumed=NO;
   KuroSessionHook resume=^BOOL(NSString **problem) {
     if(resumed)return Fail(problem,@"owned child resume may run only once");
+    if(supervision) {
+      NSDictionary *current=self->_supervisionSource(problem);
+      if(!KuroSupervisionEvidence(current) || ![supervision isEqual:current])return Fail(problem,@"fixed launchd supervision changed before Core resume");
+    }
     if(self->_workCacheOrigin && ![KuroWorkCacheSnapshot(self->_directory,self->_owner,problem)isEqual:self->_workCacheInitial])return Fail(problem,@"precreated cache changed before Core resume; preserve work");
     if(kill(self->_child,SIGCONT))return Fail(problem,@"owned child could not be resumed");
     resumed=YES; return YES;

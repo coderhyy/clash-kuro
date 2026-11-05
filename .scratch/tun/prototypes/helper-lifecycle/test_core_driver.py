@@ -28,6 +28,32 @@ def receipt():
             'termination':{'request':'SIGTERM','observed':True,'exitCode':0,'signal':None}, 'error':''}
 
 class CoreDriverTests(unittest.TestCase):
+    def test_utility_executes_pinned_source_not_valid_poisoned_bytecode(self):
+        import marshal
+        import struct
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            utility = root / 'experiment-a.py'
+            utility.write_bytes(Path(d.__file__).with_name('experiment-a.py').read_bytes())
+            cached = Path(importlib.util.cache_from_source(str(utility)))
+            cached.parent.mkdir()
+            info = utility.stat()
+            poisoned = (importlib.util.MAGIC_NUMBER + struct.pack('<III', 0, int(info.st_mtime), info.st_size)
+                        + marshal.dumps(compile("raise RuntimeError('poisoned utility cache executed')", str(utility), 'exec')))
+            cached.write_bytes(poisoned)
+            legacy = importlib.util.spec_from_file_location('legacy_utility_control', utility)
+            with self.assertRaisesRegex(RuntimeError, 'poisoned utility cache executed'):
+                legacy.loader.exec_module(importlib.util.module_from_spec(legacy))
+            driver = root / 'core-driver.py'
+            driver.write_bytes(Path(d.__file__).read_bytes())
+            namespace = {'__name__': 'pinned_driver_fixture', '__file__': str(driver)}
+            exec(compile(driver.read_bytes(), str(driver), 'exec'), namespace)
+            self.assertEqual(namespace['LABEL'], d.LABEL)
+            self.assertEqual(cached.read_bytes(), poisoned)
+            utility.write_bytes(b"raise RuntimeError('changed source executed')\n")
+            with self.assertRaisesRegex(RuntimeError, 'utility source pin changed'):
+                exec(compile(driver.read_bytes(), str(driver), 'exec'), namespace)
+
     def test_generated_cleanup_is_bound_to_new_approval_and_rejects_template_change(self):
         source_commit = 'f' * 40
         approval_sha = p.sha(p.json_bytes(A))

@@ -2,6 +2,101 @@
 #import "tun-output.m"
 // Included after the fixed installer helpers. Internal APIs only; this class
 // never takes a caller-supplied executable, HTTP method/path, or working directory.
+// A read-only fixed job observation, not a general command transport. No RPC value
+// supplies executable, arguments, label or the resulting owner provenance.
+#ifdef KURO_TESTING
+static int KuroSupervisorOutputFixture=-1;
+#endif
+static NSString *KuroReadSupervisorJob(NSString **error) {
+  int pipeFD[2];if(pipe(pipeFD)) {Fail(error,@"supervisor observation pipe unavailable");return nil;}
+  int reader=fcntl(pipeFD[0],F_DUPFD_CLOEXEC,4),writer=fcntl(pipeFD[1],F_DUPFD_CLOEXEC,4);close(pipeFD[0]);close(pipeFD[1]);
+  if(reader<0 || writer<0) {if(reader>=0)close(reader);if(writer>=0)close(writer);Fail(error,@"supervisor observation descriptors unavailable");return nil;}
+  int flags=fcntl(reader,F_GETFL);
+  if(flags<0 || fcntl(reader,F_SETFL,flags|O_NONBLOCK)) {close(reader);close(writer);Fail(error,@"supervisor observation nonblocking pipe unavailable");return nil;}
+  posix_spawn_file_actions_t actions;int setup=posix_spawn_file_actions_init(&actions);
+  if(setup) {close(reader);close(writer);Fail(error,@"supervisor observation actions unavailable");return nil;}
+  setup|=posix_spawn_file_actions_adddup2(&actions,writer,STDOUT_FILENO);
+  setup|=posix_spawn_file_actions_addopen(&actions,STDIN_FILENO,"/dev/null",O_RDONLY,0);
+  setup|=posix_spawn_file_actions_addopen(&actions,STDERR_FILENO,"/dev/null",O_WRONLY,0);
+  setup|=posix_spawn_file_actions_addclose(&actions,reader);
+  setup|=posix_spawn_file_actions_addclose(&actions,writer);
+  posix_spawnattr_t attr;int initialized=posix_spawnattr_init(&attr);setup|=initialized;
+  if(!initialized)setup|=posix_spawnattr_setflags(&attr,POSIX_SPAWN_CLOEXEC_DEFAULT);
+  char *argv[]={"/bin/launchctl","print","system/dev.kuro.tun",NULL};
+  NSString *program=@"/bin/launchctl";
+#ifdef KURO_TESTING
+  NSString *mode=[NSString stringWithFormat:@"%d",KuroSupervisorOutputFixture];
+  char *fixtureArgv[]={(char *)Executable().fileSystemRepresentation,"--supervision-output-fixture",(char *)mode.UTF8String,NULL};
+  char **selected=argv;if(KuroSupervisorOutputFixture>=0){program=Executable();selected=fixtureArgv;}
+#else
+  char **selected=argv;
+#endif
+  char *environment[]={"PATH=/usr/bin:/bin","LANG=C",NULL};pid_t child=0;
+  int spawned=setup?setup:posix_spawn(&child,program.fileSystemRepresentation,&actions,&attr,selected,environment);
+  posix_spawn_file_actions_destroy(&actions);if(!initialized)posix_spawnattr_destroy(&attr);close(writer);
+  if(spawned) {close(reader);Fail(error,@"fixed supervisor observation could not launch");return nil;}
+  NSMutableData *bytes=[NSMutableData data];BOOL held=YES,eof=NO,valid=YES;int status=0;
+  uint64_t deadline=KuroMonotonicMilliseconds()+750;
+  while(held || !eof) {
+    unsigned char buffer[4096];ssize_t count=read(reader,buffer,sizeof(buffer));
+    if(count>0) {if(bytes.length+(NSUInteger)count>65536){valid=NO;break;}[bytes appendBytes:buffer length:(NSUInteger)count];}
+    else if(!count)eof=YES;
+    else if(errno!=EAGAIN && errno!=EWOULDBLOCK && errno!=EINTR){valid=NO;break;}
+    if(held) {pid_t done=waitpid(child,&status,WNOHANG);if(done==child)held=NO;else if(done<0 && errno!=EINTR){held=NO;valid=NO;break;}}
+    if(!held && eof)break;
+    if(KuroMonotonicMilliseconds()>=deadline){valid=NO;break;}
+    struct pollfd event={.fd=reader,.events=POLLIN|POLLHUP};(void)poll(&event,1,5);
+  }
+  close(reader);
+  if(held) {
+    // This is only our still-unreaped direct launchctl child, never a saved PID.
+    if(kill(child,SIGKILL) && errno!=ESRCH)valid=NO;
+    uint64_t reapDeadline=KuroMonotonicMilliseconds()+250;
+    while(held && KuroMonotonicMilliseconds()<reapDeadline) {
+      pid_t done=waitpid(child,&status,WNOHANG);if(done==child)held=NO;else if(done<0&&errno!=EINTR){held=NO;valid=NO;}
+      if(held){struct timespec pause={.tv_nsec=5000000};nanosleep(&pause,NULL);}
+    }
+    // A kernel-stalled child may outlive this bounded observation. Never report
+    // child absence or grant cleanup authority from this failure path.
+    if(held){Fail(error,@"supervisor observation timed out; direct child reap is unconfirmed");return nil;}
+    valid=NO;
+  }
+  NSString *text=valid&&!held&&eof&&WIFEXITED(status)&&!WEXITSTATUS(status)?[[NSString alloc]initWithData:bytes encoding:NSUTF8StringEncoding]:nil;
+  if(!text || [text rangeOfString:@"\0"].location!=NSNotFound){Fail(error,@"fixed supervisor observation failed, timed out, overflowed or was not strict UTF-8");return nil;}return text;
+}
+static BOOL KuroSupervisorJob(NSString *text,NSString *program,pid_t pid,NSString **error) {
+  if(![text isKindOfClass:NSString.class] || [text lengthOfBytesUsingEncoding:NSUTF8StringEncoding]>65536 || [text rangeOfString:@"\0"].location!=NSNotFound)return Fail(error,@"invalid fixed supervisor job text");
+  NSArray *lines=[text componentsSeparatedByString:@"\n"];NSInteger depth=0;BOOL opened=NO,closed=NO,arguments=NO;NSMutableArray *argv=[NSMutableArray array];NSMutableDictionary *fields=[NSMutableDictionary dictionary];
+  NSSet *wanted=[NSSet setWithArray:@[@"path",@"program",@"pid",@"state",@"type",@"properties"]];BOOL sawArguments=NO;
+  for(NSString *raw in lines) {
+    NSString *line=[raw stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];if(!line.length)continue;
+    if(!opened) {if(![line isEqual:@"system/dev.kuro.tun = {"])return Fail(error,@"supervisor job label/context mismatch");opened=YES;depth=1;continue;}
+    if(closed)return Fail(error,@"trailing supervisor job data");
+    if(arguments) {
+      if([line isEqual:@"}"]) {arguments=NO;depth--;continue;}
+      if([line containsString:@"{"]||[line containsString:@"}"]||argv.count>=2)return Fail(error,@"ambiguous supervisor arguments");
+      [argv addObject:line];continue;
+    }
+    if([line isEqual:@"}"]) {if(--depth==0)closed=YES;else if(depth<0)return Fail(error,@"unbalanced supervisor job");continue;}
+    if(depth==1 && [line isEqual:@"arguments = {"]) {if(sawArguments)return Fail(error,@"duplicate supervisor arguments");sawArguments=YES;arguments=YES;depth++;continue;}
+    if([line hasSuffix:@"{"]) {depth++;if(depth>16)return Fail(error,@"supervisor nesting exceeds limit");continue;}
+    if([line containsString:@"{"]||[line containsString:@"}"])return Fail(error,@"ambiguous supervisor structure");
+    if(depth!=1)continue;
+    NSRange separator=[line rangeOfString:@" = "];if(separator.location==NSNotFound)continue;
+    NSString *key=[line substringToIndex:separator.location];if(![wanted containsObject:key])continue;
+    if(fields[key])return Fail(error,@"duplicate supervisor job identity field");fields[key]=[line substringFromIndex:NSMaxRange(separator)];
+  }
+// This conservative known print shape is not positive proof of loaded AbandonProcessGroup=false.
+  // Provenance never substitutes for the separately required fixed-Core/rootkill evidence.
+  return (opened&&closed&&!arguments&&sawArguments&&[fields[@"path"]isEqual:Plist]&&[fields[@"program"]isEqual:program]&&
+    [fields[@"properties"]isEqual:@"inferred program"]&&[fields[@"pid"]isEqual:[NSString stringWithFormat:@"%d",pid]]&&[fields[@"state"]isEqual:@"running"]&&[fields[@"type"]isEqual:@"LaunchDaemon"]&&[argv isEqual:@[program,@"--serve"]]) || Fail(error,@"loaded supervisor job does not match fixed running helper");
+}
+static NSDictionary *KuroSupervisorEvidence(struct proc_bsdinfo process,NSString *path,NSString *expected,NSString *actualHash,NSString *expectedHash,NSString *job,NSString **error) {
+  if(process.pbi_pid<1 || process.pbi_ppid!=1 || process.pbi_uid || process.pbi_ruid || process.pbi_pgid!=process.pbi_pid || ![path isEqual:expected] || !Match(actualHash,@"\\A[0-9a-f]{64}\\z") || ![actualHash isEqual:expectedHash] || !KuroSupervisorJob(job,expected,(pid_t)process.pbi_pid,error)) {Fail(error,@"kernel/helper pin/loaded supervisor binding is not established");return nil;}
+  NSDictionary *value=@{@"policy":@"fixed-mihomo-launchd-v1",@"helperSHA256":actualHash,@"startSeconds":@(process.pbi_start_tvsec),@"startMicros":@(process.pbi_start_tvusec)};
+  if(!KuroSupervisionEvidence(value)) {Fail(error,@"kernel helper start identity is invalid");return nil;}return value;
+}
+
 typedef BOOL (^KuroServiceAuthorize)(int peer, NSString *configDigest, NSString **error);
 typedef BOOL (^KuroServicePreflight)(NSDictionary *config, NSString **error);
 typedef BOOL (^KuroServiceProcessHook)(pid_t child, NSString *session, NSString **error);
@@ -78,6 +173,7 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
 #ifdef KURO_TESTING
 - (instancetype)initFixtureDirectory:(NSString *)directory core:(NSString *)core hooks:(KuroTunServiceHooks *)hooks;
 @property(nonatomic, copy) void (^fixtureAfterSupervise)(void);
+@property(nonatomic, copy) KuroSessionSupervisionSource fixtureSupervisionSource;
 @property(nonatomic, copy) void (^fixtureBeforeResume)(void);
 @property(nonatomic, copy) void (^fixtureBeforeCachePrepare)(KuroOwnedSession *session);
 @property(nonatomic, copy) void (^fixtureBeforeDiagnosticFinish)(NSString *directory);
@@ -356,6 +452,24 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
   if(![manifest[@"target"] isEqual:target] || !coreBytes || !helperBytes || !MachExecutable(coreBytes) || ![Hash(coreBytes) isEqual:manifest[@"core"][@"sha256"]] || ![Hash(helperBytes) isEqual:manifest[@"helper"][@"sha256"]] || ![installed[@"helperSHA256"] isEqual:manifest[@"helper"][@"sha256"]] || ![helper isEqual:Executable()]) { Fail(error,@"fixed Core/helper executable pin mismatch"); return nil; }
   return core;
 }
+- (NSDictionary *)supervisionEvidence:(NSString **)error {
+  // Ordinary fixtures never call launchctl or masquerade as root deployment.
+  if(geteuid()!=0 || ![_directory isEqual:State]) {Fail(error,@"fixed root deployment required for launchd provenance");return nil;}
+  NSString *core=[self approvedCore:error];if(!core)return nil;
+  NSString *version=core.stringByDeletingLastPathComponent,*helper=[version stringByAppendingPathComponent:@"helper"];
+  NSData *installedBytes=ReadProtected(@"",[State stringByAppendingPathComponent:@"installed.json"],0,error);
+  NSData *manifestBytes=ReadProtected(@"",[version stringByAppendingPathComponent:@"manifest.json"],0,error),*helperBytes=ReadProtected(@"",helper,0,error),*plistBytes=ReadProtected(@"",Plist,0,error);
+  NSDictionary *manifest=manifestBytes?KuroDecodeJSON(manifestBytes,65536,error):nil;
+  NSDictionary *plist=plistBytes?[NSPropertyListSerialization propertyListWithData:plistBytes options:NSPropertyListImmutable format:NULL error:NULL]:nil;
+  if(!ValidManifest(manifest,error) || ![manifest[@"core"][@"version"]isEqual:@"v1.19.33"] || !helperBytes || ![helper isEqual:Executable()] || ![Hash(helperBytes)isEqual:manifest[@"helper"][@"sha256"]] || !FixedPlist(plistBytes,version.lastPathComponent,error)) {Fail(error,@"fixed-mihomo launchd policy requires current protected manifest/helper/plist");return nil;}
+  for(NSString *key in @[@"Disabled",@"RunAtLoad",@"KeepAlive",@"AbandonProcessGroup"])if(!KuroBool(plist[key])) {Fail(error,@"supervision plist policy fields must be booleans");return nil;}
+  struct proc_bsdinfo before={0},after={0};char path[PROC_PIDPATHINFO_MAXSIZE]={0};
+  if(proc_pidinfo(getpid(),PROC_PIDTBSDINFO,0,&before,sizeof(before))!=sizeof(before) || proc_pidpath(getpid(),path,sizeof(path))<=0) {Fail(error,@"kernel helper identity unavailable");return nil;}
+  NSString *job=KuroReadSupervisorJob(error);if(!job)return nil;
+  if(proc_pidinfo(getpid(),PROC_PIDTBSDINFO,0,&after,sizeof(after))!=sizeof(after) || before.pbi_pid!=after.pbi_pid || before.pbi_ppid!=after.pbi_ppid || before.pbi_pgid!=after.pbi_pgid || before.pbi_uid!=after.pbi_uid || before.pbi_ruid!=after.pbi_ruid || before.pbi_start_tvsec!=after.pbi_start_tvsec || before.pbi_start_tvusec!=after.pbi_start_tvusec ||
+    ![installedBytes isEqual:ReadProtected(@"",[State stringByAppendingPathComponent:@"installed.json"],0,error)] || ![manifestBytes isEqual:ReadProtected(@"",[version stringByAppendingPathComponent:@"manifest.json"],0,error)] || ![helperBytes isEqual:ReadProtected(@"",helper,0,error)] || ![plistBytes isEqual:ReadProtected(@"",Plist,0,error)]) {Fail(error,@"protected helper deployment changed during supervisor snapshot");return nil;}
+  return KuroSupervisorEvidence(after,@(path),helper,Hash(helperBytes),manifest[@"helper"][@"sha256"],job,error);
+}
 - (BOOL)socketProtected:(NSString **)error {
   if(!SafeChain([self anchor],[self work],_owner,YES,error))return NO;
   struct stat value; NSString *path=[self socket];
@@ -488,7 +602,14 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
     if(!SafeChain([self anchor],_directory,_owner,YES,&failure) || Exists([self work])) { failure=@"protected clean session directory is required"; return NO; }
     stage=@"clean ownership"; _session=[[KuroOwnedSession alloc] initWithDirectory:_directory owner:_owner];
     if(!_session.off) { failure=@"persisted ownership cannot be proven off"; return NO; }
-    stage=@"prior stopped proof revocation";if(!_hooks.beforeStart(&failure))return NO;
+#ifdef KURO_TESTING
+    if(_fixtureCore && self.fixtureSupervisionSource) {if(![_session setSupervisionSource:self.fixtureSupervisionSource error:&failure])return NO;}
+    if(!_fixtureCore)
+#endif
+    {
+      __weak KuroTunService *sourceOwner=self;
+      if(![_session setSupervisionSource:^NSDictionary *(NSString **problem) {return [sourceOwner supervisionEvidence:problem];} error:&failure])return NO;
+    }
     _secret=NSUUID.UUID.UUIDString; _socketIdentity=nil;
     stage=@"runtime generation"; NSData *runtime=KuroTunRuntimeJSON(canonical,&failure); if(!runtime)return NO;
     NSMutableDictionary *mapping=[KuroDecodeJSON(runtime,128*1024,&failure) mutableCopy];
@@ -546,6 +667,7 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
           strong->_primaryFailure=@"owned child resume refused: stop or identity loss before Core resume";return Fail(problem,strong->_primaryFailure);
         }
         strong->_resumeCheckpointAttempted=YES;
+        if(!strong->_hooks.beforeStart(problem)) {if(problem&&*problem)strong->_primaryFailure=*problem;return NO;}
         if(!strong->_hooks.beforeResume(problem)) {if(problem&&*problem)strong->_primaryFailure=*problem;return NO;}
         BOOL resumed=resume(problem);if(!resumed&&problem&&*problem)strong->_primaryFailure=*problem;return resumed;
       }

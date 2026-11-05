@@ -37,7 +37,18 @@ static void ServiceFixtureReportMismatch(NSString *directory, NSUInteger scenari
     }
   }
 }
+static void SupervisionTests(void);
 static int ServiceFixtureMain(int argc,const char **argv) {
+  if(argc==3 && !strcmp(argv[1],"--supervision-output-fixture")) {
+    if(geteuid()==0)return 91;
+    int mode=atoi(argv[2]);if(mode==1)return 37;
+    if(mode==2){const unsigned char invalid[]={0xc3,0x28};return write(STDOUT_FILENO,invalid,sizeof(invalid))==sizeof(invalid)?0:92;}
+    if(mode==3){unsigned char bytes[4096];memset(bytes,'x',sizeof(bytes));for(NSUInteger i=0;i<40;i++)if(write(STDOUT_FILENO,bytes,sizeof(bytes))!=sizeof(bytes))return 92;return 0;}
+    if(mode==4)for(;;)pause();
+    if(mode==5){const char nul[]={'a',0,'b'};return write(STDOUT_FILENO,nul,sizeof(nul))==sizeof(nul)?0:92;}
+    return write(STDOUT_FILENO,"fixture job\n",12)==12?0:92;
+  }
+  if(argc==2 && !strcmp(argv[1],"--supervision-tests")) {CHECK(geteuid()!=0);alarm(15);CHECK(getpgrp()==getpid()||!setpgid(0,0));SupervisionTests();return 0;}
   if(argc!=5 || strcmp(argv[1],"-d") || strcmp(argv[3],"-f"))return -1;
   if(geteuid()==0)return 91;
   ServiceFixtureStage(STDERR_FILENO,"entry",0,0);
@@ -436,7 +447,125 @@ static void PartialDNSServiceTests(void) {
   }
   puts("native service DNS partial recovery: 5 persisted positive chains retain live/unknown/origin-only owner gates, permit exact final-cache recovery, aggregate real deletion errors and never issue stopped proof; no Core/network");
 }
+// Structure follows the saved root858 launchctl print; values are deliberately
+// isolated fixtures, not a claim that this ordinary process was launched by launchd.
+static NSString *SupervisionJobFixture(NSString *program,pid_t pid) {
+  return [NSString stringWithFormat:@"system/dev.kuro.tun = {\n\tactive count = 1\n\tpath = %@\n\ttype = LaunchDaemon\n\tstate = running\n\tprogram = %@\n\targuments = {\n\t\t%@\n\t\t--serve\n\t}\n\tenvironment = {\n\t\tPATH => /usr/bin:/bin\n\t}\n\tpid = %d\n\tresource coalition = {\n\t\tpid = 987\n\t\ttype = resource\n\t}\n\tproperties = inferred program\n}\n",Plist,program,program,pid];
+}
+static void SupervisionProducerTests(void) {
+  NSString *program=[Tools stringByAppendingPathComponent:@"versions/release-with-spaces-client/helper"],*hash=Hash(Bytes(@"helper")),*job=SupervisionJobFixture(program,1234),*error=nil;
+  CHECK(KuroSupervisorJob(job,program,1234,&error));
+  NSArray *bad=@[
+    [job stringByReplacingOccurrencesOfString:@"system/dev.kuro.tun = {" withString:@"system/another.job = {"],
+    [job stringByReplacingOccurrencesOfString:@"\tpid = 1234" withString:@"\tpid = 1235"],
+    [job stringByReplacingOccurrencesOfString:@"\tpid = 1234" withString:@"\tpid = 1234\n\tpid = 1234"],
+    [job stringByReplacingOccurrencesOfString:@"\tpid = 1234\n" withString:@""],
+    [job stringByReplacingOccurrencesOfString:@"--serve" withString:@"--serve-auth"],
+    [job stringByReplacingOccurrencesOfString:@"\t\t--serve" withString:@"\t\t--serve\n\t\textra"],
+    [job stringByReplacingOccurrencesOfString:@"state = running" withString:@"state = not running"],
+    [job stringByReplacingOccurrencesOfString:@"\ttype = LaunchDaemon" withString:@"\ttype = LaunchAgent"],
+    [job stringByReplacingOccurrencesOfString:@"properties = inferred program" withString:@"properties = inferred program abandon process group"],
+    [job stringByReplacingOccurrencesOfString:@"\tproperties = inferred program\n" withString:@""],
+    [job stringByReplacingOccurrencesOfString:@"properties = inferred program" withString:@"properties = unknown"],
+    [job stringByReplacingOccurrencesOfString:@"properties = inferred program" withString:@"properties = inferred program\n\tproperties = inferred program"],
+    [job substringToIndex:job.length-2], [job stringByAppendingString:@"trailing"],
+    [job stringByReplacingOccurrencesOfString:Plist withString:@"/tmp/other.plist"],
+    [job stringByReplacingOccurrencesOfString:@"\tprogram = " withString:@"\tprogram = /wrong/"],
+    [job stringByReplacingOccurrencesOfString:@"\targuments = {" withString:@"\targuments = {\n\t}\n\targuments = {"]
+  ];for(NSString *text in bad)CHECK(!KuroSupervisorJob(text,program,1234,&error));
+  CHECK(!KuroSupervisorJob(job,[program stringByAppendingString:@"different"],1234,&error));CHECK(!KuroSupervisorJob(job,program,1235,&error));
+  struct proc_bsdinfo process={.pbi_pid=1234,.pbi_ppid=1,.pbi_pgid=1234,.pbi_uid=0,.pbi_ruid=0,.pbi_start_tvsec=123,.pbi_start_tvusec=456};
+  NSDictionary *evidence=KuroSupervisorEvidence(process,program,program,hash,hash,job,&error);CHECK(KuroSupervisionEvidence(evidence));
+  for(NSString *key in @[@"policy",@"helperSHA256",@"startSeconds",@"startMicros"]) {NSMutableDictionary *changed=[evidence mutableCopy];changed[key]=@YES;CHECK(!KuroSupervisionEvidence(changed));}
+  NSMutableDictionary *extra=[evidence mutableCopy];extra[@"rpc"]=@YES;CHECK(!KuroSupervisionEvidence(extra));
+  struct proc_bsdinfo changed=process;changed.pbi_ppid=55;CHECK(!KuroSupervisorEvidence(changed,program,program,hash,hash,job,&error));
+  changed=process;changed.pbi_pgid=99;CHECK(!KuroSupervisorEvidence(changed,program,program,hash,hash,job,&error));
+  changed=process;changed.pbi_uid=geteuid();CHECK(!KuroSupervisorEvidence(changed,program,program,hash,hash,job,&error));
+  changed=process;changed.pbi_ruid=geteuid();CHECK(!KuroSupervisorEvidence(changed,program,program,hash,hash,job,&error));
+  changed=process;changed.pbi_start_tvsec=0;CHECK(!KuroSupervisorEvidence(changed,program,program,hash,hash,job,&error));
+  CHECK(!KuroSupervisorEvidence(process,@"/different/path",program,hash,hash,job,&error));CHECK(!KuroSupervisorEvidence(process,program,program,hash,Hash(Bytes(@"other")),job,&error));
+  changed=process;changed.pbi_start_tvusec++;CHECK(![KuroSupervisorEvidence(changed,program,program,hash,hash,job,&error)isEqual:evidence]);
+  NSMutableDictionary *record=[RestartRecord()mutableCopy];CHECK(KuroRestartRecord(record,NULL));record[@"supervision"]=evidence;CHECK(!KuroRestartRecord(record,NULL));
+  record[@"format"]=@2;record[@"launch"]=@{@"configSHA256":hash,@"coreSHA256":record[@"executableSHA256"],@"template":@"macos-dual-stack-v1"};record[@"work"]=@{@"configSHA256":hash,@"socket":NSNull.null};CHECK(KuroRestartRecord(record,NULL));
+  record[@"processGroup"]=@321;CHECK(!KuroRestartRecord(record,NULL));record[@"processGroup"]=record[@"parent"];record[@"pid"]=record[@"parent"];CHECK(!KuroRestartRecord(record,NULL));
+  [record removeObjectForKey:@"supervision"];record[@"pid"]=@54321;CHECK(KuroRestartRecord(record,NULL));
+  // This must reject before even attempting launchctl under an ordinary UID.
+  CHECK(![[[KuroTunService alloc]initWithHooks:ServiceHooks()]supervisionEvidence:&error]);
+  for(int mode=0;mode<6;mode++) {KuroSupervisorOutputFixture=mode;uint64_t began=KuroMonotonicMilliseconds();NSString *text=KuroReadSupervisorJob(&error);CHECK(mode==0?[text isEqual:@"fixture job\n"]:!text);CHECK(KuroMonotonicMilliseconds()-began<1400);errno=0;CHECK(waitpid(-1,NULL,WNOHANG)==-1&&errno==ECHILD);}KuroSupervisorOutputFixture=-1;
+  puts("native supervision producer: fixed top-level saved-job grammar/pid/program/full argv/properties, kernel/root/helper hash/start identity, strict optional owner shape and legacy compatibility; no launchctl execution");
+}
+static void SupervisionServiceTests(void) {
+  CHECK(geteuid()!=0&&getpgrp()==getpid());
+  char temporary[]="/tmp/kuro-supservice-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));NSString *directory=@(canonical),*core=[directory stringByAppendingPathComponent:@"core"],*journal=[directory stringByAppendingPathComponent:@"owner.json"];
+  NSData *bytes=[NSData dataWithContentsOfFile:Executable()];Put(core,bytes,0755);KuroTunServiceHooks *hooks=ServiceHooks();
+  __block NSUInteger reads=0,prepared=0,proofs=0;__block NSDictionary *persisted=nil;
+  hooks.beforeResume=^BOOL(NSString **error){(void)error;prepared++;persisted=ReadJSON(directory,journal,geteuid(),NULL);CHECK(KuroSupervisionEvidence(persisted[@"supervision"]));return YES;};
+  hooks.confirmStopped=^BOOL(NSDictionary *evidence,NSString **error){(void)error;proofs++;CHECK(KuroCompletedStopEvidence(evidence)&&[evidence[@"owner"][@"supervision"]isEqual:persisted[@"supervision"]]);return YES;};
+  KuroTunService *service=[[KuroTunService alloc]initFixtureDirectory:directory core:core hooks:hooks];
+  NSString *program=[Tools stringByAppendingPathComponent:@"versions/isolated/helper"];
+  service.fixtureSupervisionSource=^NSDictionary *(NSString **error){reads++;struct proc_bsdinfo process={0};CHECK(proc_pidinfo(getpid(),PROC_PIDTBSDINFO,0,&process,sizeof(process))==sizeof(process));process.pbi_ppid=1;process.pbi_uid=process.pbi_ruid=0;return KuroSupervisorEvidence(process,program,program,Hash(bytes),Hash(bytes),SupervisionJobFixture(program,getpid()),error);};
+  int peers[2];CHECK(!socketpair(AF_UNIX,SOCK_STREAM,0,peers));int server=peers[0];dispatch_semaphore_t done=dispatch_semaphore_create(0);__block BOOL success=NO;
+  dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT,0),^{NSString *error=nil;success=[service serveOpenFrame:ServiceOpen() peer:server error:&error];if(!success)fprintf(stderr,"supervision service: %s\n",error.UTF8String);close(server);dispatch_semaphore_signal(done);});
+  NSDictionary *open=ServiceRead(peers[1]);CHECK([open[@"ok"]isEqual:@YES]);CHECK(reads==3&&prepared==1);ServiceSend(peers[1],@{@"version":@2,@"operation":@"stop",@"session":open[@"session"],@"sequence":@1});NSDictionary *stopped=ServiceRead(peers[1]);CHECK([stopped[@"ok"]isEqual:@YES]);ServiceWait(done);close(peers[1]);
+  CHECK(success&&proofs==1&&!Exists(journal)&&!Exists([directory stringByAppendingPathComponent:@"session-work"])&&[service.statusSnapshot[@"state"]isEqual:@"off"]);CHECK([[NSFileManager defaultManager]removeItemAtPath:directory error:NULL]);
+  for(NSUInteger failure=0;failure<2;failure++) {
+    char failed[]="/tmp/kuro-supreject-XXXXXX";CHECK(mkdtemp(failed)&&realpath(failed,canonical));NSString *root=@(canonical),*binary=[root stringByAppendingPathComponent:@"core"];
+    Put(binary,bytes,0755);KuroTunServiceHooks *deniedHooks=ServiceHooks();__block NSUInteger sampled=0,workCreated=0,cachePrepared=0,checkpointed=0,revoked=0;
+    deniedHooks.beforeStart=^BOOL(NSString **error){(void)error;revoked++;return YES;};deniedHooks.confirmStopped=^BOOL(NSDictionary *proof,NSString **error){(void)proof;(void)error;checkpointed++;return YES;};
+    KuroTunService *denied=[[KuroTunService alloc]initFixtureDirectory:root core:binary hooks:deniedHooks];
+    denied.fixtureSupervisionSource=^NSDictionary *(NSString **error){sampled++;if(!failure){Fail(error,@"isolated initial source unavailable");return nil;}return @{@"unexpected":@YES};};
+    denied.fixtureBeforeWorkCreation=^{workCreated++;};denied.fixtureBeforeCachePrepare=^(KuroOwnedSession *session){(void)session;cachePrepared++;};
+    int sockets[2];CHECK(!socketpair(AF_UNIX,SOCK_STREAM,0,sockets));NSString *error=nil;CHECK(![denied serveOpenFrame:ServiceOpen() peer:sockets[0] error:&error]);
+    CHECK([error containsString:@"before work creation"]&&sampled==1&&!workCreated&&!cachePrepared&&!checkpointed&&!revoked);
+    CHECK([denied.statusSnapshot[@"state"]isEqual:@"off"]&&!Exists([root stringByAppendingPathComponent:@"session-work"])&&!Exists([root stringByAppendingPathComponent:@"owner.json"])&&!Exists([root stringByAppendingPathComponent:@"TunDiagnostics"]));
+    errno=0;CHECK(waitpid(-1,NULL,WNOHANG)==-1&&errno==ECHILD);close(sockets[0]);close(sockets[1]);CHECK([[NSFileManager defaultManager]removeItemAtPath:root error:NULL]);
+  }
+  puts("native supervision service: positive three-sample owner/private-controller/held-stop chain plus two initial source refusals before work/cache/revocation/child; isolated job fixture only, no root/launchctl/Core/network");
+}
+static void SupervisionTests(void) {SupervisionProducerTests();SupervisionSessionTests();SupervisionServiceTests();}
+
+static void StoppedRevocationTests(void) {
+ CHECK(geteuid()!=0); NSString *error=nil;char tmp[]="/tmp/kr-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(tmp)&&realpath(tmp,canonical));NSString *base=@(canonical),*source=[base stringByAppendingPathComponent:@"source"],*bundle=[source stringByAppendingPathComponent:@"fixture.app"];
+ Put([bundle stringByAppendingPathComponent:ClientExecutable],[NSData dataWithContentsOfFile:Executable()],0755);
+ NSDictionary *info=@{@"CFBundleIdentifier":@"dev.kuro.desktop",@"CFBundleExecutable":@"Clash Kuro",@"CFBundlePackageType":@"APPL",@"CFBundleVersion":@"1"};
+ Put([bundle stringByAppendingPathComponent:@"Contents/Info.plist"],[NSPropertyListSerialization dataWithPropertyList:info format:NSPropertyListXMLFormat_v1_0 options:0 error:NULL],0644);Put([bundle stringByAppendingPathComponent:@"Contents/Resources/app.asar"],Bytes(@"inert stopped proof fixture"),0644);
+ char *sign[]={"/usr/bin/codesign","--force","--sign","-","--options","runtime",(char *)bundle.fileSystemRepresentation,NULL},*env[]={"PATH=/usr/bin:/bin","LANG=C",NULL};pid_t signer=0;int status=0;CHECK(!posix_spawn(&signer,sign[0],NULL,NULL,sign,env)&&waitpid(signer,&status,0)==signer&&WIFEXITED(status)&&!WEXITSTATUS(status));
+ NSDictionary *pin=KuroClientSnapshot(source,bundle,geteuid(),&error),*inventory=FixtureInventory(bundle);CHECK(pin);
+ NSMutableDictionary *manifest=[FreshFixtureScripts(source,pin,inventory)mutableCopy];manifest[@"activationAllowed"]=@YES;NSMutableDictionary *coreRecord=[manifest[@"core"]mutableCopy];coreRecord[@"sha256"]=Hash([NSData dataWithContentsOfFile:Executable()]);manifest[@"core"]=coreRecord;
+ NSString *scripts=[source stringByAppendingPathComponent:@"scripts"];Put([scripts stringByAppendingPathComponent:@"manifest.json"],JSONData(manifest),0600);
+ for(NSUInteger scenario=0;scenario<4;scenario++) {
+  NSString *prefix=[base stringByAppendingPathComponent:[NSString stringWithFormat:@"c%lu",(unsigned long)scenario]];FixtureDirectory(prefix);CHECK(BeginClientInstallFromScripts(prefix,geteuid(),NO,scripts,&error));CopyFreshPayload(source,prefix,manifest);Put(At(prefix,[State stringByAppendingPathComponent:@"Inbox/mihomo"]),[NSData dataWithContentsOfFile:Executable()],0755);
+  NSString *client=At(prefix,ClientBundle);FixtureDirectory(client.stringByDeletingLastPathComponent);CHECK([[NSFileManager defaultManager]copyItemAtPath:bundle toPath:client error:NULL]);CHECK(Install(prefix,geteuid(),NO,&error));
+  NSString *version=[At(prefix,Tools)stringByAppendingPathComponent:[@"versions"stringByAppendingPathComponent:manifest[@"release"]]],*helper=[version stringByAppendingPathComponent:@"helper"],*core=[version stringByAppendingPathComponent:@"mihomo"],*state=At(prefix,State),*stopped=[state stringByAppendingPathComponent:@"stopped.json"],*installed=[state stringByAppendingPathComponent:@"installed.json"],*work=[state stringByAppendingPathComponent:@"session-work"];
+  KuroOwnedSession *old=[[KuroOwnedSession alloc]initWithDirectory:state owner:geteuid()];CHECK(([old setLaunchEvidence:@{@"configSHA256":Hash(Bytes(@"inert previous session")),@"coreSHA256":coreRecord[@"sha256"],@"template":@"macos-dual-stack-v1"} error:&error]));
+  NSString *child=[state stringByAppendingPathComponent:@"fixture-child"];Put(child,[NSData dataWithContentsOfFile:core],0755);CHECK([old spawnExecutable:child arguments:@[@"--session-child"] beforeResume:^BOOL(NSString **failure){return KuroMarkSessionStarted(prefix,geteuid(),helper,failure);}afterReap:^BOOL(NSString **failure){(void)failure;return YES;}error:&error]);CHECK([old stop:&error]);NSDictionary *completed=[old completedStopEvidence:&error];CHECK(KuroCompletedStopEvidence(completed));CHECK(!unlink(child.fileSystemRepresentation));
+  NSDictionary *oldNetwork=@{@"format":@1,@"session":old.identifier,@"routesOff":@YES,@"dnsOff":@YES,@"routeJournalSHA256":NSNull.null,@"dnsJournalSHA256":NSNull.null};CHECK(KuroMarkSessionStopped(prefix,geteuid(),helper,completed,oldNetwork,&error));NSData *oldProof=ReadProtected(prefix,stopped,geteuid(),NULL);CHECK(oldProof&&[ReadJSON(prefix,installed,geteuid(),NULL)[@"neverStarted"]isEqual:@NO]);
+  __block NSUInteger starts=0,resumes=0,proofs=0;KuroTunServiceHooks *hooks=ServiceHooks();
+  hooks.beforeStart=^BOOL(NSString **failure){starts++;CHECK(HasOwnershipFootprint(prefix)&&Exists([state stringByAppendingPathComponent:@"owner.json"]));if(scenario==2)return Fail(failure,@"injected stopped revocation refusal");return KuroRevokeStoppedProof(prefix,geteuid(),failure);};
+  hooks.beforeResume=^BOOL(NSString **failure){resumes++;CHECK(!Exists(stopped));return KuroMarkSessionStarted(prefix,geteuid(),helper,failure);};
+  hooks.confirmStopped=^BOOL(NSDictionary *process,NSString **failure){proofs++;NSDictionary *network=@{@"format":@1,@"session":process[@"session"],@"routesOff":@YES,@"dnsOff":@YES,@"routeJournalSHA256":NSNull.null,@"dnsJournalSHA256":NSNull.null};return KuroMarkSessionStopped(prefix,geteuid(),helper,process,network,failure);};
+  if(scenario==0)hooks.physicalInterface=^NSString *{return @"utun0";};
+  NSString *runningCore=[state stringByAppendingPathComponent:@"core"];Put(runningCore,[NSData dataWithContentsOfFile:core],0755);KuroTunService *service=[[KuroTunService alloc]initFixtureDirectory:state core:runningCore hooks:hooks];__weak KuroTunService *weak=service;service.fixtureRetained=^{[weak requestShutdown];};
+  if(scenario==1)service.fixtureSupervisionSource=^NSDictionary *(NSString **failure){Fail(failure,@"injected initial supervision unavailable");return nil;};
+  int peers[2];CHECK(!socketpair(AF_UNIX,SOCK_STREAM,0,peers));int peer=peers[0];BOOL ok=NO;
+  if(scenario==3){dispatch_semaphore_t done=dispatch_semaphore_create(0);__block BOOL result=NO;dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT,0),^{NSString *failure=nil;result=[service serveOpenFrame:ServiceOpen() peer:peer error:&failure];close(peer);dispatch_semaphore_signal(done);});NSDictionary *opened=ServiceRead(peers[1]);CHECK([opened[@"ok"]boolValue]);ServiceSend(peers[1],@{@"version":@2,@"operation":@"stop",@"session":opened[@"session"],@"sequence":@1});CHECK([ServiceRead(peers[1])[@"ok"]boolValue]);ServiceWait(done);CHECK(result);ok=result;}
+  else {ok=[service serveOpenFrame:ServiceOpen() peer:peers[0] error:&error];CHECK(!ok&&error.length);close(peers[0]);}
+  close(peers[1]);CHECK(!unlink(runningCore.fileSystemRepresentation));CHECK([ReadJSON(prefix,installed,geteuid(),NULL)[@"neverStarted"]isEqual:@NO]);
+  // Fixture-only diagnostics are nested under State; align retained evidence with the production sibling before testing real uninstall.
+  NSString *diagnostics=[state stringByAppendingPathComponent:@"TunDiagnostics"];if(Exists(diagnostics))CHECK([[NSFileManager defaultManager]moveItemAtPath:diagnostics toPath:[state.stringByDeletingLastPathComponent stringByAppendingPathComponent:@"TunDiagnostics"] error:NULL]);
+  BOOL kept=[ReadProtected(prefix,stopped,geteuid(),NULL)isEqual:oldProof];
+  if(scenario==0){CHECK(kept);CHECK(starts==0&&resumes==0&&proofs==0);CHECK([service.statusSnapshot[@"state"]isEqual:@"off"]&&!Exists(work));BOOL removed=Uninstall(prefix,geteuid(),NO,At(prefix,Recovery),&error);CHECK(removed);printf("early failure: old proof retained=%d physicalOff=1 uninstall=%d neverStarted false unchanged\n",kept,removed);}
+  if(scenario==1){CHECK(kept&&starts==0&&resumes==0&&proofs==0);CHECK(!Exists(work)&&[service.statusSnapshot[@"state"]isEqual:@"off"]);CHECK(Uninstall(prefix,geteuid(),NO,At(prefix,Recovery),&error));puts("initial supervision refused before work: old proof retained byte-for-byte, no resume/revocation/stop checkpoint, exact uninstall succeeds");}
+  if(scenario==2){CHECK(kept&&starts==1&&resumes==0&&proofs==1);CHECK([service.statusSnapshot[@"state"]isEqual:@"off"]&&!Exists(work));CHECK([service.statusSnapshot[@"error"]containsString:@"uninstall checkpoint failed"]);CHECK(Uninstall(prefix,geteuid(),NO,At(prefix,Recovery),&error));puts("beforeStart refused: actual suspended child reaped, no beforeResume/CONT, old proof retained, old valid stop authority remains usable");}
+  if(scenario==3){CHECK(ok&&!kept&&starts==1&&resumes==1&&proofs==1&&!Exists(work));CHECK(Uninstall(prefix,geteuid(),NO,At(prefix,Recovery),&error));puts("resumed successor: old proof revoked before beforeResume/CONT; new exact completed proof required for successful stop/uninstall");}
+ }
+ CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);
+}
+
 static void ServiceTests(void) {
+  StoppedRevocationTests();
+  pid_t supervision=0;char *supervisionArgs[]={(char *)Executable().fileSystemRepresentation,"--supervision-tests",NULL};
+  extern char **environ;CHECK(!posix_spawn(&supervision,supervisionArgs[0],NULL,NULL,supervisionArgs,environ));int supervisionStatus=0;CHECK(waitpid(supervision,&supervisionStatus,0)==supervision&&WIFEXITED(supervisionStatus)&&!WEXITSTATUS(supervisionStatus));
   PartialDNSServiceTests();
   ServiceDiagnosticTests();
   ServiceCachePreparationTests();
