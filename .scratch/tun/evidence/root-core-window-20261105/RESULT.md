@@ -2,6 +2,14 @@
 
 Authorized frozen experiment source `85834ab8bc8d45c24f232883133a58d13b2daa6f`, cleanup source `436c480f11483b1fffbf60b6d810d264e9c29930`. All 11 inventory entries, explicit fixture/approval/artifact pins, and cleanup bytes against its commit passed before installation. Exact job and installation targets were absent. Installed only the dedicated experiment files.
 
+## Current state after separately authorized recovery
+
+User separately approved source `ecb303c9215f935258e384ae4d963159df728a89` and recovery SHA256 `29c5fc0ae37902f77a89ed1f03ff2fcaeabe4dbad541d096d24ab6432a61fd27`. Before execution the script was matched byte-for-byte to that commit; all original 11 inventory entries and independent observer dependency were rehashed unchanged.
+
+The unchanged recovery entry returned exit0 after its protected-install/normal-receipt/job and repeated independent kernel process/group checks, performing only exact job bootout. A separate host `launchctl print system/dev.kuro.tun.lifecycle-a` returned 113 with `Could not find service`. **The job is now absent; all four installation files and evidence remain.** No Core or fixture was started, no file deleted, no network changed. Logs: `/private/tmp/kuro-root858-window-jjwvtwqy/authorized-normal-retirement.log` and `independent-job-absent.json` (0600). The earlier failed-normal/retire and loaded-job snapshots below remain historical evidence, not current state.
+
+New user policy: acceptance and recovery have independent strict evidence conditions. Within the already approved experiment scope, repairs needed only to stop/unload this exact job may be rebuilt, reviewed and rehashed without per-script reconfirmation. This does not authorize a new Core start, network change, unknown-file deletion, or old-PID/PGID signal. No root normal/kill repeat is scheduled now; protocol and recovery regressions come first.
+
 ## Real result
 
 Native normal completed private version and typed mode/selection readbacks, held-child SIGTERM and wait/reap: Core exit0; native result and normal-success report passed with childReaped/workAbsent/ownerAbsent true. Core stdout contains configuration completed and `Mihomo shutting down`; stderr empty. Supervisor PID59038, Core PID59066, inherited PGID59038. Exact normal job: runs1, not running, last exit code0.

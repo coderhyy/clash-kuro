@@ -307,7 +307,9 @@ static void ServiceDiagnosticTests(void) {
     if(scenario==4)service.fixtureBeforeDiagnosticFinish=^(NSString *path){CHECK(!chmod(path.fileSystemRepresentation,0755));};
     if(scenario==7)service.fixtureBeforeWorkCreation=^{FixtureDirectory(work);Put([work stringByAppendingPathComponent:@"unknown"],Bytes(@"unknown work collision"),0600);};
     if(scenario==5)service.fixtureBeforeDiagnosticFinish=^(NSString *path){NSString *file=[path stringByAppendingPathComponent:@"diagnostics.json"];if(!Exists(file))Put(file,Bytes(@"unknown diagnostic checkpoint"),0600);};
-    NSMutableDictionary *config=ValidTunConfig();NSString *coreDigest=Hash([NSData dataWithContentsOfFile:core]);NSString *credential=[NSString stringWithFormat:@"%C-fixture-credential-unique\"/",[coreDigest characterAtIndex:coreDigest.length-1]];
+    // A SHA ending in 'e' would redact the invalid-frame reason's final 'e'.
+    // Other cases retain the SHA-suffix credential to exercise exact hash summaries.
+    NSMutableDictionary *config=ValidTunConfig();NSString *coreDigest=Hash([NSData dataWithContentsOfFile:core]);unichar credentialPrefix=scenario==6?'!':[coreDigest characterAtIndex:coreDigest.length-1];NSString *credential=[NSString stringWithFormat:@"%C-fixture-credential-unique\"/",credentialPrefix];
     config[@"proxies"]=@[@{@"name":@"proxy",@"type":@"socks5",@"server":@"192.0.2.10",@"port":@1080,@"username":@"fixture-user-unique",@"password":credential,@"tls":@NO}];
     int peers[2];CHECK(!socketpair(AF_UNIX,SOCK_STREAM,0,peers));int peer=peers[0];
     __block BOOL result=NO;__block NSString *failure=nil;

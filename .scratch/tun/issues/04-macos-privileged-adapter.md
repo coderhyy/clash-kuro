@@ -7,13 +7,15 @@ Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
 
 ## 当前状态（2026-11-05，覆盖下方历史检查点）
 
-**最新真实窗口：** root normal 的 Core 私有接口、SIGTERM exit0及 native清退通过，但观察器把布尔输出为数字1，严格驱动拒绝；kill未执行。原retire同门失败，job仍注册但not running，四安装文件及受限证据保留；本次授权已结束。[结果与准确残留](../evidence/root-core-window-20261105/RESULT.md)。
+**最新真实窗口：** root normal 的 Core 私有接口、SIGTERM exit0及 native清退通过，但观察器把布尔输出为数字1，严格驱动拒绝；kill未执行。原retire同门失败后，单独获准的独立恢复入口已bootout；宿主独立读回job不存在。四安装文件及受限证据保留，不重跑normal/kill。[结果与准确残留](../evidence/root-core-window-20261105/RESULT.md)。
 
 安装鉴权、有限控制、held-child 停止证明、升级事务及精确卸载已有实现/隔离证据；真实普通用户 Core normal/EOF 已通过。fresh 安装/卸载历史验收通过，不代表升级或运行后卸载通过。跨 helper 精确 DNS 可独立清理；origin-only cache 和未知 writer 继续保留，不能报告完整恢复。
 
 本轮已补齐旧组非空/不可完整观察时的恢复拒绝及升级最后回执fsync重试，两项均通过独立审查和组合隔离测试；不把空组当writer证明，修复尚未进入旧包。[增量证据](../evidence/recovery-followup-20261105/RESULT.md)。
 
 root 无网络窗口的正常收尾采用固定四文件清理：成功 normal/kill 且 job、准确进程/完整组确认退出后移除专用 binary/plist/两份 Core；批准、原始诊断、身份/观察记录及 kill 后 owner/work/cache 保留。部分安装失败或未知身份不套用成功清理；不把保留证据目录称为完整卸载。具体入口、复核和授权范围见 08。
+
+诊断fixture的hash相关断言输入已定位并窄修（不改生产脱敏/断言），但主会话独立启动fixture仍有未定位失败，不能据观测版单次通过声称稳定性或完整CI已通过。[准确证据边界](../evidence/service-diagnostic-ci-20261105/RESULT.md)。
 
 精确产物与证据见 [当前候选](../evidence/finite-candidate-4abee24/RESULT.md)。人工操作集中见 [08 当前窗口](08-tun-integration-acceptance.md#当前人工窗口与前置条件)。历史记录保留，不将旧拒绝门或旧授权描述当作当前状态。
 

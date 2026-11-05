@@ -1,0 +1,11 @@
+# Acceptance and recovery independently validated
+
+The real root858 normal acceptance failed on a numeric observer boolean; the separately authorized fixed normal-job recovery then completed exit0, independently confirmed job absent by launchctl113. All files remain. See [actual window evidence](../root-core-window-20261105/RESULT.md).
+
+The accepted recovery script stays byte-identical SHA256 `29c5fc0ae37902f77a89ed1f03ff2fcaeabe4dbad541d096d24ab6432a61fd27`. Only its test and documentation were extended. The real frozen acceptance parser still refuses numeric1 before job operations. The composed recovery test then reuses actual protected-file receipt/identity validation, the real pinned libproc observer (kernel responses injected), and real job parser to allow only exact bootout when independent current evidence is sufficient. Live/unknown PID, nonempty/unknown group, wrong epoch, or changing records prevent bootout and preserve data. Files remain byte-identical in the positive case.
+
+Author eight recovery tests and actual Foundation JSON wire suite (sixteen driver tests) passed. An independent non-author reviewer checked the patch, current hashes, original historical manifest and all logs. Main repeated both suites on integrated code: eight passed in0.056s, sixteen passed in2.342s. The native wire test compiles the actual observer result builder and JSONData serializer, sends eight boolean combinations through Foundation JSON into the real strict Python parser, and still rejects legacy numeric1. No Core, root job, installed artifact or network setting was used by these offline tests.
+
+This is not blanket recovery authority: absent/malformed normal proof, incomplete installation, kill-stage state, unknown processes or changed identities remain refused. Recovery success unloads only the exact job and does not turn the failed experiment into accepted normal/kill evidence. Future same-scope stopped-job recovery fixes need source/hash review and preserved evidence but no per-script user reconfirmation; Core startup, network changes, unknown deletion and old-PID signalling remain excluded.
+
+Historical six-test freeze/logs are preserved in the prototype directory; the attached verification.json records updated test/README hashes separately. No new experiment candidate was built or executed.

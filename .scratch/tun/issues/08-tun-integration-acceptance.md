@@ -7,7 +7,7 @@ Owner: 主会话集成与最终验证；验收 agent 准备记录
 
 ## 当前状态（2026-11-05，覆盖下方历史检查点）
 
-**最新真实窗口：** root normal 的 Core 私有接口、SIGTERM exit0及 native清退通过，但观察器把布尔输出为数字1，严格驱动拒绝；kill未执行。原retire同门失败，job仍注册但not running，四安装文件及受限证据保留；本次授权已结束。[结果与准确残留](../evidence/root-core-window-20261105/RESULT.md)。
+**最新真实窗口：** root normal 的 Core 私有接口、SIGTERM exit0及 native清退通过，但观察器把布尔输出为数字1，严格驱动拒绝；kill未执行。原retire同门失败后，单独获准的独立恢复入口已bootout；宿主独立读回job不存在。四安装文件及受限证据保留，不重跑normal/kill。[结果与准确残留](../evidence/root-core-window-20261105/RESULT.md)。
 
 冻结生产候选 4abee2431de852244e43bf5ecab86cfcf91fb259，同提交 macOS/Windows CI 与离线包核验通过；普通用户真实 Core normal/EOF 通过。本轮恢复/升级增量单独提交，尚未进入该包；首次相关验收前再冻结，不为文档或未变链路重打。下一步 root Core → TUN 正常启停 → 实际 App 退出 → 条件满足后异常恢复。未批准的系统操作不执行；相关实现未变不重复普通用户实验或重打包。
 
@@ -15,9 +15,13 @@ Owner: 主会话集成与最终验证；验收 agent 准备记录
 
 精确产物与证据见 [当前候选](../evidence/finite-candidate-4abee24/RESULT.md)。人工操作集中见 [08 当前窗口](08-tun-integration-acceptance.md#当前人工窗口与前置条件)。历史记录保留，不将旧拒绝门或旧授权描述当作当前状态。
 
-### 下一项最小恢复（未获新授权，未执行）
+真实Foundation序列化→严格驱动回归，以及独立证据→失败恢复串联回归已集成并独审通过；数字1验收仍拒，live/unknown/错误epoch/记录变化仍阻止恢复。[测试和实际恢复证据分列](../evidence/recovery-separation-20261105/RESULT.md)。
 
-[固定normal job退役入口](../prototypes/helper-lifecycle/root858-normal-retire/README.md)只用已冻结模块的安装/normal凭据/job检查及独立libproc观察，重新证明当前准确进程/组均不存在后bootout精确normal job。无Core/fixture执行，无数字1转布尔，无文件删除；job已absent时只核验。执行路径 `/private/tmp/kuro-root858-normal-retire-candidate/retire-normal-root858.py`，SHA256 `29c5fc0ae37902f77a89ed1f03ff2fcaeabe4dbad541d096d24ab6432a61fd27`；约10–30秒加管理员弹窗。任一身份/安装/凭据/进程/组/job检查失败即保留。此新增恢复入口需用户单独批准，不延用已结束的root窗口。
+### 已完成的最小恢复与后续授权边界
+
+固定normal job恢复入口（source ecb303c，SHA `29c5fc0ae37902f77a89ed1f03ff2fcaeabe4dbad541d096d24ab6432a61fd27`）经单独批准已执行exit0，主会话独立读回launchctl113/service不存在；所有文件保留。[原始恢复说明](../prototypes/helper-lifecycle/root858-normal-retire/README.md)及上述结果记录共同保存。
+
+验收判定与失败恢复分开：验收仍严格拒绝numeric1，恢复独立复核受保护安装/normal凭据、当前准确job及kernel进程/完整组absence。后续同一已批准实验范围内，仅为停止/卸载本次准确job所需的恢复修复无需逐脚本确认，须先复核新源码/摘要并留证据；不扩展为Core启动、网络变更、未知删除或旧PID信号。当前不重复root normal/kill，先完成真实协议及失败恢复回归后再集中安排新窗口。
 
 ## 负责范围
 
@@ -37,7 +41,7 @@ Owner: 主会话集成与最终验证；验收 agent 准备记录
 
 | 阶段 | 已准备 | 仍缺什么 | 维护者最少操作 |
 | --- | --- | --- | --- |
-| A：root 固定 Core，无 TUN | 85834ab 冻结执行器/两个独立 epoch/精确清单、normal/kill/retire 驱动；另补四固定安装文件cleanup入口 | normal观察协议修复及准确残留恢复；kill未执行，不沿用原授权 | 需另行确认最小恢复；不重试原epoch |
+| A：root 固定 Core，无 TUN | 85834ab 冻结执行器/两个独立 epoch/精确清单、normal/kill/retire 驱动；另补四固定安装文件cleanup入口 | 布尔源码已修、准确job已卸；补独立恢复回归，kill未执行 | 当前不重试；下一实验窗口另集中确认 |
 | B：首次 TUN 正常启停及实际 App 退出 | 4abee24 finite-session 候选、双平台 CI、生产鉴权/会话/双栈/停止和恢复入口；固定 job 命令 | A 的结果评估；现场只读 baseline、真实 DNS/Profile 可表达性、精确 YAML/hash 与受控 IPv4/IPv6/LAN/分域目标；load-F/rootTUN/实际Quit/运行后卸载实证 | 在上述前置核验后集中批准约35–50分钟窗口；管理员弹窗；必要时确认现有 Profile/受控目标，无需逐参数选择 |
 | C：helper 强杀及下次启动完整恢复 | 精确 DNS 局部恢复、旧 Core 身份拒绝门、工作目录校验 | **实现和实证均缺**：可信且绑定原会话的 writer 退出依据、origin-only cache 清退、完整恢复/停止证明；仍存在的 route 不因记录 PID 获得删除权 | 当前不请求故障注入授权；不得因 A 组观察通过就跳过实现门 |
 | D：实际升级及恢复 | 升级事务/回滚入口、已冻结 App-only 升级对、隔离中断测试；末次fsync重试已修复并通过隔离测试 | 实际升级/失败恢复验收；运行过后升级需先有准确停止证明 | 单独明确非网络升级范围及管理员弹窗；不把 fresh 授权扩大为主动中断升级 |
