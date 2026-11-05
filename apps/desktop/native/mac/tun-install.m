@@ -606,6 +606,7 @@ static NSString *UpgradeRoot(NSString *prefix) {return At(prefix,[State stringBy
 static NSString *UpgradeMarker(NSString *prefix) {return At(prefix,[State stringByAppendingPathComponent:@"transaction.json"]);}
 #ifdef KURO_TESTING
 static BOOL (^UpgradeFault)(NSString *point);
+static KuroSessionHook UpgradeRetirementSyncFault;
 #endif
 static BOOL UpgradePoint(NSString *point,NSString **error) {
 #ifdef KURO_TESTING
@@ -614,6 +615,14 @@ static BOOL UpgradePoint(NSString *point,NSString **error) {
   (void)point;(void)error;
 #endif
   return YES;
+}
+// A missing approval after unlink is not yet a durable retirement. Both the
+// original transition and a complete no-record retry must flush its fixed parent.
+static BOOL UpgradeSyncRetirement(NSString *prefix,NSString **error) {
+#ifdef KURO_TESTING
+  if(UpgradeRetirementSyncFault && !UpgradeRetirementSyncFault(error))return NO;
+#endif
+  return SyncInstallDirectory(At(prefix,RecoveryRecord).stringByDeletingLastPathComponent,error);
 }
 static NSString *UpgradeString(NSData *data) {return [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding];}
 static NSDictionary *UpgradeFile(NSString *hash,mode_t mode) {return @{@"kind":@"files",@"mode":@(mode),@"sha256":hash};}
@@ -816,7 +825,7 @@ static BOOL UpgradeRetire(NSString *prefix,uid_t owner,NSDictionary *record,NSSt
   NSString *marker=UpgradeMarker(prefix);if(Exists(marker)&&(unlink(marker.fileSystemRepresentation)||!SyncInstallDirectory(marker.stringByDeletingLastPathComponent,error)))return NO;
   if(!UpgradePoint(@"marker-retired",error))return NO;
   NSString *path=At(prefix,RecoveryRecord);if(![ReadProtected(prefix,path,owner,error)isEqual:JSONData(record)]||unlink(path.fileSystemRepresentation))return Fail(error,@"upgrade approval retirement failed");
-  return SyncInstallDirectory(path.stringByDeletingLastPathComponent,error);
+  return UpgradeSyncRetirement(prefix,error);
 }
 static BOOL BeginClientUpgradeFromScripts(NSString *prefix,uid_t owner,BOOL system,NSString *scripts,NSString **error) {
   if(!InstallScriptsProtected(scripts,owner,error))return NO;
@@ -902,7 +911,7 @@ static BOOL RecoverClientUpgrade(NSString *prefix,uid_t owner,BOOL system,NSStri
       if(![installed[@"neverStarted"]boolValue]&&!KuroStoppedBoundToReceipt(ReadJSON(prefix,UpgradeCurrent(prefix,@"stopped"),owner,error),receipt,installed))return Fail(error,@"completed upgrade off proof absent");
       NSData *raw=ReadProtected(prefix,At(prefix,FreshReceipt),owner,error),*installedBytes=ReadProtected(prefix,UpgradeCurrent(prefix,@"installed"),owner,error),*stoppedBytes=Exists(UpgradeCurrent(prefix,@"stopped"))?ReadProtected(prefix,UpgradeCurrent(prefix,@"stopped"),owner,error):nil;
       NSDictionary *observedRecord=@{@"oldReceiptJSON":UpgradeString(raw),@"oldInstalledJSON":UpgradeString(installedBytes),@"oldStoppedJSON":stoppedBytes?UpgradeString(stoppedBytes):NSNull.null};
-      return UpgradeCurrentFull(prefix,owner,observedRecord,@{@"old":receipt,@"installed":installed},NO,YES,error);
+      return UpgradeCurrentFull(prefix,owner,observedRecord,@{@"old":receipt,@"installed":installed},NO,YES,error) && UpgradeSyncRetirement(prefix,error);
     }
     NSDictionary *record=UpgradeRead(prefix,owner,error),*decoded=record?UpgradeDecode(record,error):nil;if(!decoded||!UpgradeMarkerValid(prefix,owner,record,YES,error)||!UpgradeStageNames(prefix,owner,error))return NO;
     NSString *selfHash=InstallFileHash(prefix,entry,owner,error);

@@ -1,9 +1,17 @@
 # macOS TUN 集成验收
 
-Status: ready-for-agent（有限鉴权通过且清理完成；准备后续独立集成验收）
+Status: ready-for-human（root 无网络窗口待批准；独立实现仍由 agent 推进）
 Type: validation
-Blocked by: 04真实Core及双栈归属恢复、06最终组合验证；01已resolved，root闭合schema已有隔离证据；新真实系统实验须另获授权；不依赖Windows05/07
+Blocked by: root 无网络实验窗口授权；首次 TUN 窗口的 baseline/Profile 与恢复前置；实际升级验收
 Owner: 主会话集成与最终验证；验收 agent 准备记录
+
+## 当前状态（2026-11-05，覆盖下方历史检查点）
+
+冻结生产候选 4abee2431de852244e43bf5ecab86cfcf91fb259，同提交 macOS/Windows CI 与离线包核验通过；普通用户真实 Core normal/EOF 通过。本轮恢复/升级增量单独提交，尚未进入该包；首次相关验收前再冻结，不为文档或未变链路重打。下一步 root Core → TUN 正常启停 → 实际 App 退出 → 条件满足后异常恢复。未批准的系统操作不执行；相关实现未变不重复普通用户实验或重打包。
+
+本轮[恢复/升级增量](../evidence/recovery-followup-20261105/RESULT.md)已通过独立审查和组合隔离测试；未据此重跑真实Core或生成新包。
+
+精确产物与证据见 [当前候选](../evidence/finite-candidate-4abee24/RESULT.md)。人工操作集中见 [08 当前窗口](08-tun-integration-acceptance.md#当前人工窗口与前置条件)。历史记录保留，不将旧拒绝门或旧授权描述当作当前状态。
 
 ## 负责范围
 
@@ -14,7 +22,36 @@ Owner: 主会话集成与最终验证；验收 agent 准备记录
 - 自动检查、构建/打包与产物身份齐全；配置准入、双向互斥、失败/未知关门、退出与准确 owner 清理符合 ADR-0014/0015/0016 及 [0017](../../../docs/adr/0017-macos-tun-dual-stack.md)。正常重开先残留检查、TUN关闭且仅手动开启；[ADR-0018](../../../docs/adr/0018-macos-tun-network-boundaries.md) 的LAN/split DNS保持、无新DNS供应商、缺失/不支持DNS具体拒绝、显式DIRECT与无独立kill switch已批准，不再等待产品选择。
 - 管理员授权安装/取消、精确产物绑定、完整客户端认证、有限 broker、升级/卸载与失败恢复按 04 核验；已安装不代表代理中，不借卸载丢失恢复能力。不依赖付费会员，fake/原语不代替真实权限证明。
 - 覆盖IPv6 路由、网络接口变化、双栈 DNS（AAAA 与回退）、停止/异常后的恢复，以及双栈泄漏测试；操作前后读回路由/DNS/代理/进程及归属，恢复基线；未知结果如实保留。双栈固定模板/无高级 UI 已批准，具体参数依据固定版本作技术选择；核验root schema通过先于模板实现，候选未实验不能记通过；不静默关闭IPv6或夸大覆盖/防泄漏。开启与故障状态均提示无独立kill switch、路由消失可直连；验证不自动换DNS供应商/丢字段或因故障切DIRECT。
-- 人工安装/卸载、路由/代理、登录项与会话实验须等“开始”，主会话串行并恢复基线；Backup 验收及恢复先于登录项。结果不泄露 Profile/订阅或私人证据，不复用旧包替新代码验收。
+- 已授权的既定 fresh/鉴权/普通用户 Core 范围不逐包重复确认；新增 root 监督窗口、首次 TUN 网络窗口及扩大范围须明确批准，管理员弹窗由维护者处理。系统实验由主会话串行；Backup 验收及恢复先于登录项。结果不泄露 Profile/订阅或私人证据，不复用旧包替新代码验收。
+
+
+## 当前人工窗口与前置条件
+
+本节为当前执行顺序；下方旧“逐包授权”和旧产物说明仅保留历史。相关实现不变时，不重跑普通用户 normal/EOF、不重打同类候选。主会话独占系统实验时段；管理员密码/系统弹窗由维护者本人处理，代码与离线审查并行。
+
+| 阶段 | 已准备 | 仍缺什么 | 维护者最少操作 |
+| --- | --- | --- | --- |
+| A：root 固定 Core，无 TUN | 85834ab 冻结执行器/两个独立 epoch/精确清单、normal/kill/retire 驱动，完整步骤可执行 | 新组合窗口授权；真实 launchd 监督结果 | 批准下述约10–15分钟窗口；处理管理员弹窗 |
+| B：首次 TUN 正常启停及实际 App 退出 | 4abee24 finite-session 候选、双平台 CI、生产鉴权/会话/双栈/停止和恢复入口；固定 job 命令 | A 的结果评估；现场只读 baseline、真实 DNS/Profile 可表达性、精确 YAML/hash 与受控 IPv4/IPv6/LAN/分域目标；load-F/rootTUN/实际Quit/运行后卸载实证 | 在上述前置核验后集中批准约35–50分钟窗口；管理员弹窗；必要时确认现有 Profile/受控目标，无需逐参数选择 |
+| C：helper 强杀及下次启动完整恢复 | 精确 DNS 局部恢复、旧 Core 身份拒绝门、工作目录校验 | **实现和实证均缺**：可信且绑定原会话的 writer 退出依据、origin-only cache 清退、完整恢复/停止证明；仍存在的 route 不因记录 PID 获得删除权 | 当前不请求故障注入授权；不得因 A 组观察通过就跳过实现门 |
+| D：实际升级及恢复 | 升级事务/回滚入口、已冻结 App-only 升级对、隔离中断测试；末次fsync重试已修复并通过隔离测试 | 实际升级/失败恢复验收；运行过后升级需先有准确停止证明 | 单独明确非网络升级范围及管理员弹窗；不把 fresh 授权扩大为主动中断升级 |
+
+### 现在可批准的 A 窗口
+
+精确产物：[85834ab冻结记录](../evidence/lifecycle-core-preparation-85834ab/RESULT.md)，目录 `/private/tmp/kuro-lifecycle-core-review-85834ab`。fixture SHA256 `e5c949f29785297b8ba8ac5a5be76f8483dea17d0bf7daf20860cbd33daeb1f1`；approval SHA256 `c20eb39a0032b73a4b6b5b229377642f2504aac30b77fe9ae592b3bb5ed29ec1`。它是独立监督实验，不是4abee24生产安装包；本轮未修改/重冻它。
+
+1. 主会话复核完整 SHA256SUMS、精确四路径和job无冲突、祖先保护；保存结果。维护者处理管理员授权后，仅安装固定实验文件，尚不bootstrap。
+2. 执行一次normal：真实固定Core只私有Unix controller，TUN/DNS/IP监听关闭。必须同时满足接口读回、held-child停止、独立准确进程/组与owner/work消失、job恰好runs1/exit0，才能继续。
+3. 切换独立kill epoch，仅bootout准确normal job并替换精确plist。核对实时身份后，仅向 `system/dev.kuro.tun.lifecycle-a` 发 SIGKILL；约1秒/5秒分别核对supervisor/Core/完整组消失。超时fallback不算launchd通过。
+4. 消失证据充分才retire准确job并确认job absent。**保留** `/Library/PrivilegedHelperTools/dev.kuro.tun.lifecycle-a`、`/Library/LaunchDaemons/dev.kuro.tun.lifecycle-a.plist`、`/Library/Application Support/Clash Kuro/TunLifecycleExperimentA` 内的Core副本和证据，包括kill阶段owner/work/cache。该窗口不承诺删除这些文件或证明生产卸载。
+
+停止与恢复：摘要/路径/身份不符、normal失败、超时、live/unknown残留就停止后续阶段；仍持有的准确child仅走原有bounded stop。helper死亡后不按旧PID/PGID补杀。安装部分失败尚未bootstrap时，原位保留并报告已写对象；现驱动没有自动回滚，不尝试用要求完整安装的retire伪装清理。完整安装后只用当前stage的精确retire卸job，前提是原进程/组已确认消失；未知对象和证据保留。无代理、路由、DNS、登录项、注销/重启/关机或第三方修改。
+
+### B 窗口准备完成后的单次确认内容
+
+按现有下方详细命令收敛为：保存现场baseline及现有DNS/精确受限Profile → fresh安装准确生产候选 → 固定 `load -F`（不用`-w`，不fallback enable）/print/kickstart并核对 → 真实安装App inspect/recover证明off → 导入并手动开TUN → 本地A/AAAA与预先明确的双栈/DIRECT/LAN/分域DNS验证 → 手动关闭并核对自有网络/Core/work/停止证明 → 再开后使用实际菜单Quit（不是关闭窗口入托盘）→ 重开保持off → 已确认停止后卸job、精确运行后卸载并核对baseline。任一步失败不进入下一步；同获准范围修复重试不逐包确认。
+
+baseline含准确接口/两族route/resolver及scoped DNS/代理/既存VPN、自有job和安装/owner/work回执。第三方split-default、双默认出口不受支持、地址冲突或DNS不能无损表达则在写网络前停止，不关闭第三方VPN或替换DNS来换取通过。只影响本次准确Core的utun、固定自有route和临时DNS key；不新增公共DNS供应商。正常停止或恢复无法确认就保留unknown及证据，不用卸载/flush/reset/旧PID kill绕过。无独立kill switch，路由消失可能恢复直连。**此阶段暂不包含helper强杀。**
 
 ## Comments
 

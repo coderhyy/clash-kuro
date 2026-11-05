@@ -18,6 +18,7 @@ static BOOL KuroSessionTemplate(NSString *value) {
 }
 typedef BOOL (^KuroSessionResumeGate)(KuroSessionHook resume, NSString **error);
 typedef int (*KuroRestartReader)(int,int,uint64_t,void *,int);
+typedef int (*KuroRestartGroupReader)(uint32_t,uint32_t,void *,int);
 typedef BOOL (^KuroRestartWorkCleanup)(NSDictionary *record,KuroSessionHook stillAbsent,NSString **error);
 // A fresh helper never kills or adopts this PID. Any observed process, including
 // a different start identity, prevents deletion; only explicit ESRCH is absence.
@@ -30,6 +31,19 @@ static BOOL KuroRestartAbsent(NSDictionary *record,KuroRestartReader reader,NSSt
     return Fail(error,same?@"old Core identity is still present; no restart PID adoption":@"old Core PID now has a different identity; preserving owner/work");
   }
   return Fail(error,@"old Core absence is not observable; preserving owner/work");
+}
+// Reject-only observation: a reused PGID may block recovery, never authorize it.
+// Empty samples do not establish that detached descendants/writers have exited.
+static BOOL KuroRestartGroupEmpty(NSDictionary *record,KuroRestartGroupReader reader,NSString **error) {
+  pid_t members[64]={0};errno=0;
+  int count=reader(PROC_PGRP_ONLY,[record[@"processGroup"]unsignedIntValue],members,sizeof(members));int failure=errno;
+  if(count<0 || count>=(int)sizeof(members) || count%(int)sizeof(pid_t) || failure)
+    return Fail(error,@"old Core process group cannot be fully observed; preserving owner/work");
+  for(NSUInteger i=0;i<(NSUInteger)count/sizeof(pid_t);i++) {
+    if(members[i]<0)return Fail(error,@"old Core process group observation is invalid; preserving owner/work");
+    if(members[i]>0)return Fail(error,@"old Core process group is not empty; preserving owner/work without PID/PGID adoption");
+  }
+  return YES;
 }
 // Fixed work/cache.db only. No path is stored or accepted from a caller.
 static BOOL KuroWorkCacheReceipt(id value) {
@@ -136,6 +150,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
 #endif
 #ifdef KURO_TESTING
 @property(nonatomic) KuroRestartReader fixtureRestartReader;
+@property(nonatomic) KuroRestartGroupReader fixtureRestartGroupReader;
 @property(nonatomic) BOOL fixtureFailWorkCacheSync;
 @property(nonatomic) BOOL fixtureFailOwnerPublish;
 @property(nonatomic) BOOL fixtureFailDirectorySync;
@@ -270,12 +285,13 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   NSData *bytes=ReadProtected(_directory,path,_owner,error); NSDictionary *record=bytes?KuroDecodeJSON(bytes,MessageLimit,error):nil;
   if(!KuroRestartRecord(record,error))return NO;
   if([record[@"format"]isEqual:@1] && Exists(work))return Fail(error,@"legacy owner lacks runtime/socket evidence; preserving Core work");
-  KuroRestartReader reader=proc_pidinfo;
+  KuroRestartReader reader=proc_pidinfo;KuroRestartGroupReader groupReader=proc_listpids;
 #ifdef KURO_TESTING
   if(self.fixtureRestartReader)reader=self.fixtureRestartReader;
+  if(self.fixtureRestartGroupReader)groupReader=self.fixtureRestartGroupReader;
 #endif
   KuroSessionHook stillAbsent=^BOOL(NSString **failure) {
-    return [self directoryProtected:failure] && [ReadProtected(self->_directory,path,self->_owner,failure)isEqual:bytes] && KuroRestartAbsent(record,reader,failure);
+    return [self directoryProtected:failure] && [ReadProtected(self->_directory,path,self->_owner,failure)isEqual:bytes] && KuroRestartAbsent(record,reader,failure) && KuroRestartGroupEmpty(record,groupReader,failure);
   };
   // Sample twice before invoking even a receipt-only network cleanup.
   if(!stillAbsent(error) || !stillAbsent(error) || !network(error) || !stillAbsent(error) || !workCleanup(record,stillAbsent,error) || !stillAbsent(error))return NO;

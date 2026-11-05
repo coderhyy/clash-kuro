@@ -107,7 +107,7 @@ static void RestartWorkTests(void) {
     }
     Put(journal,JSONData(record),0600);NSData *original=[NSData dataWithContentsOfFile:journal];
     KuroTunService *service=[[KuroTunService alloc]initFixtureDirectory:directory core:[directory stringByAppendingPathComponent:@"unused"] hooks:ServiceHooks()];
-    KuroOwnedSession *observed=[[KuroOwnedSession alloc]initWithDirectory:directory owner:geteuid()];observed.fixtureRestartReader=RestartReader;
+    KuroOwnedSession *observed=[[KuroOwnedSession alloc]initWithDirectory:directory owner:geteuid()];observed.fixtureRestartReader=RestartReader;observed.fixtureRestartGroupReader=RestartGroupReader;
     RestartObservation=0;RestartMode=0;RestartReappearAt=scenario==6?5:0;
     __block NSUInteger network=0;
     BOOL ok=[observed recoverExitedOwnerWithNetwork:^BOOL(NSString **failure) { (void)failure;network++;return YES; }
@@ -136,7 +136,7 @@ static void RestartWorkTests(void) {
   puts("native restart work: exact runtime/socket cleanup, mismatch/unknown/symlink/unsafe reread rejection and partial cleanup retry passed (temporary sockets only)");
 }
 static void RestartCacheTests(void) {
-  for(NSUInteger scenario=0;scenario<10;scenario++) {
+  for(NSUInteger scenario=0;scenario<17;scenario++) {
     char temporary[]="/tmp/kuro-rcache-XXXXXX";CHECK(mkdtemp(temporary));char canonical[PATH_MAX];CHECK(realpath(temporary,canonical));
     NSString *directory=@(canonical),*work=[directory stringByAppendingPathComponent:@"session-work"],*journal=[directory stringByAppendingPathComponent:@"owner.json"],*error=nil;
     NSString *config=[work stringByAppendingPathComponent:@"config.json"],*cache=[work stringByAppendingPathComponent:@"cache.db"];
@@ -153,12 +153,13 @@ static void RestartCacheTests(void) {
     if(scenario==8) { NSMutableDictionary *bad=[cacheIdentity mutableCopy];bad[@"path"]=@"/tmp/arbitrary";receipt[@"cache"]=bad; }
     Put(journal,JSONData(record),0600);NSData *original=[NSData dataWithContentsOfFile:journal];
     KuroTunService *service=[[KuroTunService alloc]initFixtureDirectory:directory core:[directory stringByAppendingPathComponent:@"unused"] hooks:ServiceHooks()];
-    KuroOwnedSession *observed=[[KuroOwnedSession alloc]initWithDirectory:directory owner:geteuid()];observed.fixtureRestartReader=RestartReader;
+    KuroOwnedSession *observed=[[KuroOwnedSession alloc]initWithDirectory:directory owner:geteuid()];observed.fixtureRestartReader=RestartReader;observed.fixtureRestartGroupReader=RestartGroupReader;
     CHECK(![observed recordReapedWorkCache:cacheIdentity error:&error]); // No held/reaped owner in a fresh instance.
-    RestartObservation=0;RestartMode=0;RestartReappearAt=0;__block NSUInteger network=0,checks=0;
+    RestartObservation=0;RestartMode=0;RestartReappearAt=0;RestartGroupMode=scenario>=10&&scenario<=15?scenario-9:0;__block NSUInteger network=0,checks=0;
     BOOL ok=[observed recoverExitedOwnerWithNetwork:^BOOL(NSString **failure) { (void)failure;network++;return YES; } workCleanup:^BOOL(NSDictionary *owner,KuroSessionHook stillAbsent,NSString **failure) {
       return [service recoverExitedWork:owner stillAbsent:^BOOL(NSString **problem) {
-        checks++;if(checks==2 && scenario==6)Put(cache,Bytes(@"changed before unlink"),0600);
+        checks++;if(checks==2 && scenario==16)RestartGroupMode=1;
+        if(checks==2 && scenario==6)Put(cache,Bytes(@"changed before unlink"),0600);
         if(checks==2 && scenario==7)return Fail(problem,@"fixture identity observation uncertain after partial cleanup");
         return stillAbsent(problem);
       } error:failure];
@@ -167,16 +168,16 @@ static void RestartCacheTests(void) {
     if(ok)CHECK(observed.off&&!Exists(work)&&!Exists(journal));
     else {
       CHECK(error.length>0&&Exists(cache)&&[[NSData dataWithContentsOfFile:journal]isEqual:original]);
-      if(scenario<=5 || scenario==8)CHECK(Exists(config)); // Complete validation precedes any removal.
-      if(scenario==7) {
-        CHECK(!Exists(config)); // Retry accepts an already-removed exact work item.
+      if(scenario<=5 || scenario==8 || (scenario>=10&&scenario<=15))CHECK(Exists(config)); // Complete validation precedes any removal.
+      if(scenario==7 || scenario==16) {
+        CHECK(!Exists(config));RestartGroupMode=0; // Retry accepts an already-removed exact work item.
         CHECK([observed recoverExitedOwnerWithNetwork:^BOOL(NSString **failure) { (void)failure;return YES; } workCleanup:^BOOL(NSDictionary *owner,KuroSessionHook stillAbsent,NSString **failure) { return [service recoverExitedWork:owner stillAbsent:stillAbsent error:failure]; } error:&error]);
         CHECK(observed.off&&!Exists(work)&&!Exists(journal));
       }
     }
-    CHECK(network==(scenario==8?0:1));CHECK([[NSFileManager defaultManager]removeItemAtPath:directory error:NULL]);
+    CHECK(network==((scenario==8 || (scenario>=10&&scenario<=15))?0:1));CHECK([[NSFileManager defaultManager]removeItemAtPath:directory error:NULL]);
   }
-  puts("native production cache: closed durable receipt, legacy refusal, changed/symlink/writable/unknown preservation, exact removal and partial cleanup retry passed; no Core/network");
+  puts("native production cache: closed durable receipt, legacy refusal, changed/symlink/writable/unknown preservation, exact removal, old-group nonempty/unknown rejection and partial cleanup retry passed; no Core/network");
 }
 static void ServiceWait(dispatch_semaphore_t event) {
   CHECK(!dispatch_semaphore_wait(event,dispatch_time(DISPATCH_TIME_NOW,4*NSEC_PER_SEC)));

@@ -12,6 +12,18 @@ static int RestartReader(int pid,int flavor,uint64_t arg,void *buffer,int size) 
   value->pbi_pid=(uint32_t)pid;value->pbi_start_tvsec=100;value->pbi_start_tvusec=mode==2?21:20;
   return sizeof(*value);
 }
+static NSUInteger RestartGroupMode;
+static int RestartGroupReader(uint32_t type,uint32_t group,void *buffer,int size) {
+  CHECK(type==PROC_PGRP_ONLY && group==12344 && size==64*(int)sizeof(pid_t));
+  memset(buffer,0,(size_t)size);errno=0;
+  if(RestartGroupMode==1){((pid_t *)buffer)[0]=23456;return sizeof(pid_t);}
+  if(RestartGroupMode==2){errno=EPERM;return 0;}
+  if(RestartGroupMode==3)return -1;
+  if(RestartGroupMode==4)return size;
+  if(RestartGroupMode==5)return 1;
+  if(RestartGroupMode==6){((pid_t *)buffer)[0]=-1;return sizeof(pid_t);}
+  return 0;
+}
 static NSMutableDictionary *RestartRecord(void) {
   NSString *digest=Hash(Bytes(@"fixture executable"));
   return [@{@"format":@1,@"session":@"00000000-0000-4000-8000-000000000001",@"pid":@12345,@"parent":@12344,@"startSeconds":@100,@"startMicros":@20,@"executableSHA256":digest,@"phase":@"prepared",@"processGroup":@12344,
@@ -27,7 +39,7 @@ static void RestartOwnerTests(void) {
     Put(journal,JSONData(record),0600);
     NSData *original=[NSData dataWithContentsOfFile:journal];
     RestartObservation=0;RestartMode=scenario>=3&&scenario<=6?scenario-2:0;RestartReappearAt=scenario==7?3:0;
-    KuroOwnedSession *observed=[[KuroOwnedSession alloc]initWithDirectory:directory owner:geteuid()];observed.fixtureRestartReader=RestartReader;
+    KuroOwnedSession *observed=[[KuroOwnedSession alloc]initWithDirectory:directory owner:geteuid()];observed.fixtureRestartReader=RestartReader;observed.fixtureRestartGroupReader=RestartGroupReader;
     __block NSUInteger network=0,work=0;
     BOOL ok=[observed recoverExitedOwnerWithNetwork:^BOOL(NSString **failure) {
       network++;if(scenario==8)return Fail(failure,@"fixture network receipt remains");
@@ -131,7 +143,7 @@ static void SessionDurabilityTests(void) {
   for(NSUInteger existed=0;existed<2;existed++) {
     char path[]="/tmp/kuro-recover-durable-XXXXXX";CHECK(mkdtemp(path));CHECK(realpath(path,resolved));directory=@(resolved);journal=[directory stringByAppendingPathComponent:@"owner.json"];
     if(existed)Put(journal,JSONData(RestartRecord()),0600);
-    KuroOwnedSession *observed=[[KuroOwnedSession alloc]initWithDirectory:directory owner:geteuid()];observed.fixtureRestartReader=RestartReader;observed.fixtureFailDirectorySync=YES;
+    KuroOwnedSession *observed=[[KuroOwnedSession alloc]initWithDirectory:directory owner:geteuid()];observed.fixtureRestartReader=RestartReader;observed.fixtureRestartGroupReader=RestartGroupReader;observed.fixtureFailDirectorySync=YES;
     RestartObservation=0;RestartMode=0;RestartReappearAt=0;__block NSUInteger networks=0,works=0;
     KuroSessionHook network=^BOOL(NSString **failure){(void)failure;networks++;return YES;};
     KuroRestartWorkCleanup cleanup=^BOOL(NSDictionary *record,KuroSessionHook absent,NSString **failure){CHECK([record isEqual:RestartRecord()]);works++;return absent(failure);};

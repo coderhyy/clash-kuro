@@ -1,0 +1,2 @@
+native upgrade retirement: final unlink + failed sync, repeated no-record sync failure, changed App preservation and successful sync retry; actual exact recovery CLI and uninstall passed
+native upgrade: both histories success, repeated upgrade and immediate uninstall; 102 deterministic approval/prepare/rename/sync/forward-cleanup/retirement interruptions recovered via exact protected executable; no Core/system/network

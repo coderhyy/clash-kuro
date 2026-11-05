@@ -1,9 +1,17 @@
 # TUN 接入生命周期
 
-Status: ready-for-agent（生产客户端/State/UI已接线；完整安全适配与最终验证分阶段）
+Status: ready-for-agent（生产接线已完成；真实生命周期与网络验收未完成）
 Type: task
-Blocked by: 04受保护安装后动态鉴权与生产service/network hooks、真实双栈归属/恢复及最终组合验证；共享配置/V2/State/UI已接入，01产品决定已解决
+Blocked by: 04 的 root Core 监督/跨 helper 恢复证据；首次 TUN 窗口与真实 App 退出验收
 Owner: TUN 接入 agent；主会话统一 Core/State/桌面公共接口与源码分工
+
+## 当前状态（2026-11-05，覆盖下方历史检查点）
+
+配置准入、有限会话、模式互斥、启动/停止、恢复入口与最小 UI 已接线；停止证据不足仍拒绝 Backup/模式切换。固定双栈/LAN/分域 DNS 已实现但未完成真实网络验收；owner EOF 实验不等于 Electron 退出。正常重开保持 TUN 关闭，不自动恢复。
+
+本轮已补齐旧组非空/不可完整观察时的恢复拒绝及升级最后回执fsync重试，两项均通过独立审查和组合隔离测试；不把空组当writer证明，修复尚未进入旧包。[增量证据](../evidence/recovery-followup-20261105/RESULT.md)。
+
+精确产物与证据见 [当前候选](../evidence/finite-candidate-4abee24/RESULT.md)。人工操作集中见 [08 当前窗口](08-tun-integration-acceptance.md#当前人工窗口与前置条件)。历史记录保留，不将旧拒绝门或旧授权描述当作当前状态。
 
 ## 负责范围
 

@@ -389,6 +389,26 @@ static void UpgradeTests(void) {
     CHECK(Uninstall(prefix,geteuid(),NO,At(prefix,Recovery),&error));CHECK(!Exists(At(prefix,Tools))&&!Exists(At(prefix,State))&&!Exists(At(prefix,Recovery))&&!Exists(At(prefix,FreshReceipt))&&!Exists(At(prefix,ClientBundle)));
     CHECK([[NSFileManager defaultManager]removeItemAtPath:prefix error:NULL]);
   }
+  // Final approval unlink may succeed before parent fsync fails. A no-record
+  // observation must not turn that failed retirement into durable success.
+  {
+    NSString *prefix=[base stringByAppendingPathComponent:@"retirement-sync-retry"];
+    CHECK([[NSFileManager defaultManager]copyItemAtPath:stoppedBlueprint toPath:prefix error:NULL]);
+    CHECK(BeginClientUpgradeFromScripts(prefix,geteuid(),NO,scripts,&error));UpgradeFixturePayload(newSource,prefix);
+    __block NSUInteger attempts=0;UpgradeRetirementSyncFault=^BOOL(NSString **failure){attempts++;return Fail(failure,@"injected upgrade retirement sync failure");};
+    error=nil;CHECK(!CompleteClientUpgradeFromScripts(prefix,geteuid(),NO,scripts,&error)&&[error isEqual:@"injected upgrade retirement sync failure"]&&attempts==1);
+    CHECK(!Exists(At(prefix,RecoveryRecord))&&!Exists(UpgradeRoot(prefix))&&!Exists(UpgradeMarker(prefix)));
+    NSDictionary *before=UpgradeFixtureRawTree(prefix);error=nil;
+    CHECK(!RecoverClientUpgrade(prefix,geteuid(),NO,At(prefix,Recovery),&error)&&[error isEqual:@"injected upgrade retirement sync failure"]&&attempts==2);
+    CHECK([UpgradeFixtureRawTree(prefix)isEqual:before]);
+    // Existing complete-layout checks must precede even a retry flush.
+    NSString *asar=[At(prefix,ClientBundle)stringByAppendingPathComponent:@"Contents/Resources/app.asar"];NSData *original=[NSData dataWithContentsOfFile:asar];Put(asar,Bytes(@"changed retained App"),0644);
+    error=nil;CHECK(!RecoverClientUpgrade(prefix,geteuid(),NO,At(prefix,Recovery),&error)&&attempts==2);CHECK([[NSData dataWithContentsOfFile:asar]isEqual:Bytes(@"changed retained App")]);Put(asar,original,0644);
+    UpgradeRetirementSyncFault=^BOOL(NSString **failure){(void)failure;attempts++;return YES;};error=nil;
+    CHECK(RecoverClientUpgrade(prefix,geteuid(),NO,At(prefix,Recovery),&error)&&attempts==3);CHECK([UpgradeFixtureRawTree(prefix)isEqual:before]);UpgradeRetirementSyncFault=nil;
+    CHECK(UpgradeFixtureRecoverCLI(prefix));CHECK(Uninstall(prefix,geteuid(),NO,At(prefix,Recovery),&error));CHECK([[NSFileManager defaultManager]removeItemAtPath:prefix error:NULL]);
+    puts("native upgrade retirement: final unlink + failed sync, repeated no-record sync failure, changed App preservation and successful sync retry; actual exact recovery CLI and uninstall passed");
+  }
   // Refuse unapproved metadata/ownership before issuing an upgrade approval.
   for(NSUInteger scenario=0;scenario<24;scenario++) {
     NSString *prefix=[base stringByAppendingPathComponent:[NSString stringWithFormat:@"reject%lu",(unsigned long)scenario]];CHECK([[NSFileManager defaultManager]copyItemAtPath:stoppedBlueprint toPath:prefix error:NULL]);

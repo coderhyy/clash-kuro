@@ -1,9 +1,17 @@
 # macOS 特权 helper
 
-Status: ready-for-agent（实现与隔离验证；真实操作等“开始”）
+Status: ready-for-agent（生产有限会话已接通；补 writer 恢复与升级缺口，真实窗口待授权）
 Type: task
-Blocked by: 真实Core/双栈网络及helper死亡恢复验收、完整升级；安装后有限动态鉴权已通过；新真实系统实验须另获授权；01/09已解决
+Blocked by: root 固定 Core 监督退出证据；跨 helper writer 退出证明；真实 TUN、升级及运行后卸载验收
 Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
+
+## 当前状态（2026-11-05，覆盖下方历史检查点）
+
+安装鉴权、有限控制、held-child 停止证明、升级事务及精确卸载已有实现/隔离证据；真实普通用户 Core normal/EOF 已通过。fresh 安装/卸载历史验收通过，不代表升级或运行后卸载通过。跨 helper 精确 DNS 可独立清理；origin-only cache 和未知 writer 继续保留，不能报告完整恢复。
+
+本轮已补齐旧组非空/不可完整观察时的恢复拒绝及升级最后回执fsync重试，两项均通过独立审查和组合隔离测试；不把空组当writer证明，修复尚未进入旧包。[增量证据](../evidence/recovery-followup-20261105/RESULT.md)。
+
+精确产物与证据见 [当前候选](../evidence/finite-candidate-4abee24/RESULT.md)。人工操作集中见 [08 当前窗口](08-tun-integration-acceptance.md#当前人工窗口与前置条件)。历史记录保留，不将旧拒绝门或旧授权描述当作当前状态。
 
 ## 负责范围
 
