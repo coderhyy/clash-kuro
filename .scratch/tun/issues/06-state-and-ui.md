@@ -80,3 +80,6 @@ LAN/split支持边界具体为：保留现有更具体route及已识别的search
 
 
 2026-11-05 `07b4325`冻结普通UID无TUN实验真实normal/EOF均通过；预创建0600空cache由固定Core原地初始化，同inode/owner/mode，准确停止Core exit0且独立进程/运行目录消失。仅证明此cache兼容性，不授权跨helper清退。见[真实证据](../evidence/cache-precreation-07b4325/RESULT.md)。另已准备d62675f fresh → 9763482升级的同helper/Core、不同封印App版本对，两源CI通过，实际升级未执行；[产物对](../evidence/app-only-upgrade-pair/RESULT.md)。
+
+
+2026-11-05 `aaa85e82376cd7a99009730a06c6cae8f231b21a`生产有界诊断及共享capture已集成，双平台CI通过；新冻结执行器真实无TUN normal/EOF均exit0，私有接口读回、SIGTERM→Core exit0、独立Core/worker ESRCH、组空及整个运行目录消失均通过。EOF仅owner连接断开，不是实际Electron退出；root/Core组强杀、真实TUN双栈/LAN/分域DNS及异常网络恢复仍未通过。见[本次精确产物及执行证据](../evidence/production-diagnostics/core-execution-aaa85e8/RESULT.md)。

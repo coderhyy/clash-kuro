@@ -190,3 +190,6 @@ helper死亡/跨重启对仍存在route/DNS的恢复、真实Core可能detach的
 
 
 2026-11-05 固定Core独立LaunchDaemon无TUN生命周期候选已冻结于85834ab，完整清单、源blob和无害自测及独审通过，尚未执行真实root job/Core。normal先通过再独立kill epoch，retire仅清job、root证据保留；不能把它算生产恢复/完整卸载。新组合须一次专门窗口授权，具体产物、10–15分钟步骤、范围与停止/恢复边界见[可执行准备](../evidence/lifecycle-core-preparation-85834ab/RESULT.md)。
+
+
+2026-11-05 `aaa85e82376cd7a99009730a06c6cae8f231b21a`生产有界诊断及共享capture已集成，双平台CI通过；新冻结执行器真实无TUN normal/EOF均exit0，私有接口读回、SIGTERM→Core exit0、独立Core/worker ESRCH、组空及整个运行目录消失均通过。EOF仅owner连接断开，不是实际Electron退出；root/Core组强杀、真实TUN双栈/LAN/分域DNS及异常网络恢复仍未通过。见[本次精确产物及执行证据](../evidence/production-diagnostics/core-execution-aaa85e8/RESULT.md)。

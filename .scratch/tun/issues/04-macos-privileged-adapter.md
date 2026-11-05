@@ -147,3 +147,6 @@ Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
 2026-11-05 cache来源接入生产service：启动前独占预创建0600并fsync，owner保存cacheOrigin，resume前核对完整初始身份，原held child reap后才允许同来源终态清退。独立审查、主会话严格生产/test编译和全native fixture通过；origin-only仍拒绝跨helper恢复。见[集成证据](../evidence/production-cache-origin/RESULT.md)。下一步补生产有界诊断，日志失败不得阻断网络恢复，也不得绕过证据保留清退work；真实root Core/网络尚未验。
 
 2026-11-05 生产有界诊断已接通，两个实验caller复用同一capture。准确waitpid终态、闭合配置凭据脱敏、失败stage和停止原因在清退前持久化；日志失败仍尝试原网络恢复，但不确认完整清退。固定TunDiagnostics证据目录卸载后保留并明确提示。独立审查、生产严格编译及主会话全native含固定Core-t通过；实验caller无害自测通过。见[集成记录](../evidence/production-diagnostics/RESULT.md)。下一步冻结新产物，重跑已授权普通UID真实normal/EOF；root/TUN及网络恢复未据此标为通过。
+
+
+2026-11-05 `aaa85e82376cd7a99009730a06c6cae8f231b21a`生产有界诊断及共享capture已集成，双平台CI通过；新冻结执行器真实无TUN normal/EOF均exit0，私有接口读回、SIGTERM→Core exit0、独立Core/worker ESRCH、组空及整个运行目录消失均通过。EOF仅owner连接断开，不是实际Electron退出；root/Core组强杀、真实TUN双栈/LAN/分域DNS及异常网络恢复仍未通过。见[本次精确产物及执行证据](../evidence/production-diagnostics/core-execution-aaa85e8/RESULT.md)。
