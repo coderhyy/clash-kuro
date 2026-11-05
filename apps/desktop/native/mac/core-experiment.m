@@ -104,7 +104,27 @@ static NSDictionary *ExperimentCacheIdentity(NSString *base,NSString **error) {
   if(lstat(path.fileSystemRepresentation,&before)||!S_ISREG(before.st_mode)||before.st_uid!=geteuid()||before.st_nlink!=1||(before.st_mode&06022)||before.st_size<0||before.st_size>4*1024*1024) {Fail(error,@"cache.db type/owner/mode/link/size is not admitted");return nil;}
   NSData *bytes=ReadProtected(base,path,geteuid(),error);
   if(!bytes||lstat(path.fileSystemRepresentation,&after)||before.st_dev!=after.st_dev||before.st_ino!=after.st_ino||before.st_size!=after.st_size||before.st_mode!=after.st_mode||before.st_mtimespec.tv_sec!=after.st_mtimespec.tv_sec||before.st_mtimespec.tv_nsec!=after.st_mtimespec.tv_nsec||before.st_ctimespec.tv_sec!=after.st_ctimespec.tv_sec||before.st_ctimespec.tv_nsec!=after.st_ctimespec.tv_nsec||bytes.length!=(NSUInteger)before.st_size) {Fail(error,@"cache.db changed during readback; preserved");return nil;}
-  return @{@"device":@((uint64_t)before.st_dev),@"inode":@(before.st_ino),@"mode":@(before.st_mode&07777),@"size":@(before.st_size),@"sha256":Hash(bytes),@"mtimeSeconds":@(before.st_mtimespec.tv_sec),@"mtimeNanos":@(before.st_mtimespec.tv_nsec),@"ctimeSeconds":@(before.st_ctimespec.tv_sec),@"ctimeNanos":@(before.st_ctimespec.tv_nsec)};
+  return @{@"device":@((uint64_t)before.st_dev),@"inode":@(before.st_ino),@"owner":@(before.st_uid),@"mode":@(before.st_mode&07777),@"size":@(before.st_size),@"sha256":Hash(bytes),@"mtimeSeconds":@(before.st_mtimespec.tv_sec),@"mtimeNanos":@(before.st_mtimespec.tv_nsec),@"ctimeSeconds":@(before.st_ctimespec.tv_sec),@"ctimeNanos":@(before.st_ctimespec.tv_nsec)};
+}
+static NSDictionary *ExperimentPrecreateCache(NSString *base,NSString **error) {
+  NSString *work=[base stringByAppendingPathComponent:@"session-work"],*path=[work stringByAppendingPathComponent:@"cache.db"];struct stat directory={0},created={0};
+  if(!SafeChain(base,work,geteuid(),YES,error)||lstat(work.fileSystemRepresentation,&directory)||(directory.st_mode&07777)!=0700) {Fail(error,@"precreated cache requires the protected mode0700 work directory");return nil;}
+  int fd=open(path.fileSystemRepresentation,O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,0600);
+  if(fd<0){Fail(error,@"exclusive empty cache creation failed; existing content preserved");return nil;}
+  BOOL stored=!fchmod(fd,0600)&&!fsync(fd)&&!fstat(fd,&created)&&S_ISREG(created.st_mode)&&created.st_uid==geteuid()&&created.st_nlink==1&&created.st_size==0&&(created.st_mode&07777)==0600;
+  NSDictionary *identity=stored?ExperimentCacheIdentity(base,error):nil;
+  BOOL same=identity&&[identity[@"device"]unsignedLongLongValue]==(uint64_t)created.st_dev&&[identity[@"inode"]unsignedLongLongValue]==created.st_ino;
+  close(fd);
+  if(!stored||!same||!SyncInstallDirectory(work,error)){Fail(error,@"precreated cache identity/durability not proven; work preserved");return nil;}
+  return identity;
+}
+static NSDictionary *ExperimentCacheObservation(NSDictionary *initial,NSDictionary *final,BOOL reaped,NSString *error) {
+  BOOL sameInode=initial&&final&&[initial[@"device"]isEqual:final[@"device"]]&&[initial[@"inode"]isEqual:final[@"inode"]];
+  BOOL sameOwner=initial&&final&&[initial[@"owner"]isEqual:final[@"owner"]],sameMode=initial&&final&&[initial[@"mode"]isEqual:final[@"mode"]];
+  return @{@"format":@1,@"initial":initial?:(id)NSNull.null,@"final":final?:(id)NSNull.null,@"reaped":@(reaped),@"sameInode":@(sameInode),@"sameOwner":@(sameOwner),@"sameMode":@(sameMode),@"error":error?:@""};
+}
+static BOOL ExperimentCacheUnchanged(NSDictionary *observation) {
+  return [observation[@"reaped"]isEqual:@YES]&&[observation[@"sameInode"]isEqual:@YES]&&[observation[@"sameOwner"]isEqual:@YES]&&[observation[@"sameMode"]isEqual:@YES]&&[observation[@"initial"][@"mode"]isEqual:@0600];
 }
 static BOOL ExperimentRemoveWork(NSString *base,NSString *digest,NSDictionary *socketIdentity,NSDictionary *cacheIdentity,NSString **error) {
   NSString *work=[base stringByAppendingPathComponent:@"session-work"],*config=[work stringByAppendingPathComponent:@"config.json"],*socketPath=[work stringByAppendingPathComponent:@"core.sock"];
@@ -255,7 +275,7 @@ static int ExperimentWorker(BOOL fixture) {
   NSString *error=nil;pid_t parent=getppid();KuroPeerIdentity *peer=[KuroPeerIdentity observePeer:3 error:&error];char parentPath[PROC_PIDPATHINFO_MAXSIZE]={0};
   if(!peer || proc_pidpath(parent,parentPath,sizeof(parentPath))<=0 || ![Executable()isEqual:@(parentPath)])return 91;
   NSDictionary *launch=ExperimentRead(3,KuroMonotonicMilliseconds()+2000,&error),*manifest=fixture?ExperimentFixtureManifest():ExperimentManifest(&error);
-  NSArray *fixtureStages=@[@"fixture-worker-exit",@"fixture-early-exit",@"fixture-output",@"fixture-timeout",@"fixture-log-save-failure",@"fixture-ready-exit-normal",@"fixture-ready-exit-eof"];
+  NSArray *fixtureStages=@[@"fixture-worker-exit",@"fixture-early-exit",@"fixture-output",@"fixture-timeout",@"fixture-log-save-failure",@"fixture-ready-exit-normal",@"fixture-ready-exit-eof",@"fixture-cache-replaced",@"fixture-cache-mode-changed"];
   if(!manifest || !Keys(launch,@[@"format",@"stage",@"epoch",@"base",@"diagnosticsDirectory"]) || !KuroNumber(launch[@"format"],1,1) || !([@[@"normal",@"eof"]containsObject:launch[@"stage"]] || (fixture&&[fixtureStages containsObject:launch[@"stage"]])) || ![launch[@"epoch"]isEqual:manifest[@"epoch"]] || ![launch[@"base"]isKindOfClass:NSString.class] || ![launch[@"diagnosticsDirectory"]isKindOfClass:NSString.class])return 92;
   NSString *base=launch[@"base"],*evidence=launch[@"diagnosticsDirectory"];char canonical[PATH_MAX];
   for(NSString *path in @[base,evidence])if(![path hasPrefix:[path isEqual:base]?@"/private/tmp/kuro-core-":@"/private/tmp/kuro-core-evidence-"] || !realpath(path.fileSystemRepresentation,canonical) || ![path isEqual:@(canonical)] || !SafeNode(path,geteuid(),YES,&error))return 93;
@@ -268,18 +288,30 @@ static int ExperimentWorker(BOOL fixture) {
   NSDictionary *metadata=@{@"format":@1,@"argv":[@[core]arrayByAddingObjectsFromArray:arguments],@"workdir":work,@"environmentKeysSet":@{@"PATH":@YES,@"LANG":@YES,@"HOME":@NO,@"DYLD_*":@NO,@"CLASH_*":@NO},@"inheritsEnvironment":@NO,@"configSHA256":digest,@"redactedConfigSHA256":Hash(redactedConfig),@"configSummary":@{@"tun":@NO,@"dns":@NO,@"ipListenerPorts":@0,@"proxyProviders":@0,@"ruleProviders":@0,@"secret":@"[REDACTED]"}};
   if(!ExperimentSave(evidence,@"config.redacted.json",redactedConfig,&error)||!ExperimentSave(evidence,@"launch.json",JSONData(metadata),&error))return 96;
   if(mkdir(work.fileSystemRepresentation,0700)||!WriteNew(configPath,config,0600,&error))return 96;
+  NSDictionary *initialCache=ExperimentPrecreateCache(base,&error);
+  __block NSData *cacheCheckpoint=JSONData(ExperimentCacheObservation(initialCache,nil,NO,error));
+  if(!ExperimentSave(evidence,@"cache-precreation.json",cacheCheckpoint,&error)||!SyncInstallDirectory(evidence,&error)||!initialCache)return 96;
   ExperimentOutput *output=[[ExperimentOutput alloc]initWithSecret:secret];if(!output)return 96;
   KuroOwnedSession *session=[[KuroOwnedSession alloc]initWithDirectory:base owner:geteuid()];session.experimentStdoutDescriptor=[output writer:0];session.experimentStderrDescriptor=[output writer:1];
   __block NSDictionary *socketIdentity=nil,*cacheIdentity=nil;__block NSString *diagnosticError=nil,*failureStage=@"spawn";__block NSData *diagnosticCheckpoint=nil;NSDictionary *identity=nil;id version=nil;BOOL success=NO,spawned=NO;
   if(![session setLaunchEvidence:@{@"configSHA256":digest,@"coreSHA256":manifest[@"coreSHA256"],@"template":@"core-control-experiment-v1"} error:&error]) {[output closeWriters];(void)[output saveTo:evidence secret:secret error:NULL];return 97;}
-  spawned=[session spawnExecutable:core arguments:arguments workingDirectory:work beforeResume:^BOOL(NSString **failure) {return peer.isLive&&getppid()==parent&&SafeChain(base,work,geteuid(),YES,failure);} afterReap:^BOOL(NSString **failure) {
+  spawned=[session spawnExecutable:core arguments:arguments workingDirectory:work beforeResume:^BOOL(NSString **failure) {return peer.isLive&&getppid()==parent&&SafeChain(base,work,geteuid(),YES,failure)&&[ExperimentCacheIdentity(base,failure)isEqual:initialCache];} afterReap:^BOOL(NSString **failure) {
     // Persist redacted output before any known runtime file is removed.
     if(fixture&&[launch[@"stage"]isEqual:@"fixture-log-save-failure"])chmod(evidence.fileSystemRepresentation,0755);
     if(![output saveTo:evidence secret:secret error:&diagnosticError])return Fail(failure,diagnosticError);
-    if(Exists([work stringByAppendingPathComponent:@"cache.db"])) {cacheIdentity=ExperimentCacheIdentity(base,failure);if(!cacheIdentity)return NO;}
+    NSString *cacheError=nil;cacheIdentity=ExperimentCacheIdentity(base,&cacheError);
+    if(!cacheIdentity&&!cacheError)cacheError=@"precreated cache disappeared; work preserved";
+    NSDictionary *observation=ExperimentCacheObservation(initialCache,cacheIdentity,YES,cacheError);
+    BOOL cacheUnchanged=ExperimentCacheUnchanged(observation);
+    if(!cacheUnchanged&&!cacheError) {cacheError=@"precreated cache inode/owner/mode changed; work preserved";observation=ExperimentCacheObservation(initialCache,cacheIdentity,YES,cacheError);}
+    NSData *observedBytes=JSONData(observation);
+    if(!ExperimentPublishLog(evidence,@"cache-precreation.json",observedBytes,cacheCheckpoint,&diagnosticError)||!SyncInstallDirectory(evidence,&diagnosticError))return Fail(failure,diagnosticError);
+    cacheCheckpoint=observedBytes;
+    if(!cacheUnchanged)failureStage=@"cache-precreation-readback";
     NSDictionary *checkpoint=@{@"format":@1,@"failureStage":failureStage,@"termination":session.terminationEvidence,@"capture":[output statistics],@"cacheIdentity":cacheIdentity?:(id)NSNull.null,@"diagnosticError":diagnosticError?:@"",@"configSHA256":digest,@"redactedConfigSHA256":Hash(redactedConfig),@"workAbsent":@NO,@"ownerAbsent":@NO};
     diagnosticCheckpoint=JSONData(checkpoint);
     if(!ExperimentSave(evidence,@"diagnostics.json",diagnosticCheckpoint,&diagnosticError)||!SyncInstallDirectory(evidence,&diagnosticError))return Fail(failure,diagnosticError);
+    if(!cacheUnchanged)return Fail(failure,cacheError?:@"precreated cache inode/owner/mode changed; work preserved");
     return ExperimentRemoveWork(base,digest,socketIdentity,cacheIdentity,failure);
   } error:&error];
   [output closeWriters];
@@ -429,6 +461,10 @@ static NSDictionary *ExperimentGuardian(NSString *stage,NSDictionary *manifest,B
     // The version-2 stop acknowledgement is followed by the worker's result.
     else if([event[@"version"]isEqual:@2]&&[event[@"sequence"]isEqual:@1]) {
       acknowledged=Keys(event,@[@"version",@"ok",@"sequence",@"status"])&&[event[@"ok"]isEqual:@YES]&&Keys(event[@"status"],@[@"availability",@"state"])&&[event[@"status"][@"state"]isEqual:@"off"]&&[event[@"status"][@"availability"]isEqual:@"ready"];
+    } else if(Keys(event,@[@"version",@"ok",@"error"])&&KuroNumber(event[@"version"],2,2)&&KuroBool(event[@"ok"])&&![event[@"ok"]boolValue]&&[event[@"error"]isKindOfClass:NSString.class]) {
+      // A cleanup rejection is not an ACK. Keep reading its bounded final
+      // diagnostics instead of closing while the worker is preserving work.
+      (void)Fail(error,event[@"error"]);
     } else break;
   }
   close(pair[0]);

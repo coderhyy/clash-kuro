@@ -46,7 +46,18 @@ static int ExperimentFixtureCore(const char *directory,const char *configuration
     else if(accepted&&[text hasPrefix:@"GET /configs HTTP/1.1\r\n"])payload=@{@"mode":mode};
     else if(accepted&&[text hasPrefix:@"GET /proxies/Kuro-Experiment HTTP/1.1\r\n"])payload=@{@"now":selection};
     else if(accepted&&[text hasPrefix:@"PATCH /configs HTTP/1.1\r\n"]&&Keys(body,@[@"mode"])&&[@[@"rule",@"direct"]containsObject:body[@"mode"]]) {mode=body[@"mode"];payload=NSNull.null;}
-    else if(accepted&&[text hasPrefix:@"PUT /proxies/Kuro-Experiment HTTP/1.1\r\n"]&&Keys(body,@[@"name"])&&[@[@"DIRECT",@"REJECT"]containsObject:body[@"name"]]) {selection=body[@"name"];payload=NSNull.null;NSString *cache=[work stringByAppendingPathComponent:@"cache.db"];if(!Exists(cache)&&!WriteNew(cache,[@"fixture cache"dataUsingEncoding:NSUTF8StringEncoding],0600,NULL))return 96;}
+    else if(accepted&&[text hasPrefix:@"PUT /proxies/Kuro-Experiment HTTP/1.1\r\n"]&&Keys(body,@[@"name"])&&[@[@"DIRECT",@"REJECT"]containsObject:body[@"name"]]) {
+      selection=body[@"name"];payload=NSNull.null;NSString *cache=[work stringByAppendingPathComponent:@"cache.db"];
+      if(!strcmp(behavior,"fixture-cache-replaced")) {
+        NSString *replacement=[work stringByAppendingPathComponent:@"fixture-replacement"];
+        if(!WriteNew(replacement,[@"replacement cache"dataUsingEncoding:NSUTF8StringEncoding],0600,NULL)||rename(replacement.fileSystemRepresentation,cache.fileSystemRepresentation))return 96;
+      } else {
+        int cacheFD=open(cache.fileSystemRepresentation,O_WRONLY|O_NOFOLLOW|O_CLOEXEC);struct stat cacheInfo={0};NSData *changed=[@"fixture cache initialized in place"dataUsingEncoding:NSUTF8StringEncoding];
+        BOOL wrote=cacheFD>=0&&!fstat(cacheFD,&cacheInfo)&&S_ISREG(cacheInfo.st_mode)&&cacheInfo.st_uid==geteuid()&&cacheInfo.st_nlink==1&&pwrite(cacheFD,changed.bytes,changed.length,0)==(ssize_t)changed.length&&!ftruncate(cacheFD,(off_t)changed.length)&&!fsync(cacheFD);
+        if(cacheFD>=0)close(cacheFD);if(!wrote)return 96;
+        if(!strcmp(behavior,"fixture-cache-mode-changed")&&chmod(cache.fileSystemRepresentation,0644))return 96;
+      }
+    }
     NSData *encoded=nil;
     if(payload==NSNull.null)encoded=[@"HTTP/1.1 204 No Content\r\nContent-Length: 0\r\n\r\n" dataUsingEncoding:NSUTF8StringEncoding];
     else if(payload) { NSData *json=JSONData(payload);NSMutableData *reply=[[[NSString stringWithFormat:@"HTTP/1.1 200 OK\r\nContent-Length: %lu\r\n\r\n",(unsigned long)json.length]dataUsingEncoding:NSUTF8StringEncoding]mutableCopy];[reply appendData:json];encoded=reply; }
@@ -82,6 +93,14 @@ static int ExperimentSelfTests(void) {
     EXP_CHECK([result[@"status"]isEqual:@"passed"]);
     EXP_CHECK([result[@"groupAbsent"]isEqual:@YES]);
     EXP_CHECK([result[@"worker"][@"termination"][@"observed"]isEqual:@YES]);
+    NSString *evidence=result[@"diagnosticsDirectory"];
+    NSDictionary *cache=ReadJSON(evidence,[evidence stringByAppendingPathComponent:@"cache-precreation.json"],geteuid(),NULL);
+    EXP_CHECK(ExperimentCacheUnchanged(cache));
+    EXP_CHECK([cache[@"initial"][@"size"]isEqual:@0]&&[cache[@"initial"][@"mode"]isEqual:@0600]&&[cache[@"initial"][@"owner"]isEqual:@(geteuid())]);
+    EXP_CHECK([cache[@"initial"][@"sha256"]isEqual:Hash([NSData data])]);
+    EXP_CHECK([cache[@"final"][@"size"]unsignedIntegerValue]>0&&![cache[@"final"][@"sha256"]isEqual:cache[@"initial"][@"sha256"]]);
+    EXP_CHECK([cache[@"final"][@"sha256"]isEqual:Hash([@"fixture cache initialized in place"dataUsingEncoding:NSUTF8StringEncoding])]);
+    for(NSString *key in @[@"reaped",@"sameInode",@"sameOwner",@"sameMode"])EXP_CHECK(KuroBool(cache[key])&&[cache[key]boolValue]);
     // Consume the real worker's decoded wire result through the same receipt
     // builder as --normal/--eof; NSNumber equality alone accepts integer 1.
     NSDictionary *receipt=ExperimentSuccessReceipt(manifest,stage,result);
@@ -93,6 +112,18 @@ static int ExperimentSelfTests(void) {
       EXP_CHECK(!ExperimentSuccess(numeric,manifest,stage));
     }
     EXP_CHECK(!Exists(result[@"base"]));
+  }
+  for(NSString *stage in @[@"fixture-cache-replaced",@"fixture-cache-mode-changed"]) {
+    NSString *error=nil;NSDictionary *result=ExperimentGuardian(stage,manifest,YES,&error),*worker=result[@"worker"];
+    NSString *evidence=result[@"diagnosticsDirectory"];NSDictionary *cache=ReadJSON(evidence,[evidence stringByAppendingPathComponent:@"cache-precreation.json"],geteuid(),NULL);
+    printf("fixture cache rejection %s: %s\n",stage.UTF8String,evidence.fileSystemRepresentation);
+    EXP_CHECK([result[@"status"]isEqual:@"blocked"]&&[result[@"groupAbsent"]isEqual:@YES]);
+    EXP_CHECK([worker[@"workAbsent"]isEqual:@NO]&&[worker[@"ownerAbsent"]isEqual:@NO]);
+    EXP_CHECK(!ExperimentCacheUnchanged(cache)&&[cache[@"reaped"]isEqual:@YES]&&[cache[@"error"]length]>0);
+    EXP_CHECK([cache[@"initial"][@"mode"]isEqual:@0600]&&[cache[@"final"][@"owner"]isEqual:@(geteuid())]);
+    EXP_CHECK([cache[[stage hasSuffix:@"cache-replaced"]?@"sameInode":@"sameMode"]isEqual:@NO]);
+    EXP_CHECK([cache[@"final"]isEqual:ExperimentCacheIdentity(result[@"base"],NULL)]);
+    EXP_CHECK(Exists([evidence stringByAppendingPathComponent:@"diagnostics.json"])&&Exists([evidence stringByAppendingPathComponent:@"stdout.log"])&&Exists([evidence stringByAppendingPathComponent:@"stderr.log"]));
   }
   for(NSString *stage in @[@"fixture-early-exit",@"fixture-output",@"fixture-timeout"]) {
     NSString *error=nil;NSDictionary *result=ExperimentGuardian(stage,manifest,YES,&error),*worker=result[@"worker"];
@@ -172,6 +203,11 @@ static int ExperimentSelfTests(void) {
   EXP_CHECK(WriteNew(unknown,[NSData data],0600,NULL));
   EXP_CHECK(!ExperimentRemoveWork(base,Hash([NSData data]),nil,nil,NULL)&&Exists(unknown));
   EXP_CHECK(!unlink(unknown.fileSystemRepresentation)&&!rmdir(work.fileSystemRepresentation)&&!rmdir(base.fileSystemRepresentation));
+  char precreateTemporary[]="/private/tmp/kuro-core-XXXXXX";EXP_CHECK(mkdtemp(precreateTemporary));NSString *precreateBase=@(precreateTemporary),*precreateWork=[precreateBase stringByAppendingPathComponent:@"session-work"],*precreatePath=[precreateWork stringByAppendingPathComponent:@"cache.db"];
+  EXP_CHECK(!mkdir(precreateWork.fileSystemRepresentation,0700));NSDictionary *precreated=ExperimentPrecreateCache(precreateBase,NULL);EXP_CHECK(precreated&&[precreated[@"size"]isEqual:@0]&&[precreated[@"mode"]isEqual:@0600]);
+  EXP_CHECK(!ExperimentPrecreateCache(precreateBase,NULL)&&[ExperimentCacheIdentity(precreateBase,NULL)isEqual:precreated]);
+  EXP_CHECK(!unlink(precreatePath.fileSystemRepresentation));EXP_CHECK(!symlink("/dev/null",precreatePath.fileSystemRepresentation));EXP_CHECK(!ExperimentPrecreateCache(precreateBase,NULL));struct stat preservedLink={0};EXP_CHECK(!lstat(precreatePath.fileSystemRepresentation,&preservedLink)&&S_ISLNK(preservedLink.st_mode));
+  EXP_CHECK(!unlink(precreatePath.fileSystemRepresentation)&&!rmdir(precreateWork.fileSystemRepresentation)&&!rmdir(precreateBase.fileSystemRepresentation));
   char cacheTemporary[]="/private/tmp/kuro-core-XXXXXX";EXP_CHECK(mkdtemp(cacheTemporary));NSString *cacheBase=@(cacheTemporary),*cacheWork=[cacheBase stringByAppendingPathComponent:@"session-work"],*cachePath=[cacheWork stringByAppendingPathComponent:@"cache.db"];
   EXP_CHECK(!mkdir(cacheWork.fileSystemRepresentation,0700));EXP_CHECK(WriteNew(cachePath,[NSData data],0600,NULL));NSDictionary *cacheIdentity=ExperimentCacheIdentity(cacheBase,NULL);EXP_CHECK(cacheIdentity);
   EXP_CHECK(!chmod(cachePath.fileSystemRepresentation,0400));EXP_CHECK(!ExperimentRemoveWork(cacheBase,Hash([NSData data]),nil,cacheIdentity,NULL)&&Exists(cachePath));

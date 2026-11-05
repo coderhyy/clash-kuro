@@ -13,8 +13,10 @@ const repository = resolve(root, '../..')
 const targets = { 'darwin-arm64': { arch: 'arm64', cpu: 0x0100000c }, 'darwin-x64': { arch: 'x86_64', cpu: 0x01000007 } }
 const json = value => Buffer.from(`${JSON.stringify(value, null, 2)}\n`)
 const diagnostics = Object.freeze({ format: 1, directoryPrefix: '/private/tmp/kuro-core-evidence-', directoryMode: 0o700, fileMode: 0o600,
-  files: ['config.redacted.json', 'launch.json', 'stdout.log', 'stderr.log', 'diagnostics.json'], retainedBytesPerStream: 64 * 1024,
-  overflow: 'drain-and-discard', redaction: 'session-secret-before-persist', coreStdIO: 'bounded-redacted-capture' })
+  files: ['config.redacted.json', 'launch.json', 'stdout.log', 'stderr.log', 'diagnostics.json', 'cache-precreation.json'], retainedBytesPerStream: 64 * 1024,
+  overflow: 'drain-and-discard', redaction: 'session-secret-before-persist', coreStdIO: 'bounded-redacted-capture',
+  cachePrecreation: { file: 'session-work/cache.db', mode: 0o600, initialBytes: 0, evidence: 'cache-precreation.json',
+    comparison: 'same device/inode/owner/mode after accurate held-child reap; final size/hash may change', mismatch: 'preserve work and fail stage' } })
 
 export function verifiedCoreArchive(lock, target, archive) {
   const entry = lock?.mihomo?.targets?.[target]
