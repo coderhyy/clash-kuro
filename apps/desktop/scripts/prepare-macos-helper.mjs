@@ -104,6 +104,11 @@ export async function prepareMacosHelper(target, root = desktopRoot) {
   const core = await localBytes(root, join(root, 'resources/core', target, 'mihomo'), true)
   if (!core.equals(unpacked)) throw new Error('Core resource differs from verified archive')
   const helper = verify(await localBytes(root, join(root, 'resources/mac', arch, 'kuro-tun-helper'), true), helperPin.sha256, 'helper executable')
+  const nativeBuild = JSON.parse((await localBytes(root, join(root, 'resources/mac', arch, 'kuro-tun-helper.build.json'))).toString('utf8'))
+  if (nativeBuild.installerProtocol !== 2 || nativeBuild.sha256 !== sha256(helper) || nativeBuild.sourceClean !== true ||
+      nativeBuild.tests !== true || !/^[a-f0-9]{40}$/.test(nativeBuild.sourceCommit)) {
+    throw new Error('installer protocol 2 requires the exact helper build record from a clean tested source commit')
+  }
   machExecutable(core, cpu, 'Core')
   machExecutable(helper, cpu, 'helper')
 
@@ -115,7 +120,7 @@ export async function prepareMacosHelper(target, root = desktopRoot) {
   const release = `${lock.mihomo.version}-${helperLock.version}-${arch}-${sha256(Buffer.concat([core, helper])).slice(0, 16)}`
   const executablePath = `/Library/PrivilegedHelperTools/${label}/versions/${release}/helper`
   const manifest = {
-    format: 1, label, release, target, protocol: helperLock.protocol,
+    format: 1, label, release, target, protocol: helperLock.protocol, installerProtocol: 2,
     // Build ownership is not root installation or complete caller attestation.
     activationAllowed: false,
     core: { file: 'mihomo', version: lock.mihomo.version, sha256: sha256(core), archiveSha256: coreSpec.sha256 },

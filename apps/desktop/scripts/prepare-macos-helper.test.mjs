@@ -34,6 +34,7 @@ async function fixture(arch = 'arm64') {
     core: join(root, 'resources/core', `darwin-${arch}`, 'mihomo'),
     helper: join(root, 'resources/mac', arch, 'kuro-tun-helper'),
     helperLock: join(root, 'native/mac/helper.lock.json'),
+    nativeBuild: join(root, 'resources/mac', arch, 'kuro-tun-helper.build.json'),
     archive: join(root, 'resources/.cache', sha256(archive)),
     output: join(root, 'resources/mac', arch, 'helper-payload'),
   }
@@ -42,6 +43,7 @@ async function fixture(arch = 'arm64') {
   await put(paths.core, core, 0o755)
   await put(paths.helper, helper, 0o755)
   await put(paths.helperLock, JSON.stringify(helperLock))
+  await put(paths.nativeBuild, JSON.stringify({ installerProtocol: 2, sha256: sha256(helper), sourceCommit: 'a'.repeat(40), sourceClean: true, tests: true }))
   return { root, core, helper, helperLock, paths }
 }
 
@@ -54,6 +56,7 @@ macTest.each(['arm64', 'x64'])('prepares %s from pinned local archive/resources 
   expect(manifest.core.archiveSha256).not.toBe(manifest.core.sha256)
   expect(manifest.helper.sha256).toBe(sha256(f.helper))
   expect(manifest.activationAllowed).toBe(false)
+  expect(manifest.installerProtocol).toBe(2)
   expect(manifest.label).toBe('dev.kuro.tun')
   expect(await readFile(join(result, 'mihomo'))).toEqual(f.core)
   expect(await readFile(join(result, 'helper'))).toEqual(f.helper)
@@ -69,6 +72,23 @@ macTest.each([
   ['directory as executable', async (f) => { await rm(f.paths.helper); await mkdir(f.paths.helper) }, /not a regular file/],
   ['missing helper', async (f) => rm(f.paths.helper), /ENOENT/],
   ['missing helper lock', async (f) => rm(f.paths.helperLock), /ENOENT/],
+  ['missing native build record', async (f) => rm(f.paths.nativeBuild), /ENOENT/],
+  ['legacy native build record', async (f) => {
+    const record = JSON.parse(await readFile(f.paths.nativeBuild, 'utf8')); delete record.installerProtocol
+    await put(f.paths.nativeBuild, JSON.stringify(record))
+  }, /installer protocol 2/],
+  ['mismatched native build hash', async (f) => {
+    const record = JSON.parse(await readFile(f.paths.nativeBuild, 'utf8')); record.sha256 = '0'.repeat(64)
+    await put(f.paths.nativeBuild, JSON.stringify(record))
+  }, /installer protocol 2/],
+  ['untested native build', async (f) => {
+    const record = JSON.parse(await readFile(f.paths.nativeBuild, 'utf8')); record.tests = false
+    await put(f.paths.nativeBuild, JSON.stringify(record))
+  }, /installer protocol 2/],
+  ['dirty native build', async (f) => {
+    const record = JSON.parse(await readFile(f.paths.nativeBuild, 'utf8')); record.sourceClean = false
+    await put(f.paths.nativeBuild, JSON.stringify(record))
+  }, /installer protocol 2/],
   ['missing verified archive', async (f) => rm(f.paths.archive), /ENOENT/],
   ['archive digest mismatch', async (f) => writeFile(f.paths.archive, 'changed'), /sha256 mismatch/],
   ['resource differs from archive', async (f) => writeFile(f.paths.core, macho('arm64', 'modified')), /differs from verified archive/],
@@ -88,6 +108,8 @@ macTest.each([
     f.helperLock.targets['darwin-arm64'].sha256 = sha256(helper)
     await put(f.paths.helperLock, JSON.stringify(f.helperLock))
     await put(f.paths.helper, helper, 0o755)
+    const record = JSON.parse(await readFile(f.paths.nativeBuild, 'utf8')); record.sha256 = sha256(helper)
+    await put(f.paths.nativeBuild, JSON.stringify(record))
   }, /Mach-O architecture/],
   ['non-executable Mach-O', async (f) => {
     const helper = macho()
@@ -95,6 +117,8 @@ macTest.each([
     f.helperLock.targets['darwin-arm64'].sha256 = sha256(helper)
     await put(f.paths.helperLock, JSON.stringify(f.helperLock))
     await put(f.paths.helper, helper, 0o755)
+    const record = JSON.parse(await readFile(f.paths.nativeBuild, 'utf8')); record.sha256 = sha256(helper)
+    await put(f.paths.nativeBuild, JSON.stringify(record))
   }, /Mach-O executable/],
   ['path field in helper lock', async (f) => {
     f.helperLock.targets['darwin-arm64'].path = '/tmp/evil'

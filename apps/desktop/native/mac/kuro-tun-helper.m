@@ -409,6 +409,12 @@ static int Serve(void) {
 int main(int argc, const char **argv) {
   @autoreleasepool {
     if (geteuid() != 0 || argc != 2) { fprintf(stderr, "root-only fixed CLI: --serve | --preflight-install | --install | --uninstall\n"); return 1; }
+    if (!strcmp(argv[1], "--begin-client-upgrade") || !strcmp(argv[1], "--complete-client-upgrade")) {
+      NSString *error=nil,*scripts=Executable().stringByDeletingLastPathComponent;
+      BOOL ok=!strcmp(argv[1], "--begin-client-upgrade")?BeginClientUpgradeFromScripts(@"",0,YES,scripts,&error):CompleteClientUpgradeFromScripts(@"",0,YES,scripts,&error);
+      if(!ok)fprintf(stderr,"%s\n",(error?:@"upgrade refused").UTF8String);return ok?0:1;
+    }
+    if (!strcmp(argv[1], "--recover-client-upgrade")) {NSString *error=nil;BOOL ok=RecoverClientUpgrade(@"",0,YES,Executable(),&error);if(!ok)fprintf(stderr,"%s\n",(error?:@"upgrade recovery refused").UTF8String);return ok?0:1;}
     if (!strcmp(argv[1], "--serve")) return Serve();
     if (!strcmp(argv[1], "--serve-auth")) return ServeAuth();
     if (!strcmp(argv[1], "--begin-client-install")) {

@@ -179,7 +179,8 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
     start(config) {
       if (shuttingDown) return Promise.reject(new Error('Platform is shutting down; TUN start is closed'))
       if (tunStart) return tunStart
-      const pending = Promise.resolve().then(() => {
+      const pending = Promise.resolve().then(async () => {
+        if (os === 'darwin' && await systemProxy.getSystemProxy() !== null) throw new Error('System Proxy must be confirmed off before TUN startup; existing proxy preserved')
         if (shuttingDown) throw new Error('Platform is shutting down; TUN start is closed')
         return options.tun!.start(config)
       })
@@ -465,8 +466,18 @@ export function createDesktopPlatform(options: DesktopPlatformOptions): DesktopP
     stopCore: () => serialize(async () => {
       await stopTun()
       // The native owner starts its shared cleanup budget itself; never pre-clear over IPC.
-      if (!options.startResident && !shuttingDown) await systemProxy.clearSystemProxy()
-      await stop()
+      if (os === 'darwin' && !options.startResident && !shuttingDown) {
+        let cleanupError: unknown
+        try { await systemProxy.clearSystemProxy() } catch (error) { cleanupError = error }
+        try { await stop() } catch (error) {
+          if (cleanupError) throw new AggregateError([cleanupError, error], 'Proxy cleanup and Core stop failed')
+          throw error
+        }
+        if (cleanupError) throw cleanupError
+      } else {
+        if (!options.startResident && !shuttingDown) await systemProxy.clearSystemProxy()
+        await stop()
+      }
     }),
     async isCoreRunning() {
       if (options.startResident) return !!resident && !residentFailed

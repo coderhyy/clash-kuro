@@ -56,81 +56,153 @@ export function createSystemProxy(options: SystemProxyOptions = {}) {
     }
   }
   async function services(): Promise<string[]> {
-    return (await run('-listallnetworkservices')).split(/\r?\n/)
+    const output = await run('-listallnetworkservices')
+    if (!output) throw new Error('System Proxy service enumeration unconfirmed')
+    return output.split(/\r?\n/)
       .map((line) => line.trim()).filter((line) => line && !line.startsWith('*') && !line.startsWith('An asterisk'))
   }
-  async function read(service: string, secure: boolean) {
-    const output = await run(secure ? '-getsecurewebproxy' : '-getwebproxy', service)
-    const fields = Object.fromEntries(output.split(/\r?\n/).map((line) => {
-      const colon = line.indexOf(':')
-      return [line.slice(0, colon).trim(), line.slice(colon + 1).trim()]
-    }))
-    const port = Number(fields.Port)
-    return fields.Enabled === 'Yes' && fields.Server && Number.isInteger(port) && port > 0 && port <= 65535
-      ? { host: fields.Server, port } : null
+  type ProxyValue = { enabled: boolean; host: string; port: number; authenticated: boolean }
+  type OwnedProxy = { service: string; secure: boolean; before: ProxyValue; expected: ProxyValue[] }
+  type OwnedBypass = { service: string; before: string[]; expected: string[][] }
+  const owned: OwnedProxy[] = []
+  const bypassOwned: OwnedBypass[] = []
+  let queue: Promise<unknown> = Promise.resolve()
+  const serialize = <T>(operation: () => Promise<T>): Promise<T> => {
+    const result = queue.then(operation)
+    queue = result.catch(() => {})
+    return result
   }
-  async function disable(names: string[]): Promise<void> {
+  const equal = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
+  async function read(service: string, secure: boolean): Promise<ProxyValue> {
+    const output = await run(secure ? '-getsecurewebproxy' : '-getwebproxy', service)
+    const fields = new Map<string, string>()
+    for (const line of output.split(/\r?\n/).filter(line => line.trim())) {
+      const colon = line.indexOf(':')
+      const key = line.slice(0, colon).trim()
+      if (colon < 0 || fields.has(key)) throw new Error(`System Proxy state unknown for ${service}`)
+      fields.set(key, line.slice(colon + 1).trim())
+    }
+    const enabled = fields.get('Enabled'), host = fields.get('Server'), rawPort = fields.get('Port')
+    const auth = fields.get('Authenticated Proxy Enabled')
+    const port = Number(rawPort)
+    if (!['Yes', 'No'].includes(enabled ?? '') || host === undefined || /[\r\n\0]/.test(host)
+      || !/^(?:0|[1-9]\d{0,4})$/.test(rawPort ?? '') || port > 65535
+      || !['0', '1'].includes(auth ?? '') || (enabled === 'Yes' && (!host || port === 0))) {
+      throw new Error(`System Proxy state unknown for ${service}`)
+    }
+    return { enabled: enabled === 'Yes', host, port, authenticated: auth === '1' }
+  }
+  async function readBypass(service: string): Promise<string[]> {
+    const output = await run('-getproxybypassdomains', service)
+    if (output === "There aren't any bypass domains set on this service." || output === `There aren't any bypass domains set on ${service}.`) return []
+    const entries = output.split(/\r?\n/)
+    if (!output || entries.some(entry => !entry || /[\0]/.test(entry) || entry === 'Empty')) {
+      throw new Error(`System Proxy bypass state unknown for ${service}`)
+    }
+    return entries
+  }
+  async function writeProxy(record: OwnedProxy, target: ProxyValue): Promise<void> {
+    const set = record.secure ? '-setsecurewebproxy' : '-setwebproxy'
+    const state = record.secure ? '-setsecurewebproxystate' : '-setwebproxystate'
+    let current = await read(record.service, record.secure)
+    if (!record.expected.some(value => equal(value, current))) throw new Error(`System Proxy changed for ${record.service}; preserved`)
+    if (current.host !== target.host || current.port !== target.port || current.authenticated !== target.authenticated) {
+      const configured = { ...target, enabled: true, authenticated: false }
+      record.expected = [current, configured]
+      // networksetup(8): setting an endpoint turns it on; explicitly disable authentication.
+      await run(set, record.service, target.host, String(target.port), 'off')
+      current = await read(record.service, record.secure)
+      if (!equal(current, configured)) throw new Error(`System Proxy write unconfirmed for ${record.service}`)
+      record.expected = [current]
+    }
+    if (current.enabled !== target.enabled) {
+      record.expected = [current, target]
+      await run(state, record.service, target.enabled ? 'on' : 'off')
+      current = await read(record.service, record.secure)
+      if (!equal(current, target)) throw new Error(`System Proxy write unconfirmed for ${record.service}`)
+      record.expected = [current]
+    }
+  }
+  async function writeBypass(record: OwnedBypass, target: string[]): Promise<void> {
+    const current = await readBypass(record.service)
+    if (!record.expected.some(value => equal(value, current))) throw new Error(`System Proxy bypass changed for ${record.service}; preserved`)
+    if (equal(current, target)) return
+    record.expected = [current, target]
+    await run('-setproxybypassdomains', record.service, ...(target.length ? target : ['Empty']))
+    if (!equal(await readBypass(record.service), target)) throw new Error(`System Proxy bypass write unconfirmed for ${record.service}`)
+    record.expected = [target]
+  }
+  async function clearOwned(): Promise<void> {
     let failure: unknown
-    for (const service of names) {
-      for (const command of ['-setwebproxystate', '-setsecurewebproxystate']) {
-        try { await run(command, service, 'off') } catch (error) { failure ??= error }
-      }
+    for (const record of [...owned].reverse()) {
+      try {
+        const current = await read(record.service, record.secure)
+        if (!record.expected.some(value => equal(value, current))) throw new Error(`System Proxy changed for ${record.service}; preserved`)
+        // A previously disabled endpoint need not be re-created: restore its effective off state.
+        // The inactive host/port may retain our value; no previous credentials are reconstructed.
+        const target = record.before.enabled ? record.before : { ...current, enabled: false }
+        await writeProxy(record, target)
+        owned.splice(owned.indexOf(record), 1)
+      } catch (error) { failure ??= error }
+    }
+    for (const record of [...bypassOwned].reverse()) {
+      try {
+        // Do not change shared bypass while a protocol on this service has uncertain ownership.
+        if (owned.some(proxy => proxy.service === record.service)) throw new Error(`System Proxy bypass cleanup unconfirmed for ${record.service}`)
+        await writeBypass(record, record.before)
+        bypassOwned.splice(bypassOwned.indexOf(record), 1)
+      } catch (error) { failure ??= error }
     }
     if (failure) throw failure
   }
   return {
-    async getSystemProxy(): Promise<SystemProxySettings | null> {
-      // Platform has one proxy value; report the first active HTTP/HTTPS service.
-      for (const service of await services()) {
-        const proxy = await read(service, false) ?? await read(service, true)
-        if (!proxy) continue
-        const output = await run('-getproxybypassdomains', service)
-        const bypass = output.startsWith("There aren't any bypass domains") ? [] : output.split(/\r?\n/).filter(Boolean)
-        return { ...proxy, bypass }
-      }
-      return null
-    },
-    async setSystemProxy(settings: SystemProxySettings): Promise<void> {
-      if (!validSettings(settings)) throw new Error('Invalid System Proxy settings')
-      // On partial failure, disable services already touched rather than leave a broken proxy enabled.
-      const touched: string[] = []
-      try {
-        for (const service of await services()) {
-          touched.push(service)
-          await run('-setwebproxy', service, settings.host, String(settings.port))
-          await run('-setsecurewebproxy', service, settings.host, String(settings.port))
-          await run('-setproxybypassdomains', service, ...(settings.bypass.length ? settings.bypass : ['Empty']))
-          await run('-setwebproxystate', service, 'on')
-          await run('-setsecurewebproxystate', service, 'on')
-        }
-      } catch (error) {
-        await disable(touched).catch(() => {})
-        throw error
-      }
-    },
-    async clearSystemProxy(): Promise<void> {
-      const names = await services()
-      await disable(names)
-      for (const service of names) {
-        for (const command of ['-getwebproxy', '-getsecurewebproxy']) {
-          const output = await run(command, service)
-          const enabled = output.split(/\r?\n/).map(line => line.trim()).filter(line => /^Enabled\s*:/.test(line))
-          if (enabled.length !== 1 || !/^Enabled:\s*No$/.test(enabled[0]!)) {
-            throw new Error(`System Proxy cleanup unconfirmed for ${service} (${command})`)
-          }
-        }
-      }
-    },
-    async cleanupStaleSystemProxy(port: number): Promise<void> {
+    getSystemProxy: () => serialize(async (): Promise<SystemProxySettings | null> => {
+      let first: SystemProxySettings | null = null
+      // Read every protocol: a later unknown state must never be mistaken for all-off.
       for (const service of await services()) {
         for (const secure of [false, true]) {
           const proxy = await read(service, secure)
-          if (proxy?.host === '127.0.0.1' && proxy.port === port) {
-            await run(secure ? '-setsecurewebproxystate' : '-setwebproxystate', service, 'off')
-          }
+          if (proxy.enabled && !first) first = { host: proxy.host, port: proxy.port, bypass: await readBypass(service) }
         }
       }
-    },
+      return first
+    }),
+    setSystemProxy: (settings: SystemProxySettings) => serialize(async (): Promise<void> => {
+      if (!validSettings(settings)) throw new Error('Invalid System Proxy settings')
+      await clearOwned()
+      // Preflight all services before the first write; active authenticated proxies cannot be restored.
+      const snapshots = []
+      for (const service of await services()) {
+        const web = await read(service, false), secure = await read(service, true)
+        if ([web, secure].some(value => value.enabled && value.authenticated)) throw new Error(`Authenticated System Proxy cannot be safely replaced for ${service}`)
+        snapshots.push({ service, web, secure, bypass: await readBypass(service) })
+      }
+      try {
+        for (const snapshot of snapshots) {
+          for (const secure of [false, true]) {
+            const before = secure ? snapshot.secure : snapshot.web
+            const record = { service: snapshot.service, secure, before, expected: [before] }
+            owned.push(record)
+            await writeProxy(record, { enabled: true, host: settings.host, port: settings.port, authenticated: false })
+          }
+          const record = { service: snapshot.service, before: snapshot.bypass, expected: [snapshot.bypass] }
+          bypassOwned.push(record)
+          await writeBypass(record, [...settings.bypass])
+        }
+      } catch (error) {
+        try { await clearOwned() } catch (cleanup) { throw new AggregateError([error, cleanup], `System Proxy set failed; cleanup unconfirmed: ${String(error)}; ${String(cleanup)}`) }
+        throw error
+      }
+    }),
+    clearSystemProxy: () => serialize(clearOwned),
+    cleanupStaleSystemProxy: (_port: number) => serialize(async (): Promise<void> => {
+      // No durable macOS ownership receipt exists. An endpoint match is not ownership evidence.
+      for (const service of await services()) {
+        for (const secure of [false, true]) {
+          if ((await read(service, secure)).enabled) throw new Error(`Existing System Proxy on ${service} has no ownership receipt; preserved. Review macOS Network proxy settings before continuing.`)
+        }
+      }
+    }),
   }
 }
 

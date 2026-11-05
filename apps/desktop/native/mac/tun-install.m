@@ -58,9 +58,10 @@ static BOOL PreflightInstall(NSString *prefix, uid_t owner, BOOL system, NSStrin
 static BOOL ValidManifest(NSDictionary *manifest, NSString **error) {
   if (![manifest isKindOfClass:NSDictionary.class])return Fail(error,@"manifest must be an object");
   NSArray *manifestKeys = @[@"format", @"label", @"release", @"target", @"protocol", @"activationAllowed", @"core", @"helper"];
+  if (manifest[@"installerProtocol"]) manifestKeys = [manifestKeys arrayByAddingObject:@"installerProtocol"];
   if (manifest[@"client"]) manifestKeys = [manifestKeys arrayByAddingObject:@"client"];
   if (manifest[@"clientInventorySHA256"]) manifestKeys = [manifestKeys arrayByAddingObject:@"clientInventorySHA256"];
-  if (!Keys(manifest, manifestKeys) || (manifest[@"client"] && !KuroClientPinValid(manifest[@"client"])) ||
+  if (!Keys(manifest, manifestKeys) || (manifest[@"installerProtocol"] && !KuroNumber(manifest[@"installerProtocol"],2,2)) || (manifest[@"client"] && !KuroClientPinValid(manifest[@"client"])) ||
       ((manifest[@"client"]!=nil)!=(manifest[@"clientInventorySHA256"]!=nil)) ||
       (manifest[@"clientInventorySHA256"] && !Match(manifest[@"clientInventorySHA256"], @"\\A[0-9a-f]{64}\\z")) ||
       !KuroNumber(manifest[@"format"],1,1) || !KuroNumber(manifest[@"protocol"],1,1) || ![manifest[@"label"] isEqual:Label] || !KuroBool(manifest[@"activationAllowed"]) ||
@@ -220,6 +221,16 @@ static BOOL InstallScriptsProtected(NSString *scripts,uid_t owner,NSString **err
   }
   return YES;
 }
+static BOOL KuroUpgradeOffValid(NSDictionary *proof,NSDictionary *manifest,NSData *manifestBytes,NSData *inventoryBytes,NSDictionary *installed) {
+  if(!Keys(proof,@[@"format",@"kind",@"release",@"helperSHA256",@"coreSHA256",@"manifestSHA256",@"inventorySHA256",@"installedSHA256",@"transaction",@"previousRelease",@"previousManifestSHA256",@"previousStoppedSHA256",@"newCoreNeverStarted"]) || !KuroNumber(proof[@"format"],2,2) || ![proof[@"kind"]isEqual:@"upgrade-off"] ||
+    !Keys(installed,@[@"format",@"release",@"helperSHA256",@"neverStarted"]) || !KuroBool(installed[@"neverStarted"]) || [installed[@"neverStarted"]boolValue] ||
+    ![proof[@"release"]isEqual:installed[@"release"]] || ![proof[@"release"]isEqual:manifest[@"release"]] || ![proof[@"helperSHA256"]isEqual:installed[@"helperSHA256"]] || ![proof[@"helperSHA256"]isEqual:manifest[@"helper"][@"sha256"]] ||
+    ![proof[@"coreSHA256"]isEqual:manifest[@"core"][@"sha256"]] || ![proof[@"manifestSHA256"]isEqual:Hash(manifestBytes)] || ![proof[@"inventorySHA256"]isEqual:Hash(inventoryBytes)] || ![proof[@"installedSHA256"]isEqual:Hash(JSONData(installed))] ||
+    !Match(proof[@"transaction"],@"\\A[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12}\\z") || !Match(proof[@"previousRelease"],@"\\A[A-Za-z0-9.-]{1,120}\\z") || [proof[@"previousRelease"]isEqual:proof[@"release"]] ||
+    !Match(proof[@"previousManifestSHA256"],@"\\A[0-9a-f]{64}\\z") || !Match(proof[@"previousStoppedSHA256"],@"\\A[0-9a-f]{64}\\z") || !KuroBool(proof[@"newCoreNeverStarted"]) || ![proof[@"newCoreNeverStarted"]boolValue])return NO;
+  return YES;
+}
+
 static BOOL KuroStoppedProofValid(NSDictionary *proof,NSDictionary *manifest,NSData *manifestBytes,NSData *inventoryBytes,NSDictionary *installed) {
   if(!Keys(proof,@[@"format",@"release",@"helperSHA256",@"coreSHA256",@"manifestSHA256",@"inventorySHA256",@"installedSHA256",@"session",@"process",@"network"]) || !KuroNumber(proof[@"format"],1,1) ||
     !Keys(installed,@[@"format",@"release",@"helperSHA256",@"neverStarted"]) || !KuroNumber(installed[@"format"],1,1) || !KuroBool(installed[@"neverStarted"]) || [installed[@"neverStarted"]boolValue] ||
@@ -233,25 +244,39 @@ static BOOL KuroStoppedProofValid(NSDictionary *proof,NSDictionary *manifest,NSD
   for(NSString *key in @[@"routeJournalSHA256",@"dnsJournalSHA256"])if(network[key]!=NSNull.null && !Match(network[key],@"\\A[0-9a-f]{64}\\z"))return NO;
   return YES;
 }
-static NSDictionary *ReadFreshReceipt(NSString *prefix,uid_t owner,NSString **error) {
-  NSData *raw=ReadProtected(prefix,At(prefix,FreshReceipt),owner,error);id receipt=KuroDecodeJSON(raw,InventoryLimit*2,error);
-  if(!KuroMapping(receipt,@[@"format",@"helperSHA256",@"manifestJSON",@"inventoryJSON",@"plistBase64"],@[@"uninstallJSON"]) || !KuroNumber(receipt[@"format"],1,1) || ![receipt[@"manifestJSON"] isKindOfClass:NSString.class] || ![receipt[@"inventoryJSON"] isKindOfClass:NSString.class] || ![receipt[@"plistBase64"] isKindOfClass:NSString.class]) {Fail(error,@"invalid fresh installation receipt");return nil;}
+static NSDictionary *DecodeFreshReceipt(NSData *raw,NSString **error) {
+  id receipt=KuroDecodeJSON(raw,InventoryLimit*2,error);
+  if(!KuroMapping(receipt,@[@"format",@"helperSHA256",@"manifestJSON",@"inventoryJSON",@"plistBase64"],@[@"uninstallJSON",@"upgradeJSON"]) || !KuroNumber(receipt[@"format"],1,1) || ![receipt[@"manifestJSON"] isKindOfClass:NSString.class] || ![receipt[@"inventoryJSON"] isKindOfClass:NSString.class] || ![receipt[@"plistBase64"] isKindOfClass:NSString.class]) {Fail(error,@"invalid fresh installation receipt");return nil;}
   NSData *manifestBytes=[receipt[@"manifestJSON"] dataUsingEncoding:NSUTF8StringEncoding],*inventoryBytes=[receipt[@"inventoryJSON"] dataUsingEncoding:NSUTF8StringEncoding];
   NSDictionary *manifest=KuroDecodeJSON(manifestBytes,MessageLimit,error),*inventory=KuroDecodeJSON(inventoryBytes,InventoryLimit,error);NSData *plist=[[NSData alloc] initWithBase64EncodedString:receipt[@"plistBase64"] options:0];
   if(!ValidManifest(manifest,error) || !manifest[@"client"] || ![Hash(inventoryBytes) isEqual:manifest[@"clientInventorySHA256"]] || ![receipt[@"helperSHA256"] isEqual:manifest[@"helper"][@"sha256"]] || !FixedPlist(plist,manifest[@"release"],error) || !InventoryEntries(inventory,error)) {Fail(error,@"fresh receipt payload binding failed");return nil;}
   NSMutableDictionary *result=[@{@"manifest":manifest,@"manifestBytes":manifestBytes,@"inventory":inventory,@"inventoryBytes":inventoryBytes,@"plist":plist}mutableCopy];
+  if(receipt[@"upgradeJSON"]) {
+    if(![receipt[@"upgradeJSON"]isKindOfClass:NSString.class]) {Fail(error,@"invalid upgrade approval");return nil;}
+    NSDictionary *approval=KuroDecodeJSON([receipt[@"upgradeJSON"]dataUsingEncoding:NSUTF8StringEncoding],MessageLimit,error);
+    NSDictionary *installed=@{@"format":@1,@"release":manifest[@"release"],@"helperSHA256":manifest[@"helper"][@"sha256"],@"neverStarted":@NO};
+    if(![manifest[@"installerProtocol"]isEqual:@2] || !KuroUpgradeOffValid(approval,manifest,manifestBytes,inventoryBytes,installed)) {Fail(error,@"upgrade approval does not bind this payload");return nil;}
+    result[@"upgrade"]=approval;
+  }
   if(receipt[@"uninstallJSON"]) {
     if(![receipt[@"uninstallJSON"]isKindOfClass:NSString.class]) {Fail(error,@"invalid stopped uninstall approval");return nil;}
     NSDictionary *approval=KuroDecodeJSON([receipt[@"uninstallJSON"]dataUsingEncoding:NSUTF8StringEncoding],MessageLimit,error);
-    if(!Keys(approval,@[@"format",@"installed",@"stopped"]) || !KuroNumber(approval[@"format"],1,1) || !KuroStoppedProofValid(approval[@"stopped"],manifest,manifestBytes,inventoryBytes,approval[@"installed"])) {Fail(error,@"stopped uninstall approval does not match this payload");return nil;}
+    if(!Keys(approval,@[@"format",@"installed",@"stopped"]) || !KuroNumber(approval[@"format"],1,1) || !(KuroStoppedProofValid(approval[@"stopped"],manifest,manifestBytes,inventoryBytes,approval[@"installed"]) || (result[@"upgrade"] && [approval[@"stopped"]isEqual:result[@"upgrade"]] && KuroUpgradeOffValid(approval[@"stopped"],manifest,manifestBytes,inventoryBytes,approval[@"installed"])))) {Fail(error,@"stopped uninstall approval does not match this payload");return nil;}
     result[@"uninstall"]=approval;
   }
   return result;
 }
+static NSDictionary *ReadFreshReceipt(NSString *prefix,uid_t owner,NSString **error) {
+  return DecodeFreshReceipt(ReadProtected(prefix,At(prefix,FreshReceipt),owner,error),error);
+}
+static BOOL KuroStoppedBoundToReceipt(NSDictionary *proof,NSDictionary *receipt,NSDictionary *installed) {
+  return KuroStoppedProofValid(proof,receipt[@"manifest"],receipt[@"manifestBytes"],receipt[@"inventoryBytes"],installed) ||
+    (receipt[@"upgrade"] && [proof isEqual:receipt[@"upgrade"]] && KuroUpgradeOffValid(proof,receipt[@"manifest"],receipt[@"manifestBytes"],receipt[@"inventoryBytes"],installed));
+}
 // Capability admission follows dynamic peer authentication. Neither this receipt
 // nor an auth-only connection grants arbitrary commands or automatic startup.
 static BOOL KuroSessionActivationAt(NSString *prefix,uid_t owner,NSString *executingHelper,NSString **error) {
-  if(Exists(At(prefix,[State stringByAppendingPathComponent:@"transaction.json"])))return Fail(error,@"finite session activation requires a completed installation transaction");
+  if(Exists(At(prefix,RecoveryRecord)) || Exists(At(prefix,[State stringByAppendingPathComponent:@"transaction.json"])))return Fail(error,@"finite session activation requires a completed installation transaction");
   NSDictionary *installed=ReadJSON(prefix,At(prefix,[State stringByAppendingPathComponent:@"installed.json"]),owner,error);
   if(!Keys(installed,@[@"format",@"release",@"helperSHA256",@"neverStarted"]) || !KuroNumber(installed[@"format"],1,1) || !KuroBool(installed[@"neverStarted"]) ||
     !Match(installed[@"release"],@"\\A[A-Za-z0-9.-]{1,120}\\z") || !Match(installed[@"helperSHA256"],@"\\A[0-9a-f]{64}\\z"))return Fail(error,@"finite session activation requires a protected installation record");
@@ -277,7 +302,7 @@ static BOOL KuroRevokeStoppedProof(NSString *prefix,uid_t owner,NSString **error
   if(Exists(path)) {
     NSDictionary *receipt=ReadFreshReceipt(prefix,owner,error),*installed=ReadJSON(prefix,[directory stringByAppendingPathComponent:@"installed.json"],owner,error);
     NSData *bytes=ReadProtected(prefix,path,owner,error);NSDictionary *proof=bytes?KuroDecodeJSON(bytes,MessageLimit,error):nil;
-    if(!receipt || receipt[@"uninstall"] || !KuroStoppedProofValid(proof,receipt[@"manifest"],receipt[@"manifestBytes"],receipt[@"inventoryBytes"],installed) ||
+    if(!receipt || receipt[@"uninstall"] || !KuroStoppedBoundToReceipt(proof,receipt,installed) ||
       ![ReadProtected(prefix,path,owner,error)isEqual:bytes] || unlink(path.fileSystemRepresentation))return Fail(error,@"stopped proof could not be safely revoked; new session refused");
   }
   // Also sync when neverStarted is already false; absence alone is not durability.
@@ -459,7 +484,7 @@ static BOOL UninstallFresh(NSString *prefix,uid_t owner,BOOL system,NSString *en
   if(started) {
     if(!approval) {
       NSDictionary *stopped=ReadJSON(prefix,stoppedPath,owner,error);
-      if(!KuroStoppedProofValid(stopped,manifest,receipt[@"manifestBytes"],receipt[@"inventoryBytes"],installed))return Fail(error,@"running-history install requires its protected completed-stop checkpoint");
+      if(!KuroStoppedBoundToReceipt(stopped,receipt,installed))return Fail(error,@"running-history install requires its protected completed-stop checkpoint");
       approval=@{@"format":@1,@"installed":installed,@"stopped":stopped};
     }
     if((installed && ![installed isEqual:approval[@"installed"]]) || Exists(At(prefix,[State stringByAppendingPathComponent:@"session-work"])))return Fail(error,@"started installation identity or runtime changed; preserving install");
@@ -575,4 +600,339 @@ static BOOL Uninstall(NSString *prefix, uid_t owner, BOOL system, NSString *entr
     if (unlink(approvalPath.fileSystemRepresentation)) return Fail(error, @"final approval cleanup failed; recovery entry retained");
     return RemoveApproved(prefix, At(prefix, Recovery), owner, approval[@"helper"], error);
   } @finally { close(serviceLock); }
+}
+// Installer-only fixed transaction; no executable/path selection crosses an RPC.
+static NSString *UpgradeRoot(NSString *prefix) {return At(prefix,[State stringByAppendingPathComponent:@"Upgrade"]);}
+static NSString *UpgradeMarker(NSString *prefix) {return At(prefix,[State stringByAppendingPathComponent:@"transaction.json"]);}
+#ifdef KURO_TESTING
+static BOOL (^UpgradeFault)(NSString *point);
+#endif
+static BOOL UpgradePoint(NSString *point,NSString **error) {
+#ifdef KURO_TESTING
+  if(UpgradeFault && !UpgradeFault(point))return Fail(error,[@"injected interruption: "stringByAppendingString:point]);
+#else
+  (void)point;(void)error;
+#endif
+  return YES;
+}
+static NSString *UpgradeString(NSData *data) {return [[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding];}
+static NSDictionary *UpgradeFile(NSString *hash,mode_t mode) {return @{@"kind":@"files",@"mode":@(mode),@"sha256":hash};}
+static NSDictionary *UpgradeDirectory(mode_t mode) {return @{@"kind":@"directories",@"mode":@(mode)};}
+static BOOL UpgradeTree(NSString *prefix,NSString *base,uid_t owner,NSDictionary *entries,BOOL full,NSString **error) {
+  if(!entries)return !Exists(base)||Fail(error,@"unexpected object in absent upgrade slot");
+  if(!Exists(base))return !full||Fail(error,[@"missing full upgrade object: "stringByAppendingString:base]);
+  NSMutableArray *pending=[NSMutableArray arrayWithObject:@""];
+  while(pending.count) {
+    NSString *relative=pending.lastObject;[pending removeLastObject];NSString *path=relative.length?[base stringByAppendingPathComponent:relative]:base;
+    NSDictionary *entry=entries[relative];struct stat info={0};
+    if(!entry || lstat(path.fileSystemRepresentation,&info) || info.st_uid!=owner)return Fail(error,[@"unknown or changed upgrade object: "stringByAppendingString:path]);
+    if([entry[@"kind"]isEqual:@"links"]) {
+      char target[PATH_MAX];ssize_t size=readlink(path.fileSystemRepresentation,target,sizeof(target)-1);
+      if(!S_ISLNK(info.st_mode)||info.st_nlink!=1||size<1||size>=(ssize_t)sizeof(target)-1)return Fail(error,@"changed upgrade link type");target[size]=0;
+      if(![@(target)isEqual:entry[@"target"]])return Fail(error,@"changed upgrade link target");
+    } else {
+      BOOL directory=[entry[@"kind"]isEqual:@"directories"];
+      if(!SafeChain(prefix,path,owner,directory,error)||(info.st_mode&07777)!=[entry[@"mode"]unsignedIntValue])return Fail(error,[@"unsafe upgrade permissions: "stringByAppendingString:path]);
+      if(directory) {
+        NSArray *children=[[NSFileManager defaultManager]contentsOfDirectoryAtPath:path error:NULL];if(!children)return Fail(error,@"upgrade directory cannot be enumerated");
+        for(NSString *child in children)[pending addObject:relative.length?[relative stringByAppendingPathComponent:child]:child];
+      } else if(![InstallFileHash(prefix,path,owner,error)isEqual:entry[@"sha256"]])return Fail(error,[@"changed upgrade bytes: "stringByAppendingString:path]);
+    }
+  }
+  if(full)for(NSString *relative in entries)if(!Exists(relative.length?[base stringByAppendingPathComponent:relative]:base))return Fail(error,@"incomplete approved upgrade tree");
+  return YES;
+}
+static BOOL UpgradeRemove(NSString *prefix,NSString *base,uid_t owner,NSDictionary *entries,NSString **error) {
+  if(!UpgradeTree(prefix,base,owner,entries,NO,error))return NO;if(!Exists(base))return YES;
+  for(NSString *kind in @[@"links",@"files"])for(NSString *relative in entries)if([entries[relative][@"kind"]isEqual:kind]) {
+    NSString *path=relative.length?[base stringByAppendingPathComponent:relative]:base;
+    if(!Exists(path))continue;
+    // Validate through the original base before each unlink; never follow an approved Framework link.
+    if(!UpgradeTree(prefix,base,owner,entries,NO,error)||unlink(path.fileSystemRepresentation)||!UpgradePoint([@"removed:"stringByAppendingString:path.lastPathComponent],error))return NO;
+  }
+  NSArray *paths=[entries.allKeys sortedArrayUsingComparator:^NSComparisonResult(NSString *a,NSString *b){return a.length>b.length?NSOrderedAscending:a.length<b.length?NSOrderedDescending:[b compare:a];}];
+  for(NSString *relative in paths)if([entries[relative][@"kind"]isEqual:@"directories"]) {
+    NSString *path=relative.length?[base stringByAppendingPathComponent:relative]:base;if(!Exists(path))continue;
+    if(!SafeChain(prefix,path,owner,YES,error)||rmdir(path.fileSystemRepresentation)||!UpgradePoint([@"removed-dir:"stringByAppendingString:path.lastPathComponent],error))return Fail(error,@"upgrade directory cleanup interrupted or nonempty");
+  }
+  return SyncInstallDirectory(base.stringByDeletingLastPathComponent,error);
+}
+static BOOL UpgradeInstalled(NSDictionary *installed,NSDictionary *receipt) {
+  NSDictionary *manifest=receipt[@"manifest"];
+  return Keys(installed,@[@"format",@"release",@"helperSHA256",@"neverStarted"]) && KuroNumber(installed[@"format"],1,1) && KuroBool(installed[@"neverStarted"]) && [installed[@"release"]isEqual:manifest[@"release"]] && [installed[@"helperSHA256"]isEqual:manifest[@"helper"][@"sha256"]];
+}
+static NSDictionary *UpgradeProof(NSDictionary *record,NSDictionary *next,NSDictionary *installed) {
+  NSDictionary *old=DecodeFreshReceipt([record[@"oldReceiptJSON"]dataUsingEncoding:NSUTF8StringEncoding],NULL),*manifest=next[@"manifest"];
+  return @{@"format":@2,@"kind":@"upgrade-off",@"release":manifest[@"release"],@"helperSHA256":manifest[@"helper"][@"sha256"],@"coreSHA256":manifest[@"core"][@"sha256"],@"manifestSHA256":Hash(next[@"manifestBytes"]),@"inventorySHA256":Hash(next[@"inventoryBytes"]),@"installedSHA256":Hash(JSONData(installed)),@"transaction":record[@"transaction"],@"previousRelease":old[@"manifest"][@"release"],@"previousManifestSHA256":Hash(old[@"manifestBytes"]),@"previousStoppedSHA256":Hash([record[@"oldStoppedJSON"]dataUsingEncoding:NSUTF8StringEncoding]),@"newCoreNeverStarted":@YES};
+}
+static NSDictionary *UpgradeDecode(NSDictionary *record,NSString **error) {
+  if(!Keys(record,@[@"format",@"operation",@"transaction",@"phase",@"oldReceiptJSON",@"oldInstalledJSON",@"oldStoppedJSON",@"newManifestJSON",@"newInventoryJSON",@"newPlistBase64"]) || !KuroNumber(record[@"format"],2,2)||![record[@"operation"]isEqual:@"upgrade"]||!Match(record[@"transaction"],@"\\A[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12}\\z")||![@[@"staging",@"switching",@"next-installed",@"finalizing"]containsObject:record[@"phase"]]) {Fail(error,@"closed upgrade approval required");return nil;}
+  for(NSString *key in @[@"oldReceiptJSON",@"oldInstalledJSON",@"newManifestJSON",@"newInventoryJSON",@"newPlistBase64"])if(![record[key]isKindOfClass:NSString.class]) {Fail(error,@"invalid upgrade encoded sidecar");return nil;}
+  NSDictionary *old=DecodeFreshReceipt([record[@"oldReceiptJSON"]dataUsingEncoding:NSUTF8StringEncoding],error),*installed=KuroDecodeJSON([record[@"oldInstalledJSON"]dataUsingEncoding:NSUTF8StringEncoding],MessageLimit,error);
+  NSDictionary *manifest=KuroDecodeJSON([record[@"newManifestJSON"]dataUsingEncoding:NSUTF8StringEncoding],MessageLimit,error);
+  if(!old||old[@"uninstall"]||!UpgradeInstalled(installed,old)||![old[@"manifest"][@"installerProtocol"]isEqual:@2]||!ValidManifest(manifest,error)||![manifest[@"installerProtocol"]isEqual:@2]||[manifest[@"release"]isEqual:old[@"manifest"][@"release"]]) {Fail(error,@"upgrade requires two distinct protocol-2 releases and a complete old off receipt");return nil;}
+  if([installed[@"neverStarted"]boolValue]) {if(record[@"oldStoppedJSON"]!=NSNull.null){Fail(error,@"unexpected old stopped proof");return nil;}}
+  else {
+    if(![record[@"oldStoppedJSON"]isKindOfClass:NSString.class]){Fail(error,@"old running history requires an exact stopped proof");return nil;}
+    NSDictionary *proof=KuroDecodeJSON([record[@"oldStoppedJSON"]dataUsingEncoding:NSUTF8StringEncoding],MessageLimit,error);
+    if(!KuroStoppedBoundToReceipt(proof,old,installed)){Fail(error,@"old stopped proof is not bound to this installed release");return nil;}
+  }
+  NSMutableDictionary *raw=[@{@"format":@1,@"helperSHA256":manifest[@"helper"][@"sha256"],@"manifestJSON":record[@"newManifestJSON"],@"inventoryJSON":record[@"newInventoryJSON"],@"plistBase64":record[@"newPlistBase64"]}mutableCopy];
+  NSDictionary *next=DecodeFreshReceipt(JSONData(raw),error);if(!next)return nil;
+  NSDictionary *nextInstalled=@{@"format":@1,@"release":manifest[@"release"],@"helperSHA256":manifest[@"helper"][@"sha256"],@"neverStarted":installed[@"neverStarted"]};
+  NSDictionary *proof=nil;
+  if(![installed[@"neverStarted"]boolValue]) {proof=UpgradeProof(record,next,nextInstalled);raw[@"upgradeJSON"]=UpgradeString(JSONData(proof));next=DecodeFreshReceipt(JSONData(raw),error);if(!next)return nil;}
+  return @{@"old":old,@"installed":installed,@"next":next,@"nextInstalled":nextInstalled,@"nextReceiptBytes":JSONData(raw),@"nextStopped":proof?:NSNull.null};
+}
+static NSDictionary *UpgradeRead(NSString *prefix,uid_t owner,NSString **error) {
+  NSData *bytes=ReadProtected(prefix,At(prefix,RecoveryRecord),owner,error);NSDictionary *record=KuroDecodeJSON(bytes,128*1024*1024,error);
+  return UpgradeDecode(record,error)?record:nil;
+}
+static NSArray *UpgradeSlots(void) {return @[@"tools",@"inbox",@"client",@"installed",@"client-pin",@"stopped",@"plist",@"receipt"];}
+static NSString *UpgradeCurrent(NSString *prefix,NSString *slot) {
+  NSDictionary *paths=@{@"tools":Tools,@"inbox":[State stringByAppendingPathComponent:@"Inbox"],@"client":ClientBundle,@"installed":[State stringByAppendingPathComponent:@"installed.json"],@"client-pin":[State stringByAppendingPathComponent:@"client.json"],@"stopped":[State stringByAppendingPathComponent:@"stopped.json"],@"plist":Plist,@"receipt":FreshReceipt};return At(prefix,paths[slot]);
+}
+static NSDictionary *UpgradeEntries(NSDictionary *decoded,BOOL next,NSString *slot) {
+  NSDictionary *receipt=decoded[next?@"next":@"old"],*manifest=receipt[@"manifest"],*installed=decoded[next?@"nextInstalled":@"installed"];
+  NSString *release=manifest[@"release"],*helper=manifest[@"helper"][@"sha256"],*core=manifest[@"core"][@"sha256"];
+  if([slot isEqual:@"client"])return InventoryEntries(receipt[@"inventory"],NULL);
+  if([slot isEqual:@"tools"]) {
+    NSString *version=[@"versions"stringByAppendingPathComponent:release];
+    return @{@"":UpgradeDirectory(0755),@"installer":UpgradeFile(helper,0755),@"versions":UpgradeDirectory(0755),version:UpgradeDirectory(0755),[version stringByAppendingPathComponent:@"helper"]:UpgradeFile(helper,0755),[version stringByAppendingPathComponent:@"mihomo"]:UpgradeFile(core,0755),[version stringByAppendingPathComponent:@"manifest.json"]:UpgradeFile(Hash(receipt[@"manifestBytes"]),0600)};
+  }
+  if([slot isEqual:@"inbox"])return @{@"":UpgradeDirectory(0700),@"helper":UpgradeFile(helper,0755),@"mihomo":UpgradeFile(core,0755),@"manifest.json":UpgradeFile(Hash(receipt[@"manifestBytes"]),0600),@"client-inventory.json":UpgradeFile(Hash(receipt[@"inventoryBytes"]),0600),@"dev.kuro.tun.plist":UpgradeFile(Hash(receipt[@"plist"]),0600)};
+  NSString *digest=nil;mode_t mode=0600;
+  if([slot isEqual:@"installed"])digest=Hash(JSONData(installed));
+  if([slot isEqual:@"client-pin"])digest=Hash(JSONData(manifest[@"client"]));
+  if([slot isEqual:@"plist"]) {digest=Hash(receipt[@"plist"]);mode=0644;}
+  if([slot isEqual:@"receipt"])digest=next?Hash(decoded[@"nextReceiptBytes"]):nil;
+  if([slot isEqual:@"stopped"]) {
+    if([installed[@"neverStarted"]boolValue])return nil;
+    digest=next?Hash(JSONData(decoded[@"nextStopped"])):nil;
+  }
+  // Exact old serialized bytes are supplied separately, avoiding canonicalization drift.
+  return digest?@{@"":UpgradeFile(digest,mode)}:nil;
+}
+static NSDictionary *UpgradeSlotEntries(NSDictionary *record,NSDictionary *decoded,BOOL next,NSString *slot) {
+  if(!next && [slot isEqual:@"receipt"])return @{@"":UpgradeFile(Hash([record[@"oldReceiptJSON"]dataUsingEncoding:NSUTF8StringEncoding]),0600)};
+  if(!next && [slot isEqual:@"installed"])return @{@"":UpgradeFile(Hash([record[@"oldInstalledJSON"]dataUsingEncoding:NSUTF8StringEncoding]),0600)};
+  if(!next && [slot isEqual:@"stopped"] && record[@"oldStoppedJSON"]!=NSNull.null)return @{@"":UpgradeFile(Hash([record[@"oldStoppedJSON"]dataUsingEncoding:NSUTF8StringEncoding]),0600)};
+  return UpgradeEntries(decoded,next,slot);
+}
+static BOOL UpgradeQuiescent(NSString *prefix,uid_t owner,BOOL system,NSString **error) {
+  if(HasOwnershipFootprint(prefix)||Exists(At(prefix,LegacySocketDirectory)))return Fail(error,@"active, legacy or unknown network/Core ownership blocks upgrade");
+  for(NSString *name in @[@"session-work",@"auth-observer.json"])if(Exists(At(prefix,[State stringByAppendingPathComponent:name])))return Fail(error,@"runtime/auth ownership blocks upgrade");
+  if(!OnlyNames(prefix,At(prefix,State),owner,@[@"installed.json",@"client.json",@"stopped.json",@"Inbox",@"Upgrade",@"transaction.json"],error)||!OnlyNames(prefix,At(prefix,SocketDirectory),owner,@[@"service.lock"],error))return NO;
+  NSString *lockPath=At(prefix,[SocketDirectory stringByAppendingPathComponent:@"service.lock"]);struct stat info;
+  if(lstat(lockPath.fileSystemRepresentation,&info)||info.st_size||!SafeNode(lockPath,owner,NO,error))return Fail(error,@"unexpected service lock bytes");
+  if(system){int present=Launchctl(@[@"print",@"system/dev.kuro.tun"]);if(present!=3&&present!=113)return Fail(error,@"upgrade requires an independently absent launchd job");}
+  return YES;
+}
+static NSDictionary *UpgradeMarkerValue(NSDictionary *record) {return @{@"format":@2,@"operation":@"upgrade",@"transaction":record[@"transaction"]};}
+static BOOL UpgradeMarkerValid(NSString *prefix,uid_t owner,NSDictionary *record,BOOL optional,NSString **error) {
+  NSString *path=UpgradeMarker(prefix);return (!Exists(path)&&optional)||[ReadProtected(prefix,path,owner,error)isEqual:JSONData(UpgradeMarkerValue(record))]||Fail(error,@"upgrade transaction marker changed");
+}
+static BOOL UpgradeCurrentFull(NSString *prefix,uid_t owner,NSDictionary *record,NSDictionary *decoded,BOOL next,BOOL recovery,NSString **error) {
+  for(NSString *slot in UpgradeSlots())if(!UpgradeTree(prefix,UpgradeCurrent(prefix,slot),owner,UpgradeSlotEntries(record,decoded,next,slot),YES,error))return NO;
+  NSDictionary *receipt=decoded[next?@"next":@"old"];
+  if(![KuroClientSnapshot(prefix,At(prefix,ClientBundle),owner,error)isEqual:receipt[@"manifest"][@"client"]])return Fail(error,@"complete upgraded App seal does not match exact pin");
+  if(recovery && ![InstallFileHash(prefix,At(prefix,Recovery),owner,error)isEqual:receipt[@"manifest"][@"helper"][@"sha256"]])return Fail(error,@"fixed recovery identity changed");
+  return YES;
+}
+static BOOL UpgradeRename(NSString *prefix,uid_t owner,NSString *from,NSString *to,NSDictionary *entries,NSString **error) {
+  if(!UpgradeTree(prefix,from,owner,entries,YES,error)||Exists(to)||!SafeChain(prefix,to.stringByDeletingLastPathComponent,owner,YES,error))return Fail(error,@"upgrade rename source/destination not exact");
+  struct stat source,parent;if(lstat(from.fileSystemRepresentation,&source)||lstat(to.stringByDeletingLastPathComponent.fileSystemRepresentation,&parent)||source.st_dev!=parent.st_dev)return Fail(error,@"cross-filesystem upgrade rename refused");
+  if(!UpgradePoint([@"before-rename:"stringByAppendingString:to.lastPathComponent],error)||renameatx_np(AT_FDCWD,from.fileSystemRepresentation,AT_FDCWD,to.fileSystemRepresentation,RENAME_EXCL)||!UpgradePoint([@"after-rename:"stringByAppendingString:to.lastPathComponent],error))return Fail(error,@"fixed upgrade rename interrupted");
+  if(!SyncInstallDirectory(from.stringByDeletingLastPathComponent,error)||!SyncInstallDirectory(to.stringByDeletingLastPathComponent,error))return NO;
+  return UpgradePoint([@"after-sync:"stringByAppendingString:to.lastPathComponent],error);
+}
+static BOOL UpgradeStageNames(NSString *prefix,uid_t owner,NSString **error) {
+  NSString *root=UpgradeRoot(prefix);
+  for(NSString *directory in @[root,[root stringByAppendingPathComponent:@"Payload"],[root stringByAppendingPathComponent:@"Next"],[root stringByAppendingPathComponent:@"Previous"]])if(Exists(directory)) {
+    struct stat info;if(lstat(directory.fileSystemRepresentation,&info)||!SafeChain(prefix,directory,owner,YES,error)||(info.st_mode&07777)!=0700)return Fail(error,@"upgrade stage directory is not protected 0700");
+  }
+  if(!OnlyNames(prefix,root,owner,@[@"Payload",@"Next",@"Previous",@"record.pending",@"recovery.pending"],error))return NO;
+  if(!OnlyNames(prefix,[root stringByAppendingPathComponent:@"Payload"],owner,@[@"Inbox",@"Client.app"],error))return NO;
+  for(NSString *name in @[@"Next",@"Previous"])if(!OnlyNames(prefix,[root stringByAppendingPathComponent:name],owner,UpgradeSlots(),error))return NO;
+  return YES;
+}
+static BOOL UpgradeClearPending(NSString *prefix,uid_t owner,NSDictionary *record,NSString **error) {
+  NSString *path=[UpgradeRoot(prefix)stringByAppendingPathComponent:@"record.pending"];if(!Exists(path))return YES;
+  NSData *bytes=ReadProtected(prefix,path,owner,error);struct stat info;if(!bytes||lstat(path.fileSystemRepresentation,&info)||(info.st_mode&07777)!=0600)return Fail(error,@"unprotected upgrade pending record");
+  BOOL match=NO;for(NSString *phase in @[@"staging",@"switching",@"next-installed",@"finalizing"]) {
+    NSMutableDictionary *candidate=[record mutableCopy];candidate[@"phase"]=phase;NSData *known=JSONData(candidate);
+    if(bytes.length<=known.length && !memcmp(bytes.bytes,known.bytes,bytes.length)){match=YES;break;}
+  }
+  return (match && !unlink(path.fileSystemRepresentation) && SyncInstallDirectory(path.stringByDeletingLastPathComponent,error)) || Fail(error,@"unknown pending upgrade bytes preserved");
+}
+static BOOL UpgradePhase(NSString *prefix,uid_t owner,NSMutableDictionary *record,NSString *phase,NSString **error) {
+  if(!UpgradeClearPending(prefix,owner,record,error))return NO;
+  NSString *path=At(prefix,RecoveryRecord),*pending=[UpgradeRoot(prefix)stringByAppendingPathComponent:@"record.pending"];
+  NSData *before=ReadProtected(prefix,path,owner,error);if(![before isEqual:JSONData(record)])return Fail(error,@"upgrade approval changed");
+  NSMutableDictionary *next=[record mutableCopy];next[@"phase"]=phase;
+  if(!WriteNew(pending,JSONData(next),0600,error)||!UpgradePoint([@"phase-prepublish:"stringByAppendingString:phase],error)||![ReadProtected(prefix,path,owner,error)isEqual:before]||rename(pending.fileSystemRepresentation,path.fileSystemRepresentation))return NO;
+  [record setDictionary:next];
+  return SyncInstallDirectory(path.stringByDeletingLastPathComponent,error) && SyncInstallDirectory(pending.stringByDeletingLastPathComponent,error) && UpgradePoint([@"phase:"stringByAppendingString:phase],error);
+}
+static BOOL UpgradeRecoveryBytes(NSString *prefix,uid_t owner,NSDictionary *record,NSDictionary *decoded,BOOL next,NSString **error) {
+  NSString *path=At(prefix,Recovery),*oldHash=decoded[@"old"][@"manifest"][@"helper"][@"sha256"],*nextHash=decoded[@"next"][@"manifest"][@"helper"][@"sha256"],*expected=next?nextHash:oldHash;
+  NSString *actual=InstallFileHash(prefix,path,owner,error);if(![actual isEqual:oldHash]&&![actual isEqual:nextHash])return Fail(error,@"unknown recovery executable preserved");
+  NSString *pending=[UpgradeRoot(prefix)stringByAppendingPathComponent:@"recovery.pending"];
+  if(Exists(pending)) {
+    NSString *pendingHash=InstallFileHash(prefix,pending,owner,error);
+    if((![pendingHash isEqual:oldHash]&&![pendingHash isEqual:nextHash])||unlink(pending.fileSystemRepresentation))return Fail(error,@"changed pending recovery preserved");
+  }
+  if([actual isEqual:expected])return SyncInstallDirectory(path.stringByDeletingLastPathComponent,error);
+  NSString *source=next?[UpgradeCurrent(prefix,@"tools")stringByAppendingPathComponent:@"installer"]:[[UpgradeRoot(prefix)stringByAppendingPathComponent:@"Previous/tools"]stringByAppendingPathComponent:@"installer"];
+  if(!Exists(source))source=[UpgradeCurrent(prefix,@"tools")stringByAppendingPathComponent:@"installer"];
+  NSData *bytes=ReadProtected(prefix,source,owner,error);if(!bytes||![Hash(bytes)isEqual:expected]||!MachExecutable(bytes))return Fail(error,@"approved recovery source missing");
+  if(!WriteNew(pending,bytes,0755,error)||!UpgradePoint(@"recovery-prepublish",error)||![InstallFileHash(prefix,path,owner,error)isEqual:actual]||rename(pending.fileSystemRepresentation,path.fileSystemRepresentation))return NO;
+  (void)record;
+  return SyncInstallDirectory(path.stringByDeletingLastPathComponent,error)&&SyncInstallDirectory(pending.stringByDeletingLastPathComponent,error)&&UpgradePoint(@"recovery-published",error);
+}
+static BOOL UpgradeEraseStaging(NSString *prefix,uid_t owner,NSDictionary *record,NSDictionary *decoded,BOOL previous,NSString **error) {
+  NSString *root=UpgradeRoot(prefix);if(!UpgradeStageNames(prefix,owner,error)||!UpgradeClearPending(prefix,owner,record,error))return NO;
+  if(Exists([root stringByAppendingPathComponent:@"recovery.pending"]))return Fail(error,@"pending recovery must be reconciled first");
+  for(NSString *group in @[@"Previous",@"Next"])for(NSString *slot in UpgradeSlots()) {
+    NSString *path=[[root stringByAppendingPathComponent:group]stringByAppendingPathComponent:slot];BOOL old=[group isEqual:@"Previous"];
+    if(old && !previous && Exists(path))return Fail(error,@"unrestored old backup preserved");
+    if(!UpgradeTree(prefix,path,owner,UpgradeSlotEntries(record,decoded,!old,slot),NO,error))return NO;
+  }
+  for(NSString *slot in @[@"inbox",@"client"]) {
+    NSString *name=[slot isEqual:@"inbox"]?@"Inbox":@"Client.app";
+    if(!UpgradeTree(prefix,[[root stringByAppendingPathComponent:@"Payload"]stringByAppendingPathComponent:name],owner,UpgradeSlotEntries(record,decoded,YES,slot),NO,error))return NO;
+  }
+  // Validate the whole known remainder before deleting any stage content.
+  for(NSString *group in @[@"Previous",@"Next"]) {
+    for(NSString *slot in UpgradeSlots())if(!UpgradeRemove(prefix,[[root stringByAppendingPathComponent:group]stringByAppendingPathComponent:slot],owner,UpgradeSlotEntries(record,decoded,![group isEqual:@"Previous"],slot),error))return NO;
+    if(!RemoveDirectory([root stringByAppendingPathComponent:group],error))return NO;
+  }
+  for(NSString *slot in @[@"inbox",@"client"])if(!UpgradeRemove(prefix,[[root stringByAppendingPathComponent:@"Payload"]stringByAppendingPathComponent:[slot isEqual:@"inbox"]?@"Inbox":@"Client.app"],owner,UpgradeSlotEntries(record,decoded,YES,slot),error))return NO;
+  return RemoveDirectory([root stringByAppendingPathComponent:@"Payload"],error);
+}
+static BOOL UpgradeRetire(NSString *prefix,uid_t owner,NSDictionary *record,NSString **error) {
+  if(!UpgradeMarkerValid(prefix,owner,record,YES,error))return NO;
+  if(!RemoveDirectory(UpgradeRoot(prefix),error)||!SyncInstallDirectory(At(prefix,State),error)||!UpgradePoint(@"stage-retired",error))return NO;
+  NSString *marker=UpgradeMarker(prefix);if(Exists(marker)&&(unlink(marker.fileSystemRepresentation)||!SyncInstallDirectory(marker.stringByDeletingLastPathComponent,error)))return NO;
+  if(!UpgradePoint(@"marker-retired",error))return NO;
+  NSString *path=At(prefix,RecoveryRecord);if(![ReadProtected(prefix,path,owner,error)isEqual:JSONData(record)]||unlink(path.fileSystemRepresentation))return Fail(error,@"upgrade approval retirement failed");
+  return SyncInstallDirectory(path.stringByDeletingLastPathComponent,error);
+}
+static BOOL BeginClientUpgradeFromScripts(NSString *prefix,uid_t owner,BOOL system,NSString *scripts,NSString **error) {
+  if(!InstallScriptsProtected(scripts,owner,error))return NO;
+  NSData *manifestBytes=ReadProtected(scripts,[scripts stringByAppendingPathComponent:@"manifest.json"],owner,error),*inventoryBytes=ReadProtected(scripts,[scripts stringByAppendingPathComponent:@"client-inventory.json"],owner,error),*plist=ReadProtected(scripts,[scripts stringByAppendingPathComponent:@"dev.kuro.tun.plist"],owner,error),*helper=ReadProtected(scripts,[scripts stringByAppendingPathComponent:@"preflight-native"],owner,error);
+  NSDictionary *manifest=manifestBytes?KuroDecodeJSON(manifestBytes,MessageLimit,error):nil;
+  if(!ValidManifest(manifest,error)||![manifest[@"installerProtocol"]isEqual:@2]||!helper||!MachExecutable(helper)||![Hash(helper)isEqual:manifest[@"helper"][@"sha256"]]||(system&&![Executable()isEqual:[scripts stringByAppendingPathComponent:@"preflight-native"]]))return Fail(error,@"protocol-2 fixed upgrade sidecars/helper required");
+  if(Exists(At(prefix,RecoveryRecord))||Exists(UpgradeRoot(prefix))||Exists(UpgradeMarker(prefix)))return Fail(error,@"existing upgrade or recovery evidence preserved");
+  if(!Exists(At(prefix,FreshReceipt))||!Exists(At(prefix,SocketDirectory)))return Fail(error,@"complete old installation is required; no upgrade state created");
+  int lock=ServiceLock(prefix,owner,error);if(lock<0)return NO;
+  @try {
+    if(!UpgradeQuiescent(prefix,owner,system,error))return NO;
+    NSData *oldReceipt=ReadProtected(prefix,At(prefix,FreshReceipt),owner,error),*installedBytes=ReadProtected(prefix,UpgradeCurrent(prefix,@"installed"),owner,error),*stopped=Exists(UpgradeCurrent(prefix,@"stopped"))?ReadProtected(prefix,UpgradeCurrent(prefix,@"stopped"),owner,error):nil;
+    if(!oldReceipt||!installedBytes)return NO;
+    NSDictionary *record=@{@"format":@2,@"operation":@"upgrade",@"transaction":NSUUID.UUID.UUIDString,@"phase":@"staging",@"oldReceiptJSON":UpgradeString(oldReceipt)?:@"",@"oldInstalledJSON":UpgradeString(installedBytes)?:@"",@"oldStoppedJSON":stopped?(UpgradeString(stopped)?:@""):NSNull.null,@"newManifestJSON":UpgradeString(manifestBytes),@"newInventoryJSON":UpgradeString(inventoryBytes)?:@"",@"newPlistBase64":[plist base64EncodedStringWithOptions:0]?:@""};
+    NSDictionary *decoded=UpgradeDecode(record,error);if(!decoded||!UpgradeCurrentFull(prefix,owner,record,decoded,NO,YES,error))return NO;
+    // All fixed rename parents must be on one filesystem before approval is issued.
+    struct stat baseline;if(lstat(At(prefix,State).fileSystemRepresentation,&baseline))return NO;
+    for(NSString *parent in @[At(prefix,Tools).stringByDeletingLastPathComponent,At(prefix,ClientBundle).stringByDeletingLastPathComponent,At(prefix,Plist).stringByDeletingLastPathComponent]) {struct stat value;if(!SafeChain(prefix,parent,owner,YES,error)||lstat(parent.fileSystemRepresentation,&value)||value.st_dev!=baseline.st_dev)return Fail(error,@"upgrade fixed paths cross filesystems or have unsafe ancestors");}
+    NSData *bytes=JSONData(record);if(bytes.length>128*1024*1024)return Fail(error,@"bounded upgrade receipt exceeded");
+    if(!WriteNew(At(prefix,RecoveryRecord),bytes,0600,error)||!SyncInstallDirectory(At(prefix,RecoveryRecord).stringByDeletingLastPathComponent,error)||!UpgradePoint(@"approval",error))return NO;
+    if(!WriteNew(UpgradeMarker(prefix),JSONData(UpgradeMarkerValue(record)),0600,error)||!SyncInstallDirectory(At(prefix,State),error)||!UpgradePoint(@"marker",error))return NO;
+    return EnsureDirectory(prefix,UpgradeRoot(prefix),owner,0700,error)&&EnsureDirectory(prefix,[UpgradeRoot(prefix)stringByAppendingPathComponent:@"Payload"],owner,0700,error)&&UpgradePoint(@"staging-ready",error);
+  } @finally {close(lock);}
+}
+static BOOL UpgradePrepareNext(NSString *prefix,uid_t owner,NSDictionary *record,NSDictionary *decoded,NSString **error) {
+  NSString *root=UpgradeRoot(prefix),*payload=[root stringByAppendingPathComponent:@"Payload"],*next=[root stringByAppendingPathComponent:@"Next"];
+  if(!UpgradeStageNames(prefix,owner,error)||Exists(next)||Exists([root stringByAppendingPathComponent:@"Previous"]))return Fail(error,@"interrupted staged preparation requires explicit recovery");
+  for(NSString *slot in @[@"inbox",@"client"])if(!UpgradeTree(prefix,[payload stringByAppendingPathComponent:[slot isEqual:@"inbox"]?@"Inbox":@"Client.app"],owner,UpgradeSlotEntries(record,decoded,YES,slot),YES,error))return NO;
+  NSDictionary *receipt=decoded[@"next"],*manifest=receipt[@"manifest"];
+  if(![KuroClientSnapshot(prefix,[payload stringByAppendingPathComponent:@"Client.app"],owner,error)isEqual:manifest[@"client"]])return Fail(error,@"staged upgraded App seal/pin mismatch");
+  for(NSString *name in @[@"helper",@"mihomo"])if(!MachExecutable(ReadProtected(prefix,[[payload stringByAppendingPathComponent:@"Inbox"]stringByAppendingPathComponent:name],owner,error)))return Fail(error,@"staged executable is not the exact supported Mach-O");
+  if(!EnsureDirectory(prefix,next,owner,0700,error)||!EnsureDirectory(prefix,[root stringByAppendingPathComponent:@"Previous"],owner,0700,error))return NO;
+  NSString *tools=[next stringByAppendingPathComponent:@"tools"],*version=[tools stringByAppendingPathComponent:[@"versions"stringByAppendingPathComponent:manifest[@"release"]]];
+  if(!EnsureDirectory(prefix,version,owner,0755,error))return NO;
+  for(NSArray *item in @[@[@"helper",@"installer"],@[@"helper",[@"versions"stringByAppendingPathComponent:[manifest[@"release"]stringByAppendingPathComponent:@"helper"]]],@[@"mihomo",[@"versions"stringByAppendingPathComponent:[manifest[@"release"]stringByAppendingPathComponent:@"mihomo"]]],@[@"manifest.json",[@"versions"stringByAppendingPathComponent:[manifest[@"release"]stringByAppendingPathComponent:@"manifest.json"]]]]) {
+    NSData *bytes=ReadProtected(prefix,[[payload stringByAppendingPathComponent:@"Inbox"]stringByAppendingPathComponent:item[0]],owner,error);
+    if(!bytes||!WriteNew([tools stringByAppendingPathComponent:item[1]],bytes,[item[0]isEqual:@"manifest.json"]?0600:0755,error)||!UpgradePoint([@"prepare:"stringByAppendingString:item[1]],error))return NO;
+  }
+  NSDictionary *files=@{@"installed":JSONData(decoded[@"nextInstalled"]),@"client-pin":JSONData(manifest[@"client"]),@"plist":receipt[@"plist"],@"receipt":decoded[@"nextReceiptBytes"]};
+  for(NSString *slot in @[@"installed",@"client-pin",@"plist",@"receipt"])if(!WriteNew([next stringByAppendingPathComponent:slot],files[slot],[slot isEqual:@"plist"]?0644:0600,error)||!UpgradePoint([@"prepare:"stringByAppendingString:slot],error))return NO;
+  if(decoded[@"nextStopped"]!=NSNull.null && !WriteNew([next stringByAppendingPathComponent:@"stopped"],JSONData(decoded[@"nextStopped"]),0600,error))return NO;
+  for(NSString *slot in @[@"inbox",@"client"])if(!UpgradeRename(prefix,owner,[payload stringByAppendingPathComponent:[slot isEqual:@"inbox"]?@"Inbox":@"Client.app"],[next stringByAppendingPathComponent:slot],UpgradeSlotEntries(record,decoded,YES,slot),error))return NO;
+  for(NSString *slot in UpgradeSlots())if(!UpgradeTree(prefix,[next stringByAppendingPathComponent:slot],owner,UpgradeSlotEntries(record,decoded,YES,slot),YES,error))return NO;
+  for(NSString *directory in @[version,version.stringByDeletingLastPathComponent,tools,next,root])if(!SyncInstallDirectory(directory,error))return NO;
+  return YES;
+}
+static BOOL UpgradeFinish(NSString *prefix,uid_t owner,NSDictionary *record,NSDictionary *decoded,NSString **error) {
+  if(![record[@"phase"]isEqual:@"finalizing"]||!UpgradeCurrentFull(prefix,owner,record,decoded,YES,YES,error))return Fail(error,@"forward finalization requires complete new payload and exact new recovery");
+  if(!UpgradeEraseStaging(prefix,owner,record,decoded,YES,error))return NO;
+  if(!UpgradeCurrentFull(prefix,owner,record,decoded,YES,YES,error))return NO;
+  return UpgradeRetire(prefix,owner,record,error);
+}
+static BOOL CompleteClientUpgradeFromScripts(NSString *prefix,uid_t owner,BOOL system,NSString *scripts,NSString **error) {
+  if(!InstallScriptsProtected(scripts,owner,error))return NO;
+  int lock=ServiceLock(prefix,owner,error);if(lock<0)return NO;
+  @try {
+    NSMutableDictionary *record=[UpgradeRead(prefix,owner,error)mutableCopy];NSDictionary *decoded=record?UpgradeDecode(record,error):nil;if(!decoded)return NO;
+    NSData *selfBytes=ReadProtected(scripts,[scripts stringByAppendingPathComponent:@"preflight-native"],owner,error);
+    if(![Hash(selfBytes)isEqual:decoded[@"next"][@"manifest"][@"helper"][@"sha256"]]||(system&&![Executable()isEqual:[scripts stringByAppendingPathComponent:@"preflight-native"]]))return Fail(error,@"upgrade completion executable identity mismatch");
+    if(![record[@"phase"]isEqual:@"staging"]||!UpgradeQuiescent(prefix,owner,system,error)||!UpgradeMarkerValid(prefix,owner,record,NO,error)||!UpgradeCurrentFull(prefix,owner,record,decoded,NO,YES,error)||!UpgradePrepareNext(prefix,owner,record,decoded,error))return NO;
+    if(!UpgradePhase(prefix,owner,record,@"switching",error))return NO;
+    NSString *root=UpgradeRoot(prefix),*next=[root stringByAppendingPathComponent:@"Next"],*previous=[root stringByAppendingPathComponent:@"Previous"];
+    for(NSString *slot in UpgradeSlots()) {
+      NSDictionary *old=UpgradeSlotEntries(record,decoded,NO,slot),*new=UpgradeSlotEntries(record,decoded,YES,slot);NSString *current=UpgradeCurrent(prefix,slot);
+      if(old && !UpgradeRename(prefix,owner,current,[previous stringByAppendingPathComponent:slot],old,error))return NO;
+      if(new && !UpgradeRename(prefix,owner,[next stringByAppendingPathComponent:slot],current,new,error))return NO;
+    }
+    if(!UpgradePhase(prefix,owner,record,@"next-installed",error)||!UpgradeCurrentFull(prefix,owner,record,decoded,YES,NO,error)||!UpgradeRecoveryBytes(prefix,owner,record,decoded,YES,error)||!UpgradePhase(prefix,owner,record,@"finalizing",error))return NO;
+    return UpgradeFinish(prefix,owner,record,decoded,error);
+  } @finally {close(lock);}
+}
+static BOOL RecoverClientUpgrade(NSString *prefix,uid_t owner,BOOL system,NSString *entry,NSString **error) {
+  if(![entry isEqual:At(prefix,Recovery)] || (system&&![Executable()isEqual:entry]))return Fail(error,@"fixed protected upgrade recovery entry required");
+  if(!Exists(At(prefix,SocketDirectory)) || (!Exists(At(prefix,RecoveryRecord))&&!Exists(At(prefix,FreshReceipt))))return Fail(error,@"no approved upgrade or complete installation to observe");
+  int lock=ServiceLock(prefix,owner,error);if(lock<0)return NO;
+  @try {
+    if(!UpgradeQuiescent(prefix,owner,system,error))return NO;
+    if(!Exists(At(prefix,RecoveryRecord))) {
+      // Idempotent observation only; absent evidence never authorizes deleting a partial tree.
+      if(Exists(UpgradeRoot(prefix))||Exists(UpgradeMarker(prefix)))return Fail(error,@"unapproved partial upgrade remains");
+      NSDictionary *receipt=ReadFreshReceipt(prefix,owner,error),*installed=ReadJSON(prefix,UpgradeCurrent(prefix,@"installed"),owner,error);
+      if(!receipt||receipt[@"uninstall"]||![receipt[@"manifest"][@"installerProtocol"]isEqual:@2]||!UpgradeInstalled(installed,receipt)||![InstallFileHash(prefix,entry,owner,error)isEqual:installed[@"helperSHA256"]])return Fail(error,@"no complete protocol-2 off installation to observe");
+      if(![installed[@"neverStarted"]boolValue]&&!KuroStoppedBoundToReceipt(ReadJSON(prefix,UpgradeCurrent(prefix,@"stopped"),owner,error),receipt,installed))return Fail(error,@"completed upgrade off proof absent");
+      NSData *raw=ReadProtected(prefix,At(prefix,FreshReceipt),owner,error),*installedBytes=ReadProtected(prefix,UpgradeCurrent(prefix,@"installed"),owner,error),*stoppedBytes=Exists(UpgradeCurrent(prefix,@"stopped"))?ReadProtected(prefix,UpgradeCurrent(prefix,@"stopped"),owner,error):nil;
+      NSDictionary *observedRecord=@{@"oldReceiptJSON":UpgradeString(raw),@"oldInstalledJSON":UpgradeString(installedBytes),@"oldStoppedJSON":stoppedBytes?UpgradeString(stoppedBytes):NSNull.null};
+      return UpgradeCurrentFull(prefix,owner,observedRecord,@{@"old":receipt,@"installed":installed},NO,YES,error);
+    }
+    NSDictionary *record=UpgradeRead(prefix,owner,error),*decoded=record?UpgradeDecode(record,error):nil;if(!decoded||!UpgradeMarkerValid(prefix,owner,record,YES,error)||!UpgradeStageNames(prefix,owner,error))return NO;
+    NSString *selfHash=InstallFileHash(prefix,entry,owner,error);
+    if(![selfHash isEqual:decoded[@"old"][@"manifest"][@"helper"][@"sha256"]]&&![selfHash isEqual:decoded[@"next"][@"manifest"][@"helper"][@"sha256"]])return Fail(error,@"unapproved recovery binary preserved");
+    if([record[@"phase"]isEqual:@"finalizing"])return UpgradeFinish(prefix,owner,record,decoded,error);
+    NSString *root=UpgradeRoot(prefix),*previous=[root stringByAppendingPathComponent:@"Previous"];
+    // First validate every distributed old/new object; unknown content prevents all deletion.
+    for(NSString *slot in UpgradeSlots()) {
+      NSDictionary *old=UpgradeSlotEntries(record,decoded,NO,slot),*next=UpgradeSlotEntries(record,decoded,YES,slot);NSString *backup=[previous stringByAppendingPathComponent:slot],*current=UpgradeCurrent(prefix,slot);
+      if(Exists(backup)) {
+        if(!old||!UpgradeTree(prefix,backup,owner,old,YES,error)||!UpgradeTree(prefix,current,owner,next,NO,error))return NO;
+      } else if(!UpgradeTree(prefix,current,owner,old,YES,error))return NO;
+    }
+    for(NSString *group in @[@"Previous",@"Next"])for(NSString *slot in UpgradeSlots()) {
+      NSString *path=[[root stringByAppendingPathComponent:group]stringByAppendingPathComponent:slot];
+      if(!UpgradeTree(prefix,path,owner,UpgradeSlotEntries(record,decoded,![group isEqual:@"Previous"],slot),NO,error))return NO;
+    }
+    for(NSString *slot in @[@"inbox",@"client"])if(!UpgradeTree(prefix,[[root stringByAppendingPathComponent:@"Payload"]stringByAppendingPathComponent:[slot isEqual:@"inbox"]?@"Inbox":@"Client.app"],owner,UpgradeSlotEntries(record,decoded,YES,slot),NO,error))return NO;
+    NSString *pendingRecovery=[root stringByAppendingPathComponent:@"recovery.pending"];
+    if(Exists(pendingRecovery)) {
+      NSString *pendingHash=InstallFileHash(prefix,pendingRecovery,owner,error);
+      if(![pendingHash isEqual:decoded[@"old"][@"manifest"][@"helper"][@"sha256"]]&&![pendingHash isEqual:decoded[@"next"][@"manifest"][@"helper"][@"sha256"]])return Fail(error,@"unknown recovery candidate preserved");
+    }
+    for(NSString *slot in UpgradeSlots()) {
+      NSString *backup=[previous stringByAppendingPathComponent:slot],*current=UpgradeCurrent(prefix,slot);
+      if(Exists(backup)) {
+        if(!UpgradeRemove(prefix,current,owner,UpgradeSlotEntries(record,decoded,YES,slot),error)||!UpgradeRename(prefix,owner,backup,current,UpgradeSlotEntries(record,decoded,NO,slot),error))return NO;
+      }
+    }
+    if(!UpgradeRecoveryBytes(prefix,owner,record,decoded,NO,error)||!UpgradeCurrentFull(prefix,owner,record,decoded,NO,YES,error)||!UpgradeEraseStaging(prefix,owner,record,decoded,NO,error))return NO;
+    return UpgradeRetire(prefix,owner,record,error);
+  } @finally {close(lock);}
 }

@@ -2,140 +2,187 @@ import { describe, expect, test, vi } from 'vitest'
 import { createSystemProxy, parseWindowsProxyServer, SystemProxyPermissionError, SystemProxyUnknownStateError, type Exec } from './system-proxy'
 
 function fixture() {
+  const value = (enabled: boolean, host = '', port = 0, auth = 0) => `Enabled: ${enabled ? 'Yes' : 'No'}\nServer: ${host}\nPort: ${port}\nAuthenticated Proxy Enabled: ${auth}`
   const states = new Map([
-    ['Wi-Fi:web', 'Enabled: Yes\nServer: 127.0.0.1\nPort: 17890\nAuthenticated Proxy Enabled: 0'],
-    ['Wi-Fi:secure', 'Enabled: Yes\nServer: corporate.proxy\nPort: 8080'],
-    ['USB Ethernet:web', 'Enabled: No\nServer: 127.0.0.1\nPort: 17890'],
-    ['USB Ethernet:secure', 'Enabled: Yes\nServer: 127.0.0.1\nPort: 17890'],
+    ['Wi-Fi:web', value(false)], ['Wi-Fi:secure', value(true, 'corporate.proxy', 8080)],
+    ['USB Ethernet:web', value(false)], ['USB Ethernet:secure', value(false)],
   ])
+  const bypass = new Map([['Wi-Fi', ['corp.local']], ['USB Ethernet', [] as string[]]])
   const exec = vi.fn<Exec>(async (_file, args) => {
     let stdout = ''
+    const secure = args[0]?.includes('secureweb')
+    const key = `${args[1]}:${secure ? 'secure' : 'web'}`
     if (args[0] === '-listallnetworkservices') stdout = 'An asterisk (*) denotes that a network service is disabled.\nWi-Fi\n*Disabled VPN\nUSB Ethernet\n'
-    if (args[0] === '-getwebproxy') stdout = states.get(`${args[1]}:web`)!
-    if (args[0] === '-getsecurewebproxy') stdout = states.get(`${args[1]}:secure`)!
-    if (args[0] === '-getproxybypassdomains') stdout = 'localhost\n*.local\n'
-    if (args[0] === '-setwebproxystate' || args[0] === '-setsecurewebproxystate') {
-      const key = `${args[1]}:${args[0] === '-setwebproxystate' ? 'web' : 'secure'}`
-      states.set(key, states.get(key)!.replace(/^Enabled: .+$/m, `Enabled: ${args[2] === 'on' ? 'Yes' : 'No'}`))
-    }
+    if (args[0] === '-getwebproxy' || args[0] === '-getsecurewebproxy') stdout = states.get(key)!
+    if (args[0] === '-getproxybypassdomains') stdout = bypass.get(args[1]!)!.join('\n') || "There aren't any bypass domains set on this service."
+    if (args[0] === '-setwebproxy' || args[0] === '-setsecurewebproxy') states.set(key, value(true, args[2], Number(args[3])))
+    if (args[0] === '-setwebproxystate' || args[0] === '-setsecurewebproxystate') states.set(key, states.get(key)!.replace(/^Enabled: .+$/m, `Enabled: ${args[2] === 'on' ? 'Yes' : 'No'}`))
+    if (args[0] === '-setproxybypassdomains') bypass.set(args[1]!, args[2] === 'Empty' ? [] : args.slice(2))
     return { stdout, stderr: '' }
   })
-  return { exec, proxy: createSystemProxy({ os: 'darwin', exec }) }
+  const writes = () => exec.mock.calls.filter(([, args]) => args[0]?.startsWith('-set')).map(([, args]) => args)
+  return { exec, states, bypass, value, writes, proxy: createSystemProxy({ os: 'darwin', exec }) }
 }
+const settings = { host: '127.0.0.1', port: 17890, bypass: ['localhost', '*.local'] }
 
-test('sets HTTP, HTTPS and bypass on every enabled service without shell interpolation', async () => {
-  const { exec, proxy } = fixture()
-  await proxy.setSystemProxy({ host: '127.0.0.1', port: 17890, bypass: ['localhost', '*.local'] })
-  for (const service of ['Wi-Fi', 'USB Ethernet']) {
-    expect(exec).toHaveBeenCalledWith('/usr/sbin/networksetup', ['-setwebproxy', service, '127.0.0.1', '17890'])
-    expect(exec).toHaveBeenCalledWith('/usr/sbin/networksetup', ['-setsecurewebproxy', service, '127.0.0.1', '17890'])
-    expect(exec).toHaveBeenCalledWith('/usr/sbin/networksetup', ['-setproxybypassdomains', service, 'localhost', '*.local'])
-    expect(exec).toHaveBeenCalledWith('/usr/sbin/networksetup', ['-setwebproxystate', service, 'on'])
-    expect(exec).toHaveBeenCalledWith('/usr/sbin/networksetup', ['-setsecurewebproxystate', service, 'on'])
-  }
-  expect(exec.mock.calls.flat(2)).not.toContain('*Disabled VPN')
+test('blank disabled proxies can be enabled and cleared; active non-auth proxy and bypass are restored', async () => {
+  const f = fixture()
+  await f.proxy.setSystemProxy(settings)
+  expect(await f.proxy.getSystemProxy()).toEqual(settings)
+  await f.proxy.clearSystemProxy()
+  expect(f.states.get('Wi-Fi:web')).toBe(f.value(false, settings.host, settings.port))
+  expect(f.states.get('Wi-Fi:secure')).toBe(f.value(true, 'corporate.proxy', 8080))
+  expect(f.bypass.get('Wi-Fi')).toEqual(['corp.local'])
+  expect(f.bypass.get('USB Ethernet')).toEqual([])
+  expect(f.exec.mock.calls.flat(2)).not.toContain('*Disabled VPN')
 })
 
-test('reads current proxy and clears empty bypass with networksetup Empty', async () => {
-  const { exec, proxy } = fixture()
-  expect(await proxy.getSystemProxy()).toEqual({ host: '127.0.0.1', port: 17890, bypass: ['localhost', '*.local'] })
-  await proxy.setSystemProxy({ host: '127.0.0.1', port: 17890, bypass: [] })
-  expect(exec).toHaveBeenCalledWith('/usr/sbin/networksetup', ['-setproxybypassdomains', 'Wi-Fi', 'Empty'])
+test('clear without this instance writing never mutates third-party or matching loopback proxies', async () => {
+  const f = fixture()
+  f.states.set('Wi-Fi:web', f.value(true, settings.host, settings.port))
+  await f.proxy.clearSystemProxy()
+  expect(f.writes()).toEqual([])
+  await expect(f.proxy.cleanupStaleSystemProxy(settings.port)).rejects.toThrow('no ownership receipt')
+  expect(f.writes()).toEqual([])
 })
 
-test('stale cleanup disables only the matching protocol, host and port', async () => {
-  const { exec, proxy } = fixture()
-  await proxy.cleanupStaleSystemProxy(17890)
-  expect(exec.mock.calls.filter(([, args]) => args[0]?.startsWith('-set')).map(([, args]) => args)).toEqual([
-    ['-setwebproxystate', 'Wi-Fi', 'off'], ['-setsecurewebproxystate', 'USB Ethernet', 'off'],
-  ])
-  exec.mockClear()
-  await proxy.cleanupStaleSystemProxy(17891)
-  expect(exec.mock.calls.filter(([, args]) => args[0]?.startsWith('-set'))).toEqual([])
+test('stale inspection accepts confirmed off without writes', async () => {
+  const f = fixture()
+  f.states.set('Wi-Fi:secure', f.value(false))
+  await f.proxy.cleanupStaleSystemProxy(settings.port)
+  expect(await f.proxy.getSystemProxy()).toBeNull()
+  expect(f.writes()).toEqual([])
 })
 
-test('clear disables both protocols on all enabled services', async () => {
-  const { exec, proxy } = fixture()
-  await proxy.clearSystemProxy()
-  expect(exec.mock.calls.filter(([, args]) => args[0]?.startsWith('-set'))).toHaveLength(4)
-  for (const service of ['Wi-Fi', 'USB Ethernet']) {
-    expect(exec).toHaveBeenCalledWith('/usr/sbin/networksetup', ['-getwebproxy', service])
-    expect(exec).toHaveBeenCalledWith('/usr/sbin/networksetup', ['-getsecurewebproxy', service])
-  }
+test.each(['Enabled: Maybe', 'Enabled: No\nEnabled: Yes', 'Enabled: No\nServer: \nPort: 0', 'Enabled: Yes\nServer: x\nPort: 8080\nAuthenticated Proxy Enabled: 2'])('unknown proxy fields reject get and set before mutation: %s', async output => {
+  const f = fixture()
+  f.states.set('USB Ethernet:secure', output)
+  await expect(f.proxy.getSystemProxy()).rejects.toThrow('state unknown')
+  await expect(f.proxy.setSystemProxy(settings)).rejects.toThrow('state unknown')
+  expect(f.writes()).toEqual([])
 })
 
-test.each(['-getwebproxy', '-getsecurewebproxy'])('clear rejects %s readback without one explicit disabled state', async (command) => {
-  for (const output of ['Enabled: Yes\nServer: 127.0.0.1\nPort: 17890', 'Server: 127.0.0.1\nPort: 17890', 'Enabled: Maybe', 'Enabled: No\nEnabled: Yes']) {
-    const { exec, proxy } = fixture()
-    const original = exec.getMockImplementation()!
-    exec.mockImplementation(async (file, args) => args[0] === command && args[1] === 'Wi-Fi'
-      ? { stdout: output, stderr: '' } : original(file, args))
-    await expect(proxy.clearSystemProxy()).rejects.toThrow('cleanup unconfirmed')
-  }
+test('unknown service enumeration and bypass refuse writes; named-service empty bypass is supported', async () => {
+  const f = fixture(), original = f.exec.getMockImplementation()!
+  f.exec.mockImplementation(async (file, args) => args[0] === '-getproxybypassdomains'
+    ? { stdout: `There aren't any bypass domains set on ${args[1]}.`, stderr: '' } : original(file, args))
+  expect((await f.proxy.getSystemProxy())?.bypass).toEqual([])
+  f.exec.mockImplementation(async (file, args) => args[0] === '-getproxybypassdomains' ? { stdout: '', stderr: '' } : original(file, args))
+  await expect(f.proxy.setSystemProxy(settings)).rejects.toThrow('bypass state unknown')
+  expect(f.writes()).toEqual([])
+  f.exec.mockResolvedValue({ stdout: '', stderr: '' })
+  await expect(f.proxy.getSystemProxy()).rejects.toThrow('enumeration unconfirmed')
 })
 
-test.each(['-getwebproxy', '-getsecurewebproxy'])('clear rejects failed %s readback after successful disable commands', async (command) => {
-  const { exec, proxy } = fixture()
-  const original = exec.getMockImplementation()!
-  exec.mockImplementation(async (file, args) => {
-    if (args[0] === command) throw new Error('readback failed')
+test('HTTP command failure after mutation rolls back confirmed endpoint without touching foreign HTTPS', async () => {
+  const f = fixture(), original = f.exec.getMockImplementation()!
+  let fail = true
+  f.exec.mockImplementation(async (file, args) => {
+    const result = await original(file, args)
+    if (args[0] === '-setwebproxy' && fail) { fail = false; throw new Error('reply lost') }
+    return result
+  })
+  await expect(f.proxy.setSystemProxy(settings)).rejects.toThrow('reply lost')
+  expect(f.states.get('Wi-Fi:web')).toBe(f.value(false, settings.host, settings.port))
+  expect(f.states.get('Wi-Fi:secure')).toBe(f.value(true, 'corporate.proxy', 8080))
+  expect(f.writes().some(args => args[0]?.includes('secure'))).toBe(false)
+})
+
+test('active authenticated proxy rejects set without any changes', async () => {
+  const f = fixture()
+  f.states.set('Wi-Fi:secure', f.value(true, 'corporate.proxy', 8080, 1))
+  await expect(f.proxy.setSystemProxy(settings)).rejects.toThrow('Authenticated')
+  expect(f.writes()).toEqual([])
+})
+
+test.each(['endpoint', 'auth', 'unknown'])('changed %s is preserved during clear; independent protocols still clean', async change => {
+  const f = fixture()
+  await f.proxy.setSystemProxy(settings)
+  const changed = change === 'endpoint' ? f.value(true, 'new.proxy', 9000) : change === 'auth' ? f.value(true, settings.host, settings.port, 1) : 'unreadable'
+  f.states.set('Wi-Fi:web', changed)
+  f.exec.mockClear()
+  await expect(f.proxy.clearSystemProxy()).rejects.toThrow(/changed|unknown/)
+  expect(f.states.get('Wi-Fi:web')).toBe(changed)
+  expect(f.states.get('USB Ethernet:web')).toBe(f.value(false, settings.host, settings.port))
+  expect(f.bypass.get('Wi-Fi')).toEqual(settings.bypass)
+})
+
+test('changed bypass is preserved and reported without altering it', async () => {
+  const f = fixture()
+  await f.proxy.setSystemProxy(settings)
+  f.bypass.set('Wi-Fi', ['third.party'])
+  await expect(f.proxy.clearSystemProxy()).rejects.toThrow('bypass changed')
+  expect(f.bypass.get('Wi-Fi')).toEqual(['third.party'])
+})
+
+test('HTTPS set refusal rolls back only attempted HTTP, never disables preexisting corporate HTTPS', async () => {
+  const f = fixture(), original = f.exec.getMockImplementation()!
+  f.exec.mockImplementation(async (file, args) => {
+    if (args[0] === '-setsecurewebproxy') throw Object.assign(new Error('exit 1'), { stderr: 'Operation not permitted' })
     return original(file, args)
   })
-  await expect(proxy.clearSystemProxy()).rejects.toThrow('readback failed')
+  await expect(f.proxy.setSystemProxy(settings)).rejects.toBeInstanceOf(SystemProxyPermissionError)
+  expect(f.states.get('Wi-Fi:web')).toBe(f.value(false, settings.host, settings.port))
+  expect(f.states.get('Wi-Fi:secure')).toBe(f.value(true, 'corporate.proxy', 8080))
+  expect(f.writes()).not.toContainEqual(['-setsecurewebproxystate', 'Wi-Fi', 'off'])
 })
 
-test('returns null when no proxy is enabled', async () => {
-  const proxy = createSystemProxy({ os: 'darwin', exec: async (_file, args) => ({
-    stdout: args[0] === '-listallnetworkservices' ? 'Wi-Fi' : 'Enabled: No\nServer: 127.0.0.1\nPort: 7890', stderr: '',
-  }) })
-  expect(await proxy.getSystemProxy()).toBeNull()
+test('command failure after applying bypass is read back and rolled back', async () => {
+  const f = fixture(), original = f.exec.getMockImplementation()!
+  let fail = true
+  f.exec.mockImplementation(async (file, args) => {
+    const result = await original(file, args)
+    if (args[0] === '-setproxybypassdomains' && fail) { fail = false; throw new Error('write reply lost') }
+    return result
+  })
+  await expect(f.proxy.setSystemProxy(settings)).rejects.toThrow('write reply lost')
+  expect(f.bypass.get('Wi-Fi')).toEqual(['corp.local'])
+  expect(f.states.get('Wi-Fi:secure')).toBe(f.value(true, 'corporate.proxy', 8080))
 })
 
-test('network service and proxy host names are not mistaken for permission/error messages', async () => {
-  const proxy = createSystemProxy({ os: 'darwin', exec: async (_file, args) => ({
-    stdout: args[0] === '-listallnetworkservices' ? 'Administrator Permission Wi-Fi'
-      : args[0] === '-getproxybypassdomains' ? "There aren't any bypass domains set on this service."
-        : 'Enabled: Yes\nServer: error.proxy.test\nPort: 8080',
-    stderr: '',
-  }) })
-  expect(await proxy.getSystemProxy()).toEqual({ host: 'error.proxy.test', port: 8080, bypass: [] })
+test('clear readback must independently confirm the disabled state and retry retains ownership', async () => {
+  const f = fixture(), original = f.exec.getMockImplementation()!
+  await f.proxy.setSystemProxy(settings)
+  f.exec.mockImplementation(async (file, args) => {
+    if (args[0] === '-setwebproxystate' && args[1] === 'USB Ethernet') return { stdout: '', stderr: '' }
+    return original(file, args)
+  })
+  await expect(f.proxy.clearSystemProxy()).rejects.toThrow('write unconfirmed')
+  expect(f.states.get('USB Ethernet:web')).toBe(f.value(true, settings.host, settings.port))
+  f.exec.mockImplementation(original)
+  await f.proxy.clearSystemProxy()
+  expect(f.states.get('USB Ethernet:web')).toBe(f.value(false, settings.host, settings.port))
 })
 
-test('clear continues through every service after a permission failure', async () => {
-  const { exec, proxy } = fixture()
-  const original = exec.getMockImplementation()!
-  exec.mockImplementation(async (file, args) => {
+test('clear continues other owned protocols after permission failure', async () => {
+  const f = fixture(), original = f.exec.getMockImplementation()!
+  await f.proxy.setSystemProxy(settings)
+  f.exec.mockImplementation(async (file, args) => {
     if (args[0] === '-setwebproxystate' && args[1] === 'Wi-Fi') throw new Error('Permission denied')
     return original(file, args)
   })
-  await expect(proxy.clearSystemProxy()).rejects.toBeInstanceOf(SystemProxyPermissionError)
-  expect(exec).toHaveBeenCalledWith('/usr/sbin/networksetup', ['-setsecurewebproxystate', 'USB Ethernet', 'off'])
+  await expect(f.proxy.clearSystemProxy()).rejects.toBeInstanceOf(SystemProxyPermissionError)
+  expect(f.states.get('USB Ethernet:secure')).toBe(f.value(false, settings.host, settings.port))
+})
+
+test('reads and clears empty bypass with networksetup Empty', async () => {
+  const f = fixture()
+  await f.proxy.setSystemProxy({ ...settings, bypass: [] })
+  expect(f.writes()).toContainEqual(['-setproxybypassdomains', 'Wi-Fi', 'Empty'])
 })
 
 describe('recognizable errors and validation', () => {
-  test.each(['Permission denied', 'You must be root to use this command', 'not authorized', 'requires administrator authorization'])('%s', async (message) => {
+  test.each(['Permission denied', 'You must be root to use this command', 'not authorized', 'requires administrator authorization'])('%s', async message => {
     const proxy = createSystemProxy({ os: 'darwin', exec: async () => ({ stdout: message, stderr: '' }) })
     await expect(proxy.getSystemProxy()).rejects.toBeInstanceOf(SystemProxyPermissionError)
   })
-  test('recognizes stderr on rejected exec calls and rolls back partial writes', async () => {
-    const { exec, proxy } = fixture()
-    const original = exec.getMockImplementation()!
-    exec.mockImplementation(async (file, args) => {
-      if (args[0] === '-setsecurewebproxy') throw Object.assign(new Error('exit 1'), { stderr: 'Operation not permitted' })
-      return original(file, args)
-    })
-    await expect(proxy.setSystemProxy({ host: '127.0.0.1', port: 17890, bypass: [] })).rejects.toBeInstanceOf(SystemProxyPermissionError)
-    expect(exec).toHaveBeenCalledWith('/usr/sbin/networksetup', ['-setwebproxystate', 'Wi-Fi', 'off'])
-    expect(exec).toHaveBeenCalledWith('/usr/sbin/networksetup', ['-setsecurewebproxystate', 'Wi-Fi', 'off'])
+  test('rejects invalid settings before exec', async () => {
+    const f = fixture()
+    await expect(f.proxy.setSystemProxy({ ...settings, port: 0 })).rejects.toThrow('Invalid')
+    expect(f.exec).not.toHaveBeenCalled()
   })
-  test('rejects invalid settings before invoking exec', async () => {
-    const { exec, proxy } = fixture()
-    await expect(proxy.setSystemProxy({ host: '127.0.0.1', port: 0, bypass: [] })).rejects.toThrow('Invalid')
-    expect(exec).not.toHaveBeenCalled()
-  })
-  test('Linux deliberately fails without invoking any command', async () => {
-    const exec = vi.fn<Exec>()
-    const proxy = createSystemProxy({ os: 'linux', exec })
+  test('Linux fails without invoking commands', async () => {
+    const exec = vi.fn<Exec>(), proxy = createSystemProxy({ os: 'linux', exec })
     await expect(proxy.getSystemProxy()).rejects.toThrow('not implemented')
     expect(exec).not.toHaveBeenCalled()
   })

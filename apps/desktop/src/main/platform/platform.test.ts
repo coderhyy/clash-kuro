@@ -51,7 +51,7 @@ test('shutdown waits for an entered TUN start, then stops it; subsequent starts 
     start: vi.fn(() => new Promise<TunStatus>(resolve => { completeStart = resolve })),
     stop: vi.fn(async () => { status = { availability: 'ready', state: 'off' }; return status }),
   }
-  const exec = vi.fn<Exec>(async () => ({ stdout: '', stderr: '' }))
+  const exec = vi.fn<Exec>(async (_file, args) => ({ stdout: args[0] === '-listallnetworkservices' ? 'Wi-Fi' : 'Enabled: No\nServer: \nPort: 0\nAuthenticated Proxy Enabled: 0', stderr: '' }))
   const platform = createDesktopPlatform({ os: 'darwin', dataDir, corePath: '/unused', mixedPort: 7890, tun, exec })
   const config: TunSessionConfig = {
     version: 1, template: 'macos-dual-stack-v1', mode: 'rule', proxies: [], groups: [],
@@ -64,7 +64,7 @@ test('shutdown waits for an entered TUN start, then stops it; subsequent starts 
   await expect(platform.setSystemProxy({ host: '127.0.0.1', port: 7890, bypass: [] })).rejects.toThrow('startup must settle')
   const closing = platform.shutdown({ timeoutMs: 1000 })
   await expect(platform.tun!.start(config)).rejects.toThrow('shutting down')
-  expect(exec).not.toHaveBeenCalled()
+  expect(exec.mock.calls.every(([, args]) => args[0]?.startsWith('-get') || args[0] === '-listallnetworkservices')).toBe(true)
   status = { availability: 'ready', state: 'on' }
   completeStart(status)
   await starting
@@ -551,4 +551,50 @@ test('desktop TUN wrapper preserves native observation subscriptions and unsubsc
   stop()
   expect(unsubscribe).toHaveBeenCalledOnce()
   expect(notify).toBeUndefined()
+})
+
+
+test.each(['active', 'unknown', 'unreadable', 'off'] as const)('TUN start independently requires all HTTP/HTTPS proxies off: %s', async mode => {
+  const off: TunStatus = { availability: 'ready', state: 'off' }
+  const tun: TunPlatform = { inspect: async () => off, stop: async () => off, recover: async () => off, start: vi.fn(async () => ({ ...off, state: 'on' as const })) }
+  const exec = vi.fn<Exec>(async (_file, args) => {
+    if (args[0] === '-listallnetworkservices') return { stdout: 'Wi-Fi', stderr: '' }
+    if (args[0] === '-getproxybypassdomains') return { stdout: "There aren't any bypass domains set on this service.", stderr: '' }
+    if (mode === 'unreadable') throw new Error('readback unavailable')
+    return { stdout: mode === 'unknown' ? 'Enabled: No' : `Enabled: ${mode === 'active' && args[0] === '-getsecurewebproxy' ? 'Yes' : 'No'}\nServer: corp.proxy\nPort: 8080\nAuthenticated Proxy Enabled: 0`, stderr: '' }
+  })
+  const platform = createDesktopPlatform({ os: 'darwin', dataDir: '/tmp/kuro-proxy-gate', corePath: '/unused', mixedPort: 7890, tun, exec })
+  const config: TunSessionConfig = {
+    version: 1, template: 'macos-dual-stack-v1', mode: 'rule', proxies: [], groups: [],
+    rules: [{ type: 'MATCH', value: '', target: 'DIRECT', noResolve: false }],
+    dns: { nameservers: ['192.0.2.53'], bootstrap: ['192.0.2.53'], proxyNameservers: ['192.0.2.53'], policies: [] },
+  }
+  if (mode === 'off') {
+    await expect(platform.tun!.start(config)).resolves.toMatchObject({ state: 'on' })
+    expect(tun.start).toHaveBeenCalledOnce()
+  } else {
+    await expect(platform.tun!.start(config)).rejects.toThrow()
+    expect(tun.start).not.toHaveBeenCalled()
+  }
+  expect(exec.mock.calls.some(([, args]) => args[0]?.startsWith('-set'))).toBe(false)
+})
+
+test('macOS stopCore still removes owned ordinary runtime evidence when proxy cleanup fails', async () => {
+  const dataDir = await mkdtemp(join(tmpdir(), 'kt-proxy-stop-'))
+  cleanups.push(() => rm(dataDir, { recursive: true, force: true }))
+  const enabled = new Map<string, boolean>()
+  let changed = false
+  const exec: Exec = async (_file, args) => {
+    if (args[0] === '-listallnetworkservices') return { stdout: 'Wi-Fi', stderr: '' }
+    if (args[0] === '-getproxybypassdomains') return { stdout: "There aren't any bypass domains set on this service.", stderr: '' }
+    const key = args[0]?.includes('secureweb') ? 'secure' : 'web'
+    if (args[0]?.startsWith('-set')) { enabled.set(key, args[2] !== 'off'); return { stdout: '', stderr: '' } }
+    return { stdout: `Enabled: ${enabled.get(key) ? 'Yes' : 'No'}\nServer: ${changed ? 'third.party' : '127.0.0.1'}\nPort: 7890\nAuthenticated Proxy Enabled: 0`, stderr: '' }
+  }
+  const platform = createDesktopPlatform({ os: 'darwin', dataDir, corePath: '/unused', mixedPort: 7890, exec })
+  await platform.setSystemProxy({ host: '127.0.0.1', port: 7890, bypass: [] })
+  await platform.writeFileAtomic('core.pid', '123')
+  changed = true
+  await expect(platform.stopCore()).rejects.toThrow('changed')
+  expect(await platform.readFile('core.pid')).toBeNull()
 })

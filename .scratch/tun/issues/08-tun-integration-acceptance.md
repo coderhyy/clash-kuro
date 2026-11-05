@@ -111,6 +111,56 @@ CI配置已串联native隔离测试→App dmg→disabled helper pkg，并保存s
 
 允许的网络影响仅为本次候选准确Core持有的utun/固定双栈地址、计划内四条`/1`自有route和自有临时DNS key；保留已有默认/更具体route、LAN/scoped DNS。内部readiness只查询固定`.invalid`静态A/AAAA，不新增上游DNS供应商；后续数据面只用提前列明的本机/自有受控目的端与Profile已有DNS，未明确测试目的端时暂不测外网。无独立kill switch，显式DIRECT和路由消失后OS可能直连均在窗口说明中保留，不承诺全流量接管/防泄漏。
 
+### 固定自有 job 的受控启动与停止（仅计划，未执行）
+
+2026-11-05 只读核对本机 `/usr/share/man/man1/launchctl.1` 的 `load | unload`、`-F`、`-w`、`kickstart`、`print-disabled` 和 `/usr/share/man/man5/launchd.plist.5` 的 `Disabled`：`load -F` 忽略 plist 的 Disabled；`-w` 才持久覆盖该项。`enable/disable` 的状态跨启动保留，因此本窗口不使用它们，不编辑 launchd 状态库。此为本机手册事实，**尚未验证本机 OS 实际支持并成功执行该 legacy 路径**；legacy 命令 exit0 不能证明 job 已载入或运行。
+
+前提是同提交有限候选已准确安装、无既存自有 job/未知残留，固定 plist 及 helper 与安装回执/hash 一致，plist 仍为 `Disabled:true`、`RunAtLoad:false`、`KeepAlive:false`、`AbandonProcessGroup:false`、准确 helper 的 `--serve`。只有主会话在获准的系统窗口执行以下固定对象命令；这里不执行、不自动探测替代方案：
+
+```sh
+# 操作前保存完整输出与退出码；精确 label 此时须未载入。
+/bin/launchctl print system/dev.kuro.tun
+/bin/launchctl print-disabled system
+# 不加 -w，不改 Disabled，不自动 fallback enable/bootstrap。
+sudo /bin/launchctl load -F /Library/LaunchDaemons/dev.kuro.tun.plist
+/bin/launchctl print system/dev.kuro.tun
+# 只有独立 print 核对精确 label/程序/参数正确后才继续；不加 -k。
+sudo /bin/launchctl kickstart -p system/dev.kuro.tun
+/bin/launchctl print system/dev.kuro.tun
+```
+
+每一步保存输出/退出码；独立读回 job 的准确程序路径/参数、PID 与实际受保护可执行文件身份、固定 socket 及安装绑定。job/service 就绪不等于 TUN 已开启，必须由已安装封印 App 的真实鉴权 status 证明 off。`load -F` 不支持、print 不存在/不一致、实际进程或 socket 身份不符立即停止，不自动 `enable`、不 `kickstart -k`、不按不可信旧 PID 杀进程。若此前已有持久 disabled override 或自有 job，先保留 baseline 并结束本 fresh 路径，不用覆盖来试通。
+
+结束时先在准确 App 中手动 TUN 关闭，或走现有“检查并恢复 TUN”真实已鉴权入口；确认独立 status off、准确 Core/utun/自有 route/DNS/owner/work 清退及停止证明后，才执行：
+
+```sh
+sudo /bin/launchctl bootout system/dev.kuro.tun
+/bin/launchctl print system/dev.kuro.tun
+/bin/launchctl print-disabled system
+```
+
+核对 job/准确服务进程/socket 已消失，并比较本应用 label 的 disabled override 前后完全一致；不将其它系统 label 的异步变化误判为本应用写入，也不修改其它 label。命令失败、override 变化或清理不明则保留证据并停止，不能用 `disable/enable` 修饰结果。准确运行后卸载仍按最后阶段的受保护恢复入口和回执执行，不能以 bootout 代替完整网络/文件清理。helper 已死但仍有未知网络项的情况仍不在首窗口故障注入范围。
+
+### 最低固定 Profile 与实际 App 操作
+
+第一次网络窗口采用最小显式 DIRECT Profile，**尚未填入本机真实 baseline DNS、冻结 YAML 或验证该 OS 的准入**。不得将测试地址/虚构 resolver 填成可执行样例；候选最终配置须在本地受限证据中保存准确 YAML/hash 与准入结果。
+
+| 字段 | 最低构成与边界 |
+| --- | --- |
+| `mode` / `ipv6` | `rule` / `true`；App 模式也选 rule，不关闭 IPv6。 |
+| `proxies` / `proxy-groups` | 都为 `[]`，不新增订阅、远端节点或 provider。 |
+| `rules` | 仅 `['MATCH,DIRECT']`，这是明确测试策略；不据此验收代理节点、规则分流或故障 fallback。 |
+| `dns.enable` / `dns.ipv6` / `dns.enhanced-mode` | 明确 `true` / `true` / `redir-host`。 |
+| `dns.nameserver` / `dns.default-nameserver` / `dns.proxy-server-nameserver` | 三项都必须是非空数组，值来自本机已授权使用且能证明保留访问路径的 baseline/Profile resolver；只支持显式单播 IPv4/IPv6 literal 的 UDP53，不新增供应商，不用 system/DoH/DoT/自选公共 DNS 或带端口/作用域的 token。实际值须在窗口前确定，不能只从 resolver 列表任取一项就宣称保持原 DNS 优先级。 |
+| `dns.nameserver-policy` | 如 baseline/Profile 存在需保持的分域 DNS，则保留当前 closed schema 可表达的准确域/对应 resolver；无法无损表达或其路由不可证明保留时拒绝本次配置，不删掉分域配置继续。无该需求才省略。 |
+| 其它顶层字段 / Override | 不添加超出 closed schema 的字段；候选 Override 保持空并核对实际值，不能让普通 Profile/Override 偷带 TUN/路由/DNS 参数。 |
+
+仅满足以上结构仍不足以 start：真实 preflight 必须验证共同的双栈 physical 默认出口、无 split-default/地址冲突，以及 LAN/私有 DNS 等已有更具体 direct/scoped 路径可保留。default-only 私网路径或其它不支持基线具体拒绝；不得修改第三方路由/VPN/DNS以通过，也不得承诺任意 LAN 都可达。
+
+使用候选固定隔离数据目录，启动准确已安装的 `Clash Kuro.app` 正常入口（不带 verification/自定义数据目录参数）。UI“导入 Profile → 本地 → 选择准确 YAML → 导入 → 启用”，然后在 System Proxy 附近**手动**开启 TUN，不先点普通 Core 启动。“启用”会走真实 `prepareRuntime` 的固定 Core 配置验证，可能执行 `-t`，不能记为不执行 Core 的导入步骤。TUN 仍通过真实 native adapter；blocked/unknown 时只用现有“检查并恢复 TUN”按钮，不能用任意 Node/socat/root CLI 冒充已鉴权 recover。服务不在时按钮不能自行启动 job，须按上节受控恢复服务后再读回。
+
+新封印 finite-session 候选的 main 已禁止启动时自动清代理、普通 Core 自启、Profile scheduler/版本检查外联及 resumeCore 自动动作，保留真实 startup inspect/recover 和 unknown 关门；源级回归通过，**实际新候选正常启动仍待构建后的受控验证**。普通产品的 macOS stale proxy cleanup 仍只以 `127.0.0.1 + port` 匹配（`system-proxy.ts:124–131`），本次仅跳过候选自动写，未修复普通产品的准确归属缺口。
+
 ### 最小阶段与每段停止证明
 
 | 阶段 / 预算 | 执行范围与进入条件 | 通过 / 停止 / 恢复 |
@@ -128,3 +178,6 @@ helper死亡/跨重启对仍存在route/DNS的恢复、真实Core可能detach的
 2026-11-05 已实现same-held停止证明与运行后准确卸载，beforeStart/resume持久撤销旧proof，neverStarted=false不回真；已集成finite-session源码候选构建/严格同commit身份打包及固定测试数据隔离，auth-only不扩权。独立审查无阻塞，全native含固定Core-t通过。真实root/TUN仍未验，升级事务未实现；[准备证据](../evidence/stopped-proof-preparation/RESULT.md)。
 
 2026-11-05 同一helper的已reap会话现在保留原worker，通过现有已鉴权recover显式重试原线程清理；owner字节变化、并发/过期请求及新open/控制仍拒绝。独立审查及8个真实无害子进程fixture通过；网络回调为fixture，不代表真实TUN恢复。见[恢复证据](../evidence/retained-recovery-20261105/RESULT.md)。跨helper现存网络项、真实root/TUN及完整升级仍未验收。
+
+
+2026-11-05 4441983候选已撤回，不安装。替代实现已通过原生含升级/固定Core语法验证、类型检查及94项代理/platform测试；尚未冻结新包或进行真实安装/网络实验。首次网络窗口授权仍待用户明确批准。 见[集成证据](../evidence/upgrade-proxy-integration/RESULT.md)。
