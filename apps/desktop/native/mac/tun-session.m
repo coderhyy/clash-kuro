@@ -45,6 +45,11 @@ static BOOL KuroRestartRecord(NSDictionary *record,NSString **error) {
   id socket=work[@"socket"];
   return socket==NSNull.null || (Keys(socket,@[@"device",@"inode"]) && KuroNumber(socket[@"device"],0,9007199254740991ULL) && KuroNumber(socket[@"inode"],1,9007199254740991ULL)) || Fail(error,@"old Core socket receipt is invalid");
 }
+#ifdef KURO_CORE_EXPERIMENT
+typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
+  KuroExperimentStopNone,KuroExperimentStopUnexpected,KuroExperimentStopOwnerRequest,KuroExperimentStopOwnerEOF
+};
+#endif
 @interface KuroOwnedSession : NSObject {
   pid_t _child;
   pthread_t _thread;
@@ -58,6 +63,8 @@ static BOOL KuroRestartRecord(NSDictionary *record,NSString **error) {
 #ifdef KURO_CORE_EXPERIMENT
   NSString *_terminationRequest;
   NSDictionary *_terminationEvidence;
+  KuroExperimentStopTrigger _experimentStopTrigger;
+  BOOL _experimentStopAcknowledged;
 #endif
 }
 @property(nonatomic, readonly) pid_t child;
@@ -65,6 +72,8 @@ static BOOL KuroRestartRecord(NSDictionary *record,NSString **error) {
 @property(nonatomic, readonly) BOOL off;
 #ifdef KURO_CORE_EXPERIMENT
 @property(nonatomic, readonly) NSDictionary *terminationEvidence;
+@property(nonatomic, readonly) KuroExperimentStopTrigger experimentStopTrigger;
+@property(nonatomic, readonly) BOOL experimentStopAcknowledged;
 @property(nonatomic) int experimentStdoutDescriptor;
 @property(nonatomic) int experimentStderrDescriptor;
 #endif
@@ -92,6 +101,8 @@ static BOOL KuroRestartRecord(NSDictionary *record,NSString **error) {
 - (pid_t)child { return _child; }
 - (NSString *)identifier { return _identifier; }
 #ifdef KURO_CORE_EXPERIMENT
+- (KuroExperimentStopTrigger)experimentStopTrigger {return _experimentStopTrigger;}
+- (BOOL)experimentStopAcknowledged {return _experimentStopAcknowledged;}
 - (NSDictionary *)terminationEvidence { return _terminationEvidence ?: @{@"request":@"none",@"observed":@NO}; }
 #endif
 - (BOOL)off {
@@ -307,6 +318,9 @@ static BOOL KuroRestartRecord(NSDictionary *record,NSString **error) {
     NSString *ignored = nil; [self stop:&ignored];
     return Fail(error, @"invalid authenticated session lease; owned child stop attempted");
   }
+#ifdef KURO_CORE_EXPERIMENT
+  _experimentStopTrigger=KuroExperimentStopUnexpected;_experimentStopAcknowledged=NO;
+#endif
   uint64_t deadline = KuroMonotonicMilliseconds() + lease, sequence = 1;
   NSMutableData *buffer = [NSMutableData data]; NSString *reason = @"session closed";
   for (;;) {
@@ -321,7 +335,12 @@ static BOOL KuroRestartRecord(NSDictionary *record,NSString **error) {
     if (!result) continue;
     unsigned char bytes[4096]; ssize_t count = recv(socket, bytes, sizeof(bytes), MSG_DONTWAIT);
     if (count < 0 && (errno == EAGAIN || errno == EINTR)) continue;
-    if (count <= 0) break;
+    if (count <= 0) {
+#ifdef KURO_CORE_EXPERIMENT
+      if(count==0)_experimentStopTrigger=KuroExperimentStopOwnerEOF;
+#endif
+      break;
+    }
     [buffer appendBytes:bytes length:(NSUInteger)count];
     if (buffer.length > MessageLimit) { reason = @"session frame exceeds limit"; break; }
     const unsigned char *start = buffer.bytes; const unsigned char *newline = memchr(start, '\n', buffer.length);
@@ -336,12 +355,19 @@ static BOOL KuroRestartRecord(NSDictionary *record,NSString **error) {
     NSUInteger consumed = (NSUInteger)(newline - start) + 1;
     if (consumed != buffer.length || sequence == 9007199254740991ULL) { reason = @"pipelined session frame refused"; break; }
     if ([message[@"operation"] isEqual:@"stop"]) {
+#ifdef KURO_CORE_EXPERIMENT
+      _experimentStopTrigger=KuroExperimentStopOwnerRequest;
+#endif
       BOOL stopped = [self stop:error] && self.off;
       // Publish proven off before the client can receive its stop acknowledgement.
       if (stopped && stopConfirmed) stopConfirmed();
       NSDictionary *reply = stopped ? @{@"version":@2,@"ok":@YES,@"sequence":@(sequence),@"status":@{@"availability":@"ready",@"state":@"off"}} : @{@"version":@2,@"ok":@NO,@"error":(error && *error) ? *error : @"cleanup is not proven"};
       NSMutableData *encoded = [JSONData(reply) mutableCopy]; [encoded appendBytes:"\n" length:1];
+#ifdef KURO_CORE_EXPERIMENT
+      _experimentStopAcknowledged=send(socket,encoded.bytes,encoded.length,MSG_NOSIGNAL|MSG_DONTWAIT)==(ssize_t)encoded.length && stopped;
+#else
       (void)send(socket, encoded.bytes, encoded.length, MSG_NOSIGNAL | MSG_DONTWAIT);
+#endif
       return stopped;
     }
     [buffer setLength:0]; sequence++; deadline = KuroMonotonicMilliseconds() + lease;

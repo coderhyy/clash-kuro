@@ -80,3 +80,9 @@ CI配置已串联native隔离测试→App dmg→disabled helper pkg，并保存s
 - 新诊断候选已固定到 `8ee323a48da5729217a0f730d4de850da867f0d9`；离线构建、全量 SHA256SUMS、inspect 与签名后 111 项 fixture 断言通过。normal/EOF 均未执行，等待新的同范围授权。精确产物、摘要、步骤及恢复边界见 [候选记录](../evidence/core-diagnostics-candidate-8ee323a/RESULT.md)。
 
 2026-11-05 新候选8ee323a仅运行一次normal：Core原始错误 `Parse config error: yaml: found unknown escape character`，自行exit1，阶段private-version-readiness；EOF未执行，未改配置或重试。日志完整保留，Core/owner/work及组消失证据已记录；失败策略保留固定Core副本与诊断。授权结束，见 [执行记录](../evidence/core-control-execution-8ee323a/RESULT.md)。
+
+## 长期交付执行授权（2026-11-05，覆盖旧的逐包等待约束）
+
+用户明确要求长期goal持续至macOS TUN首版实现、验证和可合并交付。允许同既定范围自主修改/构建/提交/CI、固定Core -t及无TUN normal/EOF诊断修复重试；允许重复已有生命周期/鉴权/fresh安装卸载实验，新候选须先核对来源摘要并留版本/影响/清理。管理员凭据和系统弹窗仍由用户处理。首次真实TUN网络实验前集中确认完整窗口；该窗口内同范围修复重试不逐包确认。注销/重启/关机、未知归属数据删除、第三方设置变更或扩范围仍单独授权。主会话串行系统实验，独立agent审查实现和验收真阳性；不新增票。
+
+已完成固定Core -t差分：仅将保存配置的 `\/` 改为 `/`，结果从相同unknown escape错误/exit1变为exit0。专用目录只含配置和日志；原始证据见 [差分结果](../evidence/yaml-core-differential/result.json)。该结果不等于normal/EOF或TUN通过。

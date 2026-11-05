@@ -25,7 +25,7 @@ node apps/desktop/scripts/build-core-control-experiment.mjs darwin-arm64
 
 ## 新候选诊断契约
 
-`experiment.json` 仍为八字段，success 仍为 16 字段；新候选的 `coreStdIO` 改为 `bounded-redacted-capture`，不接受旧包的 `discarded-to-dev-null` 作为新诊断证据。每次运行由 guardian 新建独立 `/private/tmp/kuro-core-evidence-XXXXXX` 目录（0700），与可清理的运行 `base` 分离；result 的 `diagnosticsDirectory` 指向该目录。准备脚本只在 `artifact.json` 记录契约，不预建或复用任何运行证据。
+`experiment.json` 仍为八字段，success 增为 17 字段（加入阶段触发证明 stopProof）；新候选的 `coreStdIO` 改为 `bounded-redacted-capture`，不接受旧包的 `discarded-to-dev-null` 作为新诊断证据。每次运行由 guardian 新建独立 `/private/tmp/kuro-core-evidence-XXXXXX` 目录（0700），与可清理的运行 `base` 分离；result 的 `diagnosticsDirectory` 指向该目录。准备脚本只在 `artifact.json` 记录契约，不预建或复用任何运行证据。
 
 目录内固定五个文件，均为 0600：
 
@@ -47,13 +47,13 @@ node apps/desktop/scripts/build-core-control-experiment.mjs darwin-arm64
 1. 只读复算冻结目录 `SHA256SUMS` 和 `artifact.json`，确认当前为普通 UID，源码/架构与本机匹配。只按精确输出目录和文件执行，不按程序名找其他 App/Core。
 2. 执行该目录 `core-experiment --self-test`：仅原生配置/fixture/session/control 校验，不运行真实 Core 或 `-t`。此结果与 builder 纯内存 self-check 区分记录。
 3. 获得授权后，才执行精确路径的 `core-experiment --normal`。执行器只读自身 canonical 目录的固定清单与 `mihomo`，使用内建 nonTUN/no-DNS/no-public-listener 配置和私有控制路径，固定序列验证 `/version`、有类型有限控制及读回（mode 与 DIRECT/REJECT 选择）、正常 stop 及清理证明。记录实际 fixed Core PID/start identity、执行器/guardian、临时工作目录与精确退出结果。
-4. 原生执行器先以独占创建写 `normal-attempt.json`；只有完整通过才写同 epoch/hash 绑定的 `normal-success.json`。success 闭合的 16 个字段是 `format/epoch/stage/status/coreSHA256/runnerSHA256/session/configSHA256/coreVersion/coreAbsent/ownerAbsent/workAbsent/groupAbsent/termination/coreStdIO/noIPReadbacks`。要求 `format:1`、对应 `stage`、`status:passed`、同 epoch/Core/runner 摘要、合法 session UUID 与 config 摘要、四个 absence 布尔值全 true、`termination.observed:true`、`coreStdIO:bounded-redacted-capture`、`noIPReadbacks:2`。失败结果 `<stage>-result.json` 不具有通过含义。失败、超时、未知停止、任何摘要/权限不符立即停止；不根据 PID 猜杀，不进入 EOF 阶段。重复同阶段被拒绝；如需修复重试，先审查/处理本次遗留，再冻结新 epoch。
+4. 原生执行器先以独占创建写 `normal-attempt.json`；只有完整通过才写同 epoch/hash 绑定的 `normal-success.json`。success 闭合的 17 个字段是 `format/epoch/stage/status/coreSHA256/runnerSHA256/session/configSHA256/coreVersion/coreAbsent/ownerAbsent/workAbsent/groupAbsent/termination/coreStdIO/noIPReadbacks/stopProof`。要求 `format:1`、对应 `stage`、`status:passed`、同 epoch/Core/runner 摘要、合法 session UUID 与 config 摘要、四个 absence 布尔值全 true、`termination.observed:true`、`coreStdIO:bounded-redacted-capture`、`noIPReadbacks:2`。失败结果 `<stage>-result.json` 不具有通过含义。失败、超时、未知停止、任何摘要/权限不符立即停止；不根据 PID 猜杀，不进入 EOF 阶段。重复同阶段被拒绝；如需修复重试，先审查/处理本次遗留，再冻结新 epoch。
 5. 仅 `--normal` 成功证据完整且继续获授权时执行 `core-experiment --eof`。原生再次校验同 epoch、Core/执行器/清单绑定的 normal 成功，先写 `eof-attempt.json`，由 guardian 对自己持有的 owner socket 执行写端关闭，验证生产 `KuroOwnedSession` 的 EOF 停止与清理；只有完整成功写 `eof-success.json`。这不是实际 Electron 进程断线实验。
 6. `--inspect` 只读校验固定产物身份和 `normal-success.json`，输出 receipt 与 `normalPassed`；它不读取各 stage result、不重新扫描工作目录/进程，也不清理残留。残留需从各 `<stage>-result.json` 的 `base` 开始另行只读检查；未知文件/进程保留，交人工审阅，不从持久 PID 取得 signal/清理授权。保存 stdout/stderr、阶段证据及摘要。
 
 guardian 的事件观察窗口为 15 秒，结束后走有限进程组清理：先给 worker 500ms 自然退出机会，再最多 SIGTERM 等 300ms、SIGKILL 等 1000ms；约 1.8 秒等待另含有限身份读回与调度开销，不是操作系统保证的硬实时总时限。worker 自身 owner socket lease 为 5 秒。只有 guardian 仍持有未 reap 的直接子进程 anchor、核对 PGID 与全部组成员时，才允许该有限清理；无法证明时保留证据并报告 blocked。
 
-success 的 `termination` 也是闭合对象：仅 `request/observed/exitCode/signal` 四字段，`request` 为 `none`、`SIGTERM` 或 `SIGKILL`，`observed:true`，且只能是 `exitCode:0..255` 配 `signal:null`，或 `exitCode:null` 配 `signal:1..NSIG-1`。该状态证明退出已观察，不要求 Core 必须自然退出；具体请求和退出结果原样留证。
+success 的 `termination` 也是闭合对象：仅 `request/observed/exitCode/signal` 四字段，`request` 为 `none`、`SIGTERM` 或 `SIGKILL`，`observed:true`，且只能是 `exitCode:0..255` 配 `signal:null`，或 `exitCode:null` 配 `signal:1..NSIG-1`。原始退出结果原样留证，但成功凭据另要求本次请求 SIGTERM/SIGKILL，且实际 exitCode 为 0 或 signal 与请求一致；request:none、自退非零及触发证明不匹配均不得作为 normal/EOF 成功。
 
 **helper SIGKILL 阶段当前没有可执行入口，也不在上述授权范围。** 出现新的或未知残留时先报告，不能把正常 stop/EOF 的成功扩称跨 helper 崩溃恢复。
 
@@ -65,4 +65,10 @@ success 的 `termination` 也是闭合对象：仅 `request/observed/exitCode/si
 
 ## 当前候选
 
-诊断修复候选 `8ee323a48da5729217a0f730d4de850da867f0d9` 已离线构建且完成签名后 fixture 自检。精确路径、摘要及授权步骤见 [候选记录](evidence/core-diagnostics-candidate-8ee323a/RESULT.md)。旧 `639c64f` 包不变；新包尚未执行 normal/EOF。
+诊断修复候选 `8ee323a48da5729217a0f730d4de850da867f0d9` 已离线构建且完成签名后 fixture 自检。精确路径、摘要及授权步骤见 [候选记录](evidence/core-diagnostics-candidate-8ee323a/RESULT.md)。旧 `639c64f` 包不变；`8ee323a` 后续 normal 因 YAML 转义错误失败、EOF 未执行，实际结果见 [执行证据](evidence/core-control-execution-8ee323a/RESULT.md)。
+
+## YAML 与阶段真阳性修正（2026-11-05）
+
+固定Core真实-t差分确认可选JSON斜杠转义`\/`触发其YAML解析错误；实验配置序列化与生产KuroTunRuntimeJSON一样使用WithoutEscapingSlashes，协议/证据JSON不改。新success.stopProof为闭合对象：normal必须`{trigger:"owner-stop",acknowledged:true}`且guardian实际收到off ACK；EOF必须`{trigger:"owner-eof",acknowledged:false}`且session实际观察recv0。ready后自行退出、lease超时或协议错误即使清理成功也不是阶段通过。stage-result持久化失败不得发布success。此前16字段旧success不能给新候选解锁EOF。
+
+长期goal授权已覆盖固定范围内的Core -t/normal/EOF修复和新候选重试；各次仍须冻结并核验身份、保存版本与诊断，normal完整通过后才EOF。首次真实TUN网络窗口仍需集中批准。

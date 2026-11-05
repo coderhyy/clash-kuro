@@ -103,7 +103,7 @@ export async function buildCoreControlExperiment(target = `darwin-${process.arch
       bundleHashMeaning: 'SHA256 of sorted inventory.json for fixed payload files, not an App identity', appBundle: null, productionHelper: null,
       diagnostics,
       coreExecuted: false, experimentExecuted: false, coreSyntaxExecuted: false, installed: false, networkChangesAuthorized: false,
-      stages: { normal: 'requires separate authorization', eof: 'requires successful same-epoch normal evidence and authorization', helperSigkill: 'not implemented or executable' } }
+      stages: { normal: 'requires user authorization for this experiment scope; build never executes Core', eof: 'requires successful same-epoch normal evidence and authorization', helperSigkill: 'not implemented or executable' } }
     await writeFile(join(temporary, 'artifact.json'), json(artifact), { mode: 0o600, flag: 'wx' })
     const sums = []
     for (const name of (await readdir(temporary)).sort()) sums.push(`${sha256(await regular(join(temporary, name)))}  ${name}`)

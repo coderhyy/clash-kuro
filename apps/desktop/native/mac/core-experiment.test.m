@@ -1,9 +1,15 @@
 // Ordinary-user fixtures only: this code never locates or launches mihomo.
 static NSUInteger ExperimentAssertions=0;
 #define EXP_CHECK(value) do { ExperimentAssertions++; if(!(value)) { fprintf(stderr,"experiment fixture failed line %d: %s\n",__LINE__,#value);return 1; } }while(0)
+static void ExperimentFixtureExit(int number) {(void)number;_exit(37);}
 static int ExperimentFixtureCore(const char *directory,const char *configuration,const char *behavior) {
   NSString *work=@(directory),*path=@(configuration),*socketPath=[work stringByAppendingPathComponent:@"core.sock"];
   if(geteuid()==0 || ![work hasPrefix:@"/private/tmp/kuro-core-"] || ![path isEqual:[work stringByAppendingPathComponent:@"config.json"]])return 91;
+  // This fixture's JSON decoder is more permissive than the locked Core's
+  // YAML reader. Reject the exact escaped-slash regression before decoding.
+  NSData *configurationBytes=ReadProtected(work,path,geteuid(),NULL);
+  NSString *configurationText=[[NSString alloc]initWithData:configurationBytes encoding:NSUTF8StringEncoding];
+  if([configurationText containsString:@"\\/"])return 89;
   NSDictionary *value=ReadJSON(work,path,geteuid(),NULL);
   if(!value || ![value isEqual:ExperimentConfig(socketPath,value[@"secret"])])return 92;
   if(!strcmp(behavior,"fixture-early-exit")||!strcmp(behavior,"fixture-log-save-failure")) {
@@ -15,6 +21,7 @@ static int ExperimentFixtureCore(const char *directory,const char *configuration
     NSMutableData *bytes=[NSMutableData dataWithLength:ExperimentLogLimit-8];memset(bytes.mutableBytes,'x',bytes.length);[bytes appendData:[value[@"secret"]dataUsingEncoding:NSUTF8StringEncoding]];[bytes increaseLengthBy:ExperimentLogLimit*3];
     for(int fd=1;fd<=2;fd++) {NSUInteger offset=0;while(offset<bytes.length) {ssize_t used=write(fd,(const char *)bytes.bytes+offset,MIN((NSUInteger)1024,bytes.length-offset));if(used<=0)return 95;offset+=(NSUInteger)used;}}
   }
+  if(!strncmp(behavior,"fixture-ready-exit-",19))signal(SIGUSR1,ExperimentFixtureExit);
   struct sockaddr_un address;if(!KuroUnixSocketAddress(socketPath,&address,NULL))return 93;
   int listener=socket(AF_UNIX,SOCK_STREAM,0);
   if(listener<0 || bind(listener,(struct sockaddr *)&address,sizeof(address)) || listen(listener,4))return 94;
@@ -50,6 +57,14 @@ static int ExperimentFixtureCore(const char *directory,const char *configuration
 static int ExperimentSelfTests(void) {
   EXP_CHECK(geteuid()!=0);
   NSDictionary *config=ExperimentConfig(@"/private/tmp/test/core.sock",@"fixture-secret");
+  // The real 8ee323a run failed on \/ in external-controller-unix. Preserve
+  // the exact values while emitting the unescaped slashes accepted by Core.
+  NSData *encoded=ExperimentConfigData(@"/private/tmp/test/core.sock",@"fixture-secret");
+  NSString *encodedText=[[NSString alloc]initWithData:encoded encoding:NSUTF8StringEncoding];
+  EXP_CHECK([[[NSString alloc]initWithData:JSONData(config) encoding:NSUTF8StringEncoding]containsString:@"\\/"]);
+  EXP_CHECK(![encodedText containsString:@"\\/"]&&[encodedText containsString:@"/private/tmp/test/core.sock"]);
+  EXP_CHECK([[NSJSONSerialization JSONObjectWithData:encoded options:0 error:NULL]isEqual:config]);
+  EXP_CHECK([[NSJSONSerialization JSONObjectWithData:ExperimentConfigData(@"/private/tmp/test/core.sock",@"[REDACTED]") options:0 error:NULL]isEqual:ExperimentConfig(@"/private/tmp/test/core.sock",@"[REDACTED]")]);
   EXP_CHECK([config[@"tun"][@"enable"]isEqual:@NO]&&[config[@"dns"][@"enable"]isEqual:@NO]);
   EXP_CHECK([config[@"dns"][@"default-nameserver"]isEqual:@[@"127.0.0.1"]]);
   for(NSString *key in @[@"port",@"socks-port",@"mixed-port",@"redir-port",@"tproxy-port"])EXP_CHECK([config[key]isEqual:@0]);
@@ -107,6 +122,13 @@ static int ExperimentSelfTests(void) {
   EXP_CHECK([ExperimentRedact([@"headknown-sens"dataUsingEncoding:NSUTF8StringEncoding],known)isEqual:[@"head[REDACTED]"dataUsingEncoding:NSUTF8StringEncoding]]);
   char permissionTemporary[]="/private/tmp/kuro-core-evidence-XXXXXX";EXP_CHECK(mkdtemp(permissionTemporary));NSString *permissionDirectory=@(permissionTemporary),*permissionFile=[permissionDirectory stringByAppendingPathComponent:@"stdout.log"];NSData *empty=[NSData data];
   EXP_CHECK(ExperimentSave(permissionDirectory,@"stdout.log",empty,NULL));EXP_CHECK(!chmod(permissionDirectory.fileSystemRepresentation,0755));EXP_CHECK(!ExperimentSave(permissionDirectory,@"blocked.log",empty,NULL));EXP_CHECK(!ExperimentPublishLog(permissionDirectory,@"stdout.log",empty,empty,NULL));EXP_CHECK(!chmod(permissionDirectory.fileSystemRepresentation,0700));EXP_CHECK(!chmod(permissionFile.fileSystemRepresentation,0644));EXP_CHECK(!ExperimentSave(permissionDirectory,@"stdout.log",empty,NULL));EXP_CHECK(!ExperimentPublishLog(permissionDirectory,@"stdout.log",empty,empty,NULL));EXP_CHECK(!unlink(permissionFile.fileSystemRepresentation)&&!rmdir(permissionDirectory.fileSystemRepresentation));
+  for(NSString *stage in @[@"fixture-ready-exit-normal",@"fixture-ready-exit-eof"]) {
+    NSString *error=nil;NSDictionary *result=ExperimentGuardian(stage,manifest,YES,&error),*worker=result[@"worker"];
+    EXP_CHECK(result[@"readback"]!=nil&&[result[@"status"]isEqual:@"blocked"]);
+    EXP_CHECK([worker[@"termination"][@"exitCode"]isEqual:@37]);
+    EXP_CHECK([worker[@"stopProof"][@"trigger"]isEqual:@"unexpected"]);
+    EXP_CHECK([worker[@"workAbsent"]isEqual:@YES]&&[worker[@"ownerAbsent"]isEqual:@YES]);
+  }
   // The worker exits unexpectedly after reporting its exact Core identity.
   // The live outer guardian must reclaim its anchored group, not a stored PID.
   NSString *crashError=nil;NSDictionary *crashed=ExperimentGuardian(@"fixture-worker-exit",manifest,YES,&crashError);
@@ -115,8 +137,20 @@ static int ExperimentSelfTests(void) {
   EXP_CHECK(ExperimentAbsent(crashed[@"coreIdentity"]));
   // A crash retains owner/work evidence; do not pretend file cleanup succeeded.
   EXP_CHECK(Exists([crashed[@"base"]stringByAppendingPathComponent:@"owner.json"]));
-  NSDictionary *success=@{@"format":@1,@"epoch":manifest[@"epoch"],@"stage":@"normal",@"status":@"passed",@"coreSHA256":manifest[@"coreSHA256"],@"runnerSHA256":manifest[@"runnerSHA256"],@"session":NSUUID.UUID.UUIDString,@"configSHA256":manifest[@"coreSHA256"],@"coreVersion":@"fixture-1",@"coreAbsent":@YES,@"ownerAbsent":@YES,@"workAbsent":@YES,@"groupAbsent":@YES,@"termination":@{@"request":@"SIGTERM",@"observed":@YES,@"exitCode":NSNull.null,@"signal":@15},@"coreStdIO":@"bounded-redacted-capture",@"noIPReadbacks":@2};
+  NSDictionary *success=@{@"format":@1,@"epoch":manifest[@"epoch"],@"stage":@"normal",@"status":@"passed",@"coreSHA256":manifest[@"coreSHA256"],@"runnerSHA256":manifest[@"runnerSHA256"],@"session":NSUUID.UUID.UUIDString,@"configSHA256":manifest[@"coreSHA256"],@"coreVersion":@"fixture-1",@"coreAbsent":@YES,@"ownerAbsent":@YES,@"workAbsent":@YES,@"groupAbsent":@YES,@"termination":@{@"request":@"SIGTERM",@"observed":@YES,@"exitCode":NSNull.null,@"signal":@15},@"coreStdIO":@"bounded-redacted-capture",@"noIPReadbacks":@2,@"stopProof":@{@"trigger":@"owner-stop",@"acknowledged":@YES}};
   EXP_CHECK(ExperimentSuccess(success,manifest,@"normal"));
+  NSMutableDictionary *badProof=[success mutableCopy];badProof[@"stopProof"]=@{@"trigger":@"owner-eof",@"acknowledged":@NO};EXP_CHECK(!ExperimentSuccess(badProof,manifest,@"normal"));badProof[@"stopProof"]=@{@"trigger":@"owner-stop",@"acknowledged":@NO};EXP_CHECK(!ExperimentSuccess(badProof,manifest,@"normal"));badProof[@"stopProof"]=@{@"trigger":@"owner-stop",@"acknowledged":@YES,@"extra":@YES};EXP_CHECK(!ExperimentSuccess(badProof,manifest,@"normal"));
+  NSMutableDictionary *fatalSuccess=[success mutableCopy];fatalSuccess[@"termination"]=@{@"request":@"none",@"observed":@YES,@"exitCode":@37,@"signal":NSNull.null};EXP_CHECK(!ExperimentSuccess(fatalSuccess,manifest,@"normal"));
+  char receiptTemporary[]="/private/tmp/kuro-core-XXXXXX";EXP_CHECK(mkdtemp(receiptTemporary));NSString *receiptDirectory=@(receiptTemporary),*receiptFinal=[receiptDirectory stringByAppendingPathComponent:@"normal-success.json"];
+  __block NSString *failedTemporary=nil;
+  EXP_CHECK(!ExperimentPublishSuccess(receiptDirectory,@"normal",success,^BOOL(NSString *path,NSData *bytes,NSString **error) {failedTemporary=path;return WriteNew(path,bytes,0600,error)&&Fail(error,@"injected post-write sync failure");},NULL));
+  EXP_CHECK(!Exists(receiptFinal)&&Exists(failedTemporary));EXP_CHECK(!ExperimentSuccess(ReadJSON(receiptDirectory,receiptFinal,geteuid(),NULL),manifest,@"normal"));EXP_CHECK(!unlink(failedTemporary.fileSystemRepresentation));
+  EXP_CHECK(WriteNew(receiptFinal,[@"unknown receipt"dataUsingEncoding:NSUTF8StringEncoding],0600,NULL));EXP_CHECK(!ExperimentPublishSuccess(receiptDirectory,@"normal",success,nil,NULL));EXP_CHECK([[NSData dataWithContentsOfFile:receiptFinal]isEqual:[@"unknown receipt"dataUsingEncoding:NSUTF8StringEncoding]]);EXP_CHECK(!unlink(receiptFinal.fileSystemRepresentation));
+  for(NSString *file in [[NSFileManager defaultManager]contentsOfDirectoryAtPath:receiptDirectory error:NULL]) {NSString *own=[receiptDirectory stringByAppendingPathComponent:file];EXP_CHECK([file hasPrefix:@".normal-success-"]&&[ReadProtected(receiptDirectory,own,geteuid(),NULL)isEqual:JSONData(success)]);EXP_CHECK(!unlink(own.fileSystemRepresentation));}
+  EXP_CHECK(ExperimentPublishSuccess(receiptDirectory,@"normal",success,nil,NULL));EXP_CHECK(ExperimentSuccess(ReadJSON(receiptDirectory,receiptFinal,geteuid(),NULL),manifest,@"normal"));EXP_CHECK(!unlink(receiptFinal.fileSystemRepresentation)&&!rmdir(receiptDirectory.fileSystemRepresentation));
+  char resultTemporary[]="/private/tmp/kuro-core-XXXXXX";EXP_CHECK(mkdtemp(resultTemporary));NSString *resultDirectory=@(resultTemporary),*resultPath=[resultDirectory stringByAppendingPathComponent:@"normal-result.json"];NSData *occupied=[@"unknown object"dataUsingEncoding:NSUTF8StringEncoding];
+  EXP_CHECK(WriteNew(resultPath,occupied,0600,NULL));EXP_CHECK([ExperimentPersistResult(resultDirectory,@"normal",success,NULL)[@"status"]isEqual:@"blocked"]);EXP_CHECK([[NSData dataWithContentsOfFile:resultPath]isEqual:occupied]);EXP_CHECK(!Exists([resultDirectory stringByAppendingPathComponent:@"normal-success.json"]));EXP_CHECK(!unlink(resultPath.fileSystemRepresentation));
+  EXP_CHECK(!symlink("/dev/null",resultPath.fileSystemRepresentation));EXP_CHECK([ExperimentPersistResult(resultDirectory,@"normal",success,NULL)[@"status"]isEqual:@"blocked"]);struct stat existing={0};EXP_CHECK(!lstat(resultPath.fileSystemRepresentation,&existing)&&S_ISLNK(existing.st_mode));EXP_CHECK(!unlink(resultPath.fileSystemRepresentation));EXP_CHECK([ExperimentPersistResult(resultDirectory,@"normal",success,NULL)[@"status"]isEqual:@"passed"]);EXP_CHECK(!unlink(resultPath.fileSystemRepresentation)&&!rmdir(resultDirectory.fileSystemRepresentation));
   for(NSString *key in @[@"epoch",@"coreSHA256",@"runnerSHA256",@"coreAbsent",@"ownerAbsent",@"workAbsent",@"groupAbsent",@"extra"]) {
     NSMutableDictionary *changed=[success mutableCopy];changed[key]=[key hasSuffix:@"Absent"]?@NO:@"changed";
     EXP_CHECK(!ExperimentSuccess(changed,manifest,@"normal"));
