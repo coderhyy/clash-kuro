@@ -82,6 +82,16 @@ static int ExperimentSelfTests(void) {
     EXP_CHECK([result[@"status"]isEqual:@"passed"]);
     EXP_CHECK([result[@"groupAbsent"]isEqual:@YES]);
     EXP_CHECK([result[@"worker"][@"termination"][@"observed"]isEqual:@YES]);
+    // Consume the real worker's decoded wire result through the same receipt
+    // builder as --normal/--eof; NSNumber equality alone accepts integer 1.
+    NSDictionary *receipt=ExperimentSuccessReceipt(manifest,stage,result);
+    NSDictionary *decoded=KuroDecodeJSON(JSONData(receipt),65536,NULL);
+    EXP_CHECK(ExperimentSuccess(decoded,manifest,stage));
+    for(NSString *key in @[@"coreAbsent",@"ownerAbsent",@"workAbsent",@"groupAbsent"]) {
+      EXP_CHECK(KuroBool(result[@"worker"][key]?:result[key])&&KuroBool(decoded[key]));
+      NSMutableDictionary *numeric=[decoded mutableCopy];numeric[key]=@1;
+      EXP_CHECK(!ExperimentSuccess(numeric,manifest,stage));
+    }
     EXP_CHECK(!Exists(result[@"base"]));
   }
   for(NSString *stage in @[@"fixture-early-exit",@"fixture-output",@"fixture-timeout"]) {

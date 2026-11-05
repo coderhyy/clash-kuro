@@ -86,3 +86,5 @@ CI配置已串联native隔离测试→App dmg→disabled helper pkg，并保存s
 用户明确要求长期goal持续至macOS TUN首版实现、验证和可合并交付。允许同既定范围自主修改/构建/提交/CI、固定Core -t及无TUN normal/EOF诊断修复重试；允许重复已有生命周期/鉴权/fresh安装卸载实验，新候选须先核对来源摘要并留版本/影响/清理。管理员凭据和系统弹窗仍由用户处理。首次真实TUN网络实验前集中确认完整窗口；该窗口内同范围修复重试不逐包确认。注销/重启/关机、未知归属数据删除、第三方设置变更或扩范围仍单独授权。主会话串行系统实验，独立agent审查实现和验收真阳性；不新增票。
 
 已完成固定Core -t差分：仅将保存配置的 `\/` 改为 `/`，结果从相同unknown escape错误/exit1变为exit0。专用目录只含配置和日志；原始证据见 [差分结果](../evidence/yaml-core-differential/result.json)。该结果不等于normal/EOF或TUN通过。
+
+2026-11-05 `6b45cb4`真实normal已完成固定Core v1.19.33控制接口、mode/选择读回、两次NoIP观测和stop ACK→SIGTERM→exit0，Core/组/整个base消失。严格success schema拒绝worker.ownerAbsent/workAbsent的数字1（应为boolean），runner exit2、无normal-success，EOF未执行；按已有长期授权修producer类型与真实worker到receipt回归后另冻epoch，不放宽schema。[证据](../evidence/core-control-execution-6b45cb4/RESULT.md)。

@@ -320,9 +320,10 @@ finish:
   BOOL trigger=eofStage?session.experimentStopTrigger==KuroExperimentStopOwnerEOF:(session.experimentStopTrigger==KuroExperimentStopOwnerRequest&&session.experimentStopAcknowledged);
   BOOL off=session.off&&!Exists(work),absent=identity&&ExperimentAbsent(identity),passed=success&&off&&absent&&!diagnosticError&&trigger&&ExperimentControlledTermination(session.terminationEvidence);
   if(success&&!passed)failureStage=!off||!absent?@"runtime-cleanup":!trigger?@"owner-stop-proof":@"core-termination-proof";
-  NSDictionary *diagnostics=@{@"format":@1,@"failureStage":passed?(id)NSNull.null:failureStage,@"termination":session.terminationEvidence,@"capture":[output statistics],@"cacheIdentity":cacheIdentity?:(id)NSNull.null,@"diagnosticError":diagnosticError?:@"",@"configSHA256":digest,@"redactedConfigSHA256":Hash(redactedConfig),@"workAbsent":@(!Exists(work)),@"ownerAbsent":@(!Exists([base stringByAppendingPathComponent:@"owner.json"]))};
+  BOOL workAbsent=!Exists(work),ownerAbsent=!Exists([base stringByAppendingPathComponent:@"owner.json"]);
+  NSDictionary *diagnostics=@{@"format":@1,@"failureStage":passed?(id)NSNull.null:failureStage,@"termination":session.terminationEvidence,@"capture":[output statistics],@"cacheIdentity":cacheIdentity?:(id)NSNull.null,@"diagnosticError":diagnosticError?:@"",@"configSHA256":digest,@"redactedConfigSHA256":Hash(redactedConfig),@"workAbsent":@(workAbsent),@"ownerAbsent":@(ownerAbsent)};
   if(!ExperimentPublishLog(evidence,@"diagnostics.json",JSONData(diagnostics),diagnosticCheckpoint,&diagnosticError)||!SyncInstallDirectory(evidence,&diagnosticError))passed=NO;
-  NSDictionary *result=@{@"event":@"done",@"success":@(passed),@"session":session.identifier,@"configSHA256":digest,@"coreVersion":version[@"version"]?:@"unconfirmed",@"coreAbsent":@(absent),@"ownerAbsent":@(!Exists([base stringByAppendingPathComponent:@"owner.json"])),@"workAbsent":@(!Exists(work)),@"termination":session.terminationEvidence,@"failureStage":passed?(id)NSNull.null:failureStage,@"diagnosticError":diagnosticError?:@"",@"diagnosticsDirectory":evidence,@"stopProof":ExperimentStopProof(session),@"error":error?:@"",@"inventory":ExperimentInventory(base)};
+  NSDictionary *result=@{@"event":@"done",@"success":@(passed),@"session":session.identifier,@"configSHA256":digest,@"coreVersion":version[@"version"]?:@"unconfirmed",@"coreAbsent":@(absent),@"ownerAbsent":@(ownerAbsent),@"workAbsent":@(workAbsent),@"termination":session.terminationEvidence,@"failureStage":passed?(id)NSNull.null:failureStage,@"diagnosticError":diagnosticError?:@"",@"diagnosticsDirectory":evidence,@"stopProof":ExperimentStopProof(session),@"error":error?:@"",@"inventory":ExperimentInventory(base)};
   (void)ExperimentSend(3,result);close(3);return passed?0:2;
 }
 static NSArray *ExperimentGroupMembers(pid_t group,NSString **error) {
@@ -454,6 +455,10 @@ static BOOL ExperimentSuccess(NSDictionary *value,NSDictionary *manifest,NSStrin
   if(!Keys(termination,@[@"request",@"observed",@"exitCode",@"signal"]) || ![termination[@"observed"]isEqual:@YES] || ![@[@"none",@"SIGTERM",@"SIGKILL"]containsObject:termination[@"request"]])return NO;
   return ExperimentControlledTermination(termination)&&((termination[@"signal"]==NSNull.null&&KuroNumber(termination[@"exitCode"],0,255))||(termination[@"exitCode"]==NSNull.null&&KuroNumber(termination[@"signal"],1,NSIG-1)));
 }
+static NSDictionary *ExperimentSuccessReceipt(NSDictionary *manifest,NSString *stage,NSDictionary *result) {
+  NSDictionary *worker=result[@"worker"],*readback=result[@"readback"];
+  return @{@"format":@1,@"epoch":manifest[@"epoch"],@"stage":stage,@"status":@"passed",@"coreSHA256":manifest[@"coreSHA256"],@"runnerSHA256":manifest[@"runnerSHA256"],@"session":worker[@"session"],@"configSHA256":worker[@"configSHA256"],@"coreVersion":worker[@"coreVersion"],@"coreAbsent":worker[@"coreAbsent"],@"ownerAbsent":worker[@"ownerAbsent"],@"workAbsent":worker[@"workAbsent"],@"groupAbsent":@YES,@"termination":worker[@"termination"],@"coreStdIO":@"bounded-redacted-capture",@"noIPReadbacks":readback[@"noIPReadbacks"],@"stopProof":worker[@"stopProof"]};
+}
 static NSDictionary *ExperimentPersistResult(NSString *review,NSString *stage,NSDictionary *result,NSString **error) {
   if(WriteNew([review stringByAppendingPathComponent:[stage stringByAppendingString:@"-result.json"]],JSONData(result),0600,error))return result;
   NSMutableDictionary *blocked=[result mutableCopy];blocked[@"status"]=@"blocked";blocked[@"error"]=@"stage result could not be persisted; existing object preserved";return blocked;
@@ -482,8 +487,7 @@ static int ExperimentRun(NSString *stage) {
   result=ExperimentPersistResult(review,stage,result,&error);
   BOOL passed=[result[@"status"]isEqual:@"passed"];
   if(passed) {
-    NSDictionary *worker=result[@"worker"],*readback=result[@"readback"];
-    NSDictionary *success=@{@"format":@1,@"epoch":manifest[@"epoch"],@"stage":stage,@"status":@"passed",@"coreSHA256":manifest[@"coreSHA256"],@"runnerSHA256":manifest[@"runnerSHA256"],@"session":worker[@"session"],@"configSHA256":worker[@"configSHA256"],@"coreVersion":worker[@"coreVersion"],@"coreAbsent":worker[@"coreAbsent"],@"ownerAbsent":worker[@"ownerAbsent"],@"workAbsent":worker[@"workAbsent"],@"groupAbsent":@YES,@"termination":worker[@"termination"],@"coreStdIO":@"bounded-redacted-capture",@"noIPReadbacks":readback[@"noIPReadbacks"],@"stopProof":worker[@"stopProof"]};
+    NSDictionary *success=ExperimentSuccessReceipt(manifest,stage,result);
     passed=ExperimentSuccess(success,manifest,stage)&&ExperimentPublishSuccess(review,stage,success,nil,&error);
     if(!passed) {NSMutableDictionary *blocked=[result mutableCopy];blocked[@"status"]=@"blocked";blocked[@"error"]=error?:@"stage success proof could not be persisted";result=blocked;}
   }
