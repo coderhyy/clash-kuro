@@ -137,3 +137,6 @@ Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
 
 
 2026-11-05 已实现protocol-2安装升级事务及明确恢复入口，102个中断点和真实截断载荷拒绝fixture通过；截断/未知载荷保留，不宣称自动修复。App-only升级以完整client inventory摘要区分release。真实管理员安装升级卸载验收仍待执行。 见[集成证据](../evidence/upgrade-proxy-integration/RESULT.md)。
+
+
+2026-11-05 `d62675f583c3794fa4c75dcdf4c2e514d2db74d8`双平台CI通过；同提交fresh/upgrade实际包离线独审通过。新fresh包真实管理员安装、精确身份/neverStarted回执核验、固定入口卸载及Installer receipt清理均通过，job始终未启动、Core/App/TUN未运行。空的既有Client父目录原inode保留；无手工删除或PID终止。升级包尚未真实升级，运行后卸载及网络验收仍未通过。见[本次证据](../evidence/finite-candidate-d62675f/RESULT.md)。

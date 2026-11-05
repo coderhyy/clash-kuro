@@ -181,3 +181,6 @@ helper死亡/跨重启对仍存在route/DNS的恢复、真实Core可能detach的
 
 
 2026-11-05 4441983候选已撤回，不安装。替代实现已通过原生含升级/固定Core语法验证、类型检查及94项代理/platform测试；尚未冻结新包或进行真实安装/网络实验。首次网络窗口授权仍待用户明确批准。 见[集成证据](../evidence/upgrade-proxy-integration/RESULT.md)。
+
+
+2026-11-05 `d62675f583c3794fa4c75dcdf4c2e514d2db74d8`双平台CI通过；同提交fresh/upgrade实际包离线独审通过。新fresh包真实管理员安装、精确身份/neverStarted回执核验、固定入口卸载及Installer receipt清理均通过，job始终未启动、Core/App/TUN未运行。空的既有Client父目录原inode保留；无手工删除或PID终止。升级包尚未真实升级，运行后卸载及网络验收仍未通过。见[本次证据](../evidence/finite-candidate-d62675f/RESULT.md)。

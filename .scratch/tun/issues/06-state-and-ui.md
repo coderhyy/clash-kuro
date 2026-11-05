@@ -74,3 +74,6 @@ LAN/split支持边界具体为：保留现有更具体route及已识别的search
 
 
 2026-11-05 已收敛macOS代理清理：仅回退本adapter已记录且当前仍匹配的写入，未知/第三方状态保留；TUN启动独立确认HTTP/HTTPS关闭，清代理失败仍停止普通Core。内存归属与非原子外部竞争限制明确保留。 见[集成证据](../evidence/upgrade-proxy-integration/RESULT.md)。
+
+
+2026-11-05 有限独审确认跨helper恢复仍缺：活Core退出证明、仍存自有网络项的有限清理授权、reap前cache来源凭据。固定mihomo/sing-tun源码逐blob核对支持沿用现有launchd组策略，无需据当前证据增加监护层；源码审查不等于发布Core运行证据。下一步在既有生命周期实验中准备无TUN固定Core组清理验证，未授权/未执行真实job+Core强杀。普通Core normal/EOF和原helper仍活时的recover不得外推跨helper恢复已完成。
