@@ -20,6 +20,7 @@ static BOOL KuroSessionTemplate(NSString *value) {
 typedef BOOL (^KuroSessionResumeGate)(KuroSessionHook resume, NSString **error);
 typedef int (*KuroRestartReader)(int,int,uint64_t,void *,int);
 typedef int (*KuroRestartGroupReader)(uint32_t,uint32_t,void *,int);
+typedef BOOL (^KuroRestartWriterValidator)(NSDictionary *owner,NSString **error);
 typedef BOOL (^KuroRestartWorkCleanup)(NSDictionary *record,KuroSessionHook stillAbsent,NSString **error);
 // A fresh helper never kills or adopts this PID. Any observed process, including
 // a different start identity, prevents deletion; only explicit ESRCH is absence.
@@ -78,6 +79,16 @@ static NSDictionary *KuroWorkCacheSnapshot(NSString *directory,uid_t owner,NSStr
     @"modifiedSeconds":@(after.st_mtimespec.tv_sec),@"modifiedNanos":@(after.st_mtimespec.tv_nsec),@"changedSeconds":@(after.st_ctimespec.tv_sec),@"changedNanos":@(after.st_ctimespec.tv_nsec),@"sha256":Hash(bytes)};
   if(!KuroWorkCacheReceipt(receipt)) { Fail(error,@"fixed Core cache identity exceeds its closed receipt");return nil; } return receipt;
 }
+static BOOL KuroWorkDirectoryReceipt(id value) {
+  return Keys(value,@[@"device",@"inode",@"owner",@"mode"]) && KuroNumber(value[@"device"],0,9007199254740991ULL) &&
+    KuroNumber(value[@"inode"],1,9007199254740991ULL) && KuroNumber(value[@"owner"],0,UINT_MAX) && KuroNumber(value[@"mode"],0700,0700);
+}
+static NSDictionary *KuroWorkDirectorySnapshot(NSString *directory,uid_t owner,NSString **error) {
+  NSString *work=[directory stringByAppendingPathComponent:@"session-work"];struct stat node={0};
+  if(!SafeChain(directory,work,owner,YES,error) || lstat(work.fileSystemRepresentation,&node) || !SafeMetadata(node,owner,YES) || (node.st_mode&07777)!=0700) {Fail(error,@"fixed work directory ownership or mode changed");return nil;}
+  NSDictionary *value=@{@"device":@((uint64_t)node.st_dev),@"inode":@((uint64_t)node.st_ino),@"owner":@(node.st_uid),@"mode":@(node.st_mode&07777)};
+  if(!KuroWorkDirectoryReceipt(value)){Fail(error,@"fixed work directory identity exceeds its closed receipt");return nil;}return value;
+}
 // Provenance only: it never establishes that any writer has stopped.
 static BOOL KuroWorkCacheOrigin(id value) {
   return Keys(value,@[@"device",@"inode",@"owner",@"mode"]) && KuroNumber(value[@"device"],0,9007199254740991ULL) &&
@@ -89,7 +100,11 @@ static BOOL KuroWorkCacheMatchesOrigin(NSDictionary *snapshot,NSDictionary *orig
 }
 // Provenance only. This does not prove writer exit or grant restart deletion rights.
 static BOOL KuroSupervisionEvidence(id value) {
-  return Keys(value,@[@"policy",@"helperSHA256",@"startSeconds",@"startMicros"]) &&
+  if(!KuroMapping(value,@[@"policy",@"helperSHA256",@"startSeconds",@"startMicros"],@[@"installation"]))return NO;
+  NSDictionary *installation=value[@"installation"];
+  if(installation && (!Keys(installation,@[@"release",@"manifestSHA256",@"freshReceiptSHA256",@"coreSHA256"]) || !Match(installation[@"release"],@"\\A[A-Za-z0-9.-]{1,120}\\z") ||
+    !Match(installation[@"manifestSHA256"],@"\\A[0-9a-f]{64}\\z") || !Match(installation[@"freshReceiptSHA256"],@"\\A[0-9a-f]{64}\\z") || !Match(installation[@"coreSHA256"],@"\\A[0-9a-f]{64}\\z")))return NO;
+  return
     [value[@"policy"]isEqual:@"fixed-mihomo-launchd-v1"] && Match(value[@"helperSHA256"],@"\\A[0-9a-f]{64}\\z") &&
     KuroNumber(value[@"startSeconds"],1,9007199254740991ULL) && KuroNumber(value[@"startMicros"],0,999999);
 }
@@ -102,12 +117,16 @@ static BOOL KuroRestartRecord(NSDictionary *record,NSString **error) {
   if(record[@"supervision"] && (!KuroSupervisionEvidence(record[@"supervision"]) || !KuroNumber(record[@"format"],2,2) ||
      ![record[@"parent"]isEqual:record[@"processGroup"]] || [record[@"pid"]isEqual:record[@"parent"]]))return Fail(error,@"invalid closed helper supervision provenance");
   NSDictionary *launch=record[@"launch"];
-  if(launch && (!Keys(launch,@[@"configSHA256",@"coreSHA256",@"template"]) || !Match(launch[@"configSHA256"],@"\\A[0-9a-f]{64}\\z") || ![launch[@"coreSHA256"]isEqual:record[@"executableSHA256"]] || !KuroSessionTemplate(launch[@"template"])))return Fail(error,@"old Core launch evidence does not match its owner");
+  if(launch && (!KuroMapping(launch,@[@"configSHA256",@"coreSHA256",@"template"],@[@"runtimeSHA256"]) || !Match(launch[@"configSHA256"],@"\\A[0-9a-f]{64}\\z") || ![launch[@"coreSHA256"]isEqual:record[@"executableSHA256"]] || !KuroSessionTemplate(launch[@"template"]) || (launch[@"runtimeSHA256"] && !Match(launch[@"runtimeSHA256"],@"\\A[0-9a-f]{64}\\z"))))return Fail(error,@"old Core launch evidence does not match its owner");
   NSDictionary *work=record[@"work"];
   if([record[@"format"]isEqual:@1])return !work || Fail(error,@"legacy owner cannot carry unversioned work evidence");
-  if(!launch || !KuroMapping(work,@[@"configSHA256",@"socket"],@[@"cache",@"cacheOrigin"]) || !Match(work[@"configSHA256"],@"\\A[0-9a-f]{64}\\z"))return Fail(error,@"old Core work receipt is incomplete");
+  if(!launch || !KuroMapping(work,@[@"configSHA256",@"socket"],@[@"cache",@"cacheOrigin",@"cacheCheckpoint",@"directory"]) || !Match(work[@"configSHA256"],@"\\A[0-9a-f]{64}\\z"))return Fail(error,@"old Core work receipt is incomplete");
   if(work[@"cache"] && !KuroWorkCacheReceipt(work[@"cache"]))return Fail(error,@"old Core cache receipt is invalid");
   if(work[@"cacheOrigin"] && (!KuroWorkCacheOrigin(work[@"cacheOrigin"]) || (work[@"cache"] && !KuroWorkCacheMatchesOrigin(work[@"cache"],work[@"cacheOrigin"],[work[@"cacheOrigin"][@"owner"]unsignedIntValue]))))return Fail(error,@"old Core cache provenance is invalid or differs from final receipt");
+  if(work[@"directory"] && !KuroWorkDirectoryReceipt(work[@"directory"]))return Fail(error,@"old Core work directory identity is invalid");
+  NSDictionary *installation=record[@"supervision"][@"installation"];
+  if(installation && (!work[@"directory"] || ![installation[@"coreSHA256"]isEqual:record[@"executableSHA256"]] || ![launch[@"runtimeSHA256"]isEqual:work[@"configSHA256"]]))return Fail(error,@"installed supervision does not match the fixed Core/runtime receipt");
+  if(work[@"cacheCheckpoint"] && (![work[@"cacheCheckpoint"]isEqual:@"validated-restart-v1"] || !installation || !work[@"cacheOrigin"] || !work[@"cache"]))return Fail(error,@"restart cache checkpoint lacks its closed source binding");
   id socket=work[@"socket"];
   return socket==NSNull.null || (Keys(socket,@[@"device",@"inode"]) && KuroNumber(socket[@"device"],0,9007199254740991ULL) && KuroNumber(socket[@"inode"],1,9007199254740991ULL)) || Fail(error,@"old Core socket receipt is invalid");
 }
@@ -183,6 +202,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
 - (BOOL)recordWorkSocket:(NSDictionary *)identity error:(NSString **)error;
 - (BOOL)recordReapedWorkCache:(NSDictionary *)identity error:(NSString **)error;
 - (BOOL)recoverExitedOwnerWithNetwork:(KuroSessionHook)network workCleanup:(KuroRestartWorkCleanup)workCleanup error:(NSString **)error;
+- (BOOL)recoverExitedOwnerWithNetwork:(KuroSessionHook)network writerValidator:(KuroRestartWriterValidator)validator workCleanup:(KuroRestartWorkCleanup)workCleanup error:(NSString **)error;
 
 - (instancetype)initWithDirectory:(NSString *)directory owner:(uid_t)owner;
 - (BOOL)spawnExecutable:(NSString *)executable arguments:(NSArray<NSString *> *)arguments beforeResume:(KuroSessionHook)prepare afterReap:(KuroSessionHook)cleanup error:(NSString **)error;
@@ -284,6 +304,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   NSString *path=[_directory stringByAppendingPathComponent:@"owner.json"]; NSData *bytes=ReadProtected(_directory,path,_owner,error);
   NSDictionary *record=bytes?KuroDecodeJSON(bytes,MessageLimit,error):nil;
   if(!KuroRestartRecord(record,error) || ![record[@"format"]isEqual:@2] || ![record[@"session"]isEqual:_identifier] || ![record[@"pid"]isEqual:@(_child)])return Fail(error,@"private socket checkpoint has no matching work owner");
+  if(record[@"work"][@"directory"] && ![KuroWorkDirectorySnapshot(_directory,_owner,error)isEqual:record[@"work"][@"directory"]])return Fail(error,@"private socket work directory differs from its owner receipt");
   id previous=record[@"work"][@"socket"];
   if(previous!=NSNull.null)return ([previous isEqual:identity] && [self syncDirectory:error]) || Fail(error,@"private socket differs from durable owner checkpoint or directory sync failed");
   NSMutableDictionary *updated=[record mutableCopy],*work=[record[@"work"]mutableCopy]; work[@"socket"]=[identity copy]; updated[@"work"]=work;
@@ -296,6 +317,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   NSString *path=[_directory stringByAppendingPathComponent:@"owner.json"];NSData *bytes=ReadProtected(_directory,path,_owner,error);
   NSDictionary *record=bytes?KuroDecodeJSON(bytes,MessageLimit,error):nil;
   if(!KuroRestartRecord(record,error) || ![record[@"format"]isEqual:@2] || ![record[@"session"]isEqual:_identifier] || ![bytes isEqual:_heldOwnerBytes])return Fail(error,@"cache checkpoint has no matching held work owner");
+  if(record[@"work"][@"directory"] && ![KuroWorkDirectorySnapshot(_directory,_owner,error)isEqual:record[@"work"][@"directory"]])return Fail(error,@"reaped cache work directory differs from its owner receipt");
   NSDictionary *origin=record[@"work"][@"cacheOrigin"];
   if(_workCacheOrigin || origin) {
     if(![origin isEqual:_workCacheOrigin] || !KuroWorkCacheMatchesOrigin(identity,origin,_owner))return Fail(error,@"reaped cache differs from precreated provenance; preserve work");
@@ -306,6 +328,9 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   return [self publishOwner:updated replacing:bytes error:error];
 }
 - (BOOL)recoverExitedOwnerWithNetwork:(KuroSessionHook)network workCleanup:(KuroRestartWorkCleanup)workCleanup error:(NSString **)error {
+  return [self recoverExitedOwnerWithNetwork:network writerValidator:nil workCleanup:workCleanup error:error];
+}
+- (BOOL)recoverExitedOwnerWithNetwork:(KuroSessionHook)network writerValidator:(KuroRestartWriterValidator)validator workCleanup:(KuroRestartWorkCleanup)workCleanup error:(NSString **)error {
   if(![self onThread:error] || _child || _journaled || _unknown || !network || !workCleanup || ![self directoryProtected:error])return Fail(error,@"fresh protected owner context and bounded recovery hooks required");
   NSString *path=[_directory stringByAppendingPathComponent:@"owner.json"],*work=[_directory stringByAppendingPathComponent:@"session-work"];
   if(!Exists(path)) {
@@ -314,7 +339,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
     if(![self syncDirectory:error])return NO;
     return self.off || Fail(error,@"residual network receipts remain");
   }
-  NSData *bytes=ReadProtected(_directory,path,_owner,error); NSDictionary *record=bytes?KuroDecodeJSON(bytes,MessageLimit,error):nil;
+  __block NSData *bytes=ReadProtected(_directory,path,_owner,error); __block NSDictionary *record=bytes?KuroDecodeJSON(bytes,MessageLimit,error):nil;
   if(!KuroRestartRecord(record,error))return NO;
   if([record[@"format"]isEqual:@1] && Exists(work))return Fail(error,@"legacy owner lacks runtime/socket evidence; preserving Core work");
   KuroRestartReader reader=proc_pidinfo;KuroRestartGroupReader groupReader=proc_listpids;
@@ -322,11 +347,42 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   if(self.fixtureRestartReader)reader=self.fixtureRestartReader;
   if(self.fixtureRestartGroupReader)groupReader=self.fixtureRestartGroupReader;
 #endif
+  __block BOOL checkpoint=record[@"work"][@"cacheCheckpoint"]!=nil;
+  __block BOOL workGone=!Exists(work);
   KuroSessionHook stillAbsent=^BOOL(NSString **failure) {
-    return [self directoryProtected:failure] && [ReadProtected(self->_directory,path,self->_owner,failure)isEqual:bytes] && KuroRestartAbsent(record,reader,failure) && KuroRestartSupervisorAbsent(record,reader,failure) && KuroRestartGroupEmpty(record,groupReader,failure);
+    NSDictionary *expected=record[@"work"][@"directory"];
+    if(expected) {
+      if(Exists(work)) {
+        if(workGone || ![KuroWorkDirectorySnapshot(self->_directory,self->_owner,failure)isEqual:expected])return Fail(failure,@"recorded work directory was replaced or reappeared; preserve all objects");
+      } else workGone=YES;
+    }
+    return [self directoryProtected:failure] && [ReadProtected(self->_directory,path,self->_owner,failure)isEqual:bytes] && KuroRestartAbsent(record,reader,failure) && KuroRestartSupervisorAbsent(record,reader,failure) && KuroRestartGroupEmpty(record,groupReader,failure) && (!record[@"supervision"][@"installation"] || (validator && validator(record,failure)) || Fail(failure,@"installed recovery requires its explicit internal writer validator"));
   };
   // Sample twice before invoking even a receipt-only network cleanup.
-  if(!stillAbsent(error) || !stillAbsent(error) || !network(error) || !stillAbsent(error) || !workCleanup(record,stillAbsent,error) || !stillAbsent(error))return NO;
+  if(!stillAbsent(error) || !stillAbsent(error) || !network(error) || !stillAbsent(error))return NO;
+  NSString *cache=[work stringByAppendingPathComponent:@"cache.db"];
+  NSDictionary *origin=record[@"work"][@"cacheOrigin"];
+  if(Exists(cache) && origin && !record[@"work"][@"cache"]) {
+    if(!validator || !record[@"supervision"][@"installation"])return Fail(error,@"origin-only cache requires an explicit installed writer validator; preserve work");
+    NSDictionary *first=KuroWorkCacheSnapshot(_directory,_owner,error);
+    if(!first || !KuroWorkCacheMatchesOrigin(first,origin,_owner) || !validator(record,error) || !stillAbsent(error))return Fail(error,@"origin-only cache writer or identity is not confirmed; preserve work");
+    NSDictionary *second=KuroWorkCacheSnapshot(_directory,_owner,error);
+    if(![first isEqual:second])return Fail(error,@"origin-only cache changed while validating writer exit; preserve work");
+    int descriptor=open(cache.fileSystemRepresentation,O_RDONLY|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC);struct stat held={0};
+    BOOL stable=descriptor>=0 && !fstat(descriptor,&held) && SafeMetadata(held,_owner,NO) && (uint64_t)held.st_dev==[first[@"device"]unsignedLongLongValue] && held.st_ino==[first[@"inode"]unsignedLongLongValue] && !fsync(descriptor);
+    if(descriptor>=0)close(descriptor);
+    if(!stable || ![KuroWorkCacheSnapshot(_directory,_owner,error)isEqual:first] || !stillAbsent(error))return Fail(error,@"origin-only cache stable synchronization failed; preserve work");
+    NSMutableDictionary *updated=[record mutableCopy],*receipt=[record[@"work"]mutableCopy];
+    receipt[@"cache"]=first;receipt[@"cacheCheckpoint"]=@"validated-restart-v1";updated[@"work"]=receipt;
+#ifdef KURO_TESTING
+    if(self.fixtureFailOwnerPublish)return Fail(error,@"injected restart owner publish refusal");
+#endif
+    if(!KuroRestartRecord(updated,error) || ![self publishOwner:updated replacing:bytes error:error])return NO;
+    bytes=JSONData(updated);record=KuroDecodeJSON(bytes,MessageLimit,error);checkpoint=YES;
+  }
+  // A renamed checkpoint from a failed prior attempt must be revalidated and synced.
+  if(checkpoint && (!stillAbsent(error) || ![self syncDirectory:error]))return NO;
+  if(!workCleanup(record,stillAbsent,error) || !stillAbsent(error))return NO;
   if(Exists(work) || Exists([_directory stringByAppendingPathComponent:@"network.json"]) || Exists([_directory stringByAppendingPathComponent:@"network-dns.json"]))return Fail(error,@"old Core/network footprint remains; preserving owner receipt");
   if(unlink(path.fileSystemRepresentation) || ![self syncDirectory:error])return Fail(error,@"old Core owner absence receipt removal was not durable");
   return self.off || Fail(error,@"old Core recovery did not establish off");
@@ -339,9 +395,9 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
 }
 - (BOOL)setLaunchEvidence:(NSDictionary *)evidence error:(NSString **)error {
   if (![self onThread:error] || _child || _journaled || _unknown) return Fail(error, @"cannot replace active launch evidence");
-  if (!Keys(evidence, @[@"configSHA256", @"coreSHA256", @"template"]) ||
+  if (!KuroMapping(evidence, @[@"configSHA256", @"coreSHA256", @"template"], @[@"runtimeSHA256"]) ||
       !Match(evidence[@"configSHA256"], @"\\A[0-9a-f]{64}\\z") || !Match(evidence[@"coreSHA256"], @"\\A[0-9a-f]{64}\\z") ||
-      !KuroSessionTemplate(evidence[@"template"])) return Fail(error, @"invalid fixed launch evidence");
+      !KuroSessionTemplate(evidence[@"template"]) || (evidence[@"runtimeSHA256"] && !Match(evidence[@"runtimeSHA256"], @"\\A[0-9a-f]{64}\\z"))) return Fail(error, @"invalid fixed launch evidence");
   _launchEvidence = [evidence copy]; return YES;
 }
 - (BOOL)spawnExecutable:(NSString *)executable arguments:(NSArray<NSString *> *)arguments beforeResume:(KuroSessionHook)prepare afterReap:(KuroSessionHook)cleanup error:(NSString **)error {
@@ -405,6 +461,8 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
 #pragma clang diagnostic pop
     }
   }
+  NSDictionary *workDirectory=workingDirectory?KuroWorkDirectorySnapshot(_directory,_owner,error):nil;
+  if(workingDirectory && !workDirectory)setup=EINVAL;
   char *environment[] = {"PATH=/usr/bin:/bin", "LANG=C", NULL};
   _terminationRequest=nil;_terminationEvidence=nil;_stopContext=nil;
   int spawned = setup ? setup : posix_spawn(&_child, executable.fileSystemRepresentation, &actions, &attr, argv, environment);
@@ -416,8 +474,8 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   if (_launchEvidence) record[@"launch"] = _launchEvidence;
   if(workingDirectory) {
     NSData *configuration=ReadProtected(_directory,[workingDirectory stringByAppendingPathComponent:@"config.json"],_owner,error);
-    if(configuration && _launchEvidence) {
-      record[@"format"]=@2;NSMutableDictionary *work=[@{@"configSHA256":Hash(configuration),@"socket":NSNull.null}mutableCopy];
+    if(configuration && _launchEvidence && [KuroWorkDirectorySnapshot(_directory,_owner,error)isEqual:workDirectory]) {
+      record[@"format"]=@2;NSMutableDictionary *work=[@{@"configSHA256":Hash(configuration),@"socket":NSNull.null,@"directory":workDirectory}mutableCopy];
       if(_workCacheOrigin)work[@"cacheOrigin"]=_workCacheOrigin;
       record[@"work"]=work;
     }
@@ -429,6 +487,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
     known=known && KuroSupervisionEvidence(current) && [supervision isEqual:current];
     record[@"supervision"]=supervision;
   }
+  if(supervision[@"installation"])known=known && KuroRestartRecord(record,error);
   _reapedOwnedChild=0; _completedStop=nil;
   _cleanup = [cleanup copy];
   // Mark uncertainty before creating the journal, including partial-write failures.
@@ -447,6 +506,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
       NSDictionary *current=self->_supervisionSource(problem);
       if(!KuroSupervisionEvidence(current) || ![supervision isEqual:current])return Fail(problem,@"fixed launchd supervision changed before Core resume");
     }
+    if(workDirectory && ![KuroWorkDirectorySnapshot(self->_directory,self->_owner,problem)isEqual:workDirectory])return Fail(problem,@"fixed work directory changed before Core resume");
     if(self->_workCacheOrigin && ![KuroWorkCacheSnapshot(self->_directory,self->_owner,problem)isEqual:self->_workCacheInitial])return Fail(problem,@"precreated cache changed before Core resume; preserve work");
     if(kill(self->_child,SIGCONT))return Fail(problem,@"owned child could not be resumed");
     resumed=YES; return YES;

@@ -208,7 +208,84 @@ static void SessionDurabilityTests(void) {
   CHECK([[NSFileManager defaultManager]removeItemAtPath:directory error:NULL]);
   puts("native session durability: socket rename, absent owner recovery and held-owner unlink reject repeated sync failure; only successful sync permits acceptance/off, unknown replacement preserved; no Core/network");
 }
+static void RestartCacheCheckpointTests(void) {
+  for(NSUInteger scenario=0;scenario<19;scenario++) {
+    char temporary[]="/tmp/kuro-restart-checkpoint-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));
+    NSString *directory=@(canonical),*work=[directory stringByAppendingPathComponent:@"session-work"],*journal=[directory stringByAppendingPathComponent:@"owner.json"],*cache=[work stringByAppendingPathComponent:@"cache.db"],*config=[work stringByAppendingPathComponent:@"config.json"],*approved=[directory stringByAppendingPathComponent:@"approved-install.json"],*error=nil;
+    Put(config,Bytes(@"fixed runtime with private socket/secret"),0600);Put(cache,Bytes(@"initialized bounded cache"),0600);
+    NSDictionary *snapshot=KuroWorkCacheSnapshot(directory,geteuid(),&error);CHECK(snapshot);
+    NSMutableDictionary *owner=RestartRecord();owner[@"format"]=@2;
+    NSDictionary *installation=@{@"release":@"fixture-v1.19.33",@"manifestSHA256":Hash(Bytes(@"manifest")),@"freshReceiptSHA256":Hash(Bytes(@"fresh receipt")),@"coreSHA256":owner[@"executableSHA256"]};
+    NSData *approval=JSONData(installation);Put(approved,approval,0600);
+    owner[@"supervision"]=@{@"policy":@"fixed-mihomo-launchd-v1",@"helperSHA256":Hash(Bytes(@"helper fixture")),@"startSeconds":@50,@"startMicros":@60,@"installation":installation};
+    NSMutableDictionary *launch=[owner[@"launch"]mutableCopy];launch[@"runtimeSHA256"]=Hash(Bytes(@"fixed runtime with private socket/secret"));owner[@"launch"]=launch;
+    owner[@"work"]=@{@"directory":KuroWorkDirectorySnapshot(directory,geteuid(),NULL),@"configSHA256":launch[@"runtimeSHA256"],@"socket":NSNull.null,@"cacheOrigin":@{@"device":snapshot[@"device"],@"inode":snapshot[@"inode"],@"owner":@(geteuid()),@"mode":@0600}};
+    if(scenario==17){NSMutableDictionary *receipt=[owner[@"work"]mutableCopy];receipt[@"cache"]=snapshot;owner[@"work"]=receipt;}
+    CHECK(KuroRestartRecord(owner,NULL));Put(journal,JSONData(owner),0600);NSData *original=ReadProtected(directory,journal,geteuid(),NULL);
+    if(scenario==16)CHECK(!unlink(cache.fileSystemRepresentation));
+    if(scenario==18)CHECK(!unlink(cache.fileSystemRepresentation)&&!unlink(config.fileSystemRepresentation)&&!rmdir(work.fileSystemRepresentation));
+    if(scenario==2)Put(approved,Bytes(@"changed approval"),0600);
+    if(scenario==5)Put([work stringByAppendingPathComponent:@"unknown"],Bytes(@"preserve"),0600);
+    if(scenario==6)CHECK(!chmod(cache.fileSystemRepresentation,0400));
+    if(scenario==11){CHECK(!unlink(cache.fileSystemRepresentation)&&!symlink(config.fileSystemRepresentation,cache.fileSystemRepresentation));}
+    if(scenario==13){NSMutableDictionary *supervision=[owner[@"supervision"]mutableCopy];[supervision removeObjectForKey:@"installation"];owner[@"supervision"]=supervision;Put(journal,JSONData(owner),0600);original=ReadProtected(directory,journal,geteuid(),NULL);}
+    RestartObservation=0;RestartMode=0;RestartReappearAt=0;RestartSupervisorObservation=0;RestartSupervisorMode=0;RestartSupervisorReappearAt=0;RestartGroupMode=0;
+    KuroOwnedSession *(^fresh)(void)=^KuroOwnedSession *{KuroOwnedSession *value=[[KuroOwnedSession alloc]initWithDirectory:directory owner:geteuid()];value.fixtureRestartReader=RestartSupervisorReader;value.fixtureRestartGroupReader=RestartGroupReader;return value;};
+    KuroOwnedSession *session=fresh();if(scenario==7)session.fixtureFailDirectorySync=YES;if(scenario==12)session.fixtureFailOwnerPublish=YES;
+    KuroTunService *service=[[KuroTunService alloc]initFixtureDirectory:directory core:[directory stringByAppendingPathComponent:@"unused"] hooks:[KuroTunServiceHooks new]];
+    __block NSUInteger validations=0,cleanupChecks=0;__block BOOL changed=NO;
+    KuroRestartWriterValidator validator=^BOOL(NSDictionary *record,NSString **failure) {
+      validations++;
+      if(![ReadProtected(directory,approved,geteuid(),failure)isEqual:approval] || ![record[@"supervision"][@"installation"]isEqual:installation])return Fail(failure,@"fixed approval bytes or installed binding changed");
+      if(!changed && validations==4 && scenario==3){Put(cache,Bytes(@"changed during writer validation"),0600);changed=YES;}
+      if(!changed && validations==4 && scenario==4){CHECK(!rename(cache.fileSystemRepresentation,[directory stringByAppendingPathComponent:@"original-cache"].fileSystemRepresentation));Put(cache,Bytes(@"replacement"),0600);changed=YES;}
+      if(!changed && scenario==14){CHECK(!rename(work.fileSystemRepresentation,[directory stringByAppendingPathComponent:@"preserved-work"].fileSystemRepresentation));Put(config,Bytes(@"fixed runtime with private socket/secret"),0600);Put(cache,Bytes(@"initialized bounded cache"),0600);changed=YES;}
+      if(!changed && scenario==9 && record[@"work"][@"cacheCheckpoint"])return Fail(failure,@"writer validation revoked before cleanup");
+      if(!changed && scenario==10 && record[@"work"][@"cacheCheckpoint"]){Put(cache,Bytes(@"changed after checkpoint"),0600);changed=YES;}
+      return YES;
+    };
+    KuroRestartWorkCleanup cleanup=^BOOL(NSDictionary *record,KuroSessionHook absent,NSString **failure) {
+      if(scenario==15){CHECK(absent(failure));CHECK(!unlink(config.fileSystemRepresentation)&&!unlink(cache.fileSystemRepresentation)&&!rmdir(work.fileSystemRepresentation));FixtureDirectory(work);return absent(failure);}
+      if(scenario<16)CHECK([record[@"work"][@"cacheCheckpoint"]isEqual:@"validated-restart-v1"]);
+      CHECK([ReadJSON(directory,journal,geteuid(),NULL)isEqual:record]);
+      return [service recoverExitedWork:record stillAbsent:^BOOL(NSString **problem) {cleanupChecks++;if(scenario==8 && cleanupChecks==2)return Fail(problem,@"injected interruption after config unlink");return absent(problem);} error:failure];
+    };
+    BOOL ok=[session recoverExitedOwnerWithNetwork:^BOOL(NSString **failure){(void)failure;return YES;} writerValidator:(scenario==1||scenario>=16)?nil:validator workCleanup:cleanup error:&error];
+    CHECK(ok==(scenario==0));CHECK(!session.child&&![session completedStopEvidence:NULL]);
+    if(ok)CHECK(session.off&&!Exists(work)&&!Exists(journal)&&validations>=3);
+    else {
+      CHECK(error.length>0&&!session.off&&(scenario==15||scenario==16||scenario==18||Exists(cache))&&Exists(journal));
+      NSDictionary *saved=ReadJSON(directory,journal,geteuid(),NULL);
+      BOOL checkpoint=saved[@"work"][@"cacheCheckpoint"]!=nil;
+      CHECK(checkpoint==(scenario==5||scenario==7||scenario==8||scenario==9||scenario==10||scenario==15));
+      if(!checkpoint)CHECK([ReadProtected(directory,journal,geteuid(),NULL)isEqual:original]);
+      if(scenario>=16){CHECK(validations==0&&cleanupChecks==0);KuroOwnedSession *retry=fresh();CHECK([retry recoverExitedOwnerWithNetwork:^BOOL(NSString **failure){(void)failure;return YES;} writerValidator:validator workCleanup:cleanup error:&error]);CHECK(retry.off&&!Exists(work)&&!Exists(journal)&&![retry completedStopEvidence:NULL]);}
+      if(scenario==7||scenario==8) {
+        CHECK(Exists(config)==(scenario==7));NSData *published=ReadProtected(directory,journal,geteuid(),NULL);
+        KuroOwnedSession *nilRetry=fresh();CHECK(![nilRetry recoverExitedOwnerWithNetwork:^BOOL(NSString **failure){(void)failure;return YES;} workCleanup:cleanup error:&error]);CHECK(!nilRetry.off&&[ReadProtected(directory,journal,geteuid(),NULL)isEqual:published]);
+        KuroOwnedSession *retry=fresh();
+        if(scenario==7){retry.fixtureFailDirectorySync=YES;CHECK(![retry recoverExitedOwnerWithNetwork:^BOOL(NSString **failure){(void)failure;return YES;} writerValidator:validator workCleanup:cleanup error:&error]);CHECK(!retry.off&&Exists(config)&&[ReadProtected(directory,journal,geteuid(),NULL)isEqual:published]);retry.fixtureFailDirectorySync=NO;}
+        CHECK([retry recoverExitedOwnerWithNetwork:^BOOL(NSString **failure){(void)failure;return YES;} writerValidator:validator workCleanup:cleanup error:&error]);CHECK(retry.off&&!Exists(work)&&!Exists(journal)&&![retry completedStopEvidence:NULL]);
+      }
+    }
+    CHECK([[NSFileManager defaultManager]removeItemAtPath:directory error:NULL]);
+  }
+  // The admitted hash differs from the generated runtime hash; only the latter binds work.
+  NSMutableDictionary *record=RestartRecord(),*launch=[record[@"launch"]mutableCopy];record[@"format"]=@2;
+  NSString *runtime=Hash(Bytes(@"runtime"));launch[@"runtimeSHA256"]=runtime;record[@"launch"]=launch;
+  NSDictionary *installation=@{@"release":@"release-1",@"manifestSHA256":Hash(Bytes(@"manifest")),@"freshReceiptSHA256":Hash(Bytes(@"receipt")),@"coreSHA256":record[@"executableSHA256"]};
+  NSMutableDictionary *supervision=[@{@"policy":@"fixed-mihomo-launchd-v1",@"helperSHA256":Hash(Bytes(@"helper")),@"startSeconds":@50,@"startMicros":@60,@"installation":installation}mutableCopy];record[@"supervision"]=supervision;
+  NSMutableDictionary *work=[@{@"directory":@{@"device":@1,@"inode":@2,@"owner":@(geteuid()),@"mode":@0700},@"configSHA256":runtime,@"socket":NSNull.null,@"cacheOrigin":@{@"device":@1,@"inode":@2,@"owner":@(geteuid()),@"mode":@0600}}mutableCopy];record[@"work"]=work;
+  CHECK(KuroRestartRecord(record,NULL));launch[@"runtimeSHA256"]=launch[@"configSHA256"];CHECK(!KuroRestartRecord(record,NULL));launch[@"runtimeSHA256"]=runtime;
+  NSMutableDictionary *bad=[installation mutableCopy];bad[@"coreSHA256"]=Hash(Bytes(@"different core"));supervision[@"installation"]=bad;CHECK(!KuroRestartRecord(record,NULL));supervision[@"installation"]=installation;
+  work[@"cacheCheckpoint"]=@"validated-restart-v1";CHECK(!KuroRestartRecord(record,NULL));[work removeObjectForKey:@"cacheCheckpoint"];
+  bad=[installation mutableCopy];bad[@"path"]=@"arbitrary";supervision[@"installation"]=bad;CHECK(!KuroSupervisionEvidence(supervision));supervision[@"installation"]=installation;
+  bad=[installation mutableCopy];bad[@"release"]=@"../bad";supervision[@"installation"]=bad;CHECK(!KuroSupervisionEvidence(supervision));
+  puts("native restart cache checkpoint: 19 real temporary-file chains; explicit fixed approval validator, stable origin snapshot and durable marked owner, changed bytes/inode/mode/symlink/unknown and replaced/reappeared work-directory refusals, all installed records require validator including cache-absent/final-cache/owner-only; nil retry and fsync/publish/partial cleanup retries; no Core/stop proof");
+}
+
 static void SessionTests(void) {
+  RestartCacheCheckpointTests();
   SessionDurabilityTests();
   CacheOriginTests();
   RestartOwnerTests();

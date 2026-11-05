@@ -494,20 +494,22 @@ static void SupervisionProducerTests(void) {
   for(int mode=0;mode<6;mode++) {KuroSupervisorOutputFixture=mode;uint64_t began=KuroMonotonicMilliseconds();NSString *text=KuroReadSupervisorJob(&error);CHECK(mode==0?[text isEqual:@"fixture job\n"]:!text);CHECK(KuroMonotonicMilliseconds()-began<1400);errno=0;CHECK(waitpid(-1,NULL,WNOHANG)==-1&&errno==ECHILD);}KuroSupervisorOutputFixture=-1;
   puts("native supervision producer: fixed top-level saved-job grammar/pid/program/full argv/properties, kernel/root/helper hash/start identity, strict optional owner shape and legacy compatibility; no launchctl execution");
 }
+static NSDictionary *InstallationBindingFixture(NSString *base);
 static void SupervisionServiceTests(void) {
   CHECK(geteuid()!=0&&getpgrp()==getpid());
   char temporary[]="/tmp/kuro-supservice-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));NSString *directory=@(canonical),*core=[directory stringByAppendingPathComponent:@"core"],*journal=[directory stringByAppendingPathComponent:@"owner.json"];
   NSData *bytes=[NSData dataWithContentsOfFile:Executable()];Put(core,bytes,0755);KuroTunServiceHooks *hooks=ServiceHooks();
+  NSDictionary *deployment=InstallationBindingFixture([directory stringByAppendingPathComponent:@"binding"]);NSString *prefix=deployment[@"prefix"],*helper=deployment[@"helper"];NSDictionary *installedSnapshot=KuroProtectedInstallationSnapshot(prefix,geteuid(),helper,NULL);CHECK(installedSnapshot);
   __block NSUInteger reads=0,prepared=0,proofs=0;__block NSDictionary *persisted=nil;
-  hooks.beforeResume=^BOOL(NSString **error){(void)error;prepared++;persisted=ReadJSON(directory,journal,geteuid(),NULL);CHECK(KuroSupervisionEvidence(persisted[@"supervision"]));return YES;};
+  hooks.beforeResume=^BOOL(NSString **error){prepared++;persisted=ReadJSON(directory,journal,geteuid(),NULL);CHECK(KuroSupervisionEvidence(persisted[@"supervision"]));CHECK([persisted[@"supervision"][@"installation"]isEqual:installedSnapshot[@"installation"]]);CHECK([persisted[@"launch"][@"runtimeSHA256"]isEqual:persisted[@"work"][@"configSHA256"]]);return KuroMarkSessionStarted(prefix,geteuid(),helper,error);};
   hooks.confirmStopped=^BOOL(NSDictionary *evidence,NSString **error){(void)error;proofs++;CHECK(KuroCompletedStopEvidence(evidence)&&[evidence[@"owner"][@"supervision"]isEqual:persisted[@"supervision"]]);return YES;};
   KuroTunService *service=[[KuroTunService alloc]initFixtureDirectory:directory core:core hooks:hooks];
   NSString *program=[Tools stringByAppendingPathComponent:@"versions/isolated/helper"];
-  service.fixtureSupervisionSource=^NSDictionary *(NSString **error){reads++;struct proc_bsdinfo process={0};CHECK(proc_pidinfo(getpid(),PROC_PIDTBSDINFO,0,&process,sizeof(process))==sizeof(process));process.pbi_ppid=1;process.pbi_uid=process.pbi_ruid=0;return KuroSupervisorEvidence(process,program,program,Hash(bytes),Hash(bytes),SupervisionJobFixture(program,getpid()),error);};
+  service.fixtureSupervisionSource=^NSDictionary *(NSString **error){reads++;struct proc_bsdinfo process={0};CHECK(proc_pidinfo(getpid(),PROC_PIDTBSDINFO,0,&process,sizeof(process))==sizeof(process));process.pbi_ppid=1;process.pbi_uid=process.pbi_ruid=0;NSDictionary *snapshot=KuroProtectedInstallationSnapshot(prefix,geteuid(),helper,error);if(!snapshot)return nil;NSMutableDictionary *evidence=[KuroSupervisorEvidence(process,program,program,Hash(bytes),Hash(bytes),SupervisionJobFixture(program,getpid()),error)mutableCopy];evidence[@"installation"]=snapshot[@"installation"];return evidence;};
   int peers[2];CHECK(!socketpair(AF_UNIX,SOCK_STREAM,0,peers));int server=peers[0];dispatch_semaphore_t done=dispatch_semaphore_create(0);__block BOOL success=NO;
   dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT,0),^{NSString *error=nil;success=[service serveOpenFrame:ServiceOpen() peer:server error:&error];if(!success)fprintf(stderr,"supervision service: %s\n",error.UTF8String);close(server);dispatch_semaphore_signal(done);});
   NSDictionary *open=ServiceRead(peers[1]);CHECK([open[@"ok"]isEqual:@YES]);CHECK(reads==3&&prepared==1);ServiceSend(peers[1],@{@"version":@2,@"operation":@"stop",@"session":open[@"session"],@"sequence":@1});NSDictionary *stopped=ServiceRead(peers[1]);CHECK([stopped[@"ok"]isEqual:@YES]);ServiceWait(done);close(peers[1]);
-  CHECK(success&&proofs==1&&!Exists(journal)&&!Exists([directory stringByAppendingPathComponent:@"session-work"])&&[service.statusSnapshot[@"state"]isEqual:@"off"]);CHECK([[NSFileManager defaultManager]removeItemAtPath:directory error:NULL]);
+  CHECK(success&&proofs==1&&!Exists(journal)&&!Exists([directory stringByAppendingPathComponent:@"session-work"])&&[service.statusSnapshot[@"state"]isEqual:@"off"]);CHECK([KuroProtectedInstallationSnapshot(prefix,geteuid(),helper,NULL)isEqual:installedSnapshot]);CHECK([[NSFileManager defaultManager]removeItemAtPath:directory error:NULL]);
   for(NSUInteger failure=0;failure<2;failure++) {
     char failed[]="/tmp/kuro-supreject-XXXXXX";CHECK(mkdtemp(failed)&&realpath(failed,canonical));NSString *root=@(canonical),*binary=[root stringByAppendingPathComponent:@"core"];
     Put(binary,bytes,0755);KuroTunServiceHooks *deniedHooks=ServiceHooks();__block NSUInteger sampled=0,workCreated=0,cachePrepared=0,checkpointed=0,revoked=0;
@@ -522,7 +524,78 @@ static void SupervisionServiceTests(void) {
   }
   puts("native supervision service: positive three-sample owner/private-controller/held-stop chain plus two initial source refusals before work/cache/revocation/child; isolated job fixture only, no root/launchctl/Core/network");
 }
-static void SupervisionTests(void) {SupervisionProducerTests();SupervisionSessionTests();SupervisionServiceTests();}
+// Actual protected temporary installation model; only the process/job observations
+// are isolated fixtures. No Installer, launchctl, real Core or network operation.
+static NSDictionary *InstallationBindingFixture(NSString *base) {
+  NSString *source=[base stringByAppendingPathComponent:@"source"],*bundle=[source stringByAppendingPathComponent:@"fixture.app"],*error=nil;
+  NSData *executable=[NSData dataWithContentsOfFile:Executable()];Put([bundle stringByAppendingPathComponent:ClientExecutable],executable,0755);
+  NSDictionary *info=@{@"CFBundleIdentifier":@"dev.kuro.desktop",@"CFBundleExecutable":@"Clash Kuro",@"CFBundlePackageType":@"APPL",@"CFBundleVersion":@"1"};
+  Put([bundle stringByAppendingPathComponent:@"Contents/Info.plist"],[NSPropertyListSerialization dataWithPropertyList:info format:NSPropertyListXMLFormat_v1_0 options:0 error:NULL],0644);
+  Put([bundle stringByAppendingPathComponent:@"Contents/Resources/app.asar"],Bytes(@"inert installation binding fixture"),0644);
+  char *sign[]={"/usr/bin/codesign","--force","--sign","-","--options","runtime",(char *)bundle.fileSystemRepresentation,NULL},*env[]={"PATH=/usr/bin:/bin","LANG=C",NULL};pid_t signer=0;int status=0;
+  CHECK(!posix_spawn(&signer,sign[0],NULL,NULL,sign,env)&&waitpid(signer,&status,0)==signer&&WIFEXITED(status)&&!WEXITSTATUS(status));
+  NSDictionary *pin=KuroClientSnapshot(source,bundle,geteuid(),&error),*inventory=FixtureInventory(bundle);CHECK(pin);
+  NSMutableDictionary *manifest=[FreshFixtureScripts(source,pin,inventory)mutableCopy],*core=[manifest[@"core"]mutableCopy];manifest[@"activationAllowed"]=@YES;core[@"sha256"]=Hash(executable);manifest[@"core"]=core;
+  NSString *scripts=[source stringByAppendingPathComponent:@"scripts"],*prefix=[base stringByAppendingPathComponent:@"installed"];Put([scripts stringByAppendingPathComponent:@"manifest.json"],JSONData(manifest),0600);FixtureDirectory(prefix);
+  CHECK(BeginClientInstallFromScripts(prefix,geteuid(),NO,scripts,&error));CopyFreshPayload(source,prefix,manifest);Put(At(prefix,[State stringByAppendingPathComponent:@"Inbox/mihomo"]),executable,0755);
+  NSString *client=At(prefix,ClientBundle);FixtureDirectory(client.stringByDeletingLastPathComponent);CHECK([[NSFileManager defaultManager]copyItemAtPath:bundle toPath:client error:NULL]);CHECK(Install(prefix,geteuid(),NO,&error));
+  NSString *version=[At(prefix,Tools)stringByAppendingPathComponent:[@"versions"stringByAppendingPathComponent:manifest[@"release"]]];
+  return @{@"prefix":prefix,@"helper":[version stringByAppendingPathComponent:@"helper"],@"core":[version stringByAppendingPathComponent:@"mihomo"],@"manifest":[version stringByAppendingPathComponent:@"manifest.json"]};
+}
+static void InstallationBindingTests(void) {
+  char temporary[]="/tmp/kuro-install-bind-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));NSString *base=@(canonical),*error=nil;
+  NSDictionary *fixture=InstallationBindingFixture(base);NSString *prefix=fixture[@"prefix"],*helper=fixture[@"helper"],*state=At(prefix,State),*installedPath=[state stringByAppendingPathComponent:@"installed.json"];
+  NSDictionary *expected=KuroProtectedInstallationSnapshot(prefix,geteuid(),helper,&error);CHECK(Keys(expected,@[@"installation",@"helperSHA256"]));CHECK(Keys(expected[@"installation"],@[@"release",@"manifestSHA256",@"freshReceiptSHA256",@"coreSHA256"]));
+  NSData *originalInstalled=ReadProtected(prefix,installedPath,geteuid(),NULL);NSMutableDictionary *installed=[KuroDecodeJSON(originalInstalled,MessageLimit,NULL)mutableCopy];installed[@"neverStarted"]=@NO;Put(installedPath,JSONData(installed),0600);
+  CHECK([KuroProtectedInstallationSnapshot(prefix,geteuid(),helper,&error)isEqual:expected]); // Sticky mutable startup state is not installation identity.
+  NSArray *targets=@[installedPath,fixture[@"manifest"],At(prefix,FreshReceipt),fixture[@"core"],helper,At(prefix,Plist),[state stringByAppendingPathComponent:@"client.json"],[state stringByAppendingPathComponent:@"Inbox/client-inventory.json"]];
+  for(NSString *path in targets) {
+    NSData *before=ReadProtected(prefix,path,geteuid(),NULL);struct stat node={0};CHECK(before&&!lstat(path.fileSystemRepresentation,&node));
+    Put(path,Bytes(@"changed protected fixture"),node.st_mode&07777);CHECK(!KuroProtectedInstallationSnapshot(prefix,geteuid(),helper,&error));
+    Put(path,before,node.st_mode&07777);CHECK([KuroProtectedInstallationSnapshot(prefix,geteuid(),helper,&error)isEqual:expected]);
+  }
+  CHECK(!KuroProtectedInstallationSnapshot(prefix,geteuid(),[helper stringByAppendingString:@"-other"],&error));
+  NSString *transaction=[state stringByAppendingPathComponent:@"transaction.json"];Put(transaction,Bytes(@"incomplete transaction"),0600);CHECK(!KuroProtectedInstallationSnapshot(prefix,geteuid(),helper,&error));CHECK(!unlink(transaction.fileSystemRepresentation));
+  NSString *core=fixture[@"core"],*held=[core stringByAppendingString:@".held"];CHECK(!rename(core.fileSystemRepresentation,held.fileSystemRepresentation)&&!symlink(held.fileSystemRepresentation,core.fileSystemRepresentation));CHECK(!KuroProtectedInstallationSnapshot(prefix,geteuid(),helper,&error));CHECK(!unlink(core.fileSystemRepresentation)&&!rename(held.fileSystemRepresentation,core.fileSystemRepresentation));
+  CHECK([KuroProtectedInstallationSnapshot(prefix,geteuid(),helper,&error)isEqual:expected]);CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);
+  puts("native installation binding: actual temporary install, eight changed artifacts, wrong helper, transaction, symlink and mutable neverStarted identity checks passed; no root/service/Core");
+}
+static void InstalledWriterRecoveryTests(void) {
+  char temporary[]="/tmp/kuro-writer-bind-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));NSString *base=@(canonical),*error=nil;
+  NSDictionary *fixture=InstallationBindingFixture(base);NSString *prefix=fixture[@"prefix"],*helper=fixture[@"helper"],*state=At(prefix,State),*journal=[state stringByAppendingPathComponent:@"owner.json"],*work=[state stringByAppendingPathComponent:@"session-work"],*cache=[work stringByAppendingPathComponent:@"cache.db"],*config=[work stringByAppendingPathComponent:@"config.json"];
+  CHECK(KuroMarkSessionStarted(prefix,geteuid(),helper,&error));
+  NSDictionary *snapshot=KuroProtectedInstallationSnapshot(prefix,geteuid(),helper,&error);CHECK(snapshot);
+  for(NSUInteger scenario=0;scenario<15;scenario++) {
+    NSDictionary *open=KuroDecodeJSON(ServiceOpen(),66000,NULL);NSData *admitted=[NSJSONSerialization dataWithJSONObject:open[@"config"] options:NSJSONWritingSortedKeys|NSJSONWritingWithoutEscapingSlashes error:NULL],*runtime=KuroTunRuntimeJSON(admitted,&error);CHECK(runtime);
+    Put(config,runtime,0600);Put(cache,NSData.data,0600);NSDictionary *initial=KuroWorkCacheSnapshot(state,geteuid(),NULL);CHECK(initial);CHECK([Bytes(@"in-place bbolt fixture bytes")writeToFile:cache atomically:NO]);
+    NSMutableDictionary *record=RestartRecord();record[@"format"]=@2;record[@"executableSHA256"]=snapshot[@"installation"][@"coreSHA256"];
+    record[@"launch"]=@{@"configSHA256":Hash(admitted),@"runtimeSHA256":Hash(runtime),@"coreSHA256":record[@"executableSHA256"],@"template":@"macos-dual-stack-v1"};
+    NSMutableDictionary *supervision=[@{@"policy":@"fixed-mihomo-launchd-v1",@"helperSHA256":snapshot[@"helperSHA256"],@"startSeconds":@50,@"startMicros":@60,@"installation":snapshot[@"installation"]}mutableCopy];record[@"supervision"]=supervision;
+    NSMutableDictionary *receipt=[@{@"configSHA256":Hash(runtime),@"socket":NSNull.null,@"cacheOrigin":@{@"device":initial[@"device"],@"inode":initial[@"inode"],@"owner":@(geteuid()),@"mode":@0600},@"directory":KuroWorkDirectorySnapshot(state,geteuid(),NULL)}mutableCopy];record[@"work"]=receipt;
+    if(scenario==1){NSMutableDictionary *binding=[supervision[@"installation"]mutableCopy];binding[@"release"]=@"other-release";supervision[@"installation"]=binding;}
+    if(scenario==2)supervision[@"helperSHA256"]=Hash(Bytes(@"other helper"));
+    if(scenario==3){NSMutableDictionary *binding=[supervision[@"installation"]mutableCopy];binding[@"freshReceiptSHA256"]=Hash(Bytes(@"old receipt"));supervision[@"installation"]=binding;}
+    if(scenario==4){NSMutableDictionary *binding=[supervision[@"installation"]mutableCopy];binding[@"manifestSHA256"]=Hash(Bytes(@"old manifest"));supervision[@"installation"]=binding;}
+    if(scenario==5){NSMutableDictionary *launch=[record[@"launch"]mutableCopy];launch[@"runtimeSHA256"]=Hash(Bytes(@"other runtime"));record[@"launch"]=launch;}
+    if(scenario==6)[supervision removeObjectForKey:@"installation"];
+    if(scenario==10)Put([work stringByAppendingPathComponent:@"unknown"],Bytes(@"preserve"),0600);
+    if(scenario==11){CHECK(!rename(cache.fileSystemRepresentation,[work stringByAppendingPathComponent:@"held-cache"].fileSystemRepresentation));Put(cache,Bytes(@"replacement"),0600);}
+    NSString *heldWork=[state stringByAppendingPathComponent:@"fixture-held-work"];
+    if(scenario==14){CHECK(!rename(work.fileSystemRepresentation,heldWork.fileSystemRepresentation));FixtureDirectory(work);for(NSString *name in @[@"config.json",@"cache.db"])CHECK(!rename([heldWork stringByAppendingPathComponent:name].fileSystemRepresentation,[work stringByAppendingPathComponent:name].fileSystemRepresentation));}
+    Put(journal,JSONData(record),0600);NSData *original=ReadProtected(prefix,journal,geteuid(),NULL);
+    RestartObservation=0;RestartMode=scenario==7?1:0;RestartReappearAt=0;RestartGroupMode=scenario==9?1:scenario==13?2:0;RestartSupervisorObservation=0;RestartSupervisorMode=scenario==8?1:scenario==12?2:0;RestartSupervisorReappearAt=0;
+    KuroTunServiceHooks *hooks=ServiceHooks();__block NSUInteger networks=0;hooks.recoverResidualNetwork=^BOOL(NSString **failure){(void)failure;networks++;return YES;};
+    KuroTunService *service=[[KuroTunService alloc]initFixtureDirectory:state core:fixture[@"core"] hooks:hooks];service.fixtureInstallationPrefix=prefix;service.fixtureRestartReader=RestartSupervisorReader;service.fixtureRestartGroupReader=RestartGroupReader;
+    BOOL ok=[service recoverNetworkOnly:&error];CHECK(ok==(scenario==0));CHECK(networks>=1);
+    if(ok){CHECK([service.statusSnapshot[@"state"]isEqual:@"off"]&&!Exists(work)&&!Exists(journal));CHECK(!Exists([state stringByAppendingPathComponent:@"stopped.json"]));}
+    else {CHECK(error.length&&Exists(work)&&Exists(cache)&&Exists(journal));CHECK([service.statusSnapshot[@"state"]isEqual:@"unknown"]);if(scenario!=10)CHECK([ReadProtected(prefix,journal,geteuid(),NULL)isEqual:original]);}
+    if(Exists(journal))CHECK(!unlink(journal.fileSystemRepresentation));if(Exists(work))CHECK([[NSFileManager defaultManager]removeItemAtPath:work error:NULL]);if(Exists(heldWork))CHECK([[NSFileManager defaultManager]removeItemAtPath:heldWork error:NULL]);
+  }
+  RestartMode=RestartGroupMode=RestartSupervisorMode=0;CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);
+  puts("native installed writer recovery: real protected temporary install -> production validator -> origin checkpoint -> exact work cleanup; 15 cases including legacy/mismatch/live/reused/unknown/cache/directory replacement refusal, no synthetic stopped proof");
+}
+
+static void SupervisionTests(void) {SupervisionProducerTests();InstallationBindingTests();SupervisionSessionTests();SupervisionServiceTests();InstalledWriterRecoveryTests();}
 
 static void StoppedRevocationTests(void) {
  CHECK(geteuid()!=0); NSString *error=nil;char tmp[]="/tmp/kr-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(tmp)&&realpath(tmp,canonical));NSString *base=@(canonical),*source=[base stringByAppendingPathComponent:@"source"],*bundle=[source stringByAppendingPathComponent:@"fixture.app"];
