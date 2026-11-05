@@ -116,3 +116,7 @@ IPv6 必须覆盖：两族路由、Wi-Fi/有线/VPN 等接口变化、双栈 DNS
 macOS 客户端已接 V2 `open(config)` 长连接：重验并复制配置，不退回 V1 start；有限帧、严格 UTF-8/重复键、序号、单个待确认心跳与 lease，断链保持未知，停止后独立 V1 status 读回。start/stop 捕获具体会话引用，避免并发 inspect 清空引用后的迟到结果。原生闭合 root schema 与离线候选已实现并通过隔离验证；native owner/lease 组件已有隔离测试，但 Serve 当前仍串行且 V2 open 明确拒绝，尚未接通活跃 session 与并发独立 status，亦未完成完整调用者可信链、有限 broker、网络 owner/恢复的生产汇合。当前没有可开启 TUN 的产品，不以 schema 或组件测试冒称真实会话成功。
 
 当前阶段证据：主会话报告 State **170/170**；本 agent 只读复核并重跑反向准入两项回归通过，客户端 **43/43** 临时 socket 测试与 desktop main typecheck 通过。此前 UI/i18n/dev-bridge **27/27** 与 renderer typecheck 通过。各计数对应当时源码，最终组合 build/CI、精确产物和真实网络验收由主会话回填；人工系统操作仍等待维护者明确说“开始”。
+
+### 固定 Core Unix 控制接口安全核对（2026-11-05）
+
+mihomo v1.19.33 Unix controller 不验证 Bearer secret；不能以发送 token 或错误 token 被接受作为鉴权通过证据。生产仍须核验受保护的工作目录祖先、socket 类型/owner/nlink/dev/inode 和准确 Core 身份，外部 App→helper 的生产鉴权不可省略。普通用户0700目录不隔离同UID恶意进程。相关准入/集成检查须保留此边界，参见 [源码核对](core-control-offline-review.md)。

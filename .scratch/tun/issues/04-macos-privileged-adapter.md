@@ -126,3 +126,5 @@ Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
 
 
 2026-11-05 诊断修复沿用本票：普通UID候选必须有独立受限证据目录、每流64KiB输出上限及持续drain、会话secret脱敏、启动元数据和真实termination；缺失有效capture管道拒绝spawn。失败先持久化诊断再清runtime，错误分开记录。生产helper宏外stdio未在本轮改动，后续root真实实验候选也必须满足诊断保留要求，不得以丢弃全部输出进入验收。
+
+2026-11-05 新候选8ee323a仅运行一次normal：Core原始错误 `Parse config error: yaml: found unknown escape character`，自行exit1，阶段private-version-readiness；EOF未执行，未改配置或重试。日志完整保留，Core/owner/work及组消失证据已记录；失败策略保留固定Core副本与诊断。授权结束，见 [执行记录](../evidence/core-control-execution-8ee323a/RESULT.md)。
