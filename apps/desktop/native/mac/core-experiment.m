@@ -144,16 +144,6 @@ static BOOL ExperimentRemoveWork(NSString *base,NSString *digest,NSDictionary *s
 static NSDictionary *ExperimentFixtureManifest(void) {
   return @{@"epoch":@"00000000-0000-4000-8000-000000000001",@"coreSHA256":Hash([NSData dataWithContentsOfFile:Executable()]),@"runnerSHA256":Hash([NSData dataWithContentsOfFile:Executable()])};
 }
-static const NSUInteger ExperimentLogLimit=65536;
-static NSData *ExperimentRedact(NSData *raw,NSString *secret) {
-  NSMutableData *value=[raw mutableCopy];NSData *needle=[secret dataUsingEncoding:NSUTF8StringEncoding],*replacement=[@"[REDACTED]" dataUsingEncoding:NSUTF8StringEncoding];
-  if(!needle.length)return value;
-  NSRange found;
-  while((found=[value rangeOfData:needle options:0 range:NSMakeRange(0,value.length)]).location!=NSNotFound)[value replaceBytesInRange:found withBytes:replacement.bytes length:replacement.length];
-  // Also suppress a partial secret at the retained boundary or process EOF.
-  for(NSUInteger count=MIN(needle.length-1,value.length);count>0;count--)if(!memcmp((const char *)value.bytes+value.length-count,needle.bytes,count)) { [value replaceBytesInRange:NSMakeRange(value.length-count,count) withBytes:replacement.bytes length:replacement.length];break; }
-  if(value.length>ExperimentLogLimit)[value setLength:ExperimentLogLimit];return value;
-}
 static BOOL ExperimentEvidenceProtected(NSString *directory,NSString *existing,NSString **error) {
   struct stat info={0};
   if(!SafeNode(directory,geteuid(),YES,error)||lstat(directory.fileSystemRepresentation,&info)||(info.st_mode&07777)!=0700)return Fail(error,@"diagnostic directory must remain owner-only mode0700");
@@ -166,94 +156,6 @@ static BOOL ExperimentSave(NSString *directory,NSString *name,NSData *data,NSStr
   if(Exists(path))return [ReadProtected(directory,path,geteuid(),error)isEqual:data]||Fail(error,@"diagnostic file changed; retained without replacement");
   return WriteNew(path,data,0600,error);
 }
-static BOOL ExperimentPublishLog(NSString *directory,NSString *name,NSData *bytes,NSData *previous,NSString **error) {
-  NSString *path=[directory stringByAppendingPathComponent:name];
-  if(!ExperimentEvidenceProtected(directory,Exists(path)?path:nil,error))return NO;
-  if(!previous)return !Exists(path)&&ExperimentSave(directory,name,bytes,error);
-  if(![ReadProtected(directory,path,geteuid(),error)isEqual:previous])return Fail(error,@"diagnostic checkpoint changed; preserved without overwrite");
-  if([previous isEqual:bytes])return YES;
-  NSString *temporary=[directory stringByAppendingPathComponent:[@".log-"stringByAppendingString:NSUUID.UUID.UUIDString]];
-  if(!WriteNew(temporary,bytes,0600,error))return NO;
-  if(rename(temporary.fileSystemRepresentation,path.fileSystemRepresentation)) {unlink(temporary.fileSystemRepresentation);return Fail(error,@"diagnostic checkpoint update failed");}
-  return YES;
-}
-@interface ExperimentOutput : NSObject {
-  int _reads[2],_writes[2],_readErrors[2];BOOL _eof[2];
-  NSMutableData *_data[2];uint64_t _bytes[2],_finishDeadline;
-  NSUInteger _capacity;dispatch_group_t _drain;BOOL _finished;
-  NSDictionary *_statistics;NSData *_published[2];
-}
-- (instancetype)initWithSecret:(NSString *)secret;
-- (int)writer:(NSUInteger)stream;
-- (void)closeWriters;
-- (BOOL)saveTo:(NSString *)directory secret:(NSString *)secret error:(NSString **)error;
-- (BOOL)checkpointTo:(NSString *)directory secret:(NSString *)secret error:(NSString **)error;
-- (NSDictionary *)statistics;
-@end
-@implementation ExperimentOutput
-- (instancetype)initWithSecret:(NSString *)secret {
-  if((self=[super init])) {
-    for(NSUInteger i=0;i<2;i++)_reads[i]=_writes[i]=-1;
-    _capacity=ExperimentLogLimit+[secret lengthOfBytesUsingEncoding:NSUTF8StringEncoding];
-    for(NSUInteger i=0;i<2;i++) {
-      int pair[2];if(pipe(pair))return nil;
-      // The worker intentionally inherits only FD3; its standard FDs may be
-      // closed. Keep capture sources above stdio/owner FDs before spawn dup2.
-      _reads[i]=fcntl(pair[0],F_DUPFD_CLOEXEC,4);_writes[i]=fcntl(pair[1],F_DUPFD_CLOEXEC,4);close(pair[0]);close(pair[1]);if(_reads[i]<0||_writes[i]<0)return nil;_data[i]=[NSMutableData data];
-      int flags=fcntl(_reads[i],F_GETFL);
-      if(flags<0||fcntl(_reads[i],F_SETFL,flags|O_NONBLOCK)||fcntl(_reads[i],F_SETFD,FD_CLOEXEC)||fcntl(_writes[i],F_SETFD,FD_CLOEXEC))return nil;
-    }
-    _drain=dispatch_group_create();dispatch_group_async(_drain,dispatch_get_global_queue(QOS_CLASS_UTILITY,0),^{ [self drain]; });
-  }
-  return self;
-}
-- (void)dealloc {for(NSUInteger i=0;i<2;i++) {if(_reads[i]>=0)close(_reads[i]);if(_writes[i]>=0)close(_writes[i]);}}
-- (int)writer:(NSUInteger)stream {return stream<2?_writes[stream]:-1;}
-- (void)closeWriters {for(NSUInteger i=0;i<2;i++)if(_writes[i]>=0) {close(_writes[i]);_writes[i]=-1;}}
-- (void)drain {
-  for(;;) @autoreleasepool {
-    struct pollfd values[2]={{.fd=_reads[0],.events=POLLIN},{.fd=_reads[1],.events=POLLIN}};
-    if(values[0].fd<0&&values[1].fd<0)break;
-    uint64_t deadline;@synchronized(self) {deadline=_finishDeadline;}
-    if(deadline&&KuroMonotonicMilliseconds()>=deadline)break;
-    int ready=poll(values,2,20);if(ready<0&&errno==EINTR)continue;
-    if(ready<0) {for(NSUInteger i=0;i<2;i++)_readErrors[i]=errno;break;}
-    for(NSUInteger i=0;i<2;i++)if(values[i].fd>=0&&values[i].revents) {
-      // A bounded read per stream keeps even continuous stdout fair to stderr.
-      unsigned char bytes[4096];ssize_t count=read(_reads[i],bytes,sizeof(bytes));
-      if(count>0) { _bytes[i]+=(uint64_t)count;NSUInteger retained=MIN((NSUInteger)count,_capacity-_data[i].length);if(retained)@synchronized(self) {[_data[i]appendBytes:bytes length:retained];} }
-      else if(!count || (errno!=EAGAIN&&errno!=EINTR)) {if(count<0)_readErrors[i]=errno;else _eof[i]=YES;close(_reads[i]);_reads[i]=-1;}
-    }
-  }
-  for(NSUInteger i=0;i<2;i++)if(_reads[i]>=0) {close(_reads[i]);_reads[i]=-1;}
-}
-- (BOOL)checkpointTo:(NSString *)directory secret:(NSString *)secret error:(NSString **)error {
-  for(NSUInteger i=0;i<2;i++) {
-    NSData *raw;@synchronized(self) {raw=[_data[i]copy];}
-    NSData *bytes=ExperimentRedact(raw,secret);NSString *name=i?@"stderr.log":@"stdout.log";
-    if(!ExperimentPublishLog(directory,name,bytes,_published[i],error))return NO;_published[i]=bytes;
-  }
-  return YES;
-}
-- (BOOL)saveTo:(NSString *)directory secret:(NSString *)secret error:(NSString **)error {
-  [self closeWriters];
-  if(!_finished) {
-    @synchronized(self) {_finishDeadline=KuroMonotonicMilliseconds()+500;}
-    if(dispatch_group_wait(_drain,dispatch_time(DISPATCH_TIME_NOW,NSEC_PER_SEC)))return Fail(error,@"bounded output drain did not complete; runtime preserved");
-    _finished=YES;
-  }
-  NSMutableDictionary *statistics=[NSMutableDictionary dictionary];BOOL ok=YES;
-  for(NSUInteger i=0;i<2;i++) {
-    NSString *name=i?@"stderr":@"stdout";NSData *redacted=ExperimentRedact(_data[i],secret);
-    statistics[name]=@{@"bytesRead":@(_bytes[i]),@"retainedBytes":@(redacted.length),@"truncated":@(_bytes[i]>ExperimentLogLimit),@"eof":@(_eof[i]),@"readErrno":@(_readErrors[i])};
-    if(!ExperimentPublishLog(directory,[name stringByAppendingString:@".log"],redacted,_published[i],error))ok=NO;else _published[i]=redacted;
-  }
-  _statistics=statistics;
-  if(!_eof[0]||!_eof[1]||_readErrors[0]||_readErrors[1])return Fail(error,@"output EOF/readback incomplete; runtime preserved");
-  return ok;
-}
-- (NSDictionary *)statistics {return _statistics?:@{};}
-@end
 static BOOL ExperimentControlledTermination(NSDictionary *termination) {
   if(![termination[@"observed"]isEqual:@YES])return NO;
   BOOL term=[termination[@"request"]isEqual:@"SIGTERM"],forced=[termination[@"request"]isEqual:@"SIGKILL"];
@@ -291,21 +193,21 @@ static int ExperimentWorker(BOOL fixture) {
   NSDictionary *initialCache=ExperimentPrecreateCache(base,&error);
   __block NSData *cacheCheckpoint=JSONData(ExperimentCacheObservation(initialCache,nil,NO,error));
   if(!ExperimentSave(evidence,@"cache-precreation.json",cacheCheckpoint,&error)||!SyncInstallDirectory(evidence,&error)||!initialCache)return 96;
-  ExperimentOutput *output=[[ExperimentOutput alloc]initWithSecret:secret];if(!output)return 96;
+  KuroCoreOutput *output=[[KuroCoreOutput alloc]initWithSecrets:@[secret]];if(!output)return 96;
   KuroOwnedSession *session=[[KuroOwnedSession alloc]initWithDirectory:base owner:geteuid()];session.experimentStdoutDescriptor=[output writer:0];session.experimentStderrDescriptor=[output writer:1];
   __block NSDictionary *socketIdentity=nil,*cacheIdentity=nil;__block NSString *diagnosticError=nil,*failureStage=@"spawn";__block NSData *diagnosticCheckpoint=nil;NSDictionary *identity=nil;id version=nil;BOOL success=NO,spawned=NO;
-  if(![session setLaunchEvidence:@{@"configSHA256":digest,@"coreSHA256":manifest[@"coreSHA256"],@"template":@"core-control-experiment-v1"} error:&error]) {[output closeWriters];(void)[output saveTo:evidence secret:secret error:NULL];return 97;}
+  if(![session setLaunchEvidence:@{@"configSHA256":digest,@"coreSHA256":manifest[@"coreSHA256"],@"template":@"core-control-experiment-v1"} error:&error]) {[output closeWriters];(void)[output finishTo:evidence error:NULL];return 97;}
   spawned=[session spawnExecutable:core arguments:arguments workingDirectory:work beforeResume:^BOOL(NSString **failure) {return peer.isLive&&getppid()==parent&&SafeChain(base,work,geteuid(),YES,failure)&&[ExperimentCacheIdentity(base,failure)isEqual:initialCache];} afterReap:^BOOL(NSString **failure) {
     // Persist redacted output before any known runtime file is removed.
     if(fixture&&[launch[@"stage"]isEqual:@"fixture-log-save-failure"])chmod(evidence.fileSystemRepresentation,0755);
-    if(![output saveTo:evidence secret:secret error:&diagnosticError])return Fail(failure,diagnosticError);
+    if(![output finishTo:evidence error:&diagnosticError])return Fail(failure,diagnosticError);
     NSString *cacheError=nil;cacheIdentity=ExperimentCacheIdentity(base,&cacheError);
     if(!cacheIdentity&&!cacheError)cacheError=@"precreated cache disappeared; work preserved";
     NSDictionary *observation=ExperimentCacheObservation(initialCache,cacheIdentity,YES,cacheError);
     BOOL cacheUnchanged=ExperimentCacheUnchanged(observation);
     if(!cacheUnchanged&&!cacheError) {cacheError=@"precreated cache inode/owner/mode changed; work preserved";observation=ExperimentCacheObservation(initialCache,cacheIdentity,YES,cacheError);}
     NSData *observedBytes=JSONData(observation);
-    if(!ExperimentPublishLog(evidence,@"cache-precreation.json",observedBytes,cacheCheckpoint,&diagnosticError)||!SyncInstallDirectory(evidence,&diagnosticError))return Fail(failure,diagnosticError);
+    if(!KuroOutputPublish(evidence,@"cache-precreation.json",observedBytes,cacheCheckpoint,&diagnosticError)||!SyncInstallDirectory(evidence,&diagnosticError))return Fail(failure,diagnosticError);
     cacheCheckpoint=observedBytes;
     if(!cacheUnchanged)failureStage=@"cache-precreation-readback";
     NSDictionary *checkpoint=@{@"format":@1,@"failureStage":failureStage,@"termination":session.terminationEvidence,@"capture":[output statistics],@"cacheIdentity":cacheIdentity?:(id)NSNull.null,@"diagnosticError":diagnosticError?:@"",@"configSHA256":digest,@"redactedConfigSHA256":Hash(redactedConfig),@"workAbsent":@NO,@"ownerAbsent":@NO};
@@ -333,7 +235,7 @@ static int ExperimentWorker(BOOL fixture) {
     failureStage=@"typed-selection-control";
     for(NSString *selection in @[@"REJECT",@"DIRECT"])if(!KuroCoreControlRequest(socketPath,secret,ExperimentGroups(),verify,@{@"operation":@"select",@"group":ExperimentGroup,@"proxy":selection},&error)||![KuroCoreControlRequest(socketPath,secret,ExperimentGroups(),verify,@{@"operation":@"readSelection",@"group":ExperimentGroup},&error)[@"now"]isEqual:selection])goto finish;
     failureStage=@"second-fd-readback";
-    if(!ExperimentNoIP(identity,&error)||![output checkpointTo:evidence secret:secret error:&diagnosticError]||!ExperimentSend(3,@{@"event":@"ready",@"session":session.identifier,@"configSHA256":digest,@"coreVersion":version[@"version"],@"noIPReadbacks":@2}))goto finish;
+    if(!ExperimentNoIP(identity,&error)||![output checkpointTo:evidence error:&diagnosticError]||!ExperimentSend(3,@{@"event":@"ready",@"session":session.identifier,@"configSHA256":digest,@"coreVersion":version[@"version"],@"noIPReadbacks":@2}))goto finish;
     if(fixture&&[launch[@"stage"]isEqual:@"fixture-worker-exit"])_exit(73);
     if(fixture&&[launch[@"stage"]hasPrefix:@"fixture-ready-exit-"]) {
       // This is the held harmless fixture child, never the real Core branch.
@@ -347,14 +249,14 @@ static int ExperimentWorker(BOOL fixture) {
 finish:
   if(!session.off) {NSString *stopError=nil;if(![session stop:&stopError]&&!error)error=stopError;}
   // A pre-spawn failure may not have run afterReap. Never discard its output.
-  (void)[output saveTo:evidence secret:secret error:&diagnosticError];
+  (void)[output finishTo:evidence error:&diagnosticError];
   BOOL eofStage=[launch[@"stage"]isEqual:@"eof"]||[launch[@"stage"]isEqual:@"fixture-ready-exit-eof"];
   BOOL trigger=eofStage?session.experimentStopTrigger==KuroExperimentStopOwnerEOF:(session.experimentStopTrigger==KuroExperimentStopOwnerRequest&&session.experimentStopAcknowledged);
   BOOL off=session.off&&!Exists(work),absent=identity&&ExperimentAbsent(identity),passed=success&&off&&absent&&!diagnosticError&&trigger&&ExperimentControlledTermination(session.terminationEvidence);
   if(success&&!passed)failureStage=!off||!absent?@"runtime-cleanup":!trigger?@"owner-stop-proof":@"core-termination-proof";
   BOOL workAbsent=!Exists(work),ownerAbsent=!Exists([base stringByAppendingPathComponent:@"owner.json"]);
   NSDictionary *diagnostics=@{@"format":@1,@"failureStage":passed?(id)NSNull.null:failureStage,@"termination":session.terminationEvidence,@"capture":[output statistics],@"cacheIdentity":cacheIdentity?:(id)NSNull.null,@"diagnosticError":diagnosticError?:@"",@"configSHA256":digest,@"redactedConfigSHA256":Hash(redactedConfig),@"workAbsent":@(workAbsent),@"ownerAbsent":@(ownerAbsent)};
-  if(!ExperimentPublishLog(evidence,@"diagnostics.json",JSONData(diagnostics),diagnosticCheckpoint,&diagnosticError)||!SyncInstallDirectory(evidence,&diagnosticError))passed=NO;
+  if(!KuroOutputPublish(evidence,@"diagnostics.json",JSONData(diagnostics),diagnosticCheckpoint,&diagnosticError)||!SyncInstallDirectory(evidence,&diagnosticError))passed=NO;
   NSDictionary *result=@{@"event":@"done",@"success":@(passed),@"session":session.identifier,@"configSHA256":digest,@"coreVersion":version[@"version"]?:@"unconfirmed",@"coreAbsent":@(absent),@"ownerAbsent":@(ownerAbsent),@"workAbsent":@(workAbsent),@"termination":session.terminationEvidence,@"failureStage":passed?(id)NSNull.null:failureStage,@"diagnosticError":diagnosticError?:@"",@"diagnosticsDirectory":evidence,@"stopProof":ExperimentStopProof(session),@"error":error?:@"",@"inventory":ExperimentInventory(base)};
   (void)ExperimentSend(3,result);close(3);return passed?0:2;
 }

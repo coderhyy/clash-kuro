@@ -41,6 +41,9 @@ export async function buildMacosHelper(target, test = false) {
       // Tests reject root; only socketpair and private temporary-directory operations.
       execFileSync(binary, [], { stdio: 'inherit', timeout: 30_000 })
       execFileSync(binary, ['--upgrade-tests'], { stdio: 'inherit', timeout: 180_000 })
+      const outputTests = join(temporary, 'output-tests')
+      execFileSync('/usr/bin/clang', [...flags, '-Wno-unused-function', join(source, 'tun-output.test.m'), '-o', outputTests], { stdio: 'inherit' })
+      execFileSync(outputTests, [], { stdio: 'inherit', timeout: 20_000 })
     }
     const binary = join(temporary, 'helper')
     execFileSync('/usr/bin/clang', [...flags, join(source, 'kuro-tun-helper.m'), '-o', binary], { stdio: 'inherit' })

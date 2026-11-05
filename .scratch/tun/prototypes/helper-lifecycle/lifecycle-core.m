@@ -73,16 +73,16 @@ static int LCRun(NSDictionary *approval,NSString *base,NSString *core,NSString *
   if(!LCStage(stage)||!initial||![[NSSet setWithArray:initial]isEqual:[NSSet setWithObject:core.lastPathComponent]]||!SafeChain(base,base,geteuid(),YES,&error)||!WriteNew([base stringByAppendingPathComponent:@"attempt.json"],JSONData(@{@"stage":stage,@"epoch":epoch}),0600,&error)||!SyncInstallDirectory(base,&error))return 2;
   NSData *runtime=ExperimentConfigData(socketPath,epoch);BOOL ready=NO,normalStop=NO,passed=NO;
   NSDictionary *identity=nil;__block NSDictionary *socketIdentity=nil;
-  ExperimentOutput *capture=[[ExperimentOutput alloc]initWithSecret:epoch];KuroOwnedSession *session=[[KuroOwnedSession alloc]initWithDirectory:base owner:geteuid()];
+  KuroCoreOutput *capture=[[KuroCoreOutput alloc]initWithSecrets:@[epoch]];KuroOwnedSession *session=[[KuroOwnedSession alloc]initWithDirectory:base owner:geteuid()];
   session.experimentStdoutDescriptor=capture?[capture writer:0]:-1;session.experimentStderrDescriptor=capture?[capture writer:1]:-1;
   __block BOOL cleanupAllowed=NO;__block NSString *failureStage=@"setup";
   do {
     if(!capture||(!fixture&&![Hash(runtime)isEqual:approval[[stage stringByAppendingString:@"ConfigSHA256"]]])) {error=@"fixed runtime/capture mismatch";break;}
-    if(!ExperimentSave(base,@"config.redacted.json",ExperimentRedact(runtime,epoch),&error)||!ExperimentSave(base,@"launch.json",JSONData(@{@"argv":@[core,@"-d",work,@"-f",[work stringByAppendingPathComponent:@"config.json"]],@"environmentKeys":@[@"PATH",@"LANG"],@"inheritsEnvironment":@NO,@"inheritedGroup":@(getpgrp()),@"coreSHA256":approval[@"coreSHA256"],@"configSHA256":Hash(runtime)}),&error))break;
+    if(!ExperimentSave(base,@"config.redacted.json",ExperimentConfigData(socketPath,@"[REDACTED]"),&error)||!ExperimentSave(base,@"launch.json",JSONData(@{@"argv":@[core,@"-d",work,@"-f",[work stringByAppendingPathComponent:@"config.json"]],@"environmentKeys":@[@"PATH",@"LANG"],@"inheritsEnvironment":@NO,@"inheritedGroup":@(getpgrp()),@"coreSHA256":approval[@"coreSHA256"],@"configSHA256":Hash(runtime)}),&error))break;
     if(mkdir(work.fileSystemRepresentation,0700)||!WriteNew([work stringByAppendingPathComponent:@"config.json"],runtime,0600,&error)||![session setLaunchEvidence:@{@"configSHA256":Hash(runtime),@"coreSHA256":approval[@"coreSHA256"],@"template":@"core-control-experiment-v1"} error:&error])break;
     failureStage=@"spawn";__weak KuroOwnedSession *weak=session;
     BOOL spawned=[session spawnExecutable:core arguments:@[@"-d",work,@"-f",[work stringByAppendingPathComponent:@"config.json"]] workingDirectory:work beforeResume:^BOOL(NSString **problem) {return !LCCancelled&&LCGroup(weak.child,problem);} afterReap:^BOOL(NSString **problem) {
-      if(![capture saveTo:base secret:epoch error:problem])return NO;
+      if(![capture finishTo:base error:problem])return NO;
       NSDictionary *cache=ExperimentCacheIdentity(base,problem);
       if(Exists([work stringByAppendingPathComponent:@"cache.db"])&&!cache)return NO;
       NSDictionary *checkpoint=@{@"format":@1,@"stage":stage,@"epoch":epoch,@"termination":weak.terminationEvidence,@"output":capture.statistics,@"cleanupAllowed":@(cleanupAllowed),@"cacheIdentity":cache?:(id)NSNull.null,@"failureStage":failureStage};
@@ -111,7 +111,7 @@ static int LCRun(NSDictionary *approval,NSString *base,NSString *core,NSString *
     NSDictionary *supervisor=ExperimentIdentity(getpid(),getppid(),getpgrp(),&error);if(!supervisor)break;
     NSMutableDictionary *parent=[supervisor mutableCopy],*child=[identity mutableCopy];parent[@"executable"]=Executable();child[@"executable"]=core;
     failureStage=@"evidence";
-    if(!ExperimentSave(base,@"evidence.json",JSONData(@{@"format":@1,@"stage":stage,@"epoch":epoch,@"coreSHA256":approval[@"coreSHA256"],@"fixtureSHA256":approval[@"fixtureSHA256"],@"supervisor":parent,@"child":child,@"startedMilliseconds":@(KuroMonotonicMilliseconds())}),&error)||![capture checkpointTo:base secret:epoch error:&error]||!SyncInstallDirectory(base,&error))break;
+    if(!ExperimentSave(base,@"evidence.json",JSONData(@{@"format":@1,@"stage":stage,@"epoch":epoch,@"coreSHA256":approval[@"coreSHA256"],@"fixtureSHA256":approval[@"fixtureSHA256"],@"supervisor":parent,@"child":child,@"startedMilliseconds":@(KuroMonotonicMilliseconds())}),&error)||![capture checkpointTo:base error:&error]||!SyncInstallDirectory(base,&error))break;
     if([stage isEqual:@"normal"]) {
       failureStage=@"held-stop";normalStop=YES;cleanupAllowed=YES;
       passed=[session stop:&error]&&session.off&&!Exists(work)&&ExperimentAbsent(identity)&&LCGroup(0,&error)&&ExperimentControlledTermination(session.terminationEvidence);
@@ -122,13 +122,13 @@ static int LCRun(NSDictionary *approval,NSString *base,NSString *core,NSString *
     // The supervisor never signals its own group or adopts recorded PIDs.
     deadline=KuroMonotonicMilliseconds()+30000;
     while(!LCCancelled&&KuroMonotonicMilliseconds()<deadline) {
-      if(!LCGroup(session.child,&error)||!ExperimentNoIP(identity,&error)||![capture checkpointTo:base secret:epoch error:&error])break;
+      if(!LCGroup(session.child,&error)||!ExperimentNoIP(identity,&error)||![capture checkpointTo:base error:&error])break;
       usleep(100000);
     }
     error=error?:@"job kill not observed in finite window; held stop is fallback, not group-cleanup proof";
   }while(NO);
   if(session.child||!session.off) {NSString *failure=nil;cleanupAllowed=normalStop&&ready;if(![session stop:&failure])error=error?:failure;}
-  NSString *captureFailure=nil;if(!capture||![capture saveTo:base secret:epoch error:&captureFailure]) {passed=NO;error=error?:captureFailure?:@"capture unavailable";}
+  NSString *captureFailure=nil;if(!capture||![capture finishTo:base error:&captureFailure]) {passed=NO;error=error?:captureFailure?:@"capture unavailable";}
   BOOL childReaped=KuroBool(session.terminationEvidence[@"observed"])&&[session.terminationEvidence[@"observed"]boolValue],workAbsent=!Exists(work),ownerAbsent=!Exists([base stringByAppendingPathComponent:@"owner.json"]);
   passed=passed&&childReaped&&workAbsent&&ownerAbsent&&!error;
   NSDictionary *result=@{@"format":@1,@"stage":stage,@"epoch":epoch,@"status":passed?@"passed":@"blocked",@"approvalSHA256":Hash(JSONData(approval)),@"coreSHA256":approval[@"coreSHA256"],@"fixtureSHA256":approval[@"fixtureSHA256"],@"childReaped":@(childReaped),@"workAbsent":@(workAbsent),@"ownerAbsent":@(ownerAbsent),@"termination":session.terminationEvidence,@"error":error?:@""};

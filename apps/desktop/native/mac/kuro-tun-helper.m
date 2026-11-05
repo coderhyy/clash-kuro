@@ -451,6 +451,7 @@ int main(int argc, const char **argv) {
     BOOL ok = installing ? Install(@"", 0, YES, &error) : Uninstall(@"", 0, YES, entry, &error);
     close(lock);
     if (!ok) fprintf(stderr, "%s\n", (error ?: @"operation refused; installation preserved").UTF8String);
+    else if(!installing)puts("Helper/App uninstall complete; diagnostic evidence, if any, is retained at /Library/Application Support/Clash Kuro/TunDiagnostics and was not deleted.");
     return ok ? 0 : 1;
   }
 }

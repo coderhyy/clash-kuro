@@ -66,6 +66,11 @@ static void CacheOriginTests(void) {
     if(scenario==4){CHECK(!rename(cache.fileSystemRepresentation,[work stringByAppendingPathComponent:@"held-original"].fileSystemRepresentation));Put(cache,NSData.data,0600);}
     if(scenario==8)Put(journal,Bytes(@"unknown owner collision"),0600);
     if(scenario==9)session.fixtureFailOwnerPublish=YES;
+    CHECK(![session spawnExecutable:child arguments:@[@"--session-child"] workingDirectory:work beforeResume:^BOOL(NSString **failure){(void)failure;return YES;} afterReap:^BOOL(NSString **failure){(void)failure;return YES;} error:&error]);CHECK(!session.child);
+    int output[2],errors[2];CHECK(!pipe(output)&&!pipe(errors));
+    CHECK(![session setOutputStdout:output[0] stderr:errors[1] error:&error]);
+    CHECK(![session setOutputStdout:output[1] stderr:output[1] error:&error]);
+    CHECK([session setOutputStdout:output[1] stderr:errors[1] error:&error]);
     __block BOOL sawOrigin=NO;
     KuroSessionHook cleanup=^BOOL(NSString **failure) {
       NSDictionary *record=ReadJSON(directory,journal,geteuid(),NULL),*origin=record[@"work"][@"cacheOrigin"];
@@ -91,6 +96,8 @@ static void CacheOriginTests(void) {
       if(scenario==0){NSDictionary *record=ReadJSON(directory,journal,geteuid(),NULL);CHECK(!record);CHECK(session.off);}
     }
     CHECK(!session.child);
+    if(scenario!=8){CHECK([session.terminationEvidence[@"observed"]boolValue]);}
+    close(output[0]);close(output[1]);close(errors[0]);close(errors[1]);
     if(scenario==0||scenario==10)CHECK(!Exists(work)&&!Exists(cache)&&session.off);
     else CHECK(Exists(work)&&Exists(cache));
     if(scenario!=0&&scenario!=10)CHECK(!session.off); // Failed/unknown ownership never masquerades as off.

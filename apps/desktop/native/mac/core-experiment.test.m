@@ -18,7 +18,7 @@ static int ExperimentFixtureCore(const char *directory,const char *configuration
   }
   if(!strcmp(behavior,"fixture-timeout")) {fputs("fixture waiting without listener\n",stderr);fflush(stderr);for(;;)pause();}
   if(!strcmp(behavior,"fixture-output")) {
-    NSMutableData *bytes=[NSMutableData dataWithLength:ExperimentLogLimit-8];memset(bytes.mutableBytes,'x',bytes.length);[bytes appendData:[value[@"secret"]dataUsingEncoding:NSUTF8StringEncoding]];[bytes increaseLengthBy:ExperimentLogLimit*3];
+    NSMutableData *bytes=[NSMutableData dataWithLength:KuroOutputLimit-8];memset(bytes.mutableBytes,'x',bytes.length);[bytes appendData:[value[@"secret"]dataUsingEncoding:NSUTF8StringEncoding]];[bytes increaseLengthBy:KuroOutputLimit*3];
     for(int fd=1;fd<=2;fd++) {NSUInteger offset=0;while(offset<bytes.length) {ssize_t used=write(fd,(const char *)bytes.bytes+offset,MIN((NSUInteger)1024,bytes.length-offset));if(used<=0)return 95;offset+=(NSUInteger)used;}}
   }
   if(!strncmp(behavior,"fixture-ready-exit-",19))signal(SIGUSR1,ExperimentFixtureExit);
@@ -137,7 +137,7 @@ static int ExperimentSelfTests(void) {
     EXP_CHECK([launch[@"environmentKeysSet"][@"HOME"]isEqual:@NO]);
     if([stage isEqual:@"fixture-output"]) {
       EXP_CHECK([result[@"status"]isEqual:@"passed"]);
-      for(NSString *stream in @[@"stdout",@"stderr"]) {EXP_CHECK([diagnostics[@"capture"][stream][@"bytesRead"]unsignedIntegerValue]>ExperimentLogLimit*3);EXP_CHECK([diagnostics[@"capture"][stream][@"retainedBytes"]unsignedIntegerValue]<=ExperimentLogLimit);EXP_CHECK([diagnostics[@"capture"][stream][@"eof"]isEqual:@YES]);}
+      for(NSString *stream in @[@"stdout",@"stderr"]) {EXP_CHECK([diagnostics[@"capture"][stream][@"bytesRead"]unsignedIntegerValue]>KuroOutputLimit*3);EXP_CHECK([diagnostics[@"capture"][stream][@"retainedBytes"]unsignedIntegerValue]<=KuroOutputLimit);EXP_CHECK([diagnostics[@"capture"][stream][@"eof"]isEqual:@YES]);}
     } else {
       EXP_CHECK([result[@"status"]isEqual:@"blocked"]);
       EXP_CHECK([worker[@"failureStage"]isEqual:@"private-version-readiness"]);
@@ -156,13 +156,13 @@ static int ExperimentSelfTests(void) {
   // Redaction works across read chunks, a retained cap and an incomplete EOF.
   NSString *known=@"known-sensitive-token";NSData *knownBytes=[known dataUsingEncoding:NSUTF8StringEncoding];
   NSMutableData *chunks=[NSMutableData data];[chunks appendBytes:knownBytes.bytes length:7];[chunks appendBytes:(const char *)knownBytes.bytes+7 length:knownBytes.length-7];
-  EXP_CHECK([ExperimentRedact(chunks,known)isEqual:[@"[REDACTED]"dataUsingEncoding:NSUTF8StringEncoding]]);
-  NSMutableData *boundary=[NSMutableData dataWithLength:ExperimentLogLimit-3];memset(boundary.mutableBytes,'x',boundary.length);[boundary appendData:knownBytes];[boundary appendBytes:"tail" length:4];
-  NSData *safeBoundary=ExperimentRedact(boundary,known);EXP_CHECK(safeBoundary.length==ExperimentLogLimit);
+  EXP_CHECK([KuroOutputRedact(chunks,KuroOutputNeedles(@[known]))isEqual:[@"[REDACTED]"dataUsingEncoding:NSUTF8StringEncoding]]);
+  NSMutableData *boundary=[NSMutableData dataWithLength:KuroOutputLimit-3];memset(boundary.mutableBytes,'x',boundary.length);[boundary appendData:knownBytes];[boundary appendBytes:"tail" length:4];
+  NSData *safeBoundary=KuroOutputRedact(boundary,KuroOutputNeedles(@[known]));EXP_CHECK(safeBoundary.length==KuroOutputLimit);
   EXP_CHECK(!memcmp((const char *)safeBoundary.bytes+safeBoundary.length-3,"[RE",3));
-  EXP_CHECK([ExperimentRedact([@"headknown-sens"dataUsingEncoding:NSUTF8StringEncoding],known)isEqual:[@"head[REDACTED]"dataUsingEncoding:NSUTF8StringEncoding]]);
+  EXP_CHECK([KuroOutputRedact([@"headknown-sens"dataUsingEncoding:NSUTF8StringEncoding],KuroOutputNeedles(@[known]))isEqual:[@"head[REDACTED]"dataUsingEncoding:NSUTF8StringEncoding]]);
   char permissionTemporary[]="/private/tmp/kuro-core-evidence-XXXXXX";EXP_CHECK(mkdtemp(permissionTemporary));NSString *permissionDirectory=@(permissionTemporary),*permissionFile=[permissionDirectory stringByAppendingPathComponent:@"stdout.log"];NSData *empty=[NSData data];
-  EXP_CHECK(ExperimentSave(permissionDirectory,@"stdout.log",empty,NULL));EXP_CHECK(!chmod(permissionDirectory.fileSystemRepresentation,0755));EXP_CHECK(!ExperimentSave(permissionDirectory,@"blocked.log",empty,NULL));EXP_CHECK(!ExperimentPublishLog(permissionDirectory,@"stdout.log",empty,empty,NULL));EXP_CHECK(!chmod(permissionDirectory.fileSystemRepresentation,0700));EXP_CHECK(!chmod(permissionFile.fileSystemRepresentation,0644));EXP_CHECK(!ExperimentSave(permissionDirectory,@"stdout.log",empty,NULL));EXP_CHECK(!ExperimentPublishLog(permissionDirectory,@"stdout.log",empty,empty,NULL));EXP_CHECK(!unlink(permissionFile.fileSystemRepresentation)&&!rmdir(permissionDirectory.fileSystemRepresentation));
+  EXP_CHECK(ExperimentSave(permissionDirectory,@"stdout.log",empty,NULL));EXP_CHECK(!chmod(permissionDirectory.fileSystemRepresentation,0755));EXP_CHECK(!ExperimentSave(permissionDirectory,@"blocked.log",empty,NULL));EXP_CHECK(!KuroOutputPublish(permissionDirectory,@"stdout.log",empty,empty,NULL));EXP_CHECK(!chmod(permissionDirectory.fileSystemRepresentation,0700));EXP_CHECK(!chmod(permissionFile.fileSystemRepresentation,0644));EXP_CHECK(!ExperimentSave(permissionDirectory,@"stdout.log",empty,NULL));EXP_CHECK(!KuroOutputPublish(permissionDirectory,@"stdout.log",empty,empty,NULL));EXP_CHECK(!unlink(permissionFile.fileSystemRepresentation)&&!rmdir(permissionDirectory.fileSystemRepresentation));
   for(NSString *stage in @[@"fixture-ready-exit-normal",@"fixture-ready-exit-eof"]) {
     NSString *error=nil;NSDictionary *result=ExperimentGuardian(stage,manifest,YES,&error),*worker=result[@"worker"];
     EXP_CHECK(result[@"readback"]!=nil&&[result[@"status"]isEqual:@"blocked"]);

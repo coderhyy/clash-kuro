@@ -12,6 +12,18 @@ static int ServiceFixtureMain(int argc,const char **argv) {
     char cwd[PATH_MAX]; if(!getcwd(cwd,sizeof(cwd)) || ![work isEqual:[NSString stringWithUTF8String:cwd]])return 94;
     struct stat initialCache={0};NSString *cache=[work stringByAppendingPathComponent:@"cache.db"];
     if(lstat(cache.fileSystemRepresentation,&initialCache)||!SafeMetadata(initialCache,geteuid(),NO)||(initialCache.st_mode&07777)!=0600||initialCache.st_size!=0)return 99;
+    NSString *fixtureName=Executable().lastPathComponent;
+    if([fixtureName hasPrefix:@"core-diagnostic"]) {
+      NSString *credential=[value[@"proxies"]firstObject][@"password"]?:@"none";
+      NSData *out=Bytes([NSString stringWithFormat:@"fixture stdout secret=%@ credential=%@\n",value[@"secret"],credential]),*err=Bytes([NSString stringWithFormat:@"fixture stderr secret=%@ credential=%@\n",value[@"secret"],credential]);
+      if(write(STDOUT_FILENO,out.bytes,out.length)!=(ssize_t)out.length||write(STDERR_FILENO,err.bytes,err.length)!=(ssize_t)err.length)return 96;
+      if([fixtureName isEqual:@"core-diagnostic-overflow"]) {
+        unsigned char block[4096];memset(block,'x',sizeof(block));
+        for(NSUInteger i=0;i<40;i++)for(int fd=1;fd<=2;fd++) {NSUInteger offset=0;while(offset<sizeof(block)){ssize_t count=write(fd,block+offset,sizeof(block)-offset);if(count<0&&errno==EINTR)continue;if(count<=0)return 96;offset+=(NSUInteger)count;}}
+      }
+      if([fixtureName isEqual:@"core-diagnostic-exit37"]||[fixtureName isEqual:@"core-diagnostic-overflow"])return 37;
+      if([fixtureName isEqual:@"core-diagnostic-timeout"])for(;;)pause();
+    }
     if([Executable().lastPathComponent isEqual:@"core-exit"])return 95;
     if([Executable().lastPathComponent isEqual:@"core-must-not-run"]) { if(!WriteNew([work stringByAppendingPathComponent:@"resumed"],Bytes(@"unexpected resume"),0600,NULL))return 96; }
     if([Executable().lastPathComponent isEqual:@"core-config-changed"]) { if(![Bytes(@"changed") writeToFile:config atomically:NO])return 96; }
@@ -280,7 +292,76 @@ static void ServiceCachePreparationTests(void) {
   }
   puts("native service cache preparation: 4 actual startup-chain failures preserve work/unknown before resume (collision, cache fsync, owner publication, resume identity replacement); no Core/network");
 }
+static void ServiceDiagnosticTests(void) {
+  for(NSUInteger scenario=0;scenario<8;scenario++) {
+    char temporary[]="/tmp/kuro-diag-service-XXXXXX";CHECK(mkdtemp(temporary));char canonical[PATH_MAX];CHECK(realpath(temporary,canonical));
+    NSString *directory=@(canonical),*work=[directory stringByAppendingPathComponent:@"session-work"],*journal=[directory stringByAppendingPathComponent:@"owner.json"];
+    NSString *name=scenario==1?@"core-diagnostic-exit37":scenario==2?@"core-diagnostic-overflow":scenario==3?@"core-diagnostic-timeout":@"core-diagnostic";
+    NSString *core=[directory stringByAppendingPathComponent:name];Put(core,[NSData dataWithContentsOfFile:Executable()],0755);
+    KuroTunServiceHooks *hooks=ServiceHooks();__block NSUInteger recovered=0;
+    hooks.recoverNetwork=^BOOL(NSString *session,NSString **error){(void)session;(void)error;recovered++;return YES;};
+    KuroTunService *service=[[KuroTunService alloc]initFixtureDirectory:directory core:core hooks:hooks];
+    dispatch_semaphore_t done=dispatch_semaphore_create(0),retained=dispatch_semaphore_create(0);
+    service.fixtureRetained=^{dispatch_semaphore_signal(retained);};
+    if(scenario==4)service.fixtureBeforeDiagnosticFinish=^(NSString *path){CHECK(!chmod(path.fileSystemRepresentation,0755));};
+    if(scenario==7)service.fixtureBeforeWorkCreation=^{FixtureDirectory(work);Put([work stringByAppendingPathComponent:@"unknown"],Bytes(@"unknown work collision"),0600);};
+    if(scenario==5)service.fixtureBeforeDiagnosticFinish=^(NSString *path){NSString *file=[path stringByAppendingPathComponent:@"diagnostics.json"];if(!Exists(file))Put(file,Bytes(@"unknown diagnostic checkpoint"),0600);};
+    NSMutableDictionary *config=ValidTunConfig();NSString *coreDigest=Hash([NSData dataWithContentsOfFile:core]);NSString *credential=[NSString stringWithFormat:@"%C-fixture-credential-unique\"/",[coreDigest characterAtIndex:coreDigest.length-1]];
+    config[@"proxies"]=@[@{@"name":@"proxy",@"type":@"socks5",@"server":@"192.0.2.10",@"port":@1080,@"username":@"fixture-user-unique",@"password":credential,@"tls":@NO}];
+    int peers[2];CHECK(!socketpair(AF_UNIX,SOCK_STREAM,0,peers));int peer=peers[0];
+    __block BOOL result=NO;__block NSString *failure=nil;
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT,0),^{NSString *error=nil;result=[service serveOpenFrame:JSONData(@{@"version":@2,@"operation":@"open",@"config":config}) peer:peer error:&error];failure=error;close(peer);dispatch_semaphore_signal(done);});
+    NSDictionary *opened=ServiceRead(peers[1]);BOOL accepted=scenario==0||(scenario>=4&&scenario<=6);
+    CHECK([opened[@"ok"]boolValue]==accepted);
+    NSString *secret=nil;
+    if(accepted) {
+      NSDictionary *runtime=ReadJSON(directory,[work stringByAppendingPathComponent:@"config.json"],geteuid(),NULL);secret=runtime[@"secret"];CHECK(secret.length>0);
+      if(scenario==6) { // Invalid frame is a supervision failure, not an empty successful diagnostic.
+        ServiceSend(peers[1],@{@"version":@2,@"operation":@"stop",@"session":opened[@"session"],@"sequence":@99});
+      } else {
+        ServiceSend(peers[1],@{@"version":@2,@"operation":@"stop",@"session":opened[@"session"],@"sequence":@1});
+        NSDictionary *stopped=ServiceRead(peers[1]);CHECK([stopped[@"ok"]boolValue]==(scenario==0));
+      }
+    }
+    NSArray *names=[[NSFileManager defaultManager]contentsOfDirectoryAtPath:[directory stringByAppendingPathComponent:@"TunDiagnostics"] error:NULL];CHECK(names.count==1);
+    NSString *evidence=[[directory stringByAppendingPathComponent:@"TunDiagnostics"]stringByAppendingPathComponent:names[0]];
+    if(scenario==4||scenario==5) {
+      ServiceWait(retained);CHECK(recovered>=2&&Exists(work)&&Exists(journal));CHECK([service.statusSnapshot[@"state"]isEqual:@"unknown"]);
+      if(scenario==4){CHECK(!chmod(evidence.fileSystemRepresentation,0700));service.fixtureBeforeDiagnosticFinish=nil;CHECK(ServiceRecoverySocket(service));}
+      else {[service requestShutdown];CHECK([[NSData dataWithContentsOfFile:[evidence stringByAppendingPathComponent:@"diagnostics.json"]]isEqual:Bytes(@"unknown diagnostic checkpoint")]);}
+    }
+    ServiceWait(done);CHECK(scenario==7?recovered==0:recovered>0);
+    if(scenario!=5) {
+      if(scenario==7)CHECK(Exists([work stringByAppendingPathComponent:@"unknown"])&&!Exists(journal)&&[service.statusSnapshot[@"state"]isEqual:@"unknown"]);
+      else CHECK(!Exists(work)&&!Exists(journal));
+      NSDictionary *metadata=ReadJSON(directory,[evidence stringByAppendingPathComponent:@"diagnostics.json"],geteuid(),NULL),*launch=ReadJSON(directory,[evidence stringByAppendingPathComponent:@"launch.json"],geteuid(),NULL),*redacted=ReadJSON(directory,[evidence stringByAppendingPathComponent:@"config.redacted.json"],geteuid(),NULL);
+      CHECK(metadata&&launch&&redacted);CHECK([metadata[@"captureComplete"]boolValue]);CHECK([metadata[@"termination"][@"observed"]boolValue]!=(scenario==7));
+      CHECK([metadata[@"networkRecovery"][@"attempted"]boolValue]!=(scenario==7));CHECK([metadata[@"networkRecovery"][@"restored"]boolValue]!=(scenario==7));
+      CHECK([redacted[@"secret"]isEqual:@"[REDACTED]"]&&[redacted[@"proxies"][0][@"password"]isEqual:@"[REDACTED]"]);
+      CHECK([launch[@"redactedConfigSHA256"]isEqual:Hash(ReadProtected(directory,[evidence stringByAppendingPathComponent:@"config.redacted.json"],geteuid(),NULL))]);
+      CHECK([launch[@"coreSHA256"]isEqual:coreDigest]); // Password starts with this SHA's final character; summaries must remain exact.
+      CHECK(![launch[@"environment"][@"HOME"]boolValue]&&[launch[@"environment"][@"LANG"]boolValue]);
+      for(NSString *file in @[@"config.redacted.json",@"launch.json",@"stdout.log",@"stderr.log",@"diagnostics.json"]) {
+        NSString *text=[[NSString alloc]initWithData:ReadProtected(directory,[evidence stringByAppendingPathComponent:file],geteuid(),NULL) encoding:NSUTF8StringEncoding];CHECK(text);
+        CHECK(![text containsString:credential]);if(secret)CHECK(![text containsString:secret]);
+        struct stat info={0};CHECK(!lstat([evidence stringByAppendingPathComponent:file].fileSystemRepresentation,&info)&&(info.st_mode&07777)==0600&&info.st_nlink==1);
+      }
+      NSString *out=[[NSString alloc]initWithData:ReadProtected(directory,[evidence stringByAppendingPathComponent:@"stdout.log"],geteuid(),NULL) encoding:NSUTF8StringEncoding];
+      NSString *err=[[NSString alloc]initWithData:ReadProtected(directory,[evidence stringByAppendingPathComponent:@"stderr.log"],geteuid(),NULL) encoding:NSUTF8StringEncoding];
+      if(scenario==7)CHECK(out.length==0&&err.length==0&&[metadata[@"stage"]isEqual:@"private runtime creation"]&&[metadata[@"error"]length]>0);
+      else CHECK([out containsString:@"fixture stdout secret=[REDACTED]"]&&[err containsString:@"fixture stderr secret=[REDACTED]"]);
+      if(scenario==1||scenario==2)CHECK([metadata[@"termination"][@"exitCode"]isEqual:@37]);
+      if(scenario==2)CHECK([metadata[@"capture"][@"stdout"][@"bytesRead"]unsignedLongLongValue]>65536&&[metadata[@"capture"][@"stderr"][@"truncated"]boolValue]);
+      if(scenario==3)CHECK([metadata[@"stage"]isEqual:@"private Core version readiness"]&&[metadata[@"termination"][@"signal"]isEqual:@15]);
+      if(scenario==6)CHECK([metadata[@"error"]isEqual:@"invalid session frame or sequence"]&&[metadata[@"stopContext"][@"unexpected"]boolValue]);
+    }
+    if(scenario==0)CHECK(result);else if(scenario<4)CHECK(!result&&failure.length>0);
+    close(peers[1]);CHECK([[NSFileManager defaultManager]removeItemAtPath:directory error:NULL]);
+  }
+  puts("native production diagnostics: 8 actual harmless service cases cover redacted startup/normal, exit37, overflow drain, timeout, failed-save explicit recovery, unknown checkpoint preservation and pre-cleanup invalid-frame reason; no Core/network");
+}
 static void ServiceTests(void) {
+  ServiceDiagnosticTests();
   ServiceCachePreparationTests();
   RetainedRecoveryTests();
   RestartWorkTests();
@@ -426,7 +507,7 @@ static void ServiceTests(void) {
       CHECK(!Exists([directory stringByAppendingPathComponent:@"owner.json"]));
       CHECK(!Exists([directory stringByAppendingPathComponent:@"session-work"]));
       CHECK(recovered==(scenario==22?1:0));
-      if(scenario==22)CHECK([failure containsString:@"resume refused"]);
+      if(scenario==22)CHECK([failure containsString:@"resume refused"]&&[failure containsString:@"stop or identity loss before Core resume"]);
     }
     CHECK(![service writeMode:@"rule" error:NULL]);
     if(scenario==0) {

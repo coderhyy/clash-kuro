@@ -1,4 +1,5 @@
 #import "tun-core-control.m"
+#import "tun-output.m"
 // Included after the fixed installer helpers. Internal APIs only; this class
 // never takes a caller-supplied executable, HTTP method/path, or working directory.
 typedef BOOL (^KuroServiceAuthorize)(int peer, NSString *configDigest, NSString **error);
@@ -61,6 +62,14 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
   NSString *_secret;
   uint64_t _nextNetworkCheck;
   NSDictionary *_socketIdentity;
+  KuroCoreOutput *_output;
+  NSString *_diagnosticDirectory,*_diagnosticFailure,*_diagnosticStage,*_primaryFailure;
+  NSMutableDictionary<NSString *,NSData *> *_diagnosticPublished;
+  NSMutableSet<NSString *> *_diagnosticDurable;
+  NSArray<NSString *> *_diagnosticSecrets;
+  BOOL _diagnosticComplete,_captureComplete;
+  NSDictionary *_diagnosticNetwork;
+  uint64_t _nextDiagnosticCheckpoint;
 #ifdef KURO_TESTING
   NSString *_fixtureCore;
 #endif
@@ -71,6 +80,8 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
 @property(nonatomic, copy) void (^fixtureAfterSupervise)(void);
 @property(nonatomic, copy) void (^fixtureBeforeResume)(void);
 @property(nonatomic, copy) void (^fixtureBeforeCachePrepare)(KuroOwnedSession *session);
+@property(nonatomic, copy) void (^fixtureBeforeDiagnosticFinish)(NSString *directory);
+@property(nonatomic, copy) void (^fixtureBeforeWorkCreation)(void);
 @property(nonatomic, copy) void (^fixtureRetained)(void);
 @property(nonatomic, copy) void (^fixtureBeforeRecovery)(void);
 @property(nonatomic, copy) void (^fixtureRecoveryCompleted)(void);
@@ -110,6 +121,84 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
   if(_fixtureCore)return _directory;
 #endif
   return @"";
+}
+- (NSString *)diagnosticRoot {
+#ifdef KURO_TESTING
+  if(_fixtureCore)return [_directory stringByAppendingPathComponent:@"TunDiagnostics"];
+#endif
+  return [State.stringByDeletingLastPathComponent stringByAppendingPathComponent:@"TunDiagnostics"];
+}
+- (BOOL)diagnosticProtected:(NSString *)file error:(NSString **)error {
+  struct stat info={0};
+  if(!_diagnosticDirectory || !SafeChain([self anchor],_diagnosticDirectory,_owner,YES,error) || lstat(_diagnosticDirectory.fileSystemRepresentation,&info) || (info.st_mode&07777)!=0700 || info.st_nlink<1)return Fail(error,@"diagnostics directory must remain protected mode0700");
+  if(file && (!SafeChain([self anchor],file,_owner,NO,error) || lstat(file.fileSystemRepresentation,&info) || (info.st_mode&07777)!=0600 || info.st_nlink!=1))return Fail(error,@"diagnostics file must remain protected mode0600 with one link");
+  return YES;
+}
+- (BOOL)saveDiagnostic:(NSString *)name bytes:(NSData *)bytes error:(NSString **)error {
+  if(![@[@"config.redacted.json",@"launch.json",@"diagnostics.json"]containsObject:name] || !bytes)return Fail(error,@"fixed diagnostic metadata is required");
+  NSString *path=[_diagnosticDirectory stringByAppendingPathComponent:name];NSData *previous=_diagnosticPublished[name];
+  if(![self diagnosticProtected:Exists(path)?path:nil error:error])return NO;
+  if(previous) {
+    if(![ReadProtected([self anchor],path,_owner,error)isEqual:previous])return Fail(error,@"diagnostic checkpoint changed; preserve unknown bytes");
+    if([previous isEqual:bytes] && [_diagnosticDurable containsObject:name])return YES;
+    if(![previous isEqual:bytes]) {
+      [_diagnosticDurable removeObject:name];
+      NSString *temporary=[_diagnosticDirectory stringByAppendingPathComponent:[@".diagnostic-"stringByAppendingString:NSUUID.UUID.UUIDString]];
+      if(!WriteNew(temporary,bytes,0600,error))return NO;
+      if(rename(temporary.fileSystemRepresentation,path.fileSystemRepresentation))return Fail(error,@"diagnostic metadata publish failed; preserved");
+      _diagnosticPublished[name]=bytes;
+    }
+  } else {
+    if(Exists(path))return Fail(error,@"unknown diagnostic checkpoint collision; preserved");
+    if(!WriteNew(path,bytes,0600,error))return NO;
+    _diagnosticPublished[name]=bytes;
+  }
+  if(!SyncInstallDirectory(_diagnosticDirectory,error))return NO;
+  [_diagnosticDurable addObject:name];return YES;
+}
+- (void)diagnosticError:(NSString *)error {
+  if(!_diagnosticFailure)_diagnosticFailure=error?:@"diagnostic persistence failed";
+}
+- (BOOL)prepareDiagnostics:(NSDictionary *)mapping runtime:(NSData *)runtime core:(NSString *)core coreSHA256:(NSString *)coreSHA256 error:(NSString **)error {
+  NSDictionary *redacted=KuroDiagnosticRuntime(mapping);_diagnosticSecrets=KuroDiagnosticSecrets(mapping);
+  if(!redacted || !_diagnosticSecrets)return Fail(error,@"closed runtime diagnostic redaction is unavailable");
+  NSString *root=[self diagnosticRoot];struct stat node={0};
+  if(!SafeChain([self anchor],root.stringByDeletingLastPathComponent,_owner,YES,error) || !EnsureDirectory([self anchor],root,_owner,0700,error) || lstat(root.fileSystemRepresentation,&node) || (node.st_mode&07777)!=0700 || node.st_nlink<1 || !SyncInstallDirectory(root.stringByDeletingLastPathComponent,error))return Fail(error,@"fixed diagnostics root must be protected mode0700");
+  _diagnosticDirectory=[root stringByAppendingPathComponent:NSUUID.UUID.UUIDString];
+  if(mkdir(_diagnosticDirectory.fileSystemRepresentation,0700) || ![self diagnosticProtected:nil error:error] || !SyncInstallDirectory(root,error))return Fail(error,@"exclusive diagnostics session directory creation failed");
+  _diagnosticPublished=[NSMutableDictionary dictionary];_diagnosticDurable=[NSMutableSet set];
+  NSData *redactedBytes=[NSJSONSerialization dataWithJSONObject:redacted options:NSJSONWritingSortedKeys|NSJSONWritingWithoutEscapingSlashes error:NULL];
+  NSArray *arguments=@[core,@"-d",[self work],@"-f",[[self work]stringByAppendingPathComponent:@"config.json"]];NSMutableArray *safeArguments=[NSMutableArray array];
+  for(NSString *argument in arguments){NSString *safe=KuroDiagnosticText(argument,_diagnosticSecrets);if(!safe)return Fail(error,@"diagnostic launch argument redaction failed");[safeArguments addObject:safe];}
+  NSString *safeWork=KuroDiagnosticText([self work],_diagnosticSecrets);if(!safeWork)return Fail(error,@"diagnostic work directory redaction failed");
+  for(NSString *digest in @[Hash(runtime),Hash(redactedBytes),coreSHA256])if([_diagnosticSecrets containsObject:digest])return Fail(error,@"diagnostic hash conflicts with a confidential value");
+  NSDictionary *launch=@{@"format":@1,@"argv":safeArguments,@"workingDirectory":safeWork,@"configSHA256":Hash(runtime),@"redactedConfigSHA256":Hash(redactedBytes),@"coreSHA256":coreSHA256,
+    @"environment":@{@"PATH":@YES,@"LANG":@YES,@"HOME":@NO,@"DYLD_INSERT_LIBRARIES":@NO,@"DYLD_LIBRARY_PATH":@NO,@"DYLD_FRAMEWORK_PATH":@NO,@"CLASH_HOME_DIR":@NO,@"CLASH_CONFIG_FILE":@NO,@"CLASH_OVERRIDE_CONFIG":@NO,@"CLASH_OVERRIDE_RULES":@NO},@"stdio":@"bounded-redacted-capture"};
+  if(![self saveDiagnostic:@"config.redacted.json" bytes:redactedBytes error:error] || ![self saveDiagnostic:@"launch.json" bytes:JSONData(launch) error:error])return NO;
+  _output=[[KuroCoreOutput alloc]initWithSecrets:_diagnosticSecrets];
+  if(!_output || ![_session setOutputStdout:[_output writer:0] stderr:[_output writer:1] error:error])return Fail(error,@"mandatory Core diagnostic capture is unavailable");
+  return [_output checkpointTo:_diagnosticDirectory error:error] && SyncInstallDirectory(_diagnosticDirectory,error);
+}
+- (BOOL)persistDiagnosticSummary:(NSString **)error {
+  NSString *safeStage=KuroDiagnosticText(_diagnosticStage?:@"startup",_diagnosticSecrets),*safeError=KuroDiagnosticText(_primaryFailure?:([_session.stopContext[@"unexpected"]boolValue]?_session.stopContext[@"reason"]:@""),_diagnosticSecrets),*safeDiagnostic=KuroDiagnosticText(_diagnosticFailure?:@"",_diagnosticSecrets);
+  NSString *safeNetwork=KuroDiagnosticText(_diagnosticNetwork[@"error"]?:@"",_diagnosticSecrets);
+  NSString *safeReason=KuroDiagnosticText(_session.stopContext[@"reason"]?:@"",_diagnosticSecrets);
+  NSDictionary *metadata=safeStage&&safeError&&safeDiagnostic&&safeNetwork&&safeReason?@{@"format":@1,@"stage":safeStage,@"error":safeError,@"diagnosticError":safeDiagnostic,@"termination":_session.terminationEvidence?:@{@"request":@"none",@"observed":@NO},@"capture":[_output statistics],@"captureComplete":@(_captureComplete),@"stopContext":@{@"reason":safeReason,@"unexpected":_session.stopContext[@"unexpected"]?:@NO},@"networkRecovery":@{@"attempted":_diagnosticNetwork[@"attempted"]?:@NO,@"restored":_diagnosticNetwork[@"restored"]?:@NO,@"error":safeNetwork}}:nil;
+  if(!metadata)return Fail(error,@"diagnostic summary redaction failed; preserve work");
+  return [self saveDiagnostic:@"diagnostics.json" bytes:JSONData(metadata) error:error];
+}
+- (BOOL)finishDiagnostics:(NSString **)error {
+  if(_diagnosticComplete)return YES;
+  if(!_output || !_diagnosticDirectory)return Fail(error,_diagnosticFailure?:@"diagnostic preparation is incomplete; preserve work");
+#ifdef KURO_TESTING
+  if(self.fixtureBeforeDiagnosticFinish)self.fixtureBeforeDiagnosticFinish(_diagnosticDirectory);
+#endif
+  NSString *outputFailure=nil;_captureComplete=[_output finishTo:_diagnosticDirectory error:&outputFailure];
+  if(!_captureComplete)[self diagnosticError:outputFailure];
+  NSString *saveFailure=nil;BOOL saved=[self persistDiagnosticSummary:&saveFailure];
+  if(!saved)[self diagnosticError:saveFailure];
+  _diagnosticComplete=_captureComplete && saved;
+  return _diagnosticComplete || Fail(error,_diagnosticFailure?:@"diagnostic completion checkpoint failed");
 }
 - (NSDictionary *)statusSnapshot { @synchronized(self) { return [_snapshot copy]; } }
 - (void)snapshot:(NSString *)state error:(NSString *)error {
@@ -279,6 +368,7 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
 }
 - (BOOL)removeWork:(NSString **)error {
   if(!_workCreated)return YES;
+  if(![self finishDiagnostics:error])return NO;
   if(!SafeChain([self anchor],[self work],_owner,YES,error))return NO;
   NSArray *names=[[NSFileManager defaultManager] contentsOfDirectoryAtPath:[self work] error:NULL];
   for(NSString *name in names) if(![@[@"config.json",@"core.sock",@"cache.db"] containsObject:name])return Fail(error,@"unknown Core work files preserved");
@@ -331,6 +421,12 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
     if(_commands.count) { call=_commands[0]; [_commands removeObjectAtIndex:0]; }
   }
   uint64_t now=KuroMonotonicMilliseconds();
+  if(_output && now>=_nextDiagnosticCheckpoint) {
+    _nextDiagnosticCheckpoint=now+1000;NSString *captureFailure=nil;
+    if(![_output checkpointTo:_diagnosticDirectory error:&captureFailure] || !SyncInstallDirectory(_diagnosticDirectory,&captureFailure)) {
+      [self diagnosticError:captureFailure];return Fail(error,@"Core diagnostic checkpoint failed; owned stop required");
+    }
+  }
   if(_hooks.verifyNetwork && now>=_nextNetworkCheck) {
     _nextNetworkCheck=now+1000;
     if(!_hooks.verifyNetwork(_session.identifier,error))return NO;
@@ -374,7 +470,8 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
     _resumeCheckpointAttempted=NO; _stopCheckpointAttempted=NO; _stopCheckpointComplete=NO; _stopCheckpointFailure=nil;
     _snapshot=@{@"availability":@"blocked",@"state":@"unknown",@"error":@"session startup transaction is active"};
   }
-  BOOL success=NO,acknowledged=NO; NSString *failure=nil; NSString *stage=@"open decode";
+  BOOL success=NO,acknowledged=NO; NSString *failure=nil; __block NSString *stage=@"open decode";
+  _output=nil;_diagnosticDirectory=nil;_diagnosticFailure=nil;_diagnosticStage=nil;_primaryFailure=nil;_diagnosticPublished=nil;_diagnosticDurable=nil;_diagnosticSecrets=nil;_diagnosticComplete=NO;_captureComplete=NO;_diagnosticNetwork=nil;_nextDiagnosticCheckpoint=0;
   @try {
     id open=KuroDecodeJSON(frame,66000,&failure);
     if(!Keys(open,@[@"version",@"operation",@"config"]) || !KuroNumber(open[@"version"],2,2) || ![open[@"operation"] isEqual:@"open"] || ![open[@"config"] isKindOfClass:NSDictionary.class]) { failure=@"invalid closed version-2 open frame"; return NO; }
@@ -404,6 +501,12 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
     for(NSNumber *code in @[@0x85,@0x2028,@0x2029])text=[text stringByReplacingOccurrencesOfString:[NSString stringWithFormat:@"%C",(unichar)code.unsignedIntValue] withString:[NSString stringWithFormat:@"\\u%04x",code.unsignedIntValue]];
     runtime=[text dataUsingEncoding:NSUTF8StringEncoding]; _runtimeDigest=Hash(runtime);
     NSData *coreBytes=ReadProtected([self anchor],core,_owner,&failure); if(!coreBytes)return NO;
+    stage=@"diagnostic preparation";
+    if(![self prepareDiagnostics:mapping runtime:runtime core:core coreSHA256:Hash(coreBytes) error:&failure]) { [self diagnosticError:failure];return NO; }
+    stage=@"private runtime creation";
+#ifdef KURO_TESTING
+    if(self.fixtureBeforeWorkCreation)self.fixtureBeforeWorkCreation();
+#endif
     if(mkdir([self work].fileSystemRepresentation,0700)) { failure=@"private work directory creation failed"; return NO; } _workCreated=YES;
     if(!WriteNew([[self work] stringByAppendingPathComponent:@"config.json"],runtime,0600,&failure))return NO;
     stage=@"cache provenance preparation";
@@ -413,10 +516,21 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
     if(![_session prepareWorkCache:&failure])return NO;
     if(![_session setLaunchEvidence:@{@"configSHA256":_configDigest,@"coreSHA256":Hash(coreBytes),@"template":@"macos-dual-stack-v1"} error:&failure])return NO;
     __weak KuroTunService *weakSelf=self;
-    stage=@"owned Core spawn"; BOOL spawned=[_session spawnExecutable:core arguments:@[@"-d",[self work],@"-f",[[self work] stringByAppendingPathComponent:@"config.json"]] workingDirectory:[self work] beforeResume:^BOOL(NSString **problem) {
-      KuroTunService *strong=weakSelf; return strong && [strong startupAllowed:problem] && strong->_hooks.identityValid(peer) && SafeChain([strong anchor],[strong work],strong->_owner,YES,problem);
+    stage=@"owned Core spawn";NSString *spawnFailure=nil; BOOL spawned=[_session spawnExecutable:core arguments:@[@"-d",[self work],@"-f",[[self work] stringByAppendingPathComponent:@"config.json"]] workingDirectory:[self work] beforeResume:^BOOL(NSString **problem) {
+      KuroTunService *strong=weakSelf;BOOL prepared=strong && [strong startupAllowed:problem] && strong->_hooks.identityValid(peer) && SafeChain([strong anchor],[strong work],strong->_owner,YES,problem);
+      if(!prepared && strong && problem && *problem && !strong->_primaryFailure)strong->_primaryFailure=*problem;
+      return prepared;
     } afterReap:^BOOL(NSString **problem) {
-      KuroTunService *strong=weakSelf; return strong && strong->_hooks.recoverNetwork(strong->_session.identifier,problem) && [strong removeWork:problem];
+      KuroTunService *strong=weakSelf;if(!strong)return Fail(problem,@"service owner disappeared during cleanup");
+      strong->_diagnosticStage=stage;
+      NSString *diagnostic=nil,*network=nil;BOOL saved=[strong finishDiagnostics:&diagnostic];
+      // Network recovery must run even if logging failed; it retains its own ownership gates.
+      BOOL restored=strong->_hooks.recoverNetwork(strong->_session.identifier,&network);
+      strong->_diagnosticNetwork=@{@"attempted":@YES,@"restored":@(restored),@"error":network?:@""};
+      NSString *summaryFailure=nil;BOOL summary=[strong persistDiagnosticSummary:&summaryFailure];
+      if(!summary){[strong diagnosticError:summaryFailure];strong->_diagnosticComplete=NO;saved=NO;diagnostic=summaryFailure;}
+      if(!saved || !restored)return Fail(problem,!restored?(network?:@"network restoration is not proven"):(diagnostic?:@"diagnostic persistence is not proven"));
+      return [strong removeWork:problem];
     } resumeGate:^BOOL(KuroSessionHook resume,NSString **problem) {
       KuroTunService *strong=weakSelf; if(!strong)return Fail(problem,@"service owner disappeared");
 #ifdef KURO_TESTING
@@ -424,12 +538,16 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
 #endif
       // Cancellation and SIGCONT share the lock with requestStop.
       @synchronized(strong) {
-        if(![strong startupAllowed:problem] || !strong->_hooks.identityValid(peer))return Fail(problem,@"stop or identity loss before Core resume");
+        if(![strong startupAllowed:problem] || !strong->_hooks.identityValid(peer)) {
+          strong->_primaryFailure=@"owned child resume refused: stop or identity loss before Core resume";return Fail(problem,strong->_primaryFailure);
+        }
         strong->_resumeCheckpointAttempted=YES;
-        if(!strong->_hooks.beforeResume(problem))return NO;
-        return resume(problem);
+        if(!strong->_hooks.beforeResume(problem)) {if(problem&&*problem)strong->_primaryFailure=*problem;return NO;}
+        BOOL resumed=resume(problem);if(!resumed&&problem&&*problem)strong->_primaryFailure=*problem;return resumed;
       }
-    } error:&failure];
+    } error:&spawnFailure];
+    if(spawnFailure)failure=spawnFailure;
+    [_output closeWriters];
     if(!spawned)return NO;
     [self snapshot:@"unknown" error:@"owned Core startup and network readback pending"];
     stage=@"private Core version readiness"; uint64_t deadline=KuroMonotonicMilliseconds()+1000; id version=nil;
@@ -444,22 +562,33 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
     stage=@"process and network readback"; if(![self startupAllowed:&failure] || !_hooks.ready(_session.child,_session.identifier,&failure) || !_hooks.applyNetwork(_session.child,_session.identifier,&failure) || ![self startupAllowed:&failure])return NO;
     [self snapshot:@"on" error:nil];
     if(!KuroServiceReply(peer,@{@"version":@2,@"ok":@YES,@"session":_session.identifier,@"leaseMilliseconds":@15000,@"sequence":@0,@"status":[self statusSnapshot]})) { failure=@"open acknowledgement failed"; return NO; }
-    acknowledged=YES;
-    success=[_session superviseSocket:peer leaseMilliseconds:15000 identityValid:^BOOL { KuroTunService *strong=weakSelf; return strong && strong->_hooks.identityValid(peer); } tick:^BOOL(NSString **problem) { return [weakSelf tick:problem]; } stopCheckpoint:^BOOL(NSString **problem) { return [weakSelf checkpointStopped:problem]; } error:&failure];
+    acknowledged=YES;stage=@"authenticated owner supervision";
+    NSString *supervisionFailure=nil;
+    success=[_session superviseSocket:peer leaseMilliseconds:15000 identityValid:^BOOL { KuroTunService *strong=weakSelf; return strong && strong->_hooks.identityValid(peer); } tick:^BOOL(NSString **problem) { return [weakSelf tick:problem]; } stopCheckpoint:^BOOL(NSString **problem) { return [weakSelf checkpointStopped:problem]; } error:&supervisionFailure];
+    if(supervisionFailure)failure=supervisionFailure;
 #ifdef KURO_TESTING
     if(self.fixtureAfterSupervise)self.fixtureAfterSupervise();
 #endif
-    return success;
   } @finally {
+    _diagnosticStage=stage;if(!success && failure && !_primaryFailure && !_diagnosticFailure)_primaryFailure=failure;
+    [_output closeWriters];
     if(_session && !_session.off) { NSString *cleanup=nil; if(![_session stop:&cleanup])failure=cleanup ?: failure; }
+    if(_output && !_session.child) {
+      NSString *diagnostic=nil;
+      if(![self finishDiagnostics:&diagnostic] || ![self persistDiagnosticSummary:&diagnostic]) {
+        [self diagnosticError:diagnostic];_diagnosticComplete=NO;success=NO;
+      }
+    }
     if(_workCreated && (!_session || _session.off)) { NSString *cleanup=nil; if(![self removeWork:&cleanup])failure=cleanup ?: failure; }
-    BOOL off=(_session ? _session.off : previouslyOff) && !_workCreated;
+    BOOL off=(_session ? _session.off : previouslyOff) && !_workCreated && !Exists([self work]);
     if(off) {
       NSString *checkpoint=nil;
       if(_session && ![self checkpointStopped:&checkpoint]) {success=NO;failure=checkpoint;}
-      [self snapshot:@"off" error:_stopCheckpointFailure];
+      [self snapshot:@"off" error:_stopCheckpointFailure?:(!_diagnosticComplete?_diagnosticFailure:nil)];
     }
     else if(_session||_workCreated)[self snapshot:@"unknown" error:failure ?: @"cleanup cannot be proven"];
+    if(_primaryFailure)failure=_primaryFailure;
+    else if(_diagnosticFailure)failure=[@"diagnostic failure: "stringByAppendingString:_diagnosticFailure];
     if(!success && !failure)failure=[@"failed stage: " stringByAppendingString:stage];
     if(!success && !acknowledged)KuroServiceReply(peer,KuroServiceError(failure));
     [self finishPending];
@@ -467,5 +596,6 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
     @synchronized(self) { _busy=NO; }
     if(error)*error=failure;
   }
+  return success;
 }
 @end

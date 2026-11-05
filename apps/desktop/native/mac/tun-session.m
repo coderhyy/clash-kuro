@@ -83,6 +83,14 @@ static BOOL KuroCompletedStopEvidence(id value) {
     !KuroRestartRecord(value[@"owner"],NULL) || ![value[@"session"]isEqual:value[@"owner"][@"session"]] || ![Hash(JSONData(value[@"owner"]))isEqual:value[@"ownerSHA256"]])return NO;
   return YES;
 }
+static BOOL KuroCaptureWriters(int output,int errors,NSString **error) {
+  if(output==errors)return Fail(error,@"distinct capture pipe writers are required");
+  for(NSNumber *number in @[@(output),@(errors)]) {
+    int fd=number.intValue;struct stat info={0};int flags=fd>3?fcntl(fd,F_GETFL):-1;
+    if(fd<=3||flags<0||(flags&O_ACCMODE)!=O_WRONLY||fstat(fd,&info)||!S_ISFIFO(info.st_mode))return Fail(error,@"two valid capture pipe writers above FD3 are required");
+  }
+  return YES;
+}
 #ifdef KURO_CORE_EXPERIMENT
 typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   KuroExperimentStopNone,KuroExperimentStopUnexpected,KuroExperimentStopOwnerRequest,KuroExperimentStopOwnerEOF
@@ -103,9 +111,11 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   NSData *_heldOwnerBytes;
   NSDictionary *_workCacheInitial;
   NSDictionary *_workCacheOrigin;
-#ifdef KURO_CORE_EXPERIMENT
   NSString *_terminationRequest;
   NSDictionary *_terminationEvidence;
+  NSDictionary *_stopContext;
+  int _stdoutDescriptor,_stderrDescriptor;
+#ifdef KURO_CORE_EXPERIMENT
   KuroExperimentStopTrigger _experimentStopTrigger;
   BOOL _experimentStopAcknowledged;
 #endif
@@ -113,8 +123,10 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
 @property(nonatomic, readonly) pid_t child;
 @property(nonatomic, readonly) NSString *identifier;
 @property(nonatomic, readonly) BOOL off;
-#ifdef KURO_CORE_EXPERIMENT
 @property(nonatomic, readonly) NSDictionary *terminationEvidence;
+@property(nonatomic, readonly) NSDictionary *stopContext;
+- (BOOL)setOutputStdout:(int)output stderr:(int)errors error:(NSString **)error;
+#ifdef KURO_CORE_EXPERIMENT
 @property(nonatomic, readonly) KuroExperimentStopTrigger experimentStopTrigger;
 @property(nonatomic, readonly) BOOL experimentStopAcknowledged;
 @property(nonatomic) int experimentStdoutDescriptor;
@@ -153,8 +165,17 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
 #ifdef KURO_CORE_EXPERIMENT
 - (KuroExperimentStopTrigger)experimentStopTrigger {return _experimentStopTrigger;}
 - (BOOL)experimentStopAcknowledged {return _experimentStopAcknowledged;}
-- (NSDictionary *)terminationEvidence { return _terminationEvidence ?: @{@"request":@"none",@"observed":@NO}; }
+- (int)experimentStdoutDescriptor {return _stdoutDescriptor;}
+- (void)setExperimentStdoutDescriptor:(int)value {_stdoutDescriptor=value;}
+- (int)experimentStderrDescriptor {return _stderrDescriptor;}
+- (void)setExperimentStderrDescriptor:(int)value {_stderrDescriptor=value;}
 #endif
+- (NSDictionary *)stopContext {return _stopContext;}
+- (NSDictionary *)terminationEvidence { return _terminationEvidence ?: @{@"request":@"none",@"observed":@NO}; }
+- (BOOL)setOutputStdout:(int)output stderr:(int)errors error:(NSString **)error {
+  if(![self onThread:error] || _child || _journaled || _unknown || !KuroCaptureWriters(output,errors,error))return Fail(error,@"clean session and valid output capture writers required");
+  _stdoutDescriptor=output;_stderrDescriptor=errors;return YES;
+}
 - (BOOL)off {
   if (_child || _journaled || _unknown) return NO;
   for (NSString *name in @[@"owner.json", @"network.json", @"network-dns.json"]) if (Exists([_directory stringByAppendingPathComponent:name])) return NO;
@@ -274,14 +295,11 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
 }
 - (BOOL)spawnExecutable:(NSString *)executable arguments:(NSArray<NSString *> *)arguments workingDirectory:(NSString *)workingDirectory beforeResume:(KuroSessionHook)prepare afterReap:(KuroSessionHook)cleanup resumeGate:(KuroSessionResumeGate)resumeGate error:(NSString **)error {
   if (![self onThread:error]) return NO;
+  BOOL captureRequired=workingDirectory!=nil;
 #ifdef KURO_CORE_EXPERIMENT
-  // Diagnostic failure must never silently restore the production /dev/null path.
-  for(NSNumber *number in @[@(self.experimentStdoutDescriptor),@(self.experimentStderrDescriptor)]) {
-    int fd=number.intValue;struct stat info={0};int flags=fd>3?fcntl(fd,F_GETFL):-1;
-    if(fd<=3||flags<0||(flags&O_ACCMODE)!=O_WRONLY||fstat(fd,&info)||!S_ISFIFO(info.st_mode))return Fail(error,@"two valid capture pipe writers above FD3 are required");
-  }
-  if(self.experimentStdoutDescriptor==self.experimentStderrDescriptor)return Fail(error,@"distinct capture pipe writers are required");
+  captureRequired=YES;
 #endif
+  if(captureRequired && !KuroCaptureWriters(_stdoutDescriptor,_stderrDescriptor,error))return NO;
   if (_child || _journaled || _unknown || !prepare || !cleanup) return Fail(error, @"session is not clean or lifecycle hooks are absent");
   // No resume from a persisted PID: only this process's unreaped direct child is owned.
   NSString *journal = [_directory stringByAppendingPathComponent:@"owner.json"];
@@ -307,10 +325,8 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   int setup = posix_spawnattr_setflags(&attr, POSIX_SPAWN_START_SUSPENDED | POSIX_SPAWN_CLOEXEC_DEFAULT | POSIX_SPAWN_SETSIGMASK | POSIX_SPAWN_SETSIGDEF);
   setup |= posix_spawnattr_setsigmask(&attr, &empty); setup |= posix_spawnattr_setsigdefault(&attr, &defaults);
   for (int descriptor = 0; descriptor < 3; descriptor++) {
-#ifdef KURO_CORE_EXPERIMENT
-    int captured=descriptor==1?self.experimentStdoutDescriptor:descriptor==2?self.experimentStderrDescriptor:0;
-    if(captured>2) {setup|=posix_spawn_file_actions_adddup2(&actions,captured,descriptor);continue;}
-#endif
+    int captured=descriptor==1?_stdoutDescriptor:descriptor==2?_stderrDescriptor:0;
+    if(captureRequired && captured>3) {setup|=posix_spawn_file_actions_adddup2(&actions,captured,descriptor);continue;}
     setup|=posix_spawn_file_actions_addopen(&actions,descriptor,"/dev/null",descriptor?O_WRONLY:O_RDONLY,0);
   }
   if (workingDirectory) {
@@ -324,6 +340,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
     }
   }
   char *environment[] = {"PATH=/usr/bin:/bin", "LANG=C", NULL};
+  _terminationRequest=nil;_terminationEvidence=nil;_stopContext=nil;
   int spawned = setup ? setup : posix_spawn(&_child, executable.fileSystemRepresentation, &actions, &attr, argv, environment);
   posix_spawn_file_actions_destroy(&actions); posix_spawnattr_destroy(&attr);
   if (spawned) { _child = 0; return Fail(error, @"owned child spawn failed"); }
@@ -368,9 +385,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
     int status=0;pid_t result = waitpid(_child, &status, WNOHANG);
     if (result == _child) {
       _reapedOwnedChild=_child;
-#ifdef KURO_CORE_EXPERIMENT
       _terminationEvidence=@{@"request":_terminationRequest ?: @"none",@"observed":@YES,@"exitCode":WIFEXITED(status)?@(WEXITSTATUS(status)):NSNull.null,@"signal":WIFSIGNALED(status)?@(WTERMSIG(status)):NSNull.null};
-#endif
       _child = 0; return YES;
     }
     if (result < 0 && errno != EINTR) { _unknown = YES; return Fail(error, @"direct child ownership was lost; refusing PID-based cleanup"); }
@@ -391,16 +406,12 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
     [self reapUntil:KuroMonotonicMilliseconds() error:error];
     if (_unknown) return NO;
     if (_child) {
-#ifdef KURO_CORE_EXPERIMENT
       _terminationRequest=@"SIGTERM";
-#endif
       if (kill(_child, SIGTERM) && errno != ESRCH) return Fail(error, @"owned child termination failed");
     }
     if (_child && ![self reapUntil:KuroMonotonicMilliseconds() + 150 error:error]) {
       if (_unknown) return NO;
-#ifdef KURO_CORE_EXPERIMENT
       _terminationRequest=@"SIGKILL";
-#endif
       if (kill(_child, SIGKILL) && errno != ESRCH) return Fail(error, @"owned child forced termination failed");
       if (![self reapUntil:KuroMonotonicMilliseconds() + 1000 error:error]) return Fail(error, @"owned child has not been reaped");
     }
@@ -434,6 +445,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
 - (BOOL)superviseSocket:(int)socket leaseMilliseconds:(NSUInteger)lease identityValid:(BOOL (^)(void))identityValid tick:(KuroSessionHook)tick stopCheckpoint:(KuroSessionHook)stopCheckpoint error:(NSString **)error {
   if (![self onThread:error]) return NO;
   if (!_child || !_journaled || !identityValid || lease < 50 || lease > 30000) {
+    _stopContext=@{@"reason":@"invalid authenticated session lease",@"unexpected":@YES};
     NSString *ignored = nil; [self stop:&ignored];
     return Fail(error, @"invalid authenticated session lease; owned child stop attempted");
   }
@@ -441,7 +453,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   _experimentStopTrigger=KuroExperimentStopUnexpected;_experimentStopAcknowledged=NO;
 #endif
   uint64_t deadline = KuroMonotonicMilliseconds() + lease, sequence = 1;
-  NSMutableData *buffer = [NSMutableData data]; NSString *reason = @"session closed";
+  NSMutableData *buffer = [NSMutableData data]; NSString *reason = @"session closed";BOOL unexpected=YES;
   for (;;) {
     if (!identityValid()) { reason = @"authenticated client identity exited or changed"; break; }
     if (tick && !tick(error)) { reason = @"session owner requested stop or control gate failed"; break; }
@@ -455,6 +467,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
     unsigned char bytes[4096]; ssize_t count = recv(socket, bytes, sizeof(bytes), MSG_DONTWAIT);
     if (count < 0 && (errno == EAGAIN || errno == EINTR)) continue;
     if (count <= 0) {
+      if(count==0)unexpected=NO;
 #ifdef KURO_CORE_EXPERIMENT
       if(count==0)_experimentStopTrigger=KuroExperimentStopOwnerEOF;
 #endif
@@ -477,6 +490,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
 #ifdef KURO_CORE_EXPERIMENT
       _experimentStopTrigger=KuroExperimentStopOwnerRequest;
 #endif
+      _stopContext=@{@"reason":@"authenticated owner requested stop",@"unexpected":@NO};
       BOOL stopped = [self stop:error] && self.off;
       // Publish proven off before the client can receive its stop acknowledgement.
       if (stopped && stopCheckpoint && !stopCheckpoint(error)) stopped=NO;
@@ -494,6 +508,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
     const char *replyBytes = reply.UTF8String; size_t length = strlen(replyBytes);
     if (send(socket, replyBytes, length, MSG_NOSIGNAL | MSG_DONTWAIT) != (ssize_t)length) { reason = @"session acknowledgement failed"; break; }
   }
+  _stopContext=@{@"reason":(unexpected&&error&&*error)?*error:reason,@"unexpected":@(unexpected)};
   BOOL stopped = [self stop:error] && self.off;
   if (stopped && stopCheckpoint && !stopCheckpoint(error)) stopped=NO;
   if (stopped && error) *error = reason;
