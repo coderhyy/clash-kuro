@@ -77,3 +77,6 @@ LAN/split支持边界具体为：保留现有更具体route及已识别的search
 
 
 2026-11-05 有限独审确认跨helper恢复仍缺：活Core退出证明、仍存自有网络项的有限清理授权、reap前cache来源凭据。固定mihomo/sing-tun源码逐blob核对支持沿用现有launchd组策略，无需据当前证据增加监护层；源码审查不等于发布Core运行证据。下一步在既有生命周期实验中准备无TUN固定Core组清理验证，未授权/未执行真实job+Core强杀。普通Core normal/EOF和原helper仍活时的recover不得外推跨helper恢复已完成。
+
+
+2026-11-05 `07b4325`冻结普通UID无TUN实验真实normal/EOF均通过；预创建0600空cache由固定Core原地初始化，同inode/owner/mode，准确停止Core exit0且独立进程/运行目录消失。仅证明此cache兼容性，不授权跨helper清退。见[真实证据](../evidence/cache-precreation-07b4325/RESULT.md)。另已准备d62675f fresh → 9763482升级的同helper/Core、不同封印App版本对，两源CI通过，实际升级未执行；[产物对](../evidence/app-only-upgrade-pair/RESULT.md)。

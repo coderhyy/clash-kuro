@@ -1,3 +1,6 @@
+#ifdef KURO_LIFECYCLE_CORE
+#import "lifecycle-core.m"
+#else
 // Experiment A only: no TUN, network, production IPC, installation or launchctl.
 #import <Foundation/Foundation.h>
 #import <CommonCrypto/CommonDigest.h>
@@ -156,3 +159,5 @@ int main(int argc,const char **argv) {
     return 1;
   }
 }
+
+#endif

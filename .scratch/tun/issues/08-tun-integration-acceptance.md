@@ -184,3 +184,6 @@ helper死亡/跨重启对仍存在route/DNS的恢复、真实Core可能detach的
 
 
 2026-11-05 `d62675f583c3794fa4c75dcdf4c2e514d2db74d8`双平台CI通过；同提交fresh/upgrade实际包离线独审通过。新fresh包真实管理员安装、精确身份/neverStarted回执核验、固定入口卸载及Installer receipt清理均通过，job始终未启动、Core/App/TUN未运行。空的既有Client父目录原inode保留；无手工删除或PID终止。升级包尚未真实升级，运行后卸载及网络验收仍未通过。见[本次证据](../evidence/finite-candidate-d62675f/RESULT.md)。
+
+
+2026-11-05 `07b4325`冻结普通UID无TUN实验真实normal/EOF均通过；预创建0600空cache由固定Core原地初始化，同inode/owner/mode，准确停止Core exit0且独立进程/运行目录消失。仅证明此cache兼容性，不授权跨helper清退。见[真实证据](../evidence/cache-precreation-07b4325/RESULT.md)。另已准备d62675f fresh → 9763482升级的同helper/Core、不同封印App版本对，两源CI通过，实际升级未执行；[产物对](../evidence/app-only-upgrade-pair/RESULT.md)。

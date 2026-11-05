@@ -1,0 +1,72 @@
+{
+  "result": "PASS",
+  "sourceCommit": "9763482e426be990593211dd773ad447cf1ec586",
+  "expanded": "/private/tmp/kuro-offline-9763482",
+  "checks": [
+    "exact upgrade package SHA256 match sidecars and remain unchanged",
+    "complete extracted upgrade App seal/runtime/entitlements/ASAR integrity/fuses and exact source metadata verified without launch",
+    "actual full client inventory byte digest and pin match manifests, package and fresh source build",
+    "helper copies exact build hash and valid signature; fixed Core exact verified archive bytes and arm64 executable",
+    "App-bound release, fixed --serve path and all disabled launchd flags consistent",
+    "fresh exact protected targets versus upgrade Payload-only layout; no old Tools/Client/Recovery overwrite in upgrade payload",
+    "native script CLI bytes and all scripts/Inbox sidecars match; BOM root UID/GID and no unsafe modes",
+    "same clean source helper/App build records with mandatory tests and Core syntax validation recorded"
+  ],
+  "packages": [
+    {
+      "operation": "upgrade",
+      "path": "/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/kuro-tun-finite-session-upgrade-0.1.0-arm64-9763482e426b.pkg",
+      "packageSHA256": "35c2883d8bdb3de8325ccdebcf92f1787c699a21be22ad4db11d7ec15a5be5af",
+      "release": "v1.19.33-0.1.0-arm64-dac57e1bef75e44f-c3d3d2110e8b877b8efb8929b7416c9d2f4eaa4b9ac50e5cdcf5ee844a1baf5de",
+      "installerProtocol": 2,
+      "helperSHA256": "cfe03d38d1cb2ea6d90fc64bcc04d09f4cc45e8e99690789e271354b0f643416",
+      "helperCopies": 2,
+      "coreSHA256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+      "client": {
+        "format": 2,
+        "cdhash": "38be2d270334baffa9ea28e1bc237584cd83489b",
+        "executableSHA256": "03f0840e042f635f6c6a00e20d21386a32ad7e10fe7d82ea9b4c4c7f817c008d",
+        "infoSHA256": "83438327a707bbce3ff4c987acae24efbf143a30734c6e3ee80fd337e256c41a",
+        "asarSHA256": "6c42c8ecdeacb7ecda40f569ccfe23292e8b94528fd31d898c272c3b6eec283f"
+      },
+      "inventorySHA256": "3d3d2110e8b877b8efb8929b7416c9d2f4eaa4b9ac50e5cdcf5ee844a1baf5de",
+      "sealedSourceCommit": "9763482e426be990593211dd773ad447cf1ec586",
+      "plist": {
+        "ProgramArguments": [
+          "/Library/PrivilegedHelperTools/dev.kuro.tun/versions/v1.19.33-0.1.0-arm64-dac57e1bef75e44f-c3d3d2110e8b877b8efb8929b7416c9d2f4eaa4b9ac50e5cdcf5ee844a1baf5de/helper",
+          "--serve"
+        ],
+        "KeepAlive": false,
+        "Label": "dev.kuro.tun",
+        "Disabled": true,
+        "RunAtLoad": false,
+        "AbandonProcessGroup": false
+      },
+      "preinstall": "#!/bin/sh\nset -eu\nexec \"${0%/*}/preflight-native\" --begin-client-upgrade\n",
+      "postinstall": "#!/bin/sh\nset -eu\nexec \"${0%/*}/preflight-native\" --complete-client-upgrade\n",
+      "payloadEntries": 623,
+      "bomEntries": 1247,
+      "bomRootOwned": true,
+      "bomAppleDoubleMetadataEntries": 623,
+      "actualAppleDoubleFiles": 0,
+      "fixedFootprint": true,
+      "noPrebuiltRuntimeReceipts": true,
+      "packageUnchanged": true
+    }
+  ],
+  "limits": [
+    "Offline extraction/read-only seal and byte checks only; no package scripts, App, helper or Core executed; no installation, service or network changes.",
+    "Build records establish recorded same-clean-source provenance, not runtime root caller attestation.",
+    "Finite activation is explicit; disabled service is not real TUN acceptance. Real install, runtime uninstall, upgrade/rollback, LAN/DNS and root network recovery remain unverified.",
+    "Upgrade requires an existing distinct protocol-2 installation with exact protected off proof; old legacy/no-protocol installations remain ineligible.",
+    "The new upgrade package is paired with the previously verified d62675f fresh package; actual Installer upgrade is not executed."
+  ],
+  "appOnlyPair": {
+    "oldSource": "d62675f583c3794fa4c75dcdf4c2e514d2db74d8",
+    "oldPackageSHA256": "3e574cbf1d432c70dda45d4774c40c62ebabb74441abcd9b9f46182a506e5169",
+    "differentRelease": true,
+    "differentClientInventory": true,
+    "sameHelper": true,
+    "sameCore": true
+  }
+}

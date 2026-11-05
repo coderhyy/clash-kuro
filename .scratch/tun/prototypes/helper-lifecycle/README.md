@@ -1,5 +1,7 @@
 # 实验 A：无网络 launchd 进程组生命周期
 
+固定 mihomo 无 TUN 的后续候选见 [CORE.md](CORE.md)。它使用独立编译分支与 normal/kill 两个新 epoch；下文旧 fixture 授权、marker/TTL 和旧产物不适用于真实 Core。
+
 **执行更新：用户明确授权后，本 epoch 已执行并清理。** child 在强杀后约 1s/5s 已不存在，没有依赖 marker/TTL；测试 job、binary、plist、实验数据目录均已确认移除。证据与限制见 [结果记录](results-668F8E2A/RESULT.md)。下文保留执行前方案与精确产物记录；不要据旧授权自动重复实验。
 
 2026-11-04：**当前只完成普通用户编译、自测和 review 目录准备。没有安装、运行 launchctl 或强杀系统进程。** 不属于生产 helper，不创建 TUN、网络 socket、路由或 DNS，不包含 broker 或生产 start 绕过。
