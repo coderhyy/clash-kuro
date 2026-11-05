@@ -752,7 +752,109 @@ static void HeldStopCheckpointTests(void) {
   puts("PASS 13 held-stop checkpoint cases: proof write/file-sync/directory-sync, owner unlink/sync, changed proof/owner, both sticky histories, network failure and missing-proof refusal; no Core/launchd/network");
 }
 
+// Actual installed files/receipt and actual production writer/readback consumers;
+// only kernel process/group observations and network backends are fixtures.
+static NSDictionary *RecoveredStopOwner(NSString *state,NSDictionary *snapshot) {
+  NSString *error=nil,*work=[state stringByAppendingPathComponent:@"session-work"];
+  NSDictionary *open=KuroDecodeJSON(ServiceOpen(),66000,NULL);
+  NSData *admitted=[NSJSONSerialization dataWithJSONObject:open[@"config"] options:NSJSONWritingSortedKeys|NSJSONWritingWithoutEscapingSlashes error:NULL],*runtime=KuroTunRuntimeJSON(admitted,&error);CHECK(runtime);
+  Put([work stringByAppendingPathComponent:@"config.json"],runtime,0600);Put([work stringByAppendingPathComponent:@"cache.db"],NSData.data,0600);
+  NSDictionary *initial=KuroWorkCacheSnapshot(state,geteuid(),NULL);CHECK(initial);CHECK([Bytes(@"in-place bbolt fixture bytes")writeToFile:[work stringByAppendingPathComponent:@"cache.db"]atomically:NO]);
+  NSMutableDictionary *record=RestartRecord();record[@"format"]=@2;record[@"executableSHA256"]=snapshot[@"installation"][@"coreSHA256"];
+  record[@"launch"]=@{@"configSHA256":Hash(admitted),@"runtimeSHA256":Hash(runtime),@"coreSHA256":record[@"executableSHA256"],@"template":@"macos-dual-stack-v1"};
+  record[@"supervision"]=@{@"policy":@"fixed-mihomo-launchd-v1",@"helperSHA256":snapshot[@"helperSHA256"],@"startSeconds":@50,@"startMicros":@60,@"installation":snapshot[@"installation"]};
+  record[@"work"]=@{@"configSHA256":Hash(runtime),@"socket":NSNull.null,@"cacheOrigin":@{@"device":initial[@"device"],@"inode":initial[@"inode"],@"owner":@(geteuid()),@"mode":@0600},@"directory":KuroWorkDirectorySnapshot(state,geteuid(),NULL)};
+  CHECK(KuroRestartRecord(record,&error));Put([state stringByAppendingPathComponent:@"owner.json"],JSONData(record),0600);return record;
+}
+static void RecoveredStopCheckpointTests(void) {
+  CHECK(geteuid()!=0);char temporary[]="/tmp/krp-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));NSString *base=@(canonical),*error=nil;
+  NSString *source=[base stringByAppendingPathComponent:@"source"],*next=[base stringByAppendingPathComponent:@"next"];
+  NSData *binary=[NSData dataWithContentsOfFile:Executable()];NSDictionary *manifest=UpgradeFixtureSource(source,@"recovered-old",@"recovered fixture",binary);
+  UpgradeFixtureSource(next,@"recovered-next",@"recovered successor",binary);
+  for(NSUInteger scenario=0;scenario<23;scenario++) {
+    NSString *prefix=[base stringByAppendingPathComponent:[NSString stringWithFormat:@"s%lu",(unsigned long)scenario]];UpgradeFixtureInstall(source,prefix,manifest,NO);
+    NSString *state=At(prefix,State),*ownerPath=[state stringByAppendingPathComponent:@"owner.json"],*stopped=[state stringByAppendingPathComponent:@"stopped.json"],*work=[state stringByAppendingPathComponent:@"session-work"],*helper=[At(prefix,Tools)stringByAppendingPathComponent:@"versions/recovered-old/helper"],*core=[At(prefix,Tools)stringByAppendingPathComponent:@"versions/recovered-old/mihomo"];
+    if(scenario!=15)CHECK(KuroMarkSessionStarted(prefix,geteuid(),helper,&error));
+    NSDictionary *snapshot=KuroProtectedInstallationSnapshot(prefix,geteuid(),helper,&error);CHECK(snapshot);RecoveredStopOwner(state,snapshot);
+    RestartObservation=RestartReappearAt=RestartSupervisorObservation=RestartSupervisorReappearAt=0;RestartMode=scenario==12?1:0;RestartSupervisorMode=scenario==13?1:0;RestartGroupMode=0;
+    KuroFakeRouteStore *routes=[KuroFakeRouteStore new];routes.directory=state;routes.entries=[ProductionBaseline()mutableCopy];KuroFakeDNSStore *dns=[KuroFakeDNSStore new];dns.directory=state;
+    KuroTunServiceHooks *hooks=ServiceHooks();
+    hooks.recoverResidualNetwork=^BOOL(NSString **failure){KuroProductionNetwork *network=[[KuroProductionNetwork alloc]initWithDirectory:state owner:geteuid() routes:routes dns:dns environment:RecoveryFixtureEnvironment()];return [network recoverSession:nil error:failure];};
+    hooks.recoveredNetworkEvidence=^NSDictionary *(NSDictionary *record,NSString **failure){KuroProductionNetwork *network=[[KuroProductionNetwork alloc]initWithDirectory:state owner:geteuid() routes:routes dns:dns environment:RecoveryFixtureEnvironment()];return [network recoverRecordedSession:record[@"session"]error:failure];};
+    KuroTunService *(^fresh)(void)=^KuroTunService *{KuroTunService *service=[[KuroTunService alloc]initFixtureDirectory:state core:core hooks:hooks];service.fixtureInstallationPrefix=prefix;service.fixtureRestartReader=RestartSupervisorReader;service.fixtureRestartGroupReader=RestartGroupReader;return service;};
+    if(scenario==6)Put(stopped,Bytes(@"{}"),0600);
+    if(scenario==8)dns.failSnapshot=YES;
+    if(scenario==9)dns.records[KuroDNSKey(@"00112233-4455-6677-8899-AABBCCDDEEFF")]=KuroDNSValue();
+    if(scenario==10)[routes.entries addObject:ProductionRoute(4,@"0.0.0.0",1,@"link",@"utun7",7,RTF_UP|RTF_PROTO2)];
+    if(scenario==11)[routes.entries addObject:ProductionRoute(4,@"0.0.0.0",1,@"link",@"utun7",7,RTF_UP)];
+    if(scenario==14){CHECK([[NSFileManager defaultManager]removeItemAtPath:work error:NULL]);CHECK(!unlink(ownerPath.fileSystemRepresentation));}
+    if(scenario==18)Put([work stringByAppendingPathComponent:@"unknown"],Bytes(@"preserve"),0600);
+    if(scenario==19){KuroOwnedDNS *oldDNS=[[KuroOwnedDNS alloc]initWithDirectory:state owner:geteuid() backend:dns];CHECK([oldDNS installForSession:@"00112233-4455-6677-8899-AABBCCDDEEFF"error:&error]);CHECK(dns.additions==1&&Exists([state stringByAppendingPathComponent:KuroDNSJournal]));}
+    if(scenario==20||scenario==22) {
+      NSData *raw=ReadProtected(prefix,ownerPath,geteuid(),NULL);NSMutableDictionary *record=[KuroDecodeJSON(raw,MessageLimit,NULL)mutableCopy],*receipt=[record[@"work"]mutableCopy];receipt[@"cache"]=KuroWorkCacheSnapshot(state,geteuid(),NULL);record[@"work"]=receipt;
+      NSMutableData *noncanonical=[JSONData(record)mutableCopy];[noncanonical appendBytes:"\n "length:2];if(scenario==22){NSMutableData *padding=[NSMutableData dataWithLength:40000];memset(padding.mutableBytes,'\n',padding.length);[noncanonical appendData:padding];}CHECK(noncanonical.length<MessageLimit);Put(ownerPath,noncanonical,0600);
+    }
+    if(scenario==21){__weak KuroFakeDNSStore *weakDNS=dns;dns.onSnapshot=^{KuroFakeDNSStore *backend=weakDNS;if(backend.snapshots==6)backend.records[KuroDNSKey(@"00112233-4455-6677-8899-AABBCCDDEEFF")]=KuroDNSValue();};}
+    if(scenario>=2&&scenario<=4)KuroStoppedFault=scenario-1;
+    if(scenario==7)KuroStoppedFault=2;
+    BOOL ok=NO;
+    if(scenario==5||scenario==16) {
+      KuroOwnedSession *observed=[[KuroOwnedSession alloc]initWithDirectory:state owner:geteuid()];observed.fixtureRestartReader=RestartSupervisorReader;observed.fixtureRestartGroupReader=RestartGroupReader;observed.fixtureFailOwnerUnlink=scenario==5;
+      KuroTunService *consumer=fresh();
+      ok=[observed recoverExitedOwnerWithNetwork:hooks.recoverResidualNetwork writerValidator:^BOOL(NSDictionary *record,NSString **failure){return [consumer restartWriterValid:record error:failure];}workCleanup:^BOOL(NSDictionary *record,KuroSessionHook stillAbsent,NSString **failure){return [consumer recoverExitedWork:record stillAbsent:stillAbsent error:failure];}beforeOwnerRemoval:^BOOL(NSDictionary *record,NSData *bytes,KuroSessionHook stillAbsent,NSString **failure){BOOL saved=[consumer checkpointRecoveredOwner:record bytes:bytes stillAbsent:stillAbsent error:failure];if(saved&&scenario==16)observed.fixtureFailDirectorySync=YES;return saved;}error:&error];
+      CHECK(!ok&&Exists(stopped)&&!Exists(work));CHECK(Exists(ownerPath)==(scenario==5));
+      int heldLock=ServiceLock(prefix,geteuid(),&error);CHECK(heldLock>=0);CHECK(!Uninstall(prefix,geteuid(),NO,At(prefix,Recovery),&error));close(heldLock);
+      if(scenario==5)CHECK(!Uninstall(prefix,geteuid(),NO,At(prefix,Recovery),&error));
+      // A fresh service re-syncs the existing proof; no owner means no new proof.
+      NSData *before=ReadProtected(prefix,stopped,geteuid(),NULL);ok=[fresh() recoverNetworkOnly:&error];CHECK([before isEqual:ReadProtected(prefix,stopped,geteuid(),NULL)]);
+    } else ok=[fresh() recoverNetworkOnly:&error];
+    if((scenario>=2&&scenario<=4)||scenario==7) {
+      CHECK(!ok&&Exists(ownerPath)&&!Exists(work));CHECK(!Uninstall(prefix,geteuid(),NO,At(prefix,Recovery),&error));CHECK(!BeginClientUpgradeFromScripts(prefix,geteuid(),NO,[next stringByAppendingPathComponent:@"scripts"],&error));
+      CHECK(![fresh() recoverNetworkOnly:&error]&&Exists(ownerPath));
+      if(scenario==7) {NSData *raw=ReadProtected(prefix,ownerPath,geteuid(),NULL);NSMutableData *changed=[raw mutableCopy];[changed appendBytes:" "length:1];Put(ownerPath,changed,0600);KuroStoppedFault=0;CHECK(![fresh() recoverNetworkOnly:&error]&&Exists(ownerPath));Put(ownerPath,raw,0600);}
+      KuroStoppedFault=0;ok=[fresh() recoverNetworkOnly:&error];CHECK(ok);
+    }
+    if(scenario==21){CHECK(!ok&&Exists(stopped)&&Exists(ownerPath)&&!Exists(work));CHECK(!Uninstall(prefix,geteuid(),NO,At(prefix,Recovery),&error));dns.onSnapshot=nil;[dns.records removeObjectForKey:KuroDNSKey(@"00112233-4455-6677-8899-AABBCCDDEEFF")];ok=[fresh() recoverNetworkOnly:&error];CHECK(ok);}
+    BOOL expected=(scenario<=5||scenario==7||scenario==14||scenario==15||scenario==16||scenario==17||scenario==19||scenario==20||scenario==21);CHECK(ok==expected);
+    if(ok) {
+      CHECK(!Exists(ownerPath)&&!Exists(work));
+      if(scenario==14||scenario==15) {CHECK(!Exists(stopped));CHECK(Uninstall(prefix,geteuid(),NO,At(prefix,Recovery),&error)==(scenario==15));}
+      else {
+        NSDictionary *proof=ReadJSON(prefix,stopped,geteuid(),&error);CHECK([proof[@"format"]isEqual:@3]&&[proof[@"kind"]isEqual:@"fixed-core-recovered"]&&!proof[@"process"]&&!proof[@"childReaped"]);CHECK(!KuroCompletedStopEvidence(proof));
+        NSData *original=[proof[@"ownerJSON"]dataUsingEncoding:NSUTF8StringEncoding];CHECK([Hash(original)isEqual:proof[@"ownerSHA256"]]);if(scenario==20)CHECK([proof[@"ownerJSON"]hasSuffix:@"\n "]);CHECK(KuroRestartRecord(KuroDecodeJSON(original,MessageLimit,NULL),NULL));
+
+        if(scenario==0) {
+          NSData *saved=ReadProtected(prefix,stopped,geteuid(),NULL);NSDictionary *receipt=ReadFreshReceipt(prefix,geteuid(),&error),*installed=ReadJSON(prefix,[state stringByAppendingPathComponent:@"installed.json"],geteuid(),NULL);
+          CHECK(KuroStoppedBoundToReceipt(proof,receipt,installed));
+          for(NSString *field in @[@"workAbsent",@"format",@"ownerSHA256",@"session"]) {
+            NSMutableDictionary *changed=[proof mutableCopy];changed[field]=[field isEqual:@"workAbsent"]?@1:[field isEqual:@"format"]?@1:[field isEqual:@"session"]?@"11112233-4455-6677-8899-AABBCCDDEEFF":Hash(Bytes(@"other bytes"));
+            CHECK(!KuroStoppedBoundToReceipt(changed,receipt,installed));Put(stopped,JSONData(changed),0600);CHECK(!Uninstall(prefix,geteuid(),NO,At(prefix,Recovery),&error));CHECK(!BeginClientUpgradeFromScripts(prefix,geteuid(),NO,[next stringByAppendingPathComponent:@"scripts"],&error));
+          }
+          for(NSString *ownerJSON in @[@"[]",@"{\"supervision\":[]}"]) {
+            NSMutableDictionary *changed=[proof mutableCopy];changed[@"ownerJSON"]=ownerJSON;changed[@"ownerSHA256"]=Hash([ownerJSON dataUsingEncoding:NSUTF8StringEncoding]);
+            CHECK(!KuroStoppedBoundToReceipt(changed,receipt,installed));Put(stopped,JSONData(changed),0600);CHECK(!Uninstall(prefix,geteuid(),NO,At(prefix,Recovery),&error));
+          }
+          NSMutableDictionary *malformedOwner=[KuroDecodeJSON(original,MessageLimit,NULL)mutableCopy];malformedOwner[@"supervision"]=@[];NSMutableDictionary *malformedProof=[proof mutableCopy];NSData *malformedBytes=JSONData(malformedOwner);malformedProof[@"ownerJSON"]=[[NSString alloc]initWithData:malformedBytes encoding:NSUTF8StringEncoding];malformedProof[@"ownerSHA256"]=Hash(malformedBytes);CHECK(!KuroStoppedBoundToReceipt(malformedProof,receipt,installed));
+          Put(stopped,saved,0600);
+        }
+        CHECK([ReadJSON(prefix,[state stringByAppendingPathComponent:@"installed.json"],geteuid(),NULL)[@"neverStarted"]isEqual:@NO]);
+        if(scenario==1) {CHECK(BeginClientUpgradeFromScripts(prefix,geteuid(),NO,[next stringByAppendingPathComponent:@"scripts"],&error));UpgradeFixturePayload(next,prefix);CHECK(CompleteClientUpgradeFromScripts(prefix,geteuid(),NO,[next stringByAppendingPathComponent:@"scripts"],&error));CHECK([ReadJSON(prefix,[state stringByAppendingPathComponent:@"installed.json"],geteuid(),NULL)[@"neverStarted"]isEqual:@NO]);}
+        if(scenario==17) {
+          // Preserve exact retry authority after approval appends uninstallJSON.
+          NSData *installed=ReadProtected(prefix,[state stringByAppendingPathComponent:@"installed.json"],geteuid(),NULL);NSDictionary *raw=KuroDecodeJSON(ReadProtected(prefix,At(prefix,FreshReceipt),geteuid(),NULL),InventoryLimit*2,NULL);NSMutableDictionary *approved=[raw mutableCopy];approved[@"uninstallJSON"]=[[NSString alloc]initWithData:JSONData(@{@"format":@1,@"installed":KuroDecodeJSON(installed,MessageLimit,NULL),@"stopped":proof})encoding:NSUTF8StringEncoding];Put(At(prefix,FreshReceipt),JSONData(approved),0600);CHECK(ReadFreshReceipt(prefix,geteuid(),&error));CHECK(!unlink([At(prefix,ClientBundle)stringByAppendingPathComponent:@"Contents/Resources/app.asar"].fileSystemRepresentation));
+        }
+        CHECK(Uninstall(prefix,geteuid(),NO,At(prefix,Recovery),&error));CHECK(!Exists(state)&&!Exists(At(prefix,Tools)));
+      }
+    } else {CHECK(Exists(ownerPath));CHECK(!Uninstall(prefix,geteuid(),NO,At(prefix,Recovery),&error));}
+    if(scenario==19)CHECK(dns.removals==1&&!Exists([state stringByAppendingPathComponent:KuroDNSJournal]));
+    KuroStoppedFault=0;printf("recovered checkpoint %lu: exact production binding/readback + fresh retry/consumer gate passed\n",(unsigned long)scenario);
+  }
+  RestartMode=RestartGroupMode=RestartSupervisorMode=KuroStoppedFault=0;CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);
+  puts("PASS 23 recovered-stop cases: actual temporary install/upgrade/uninstall, proof durability/raw-byte mismatch, backend readback/live/unknown refusals; no held proof fabricated, no Core/system/network");
+}
+
 static void ServiceTests(void) {
+  RecoveredStopCheckpointTests();
   HeldStopCheckpointTests();
   StoppedRevocationTests();
   pid_t supervision=0;char *supervisionArgs[]={(char *)Executable().fileSystemRepresentation,"--supervision-tests",NULL};

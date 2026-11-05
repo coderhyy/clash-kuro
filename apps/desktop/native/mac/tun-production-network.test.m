@@ -31,7 +31,31 @@ static KuroNetworkEnvironment *RecoveryFixtureEnvironment(void) {
   environment.probeDNS=^BOOL(KuroCoreInterface value,NSString **error){(void)value;(void)error;CHECK(NO);return NO;};return environment;
 }
 static void IPv4UpstreamTests(void);
+static void RecoveredNetworkReadbackTests(void) {
+  char temporary[]="/tmp/krn-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));NSString *base=@(canonical),*error=nil,*session=@"00112233-4455-6677-8899-AABBCCDDEEFF";
+  for(NSUInteger scenario=0;scenario<8;scenario++) {
+    NSString *directory=[base stringByAppendingPathComponent:[NSString stringWithFormat:@"s%lu",(unsigned long)scenario]];FixtureDirectory(directory);
+    KuroFakeRouteStore *routes=[KuroFakeRouteStore new];routes.directory=directory;routes.entries=[ProductionBaseline()mutableCopy];KuroFakeDNSStore *dns=[KuroFakeDNSStore new];dns.directory=directory;
+    routes.failRead=scenario==1;dns.failSnapshot=scenario==2;
+    routes.onSnapshot=^(KuroFakeRouteStore *backend){if(backend.snapshots==2) {
+      if(scenario==3)[backend.entries addObject:ProductionRoute(4,@"0.0.0.0",1,@"link",@"utun7",7,RTF_UP|RTF_PROTO2)];
+      if(scenario==4)[backend.entries addObject:ProductionRoute(6,@"::",1,@"link",@"utun7",7,RTF_UP)];
+      if(scenario==5)[backend.entries addObject:ProductionRoute(4,@"198.18.0.0",30,@"link",@"utun7",7,RTF_UP)];
+      if(scenario==7)Put([directory stringByAppendingPathComponent:KuroRouteJournal],Bytes(@"unknown journal after recovery"),0600);
+    }};
+    __weak KuroFakeDNSStore *weakDNS=dns;dns.onSnapshot=^{KuroFakeDNSStore *store=weakDNS;if(store.snapshots==2&&scenario==6)store.records[KuroDNSKey(session)]=KuroDNSValue();};
+    KuroProductionNetwork *network=[[KuroProductionNetwork alloc]initWithDirectory:directory owner:geteuid() routes:routes dns:dns environment:RecoveryFixtureEnvironment()];
+    NSDictionary *proof=[network recoverRecordedSession:session error:&error];CHECK((proof!=nil)==(scenario==0));
+    if(proof)CHECK(([proof isEqual:@{@"format":@1,@"kind":@"current-owned-absence",@"session":session,@"routesOff":@YES,@"dnsOff":@YES}]));
+    CHECK(![network stoppedEvidenceForSession:session error:NULL]);CHECK(!routes.deletions&&!routes.additions&&!dns.removals&&!dns.additions);
+    if(scenario==6)CHECK(dns.records[KuroDNSKey(session)]);if(scenario==7)CHECK(Exists([directory stringByAppendingPathComponent:KuroRouteJournal]));
+    routes.onSnapshot=nil;dns.onSnapshot=nil;
+  }
+  CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);puts("PASS 8 recovered backend readback cases: complete current route/DNS observations, late marked/split/internal-pool/DNS/journal conflicts reject; no held history or network writes");
+}
+
 static void ProductionNetworkTests(void) {
+  RecoveredNetworkReadbackTests();
   IPv4UpstreamTests();
   CHECK(geteuid()!=0); NSString *error=nil,*session=@"00112233-4455-6677-8899-AABBCCDDEEFF";
   CHECK(([KuroProductionRuntimeFields()[@"hosts"][KuroReadinessDomain]isEqual:@[@"198.18.0.1",@"fdfe:dcba:9876::1"]]));

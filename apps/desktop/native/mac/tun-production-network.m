@@ -148,6 +148,7 @@ static BOOL KuroPreservedEndpoint(NSString *text, NSArray *routes, NSString *phy
 - (BOOL)readyChild:(pid_t)child session:(NSString *)session error:(NSString **)error;
 - (BOOL)applyChild:(pid_t)child session:(NSString *)session error:(NSString **)error;
 - (BOOL)recoverSession:(NSString *)session error:(NSString **)error;
+- (NSDictionary *)recoverRecordedSession:(NSString *)session error:(NSString **)error;
 - (BOOL)confirmSession:(NSString *)session error:(NSString **)error;
 - (NSDictionary *)stoppedEvidenceForSession:(NSString *)session error:(NSString **)error;
 @end
@@ -320,4 +321,18 @@ static BOOL KuroPreservedEndpoint(NSString *text, NSArray *routes, NSString *phy
   if (_networkOff) { _session=nil; memset(&_association,0,sizeof(_association)); _prepared=NO; _physical=nil; _baselineRoutes=nil; _baselineDNS=nil; }
   return _networkOff || Fail(error,@"network recovery lacks independent route/DNS absence proofs");
 }
+// Fresh evidence describes actual current backend absence, not a held session's
+// historical writes and not the mere disappearance of journal files.
+- (NSDictionary *)recoverRecordedSession:(NSString *)session error:(NSString **)error {
+  if(!KuroDNSKey(session) || ![self recoverSession:nil error:error])return nil;
+  NSArray *routes=KuroStableRoutes([_routeBackend routes:error]);
+  NSDictionary *dns=[_dnsBackend dnsRecords:error];
+  if(!routes || ![dns isKindOfClass:NSDictionary.class]){Fail(error,@"complete current route/DNS readback unavailable");return nil;}
+  for(NSDictionary *route in routes)if(([route[@"flags"]unsignedIntValue]&RTF_PROTO2) || ([route[@"prefix"]intValue]==1 && ([route[@"flags"]unsignedIntValue]&RTF_UP))) {Fail(error,@"current marked/split-default route is not absent");return nil;}
+  for(NSDictionary *route in routes)if([route[@"prefix"]intValue]>0 && (KuroRouteContainsIP(route,@"198.18.0.1") || KuroRouteContainsIP(route,@"198.18.0.2") || KuroRouteContainsIP(route,@"fdfe:dcba:9876::1") || KuroRouteContainsIP(route,@"fdfe:dcba:9876::2"))){Fail(error,@"current route overlaps the fixed utun/internal DNS pool");return nil;}
+  for(id key in dns)if(![key isKindOfClass:NSString.class] || [key hasPrefix:KuroDNSPrefix]){Fail(error,@"current owned DNS UUID key is not absent");return nil;}
+  if(!_networkOff || Exists([_directory stringByAppendingPathComponent:KuroRouteJournal]) || Exists([_directory stringByAppendingPathComponent:KuroDNSJournal])){Fail(error,@"current network receipts are not durably retired");return nil;}
+  return @{@"format":@1,@"kind":@"current-owned-absence",@"session":session,@"routesOff":@YES,@"dnsOff":@YES};
+}
+
 @end

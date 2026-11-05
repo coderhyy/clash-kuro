@@ -366,6 +366,10 @@ static KuroTunService *ProductionService(void) {
     KuroProductionNetwork *recovery=[[KuroProductionNetwork alloc] initWithDirectory:State owner:0];
     return [recovery recoverSession:nil error:error];
   };
+  hooks.recoveredNetworkEvidence=^NSDictionary *(NSDictionary *record,NSString **error) {
+    KuroProductionNetwork *recovery=[[KuroProductionNetwork alloc]initWithDirectory:State owner:0];
+    return [recovery recoverRecordedSession:record[@"session"] error:error];
+  };
   return [[KuroTunService alloc] initWithHooks:hooks];
 }
 static void StopSignal(int signalNumber) { (void)signalNumber; stopping = 1; }

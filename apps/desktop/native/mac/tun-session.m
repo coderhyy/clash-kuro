@@ -22,6 +22,7 @@ typedef BOOL (^KuroSessionResumeGate)(KuroSessionHook resume, NSString **error);
 typedef int (*KuroRestartReader)(int,int,uint64_t,void *,int);
 typedef int (*KuroRestartGroupReader)(uint32_t,uint32_t,void *,int);
 typedef BOOL (^KuroRestartWriterValidator)(NSDictionary *owner,NSString **error);
+typedef BOOL (^KuroRestartEvidenceCheckpoint)(NSDictionary *record, NSData *originalOwnerBytes, KuroSessionHook stillAbsent, NSString **error);
 typedef BOOL (^KuroRestartWorkCleanup)(NSDictionary *record,KuroSessionHook stillAbsent,NSString **error);
 // A fresh helper never kills or adopts this PID. Any observed process, including
 // a different start identity, prevents deletion; only explicit ESRCH is absence.
@@ -206,6 +207,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
 - (BOOL)recordReapedWorkCache:(NSDictionary *)identity error:(NSString **)error;
 - (BOOL)recoverExitedOwnerWithNetwork:(KuroSessionHook)network workCleanup:(KuroRestartWorkCleanup)workCleanup error:(NSString **)error;
 - (BOOL)recoverExitedOwnerWithNetwork:(KuroSessionHook)network writerValidator:(KuroRestartWriterValidator)validator workCleanup:(KuroRestartWorkCleanup)workCleanup error:(NSString **)error;
+- (BOOL)recoverExitedOwnerWithNetwork:(KuroSessionHook)network writerValidator:(KuroRestartWriterValidator)validator workCleanup:(KuroRestartWorkCleanup)workCleanup beforeOwnerRemoval:(KuroRestartEvidenceCheckpoint)checkpoint error:(NSString **)error;
 
 - (instancetype)initWithDirectory:(NSString *)directory owner:(uid_t)owner;
 - (BOOL)spawnExecutable:(NSString *)executable arguments:(NSArray<NSString *> *)arguments beforeResume:(KuroSessionHook)prepare afterReap:(KuroSessionHook)cleanup error:(NSString **)error;
@@ -335,6 +337,9 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   return [self recoverExitedOwnerWithNetwork:network writerValidator:nil workCleanup:workCleanup error:error];
 }
 - (BOOL)recoverExitedOwnerWithNetwork:(KuroSessionHook)network writerValidator:(KuroRestartWriterValidator)validator workCleanup:(KuroRestartWorkCleanup)workCleanup error:(NSString **)error {
+  return [self recoverExitedOwnerWithNetwork:network writerValidator:validator workCleanup:workCleanup beforeOwnerRemoval:nil error:error];
+}
+- (BOOL)recoverExitedOwnerWithNetwork:(KuroSessionHook)network writerValidator:(KuroRestartWriterValidator)validator workCleanup:(KuroRestartWorkCleanup)workCleanup beforeOwnerRemoval:(KuroRestartEvidenceCheckpoint)checkpoint error:(NSString **)error {
   if(![self onThread:error] || _child || _journaled || _unknown || !network || !workCleanup || ![self directoryProtected:error])return Fail(error,@"fresh protected owner context and bounded recovery hooks required");
   NSString *path=[_directory stringByAppendingPathComponent:@"owner.json"],*work=[_directory stringByAppendingPathComponent:@"session-work"];
   if(!Exists(path)) {
@@ -351,7 +356,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   if(self.fixtureRestartReader)reader=self.fixtureRestartReader;
   if(self.fixtureRestartGroupReader)groupReader=self.fixtureRestartGroupReader;
 #endif
-  __block BOOL checkpoint=record[@"work"][@"cacheCheckpoint"]!=nil;
+  __block BOOL cacheCheckpoint=record[@"work"][@"cacheCheckpoint"]!=nil;
   __block BOOL workGone=!Exists(work);
   KuroSessionHook stillAbsent=^BOOL(NSString **failure) {
     NSDictionary *expected=record[@"work"][@"directory"];
@@ -382,12 +387,18 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
     if(self.fixtureFailOwnerPublish)return Fail(error,@"injected restart owner publish refusal");
 #endif
     if(!KuroRestartRecord(updated,error) || ![self publishOwner:updated replacing:bytes error:error])return NO;
-    bytes=JSONData(updated);record=KuroDecodeJSON(bytes,MessageLimit,error);checkpoint=YES;
+    bytes=JSONData(updated);record=KuroDecodeJSON(bytes,MessageLimit,error);cacheCheckpoint=YES;
   }
   // A renamed checkpoint from a failed prior attempt must be revalidated and synced.
-  if(checkpoint && (!stillAbsent(error) || ![self syncDirectory:error]))return NO;
+  if(cacheCheckpoint && (!stillAbsent(error) || ![self syncDirectory:error]))return NO;
   if(!workCleanup(record,stillAbsent,error) || !stillAbsent(error))return NO;
   if(Exists(work) || Exists([_directory stringByAppendingPathComponent:@"network.json"]) || Exists([_directory stringByAppendingPathComponent:@"network-dns.json"]))return Fail(error,@"old Core/network footprint remains; preserving owner receipt");
+  // This fresh checkpoint records observed fixed-writer recovery, never held reap.
+  if(checkpoint && !checkpoint(record,bytes,stillAbsent,error))return NO;
+  if(checkpoint && (!stillAbsent(error) || Exists(work) || Exists([_directory stringByAppendingPathComponent:@"network.json"]) || Exists([_directory stringByAppendingPathComponent:@"network-dns.json"])))return Fail(error,@"ownership/work/network changed after recovered checkpoint; preserve owner");
+#ifdef KURO_TESTING
+  if(self.fixtureFailOwnerUnlink)return Fail(error,@"injected recovered owner unlink refusal");
+#endif
   if(unlink(path.fileSystemRepresentation) || ![self syncDirectory:error])return Fail(error,@"old Core owner absence receipt removal was not durable");
   return self.off || Fail(error,@"old Core recovery did not establish off");
 }

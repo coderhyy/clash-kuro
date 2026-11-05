@@ -244,6 +244,26 @@ static BOOL KuroStoppedProofValid(NSDictionary *proof,NSDictionary *manifest,NSD
   for(NSString *key in @[@"routeJournalSHA256",@"dnsJournalSHA256"])if(network[key]!=NSNull.null && !Match(network[key],@"\\A[0-9a-f]{64}\\z"))return NO;
   return YES;
 }
+// Separate from held format 1: no childReaped or wait status is invented.
+static BOOL KuroRecoveredNetworkValid(NSDictionary *network,NSString *session) {
+  return Keys(network,@[@"format",@"kind",@"session",@"routesOff",@"dnsOff"]) && KuroNumber(network[@"format"],1,1) &&
+    [network[@"kind"]isEqual:@"current-owned-absence"] && [network[@"session"]isEqual:session] && KuroBool(network[@"routesOff"]) && [network[@"routesOff"]boolValue] && KuroBool(network[@"dnsOff"]) && [network[@"dnsOff"]boolValue];
+}
+static BOOL KuroRecoveredProofValid(NSDictionary *proof,NSDictionary *manifest,NSData *manifestBytes,NSData *inventoryBytes,NSDictionary *installed,NSString *receiptHash) {
+  if(!Keys(proof,@[@"format",@"kind",@"release",@"helperSHA256",@"coreSHA256",@"manifestSHA256",@"inventorySHA256",@"installedSHA256",@"session",@"ownerJSON",@"ownerSHA256",@"network",@"workAbsent"]) || !KuroNumber(proof[@"format"],3,3) || ![proof[@"kind"]isEqual:@"fixed-core-recovered"] ||
+    !Keys(installed,@[@"format",@"release",@"helperSHA256",@"neverStarted"]) || !KuroNumber(installed[@"format"],1,1) || !KuroBool(installed[@"neverStarted"]) || [installed[@"neverStarted"]boolValue] ||
+    ![proof[@"release"]isEqual:installed[@"release"]] || ![proof[@"release"]isEqual:manifest[@"release"]] || ![proof[@"helperSHA256"]isEqual:installed[@"helperSHA256"]] || ![proof[@"helperSHA256"]isEqual:manifest[@"helper"][@"sha256"]] ||
+    ![proof[@"coreSHA256"]isEqual:manifest[@"core"][@"sha256"]] || ![manifest[@"core"][@"version"]isEqual:@"v1.19.33"] || ![proof[@"manifestSHA256"]isEqual:Hash(manifestBytes)] || ![proof[@"inventorySHA256"]isEqual:Hash(inventoryBytes)] || ![proof[@"installedSHA256"]isEqual:Hash(JSONData(installed))] ||
+    ![proof[@"ownerJSON"]isKindOfClass:NSString.class] || !KuroBool(proof[@"workAbsent"]) || ![proof[@"workAbsent"]boolValue])return NO;
+  NSData *bytes=[proof[@"ownerJSON"]dataUsingEncoding:NSUTF8StringEncoding];NSDictionary *record=KuroDecodeJSON(bytes,MessageLimit,NULL);
+  if(!KuroRestartRecord(record,NULL))return NO;
+  NSDictionary *supervision=record[@"supervision"],*installation=supervision[@"installation"],*launch=record[@"launch"];
+  return KuroRestartRecord(record,NULL) && [proof[@"ownerSHA256"]isEqual:Hash(bytes)] && [proof[@"session"]isEqual:record[@"session"]] &&
+    [supervision[@"policy"]isEqual:@"fixed-mihomo-launchd-v1"] && [supervision[@"helperSHA256"]isEqual:proof[@"helperSHA256"]] &&
+    [installation isEqual:@{@"release":proof[@"release"],@"manifestSHA256":proof[@"manifestSHA256"],@"freshReceiptSHA256":receiptHash?:@"",@"coreSHA256":proof[@"coreSHA256"]}] &&
+    [launch[@"template"]isEqual:@"macos-dual-stack-v1"] && [launch[@"coreSHA256"]isEqual:proof[@"coreSHA256"]] && [launch[@"runtimeSHA256"]isEqual:record[@"work"][@"configSHA256"]] &&
+    KuroWorkCacheOrigin(record[@"work"][@"cacheOrigin"]) && KuroRecoveredNetworkValid(proof[@"network"],proof[@"session"]);
+}
 static NSDictionary *DecodeFreshReceipt(NSData *raw,NSString **error) {
   id receipt=KuroDecodeJSON(raw,InventoryLimit*2,error);
   if(!KuroMapping(receipt,@[@"format",@"helperSHA256",@"manifestJSON",@"inventoryJSON",@"plistBase64"],@[@"uninstallJSON",@"upgradeJSON"]) || !KuroNumber(receipt[@"format"],1,1) || ![receipt[@"manifestJSON"] isKindOfClass:NSString.class] || ![receipt[@"inventoryJSON"] isKindOfClass:NSString.class] || ![receipt[@"plistBase64"] isKindOfClass:NSString.class]) {Fail(error,@"invalid fresh installation receipt");return nil;}
@@ -251,6 +271,10 @@ static NSDictionary *DecodeFreshReceipt(NSData *raw,NSString **error) {
   NSDictionary *manifest=KuroDecodeJSON(manifestBytes,MessageLimit,error),*inventory=KuroDecodeJSON(inventoryBytes,InventoryLimit,error);NSData *plist=[[NSData alloc] initWithBase64EncodedString:receipt[@"plistBase64"] options:0];
   if(!ValidManifest(manifest,error) || !manifest[@"client"] || ![Hash(inventoryBytes) isEqual:manifest[@"clientInventorySHA256"]] || ![receipt[@"helperSHA256"] isEqual:manifest[@"helper"][@"sha256"]] || !FixedPlist(plist,manifest[@"release"],error) || !InventoryEntries(inventory,error)) {Fail(error,@"fresh receipt payload binding failed");return nil;}
   NSMutableDictionary *result=[@{@"manifest":manifest,@"manifestBytes":manifestBytes,@"inventory":inventory,@"inventoryBytes":inventoryBytes,@"plist":plist}mutableCopy];
+  // Installation writers use canonical JSON. Uninstall approval is appended
+  // later and must not recursively change the original receipt identity.
+  NSMutableDictionary *identity=[receipt mutableCopy];[identity removeObjectForKey:@"uninstallJSON"];
+  result[@"installationSHA256"]=Hash(JSONData(identity));
   if(receipt[@"upgradeJSON"]) {
     if(![receipt[@"upgradeJSON"]isKindOfClass:NSString.class]) {Fail(error,@"invalid upgrade approval");return nil;}
     NSDictionary *approval=KuroDecodeJSON([receipt[@"upgradeJSON"]dataUsingEncoding:NSUTF8StringEncoding],MessageLimit,error);
@@ -261,7 +285,7 @@ static NSDictionary *DecodeFreshReceipt(NSData *raw,NSString **error) {
   if(receipt[@"uninstallJSON"]) {
     if(![receipt[@"uninstallJSON"]isKindOfClass:NSString.class]) {Fail(error,@"invalid stopped uninstall approval");return nil;}
     NSDictionary *approval=KuroDecodeJSON([receipt[@"uninstallJSON"]dataUsingEncoding:NSUTF8StringEncoding],MessageLimit,error);
-    if(!Keys(approval,@[@"format",@"installed",@"stopped"]) || !KuroNumber(approval[@"format"],1,1) || !(KuroStoppedProofValid(approval[@"stopped"],manifest,manifestBytes,inventoryBytes,approval[@"installed"]) || (result[@"upgrade"] && [approval[@"stopped"]isEqual:result[@"upgrade"]] && KuroUpgradeOffValid(approval[@"stopped"],manifest,manifestBytes,inventoryBytes,approval[@"installed"])))) {Fail(error,@"stopped uninstall approval does not match this payload");return nil;}
+    if(!Keys(approval,@[@"format",@"installed",@"stopped"]) || !KuroNumber(approval[@"format"],1,1) || !(KuroStoppedProofValid(approval[@"stopped"],manifest,manifestBytes,inventoryBytes,approval[@"installed"]) || KuroRecoveredProofValid(approval[@"stopped"],manifest,manifestBytes,inventoryBytes,approval[@"installed"],result[@"installationSHA256"]) || (result[@"upgrade"] && [approval[@"stopped"]isEqual:result[@"upgrade"]] && KuroUpgradeOffValid(approval[@"stopped"],manifest,manifestBytes,inventoryBytes,approval[@"installed"])))) {Fail(error,@"stopped uninstall approval does not match this payload");return nil;}
     result[@"uninstall"]=approval;
   }
   return result;
@@ -271,6 +295,7 @@ static NSDictionary *ReadFreshReceipt(NSString *prefix,uid_t owner,NSString **er
 }
 static BOOL KuroStoppedBoundToReceipt(NSDictionary *proof,NSDictionary *receipt,NSDictionary *installed) {
   return KuroStoppedProofValid(proof,receipt[@"manifest"],receipt[@"manifestBytes"],receipt[@"inventoryBytes"],installed) ||
+    KuroRecoveredProofValid(proof,receipt[@"manifest"],receipt[@"manifestBytes"],receipt[@"inventoryBytes"],installed,receipt[@"installationSHA256"]) ||
     (receipt[@"upgrade"] && [proof isEqual:receipt[@"upgrade"]] && KuroUpgradeOffValid(proof,receipt[@"manifest"],receipt[@"manifestBytes"],receipt[@"inventoryBytes"],installed));
 }
 // Capability admission follows dynamic peer authentication. Neither this receipt
@@ -357,8 +382,36 @@ static BOOL KuroMarkSessionStopped(NSString *prefix,uid_t owner,NSString *execut
   }
   return KuroStoppedOwnerMatches(prefix,owner,process,error) && KuroSyncStoppedCheckpoint(prefix,owner,bytes,error);
 }
-// A new helper can re-sync only a genuine proof already issued by the held
-// instance. Current absence observations never manufacture childReaped evidence.
+typedef NSDictionary *(^KuroRecoveredNetworkReadback)(NSString **error);
+static BOOL KuroRecoveredFootprintsAbsent(NSString *prefix,NSString **error) {
+  NSString *directory=At(prefix,State);
+  for(NSString *name in @[@"session-work",@"network.json",@"network-dns.json"])
+    if(Exists([directory stringByAppendingPathComponent:name]))return Fail(error,@"recovered work/network footprint remains; preserve owner");
+  return YES;
+}
+static BOOL KuroMarkSessionRecovered(NSString *prefix,uid_t owner,NSString *helper,NSDictionary *record,NSData *ownerBytes,KuroSessionHook stillAbsent,KuroRecoveredNetworkReadback readback,NSString **error) {
+  NSString *directory=At(prefix,State),*path=[directory stringByAppendingPathComponent:@"stopped.json"],*ownerPath=[directory stringByAppendingPathComponent:@"owner.json"];
+  if(!stillAbsent || !readback || !ownerBytes || ![KuroDecodeJSON(ownerBytes,MessageLimit,error)isEqual:record] || ![ReadProtected(prefix,ownerPath,owner,error)isEqual:ownerBytes] || !stillAbsent(error) || !KuroRecoveredFootprintsAbsent(prefix,error) || !KuroSessionActivationAt(prefix,owner,helper,error))return Fail(error,@"exact protected recovered owner/installation/absence is required");
+  NSDictionary *receipt=ReadFreshReceipt(prefix,owner,error),*installed=ReadJSON(prefix,[directory stringByAppendingPathComponent:@"installed.json"],owner,error),*manifest=receipt[@"manifest"];
+  NSDictionary *network=readback(error);if(!KuroRecoveredNetworkValid(network,record[@"session"]))return Fail(error,@"actual recovered route/DNS readback is incomplete");
+  NSDictionary *proof=@{@"format":@3,@"kind":@"fixed-core-recovered",@"release":installed[@"release"]?:@"",@"helperSHA256":installed[@"helperSHA256"]?:@"",@"coreSHA256":manifest[@"core"][@"sha256"]?:@"",@"manifestSHA256":receipt?Hash(receipt[@"manifestBytes"]):@"",@"inventorySHA256":receipt?Hash(receipt[@"inventoryBytes"]):@"",@"installedSHA256":installed?Hash(JSONData(installed)):@"",@"session":record[@"session"]?:@"",@"ownerJSON":[[NSString alloc]initWithData:ownerBytes encoding:NSUTF8StringEncoding]?:@"",@"ownerSHA256":Hash(ownerBytes),@"network":network,@"workAbsent":@YES};
+  // A never-started installation keeps its original authority; no false history.
+  if([installed[@"neverStarted"]boolValue])return (!Exists(path) && stillAbsent(error) && KuroRecoveredFootprintsAbsent(prefix,error) && SyncInstallDirectory(directory,error)) || Fail(error,@"never-started recovery has unexpected proof or footprint");
+  if(!receipt || !KuroRecoveredProofValid(proof,manifest,receipt[@"manifestBytes"],receipt[@"inventoryBytes"],installed,receipt[@"installationSHA256"]))return Fail(error,@"recovered evidence does not bind this exact fixed installation");
+  NSData *bytes=JSONData(proof);
+  if(!bytes.length || bytes.length>MessageLimit)return Fail(error,@"recovered checkpoint exceeds its consumer size limit; preserve owner");
+  if(!Exists(path)) {
+#ifdef KURO_TESTING
+    if(KuroStoppedFault==1)return Fail(error,@"injected recovered checkpoint write refusal");
+#endif
+    if(!WriteNew(path,bytes,0600,error))return NO;
+  }
+  if(!KuroSyncStoppedCheckpoint(prefix,owner,bytes,error))return NO;
+  // Re-read both actual backends after persistence and before owner removal.
+  return stillAbsent(error) && [ReadProtected(prefix,ownerPath,owner,error)isEqual:ownerBytes] && KuroRecoveredFootprintsAbsent(prefix,error) && [readback(error)isEqual:network];
+}
+// A new helper re-syncs an existing exact held or recovered proof.
+// Recovered format 3 is never admitted as childReaped evidence.
 static BOOL KuroReplayStoppedCheckpoint(NSString *prefix,uid_t owner,NSString *executingHelper,NSDictionary *record,NSString **error) {
   NSString *directory=At(prefix,State),*path=[directory stringByAppendingPathComponent:@"stopped.json"];
   if(!Exists(path))return YES;
@@ -367,8 +420,13 @@ static BOOL KuroReplayStoppedCheckpoint(NSString *prefix,uid_t owner,NSString *e
   NSData *bytes=ReadProtected(prefix,path,owner,error);NSDictionary *proof=bytes?KuroDecodeJSON(bytes,MessageLimit,error):nil;
   if(!receipt || !KuroStoppedBoundToReceipt(proof,receipt,installed))return Fail(error,@"existing held stop checkpoint is not bound to this installation");
   if(record) {
-    NSDictionary *process=proof[@"process"];
-    if(!KuroCompletedStopEvidence(process) || ![process[@"owner"]isEqual:record] || !KuroStoppedOwnerMatches(prefix,owner,process,error))return Fail(error,@"existing held stop checkpoint belongs to a different owner");
+    if([proof[@"format"]isEqual:@3]) {
+      NSData *original=[proof[@"ownerJSON"]dataUsingEncoding:NSUTF8StringEncoding];
+      if(![KuroDecodeJSON(original,MessageLimit,error)isEqual:record] || ![ReadProtected(prefix,[directory stringByAppendingPathComponent:@"owner.json"],owner,error)isEqual:original] || !KuroRecoveredFootprintsAbsent(prefix,error))return Fail(error,@"existing recovered checkpoint belongs to a different exact owner");
+    } else {
+      NSDictionary *process=proof[@"process"];
+      if(!KuroCompletedStopEvidence(process) || ![process[@"owner"]isEqual:record] || !KuroStoppedOwnerMatches(prefix,owner,process,error))return Fail(error,@"existing held stop checkpoint belongs to a different owner");
+    }
   } else if(HasOwnershipFootprint(prefix) || Exists([directory stringByAppendingPathComponent:@"session-work"]))return Fail(error,@"stopped checkpoint replay requires complete ownership absence");
   return KuroSyncStoppedCheckpoint(prefix,owner,bytes,error);
 }

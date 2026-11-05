@@ -149,6 +149,7 @@ typedef BOOL (^KuroServiceStopped)(NSDictionary *sessionEvidence, NSString **err
 @property(nonatomic, copy) NSDictionary *(^readinessHosts)(void);
 @property(nonatomic, copy) KuroServiceRecovery verifyNetwork;
 @property(nonatomic, copy) KuroSessionHook recoverResidualNetwork;
+@property(nonatomic, copy) NSDictionary *(^recoveredNetworkEvidence)(NSDictionary *record,NSString **error);
 @end
 @implementation KuroTunServiceHooks @end
 
@@ -425,7 +426,33 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
   } else
 #endif
   if(geteuid()!=0 || ![_directory isEqual:State])return Fail(error,@"fixed protected root stopped replay required");
-  return KuroReplayStoppedCheckpoint(prefix,owner,helper,record,error);
+  NSString *proofPath=[_directory stringByAppendingPathComponent:@"stopped.json"];NSData *proofBytes=ReadProtected(prefix,proofPath,owner,error);
+  if(!proofBytes || !KuroReplayStoppedCheckpoint(prefix,owner,helper,record,error) || ![ReadProtected(prefix,proofPath,owner,error)isEqual:proofBytes])return NO;
+  NSDictionary *proof=KuroDecodeJSON(proofBytes,MessageLimit,error);
+  if([proof[@"format"]isEqual:@3]) {
+    NSDictionary *source=KuroDecodeJSON([proof[@"ownerJSON"]dataUsingEncoding:NSUTF8StringEncoding],MessageLimit,error);
+    if(!_hooks.recoveredNetworkEvidence || !KuroRecoveredNetworkValid(_hooks.recoveredNetworkEvidence(source,error),source[@"session"]))return Fail(error,@"recovered checkpoint current backend absence is not confirmed");
+  }
+  return YES;
+}
+- (BOOL)checkpointRecoveredOwner:(NSDictionary *)record bytes:(NSData *)bytes stillAbsent:(KuroSessionHook)stillAbsent error:(NSString **)error {
+  if(Exists([_directory stringByAppendingPathComponent:@"stopped.json"]))return [self replayStoppedEvidenceForOwner:record error:error];
+  // Legacy receipt-only recovery gets no new uninstall authority. Production
+  // supplies a real backend readback for the new installation-bound owner.
+  if(!record[@"supervision"][@"installation"] || !_hooks.recoveredNetworkEvidence)return YES;
+  NSString *prefix=@"",*helper=Executable();uid_t owner=0;
+#ifdef KURO_TESTING
+  if(_fixtureCore && self.fixtureInstallationPrefix) {
+    prefix=self.fixtureInstallationPrefix;owner=_owner;
+    if(![_directory isEqual:At(prefix,State)])return Fail(error,@"recovered proof requires fixed isolated State layout");
+    NSDictionary *installed=ReadJSON(prefix,At(prefix,[State stringByAppendingPathComponent:@"installed.json"]),owner,error);
+    if(!Match(installed[@"release"],@"\\A[A-Za-z0-9.-]{1,120}\\z"))return NO;
+    helper=[At(prefix,Tools)stringByAppendingPathComponent:[@"versions"stringByAppendingPathComponent:[installed[@"release"]stringByAppendingPathComponent:@"helper"]]];
+  } else
+#endif
+  if(geteuid()!=0 || ![_directory isEqual:State])return Fail(error,@"recovered proof requires fixed protected root installation");
+  if(![self restartWriterValid:record error:error])return NO;
+  return KuroMarkSessionRecovered(prefix,owner,helper,record,bytes,stillAbsent,^NSDictionary *(NSString **failure){return self->_hooks.recoveredNetworkEvidence(record,failure);},error);
 }
 - (BOOL)recoverNetworkOnly:(NSString **)error {
   NSString *held=nil;
@@ -453,6 +480,8 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
       if(record[@"supervision"][@"installation"] && ![self restartWriterValid:record error:failure])return NO;
       if(![self replayStoppedEvidenceForOwner:record error:failure])return NO;
       return [self recoverExitedWork:record stillAbsent:stillAbsent error:failure];
+    } beforeOwnerRemoval:^BOOL(NSDictionary *record,NSData *bytes,KuroSessionHook stillAbsent,NSString **failure) {
+      return [self checkpointRecoveredOwner:record bytes:bytes stillAbsent:stillAbsent error:failure];
     } error:error])return NO;
     ok=observed.off && (!_session || _session.off) && !Exists([self work]);
     return ok || Fail(error,@"network/Core recovery did not independently clear ownership receipts");
