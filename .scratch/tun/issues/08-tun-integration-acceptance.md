@@ -70,3 +70,6 @@ CI配置已串联native隔离测试→App dmg→disabled helper pkg，并保存s
 
 
 2026-11-05 固定前置实验：源码`639c64fbfd3d371057dfd59d8b01b882c8aebbe3`，独立普通UID runner已离线构建、严格签名校验及最终产物38 fixture断言通过；全native fixture通过，Core/-t显式未执行。精确目录、摘要、5–8分钟normal→EOF步骤与有限恢复方法见[准备结果](../evidence/core-control-preparation/RESULT.md)。状态为可执行、等待新授权；不包含root/TUN或helper强杀。
+
+
+2026-11-05 已授权639c64f普通UID真实Core normal实际失败：Core控制ready前自行exit1、无信号，runner exit2；EOF按门禁未执行。准确Core/worker均ESRCH，guardian组空，owner/work/socket清退；仅固定Core副本及证据按失败策略保留。Core输出被旧候选丢弃，根因未知；下一最小修复为有界诊断日志并另冻候选，不重试原包。本轮授权结束。[实际结果](../evidence/core-control-execution-639c64f/RESULT.md)。

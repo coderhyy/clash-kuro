@@ -120,3 +120,6 @@ Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
 2026-11-05 下一交付收敛：已通过的auth-only安装实验不重跑，原包继续禁止会话操作。生产动态AuthorizeClient之后增加安装绑定的有限session准入：显式boolean activation、完成事务、执行helper/manifest/client/inventory/fresh管理员receipt、实际plist及恢复入口必须相互匹配。首次Core resume前须持久废止neverStarted；运行过后不能再使用原fresh-only卸载证明。准备器仍默认activationAllowed=false，不提供已获授权的root启动候选。运行后准确卸载、完整升级与root组合实验证据仍未完成。
 
 先准备[普通UID固定Core实验](../core-control-experiment.md)，复用实际有限Unix控制与准确direct-child监督，独立编译nonTUN模板；不伪造生产utun ready。normal→EOF按证据顺序执行，helper强杀不在本次实验入口。新实验须冻结源码/产物并获新授权，普通UID通过也不等于root App/helper组合通过。
+
+
+2026-11-05 已授权639c64f普通UID真实Core normal实际失败：Core控制ready前自行exit1、无信号，runner exit2；EOF按门禁未执行。准确Core/worker均ESRCH，guardian组空，owner/work/socket清退；仅固定Core副本及证据按失败策略保留。Core输出被旧候选丢弃，根因未知；下一最小修复为有界诊断日志并另冻候选，不重试原包。本轮授权结束。[实际结果](../evidence/core-control-execution-639c64f/RESULT.md)。

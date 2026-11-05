@@ -59,3 +59,6 @@ LAN/split支持边界具体为：保留现有更具体route及已识别的search
 
 
 2026-11-05：既有format2 owner/work恢复保留证据边界：反复明确ESRCH只证明记录进程不存在，不能证明全部后代退出；未知工作文件仍保留。真实固定Core的私有控制/退出/工作目录行为先由[普通UID nonTUN实验](../core-control-experiment.md)验证。生产网络预检新增拒绝已有default REJECT/BLACKHOLE，防止新split-default绕过管理员阻断路由；现有dual-stack归属与同session恢复接线继续保留。跨helper重启对仍存在的网络项目前仅保守阻塞/absence恢复，不记作完整异常恢复已交付。真实utun、LAN/split DNS、双栈路由及停止后的恢复尚未运行。
+
+
+2026-11-05 已授权639c64f普通UID真实Core normal实际失败：Core控制ready前自行exit1、无信号，runner exit2；EOF按门禁未执行。准确Core/worker均ESRCH，guardian组空，owner/work/socket清退；仅固定Core副本及证据按失败策略保留。Core输出被旧候选丢弃，根因未知；下一最小修复为有界诊断日志并另冻候选，不重试原包。本轮授权结束。[实际结果](../evidence/core-control-execution-639c64f/RESULT.md)。
