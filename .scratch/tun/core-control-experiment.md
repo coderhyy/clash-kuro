@@ -62,3 +62,7 @@ success 的 `termination` 也是闭合对象：仅 `request/observed/exitCode/si
 通过只证明该固定普通 UID Core 的私有控制、直接子进程生命周期、正常停止与有限 EOF 行为。NoIP 仅是两次进程 FD 观测，不证明执行期间从未有瞬时 IP socket 或网络访问。guardian 只在自身存活且 held unreaped 直接子进程 anchor/PGID 有效时清理已核对的进程组，未知成员保留并阻止成功，不按持久 PID 信号；不能覆盖 guardian 被 SIGKILL 或脱离组的 Core 后代。
 
 它不证明 root 运行、生产 App→helper 动态鉴权与 Core 会话组合、真实 Core 无后代或后代不持有 utun，也不证明 TUN、路由/DNS、代理、登录项、launchd、升级或卸载。生产 root 候选及真实系统网络实验继续单独准备和授权。
+
+## 当前候选
+
+诊断修复候选 `8ee323a48da5729217a0f730d4de850da867f0d9` 已离线构建且完成签名后 fixture 自检。精确路径、摘要及授权步骤见 [候选记录](evidence/core-diagnostics-candidate-8ee323a/RESULT.md)。旧 `639c64f` 包不变；新包尚未执行 normal/EOF。

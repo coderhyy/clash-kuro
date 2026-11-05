@@ -76,3 +76,5 @@ CI配置已串联native隔离测试→App dmg→disabled helper pkg，并保存s
 
 
 2026-11-05 639c64f旧包/失败证据保留，不修改或重试。新诊断候选按同范围normal→完整通过才EOF准备，仍需新提交/epoch/精确摘要及新授权。离线核对没有证明历史exit1原因；本轮不运行Core/-t。来源与结论见[固定版本离线核对](../core-control-offline-review.md)，最终新产物和fixture证据由主会话追加。
+
+- 新诊断候选已固定到 `8ee323a48da5729217a0f730d4de850da867f0d9`；离线构建、全量 SHA256SUMS、inspect 与签名后 111 项 fixture 断言通过。normal/EOF 均未执行，等待新的同范围授权。精确产物、摘要、步骤及恢复边界见 [候选记录](../evidence/core-diagnostics-candidate-8ee323a/RESULT.md)。
