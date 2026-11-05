@@ -191,6 +191,7 @@ static NSDictionary *KuroDNSPreflight(NSDictionary *records, NSString **error) {
   if (failure || ![records isKindOfClass:NSDictionary.class]) return Fail(error, @"DNS recovery cannot observe retained keys");
   if (!Exists(path)) {
     for (NSString *key in records) if (![key isKindOfClass:NSString.class] || [key hasPrefix:KuroDNSPrefix]) return Fail(error, @"retained DNS key has no ownership journal; refusing deletion");
+    if(![self syncDirectory:error])return NO;
     _dnsOff = YES; return YES;
   }
   struct stat metadata;
@@ -208,6 +209,15 @@ static NSDictionary *KuroDNSPreflight(NSDictionary *records, NSString **error) {
     // SCDynamicStore has no public conditional remove/CAS. This is a unique
     // helper-generated UUID key on one serial session; observed changed values are preserved.
     if (![observed isEqual:record[@"after"]]) return Fail(error, @"DNS target changed; preserving third-party value and ownership journal");
+    // Revalidate both authorities immediately before the non-CAS store removal.
+    // The protected journal/unique UUID do not authorize removing changed values.
+    if(![ReadProtected(_directory,path,_owner,error)isEqual:bytes])return Fail(error,@"DNS journal changed before removal; preserve key and receipt");
+    NSDictionary *latest=[_backend dnsRecords:&failure];
+    if(failure || ![latest isKindOfClass:NSDictionary.class])return Fail(error,@"DNS removal cannot reobserve retained keys");
+    for(NSString *key in latest)if(![key isKindOfClass:NSString.class] || ([key hasPrefix:KuroDNSPrefix] && ![key isEqual:record[@"key"]]))return Fail(error,@"additional DNS owner appeared before removal; preserve keys");
+    failure=nil;id current=[_backend valueForDNSKey:record[@"key"] error:&failure];
+    if(failure || ![current isEqual:record[@"after"]])return Fail(error,@"DNS target changed before removal; preserve key and receipt");
+    if(![ReadProtected(_directory,path,_owner,error)isEqual:bytes])return Fail(error,@"DNS journal changed before removal; preserve key and receipt");
     if (![_backend removeDNSKey:record[@"key"] error:error]) return NO;
     failure = nil;
     if ([_backend valueForDNSKey:record[@"key"] error:&failure] || failure) return Fail(error, @"DNS key removal was not confirmed; journal retained");

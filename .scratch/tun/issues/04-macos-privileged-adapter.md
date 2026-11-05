@@ -150,3 +150,5 @@ Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
 
 
 2026-11-05 `aaa85e82376cd7a99009730a06c6cae8f231b21a`生产有界诊断及共享capture已集成，双平台CI通过；新冻结执行器真实无TUN normal/EOF均exit0，私有接口读回、SIGTERM→Core exit0、独立Core/worker ESRCH、组空及整个运行目录消失均通过。EOF仅owner连接断开，不是实际Electron退出；root/Core组强杀、真实TUN双栈/LAN/分域DNS及异常网络恢复仍未通过。见[本次精确产物及执行证据](../evidence/production-diagnostics/core-execution-aaa85e8/RESULT.md)。
+
+2026-11-05 恢复增量：精确归属 DNS 可在旧 Core/work 门阻塞时独立清退；总体仍保留 live/unknown Core 与 origin-only cache 拒绝，fresh 不造 held-stop 证明。owner/socket/DNS/routes 同步失败必须重试成功才可 off；同实例保留原始停止证据。双实现 agent＋独立 reviewer 无阻塞，隔离测试通过，主会话合并验证及新产物随后记录。见 [实现与证据边界](../evidence/recovery-durability-20261105/RESULT.md)。

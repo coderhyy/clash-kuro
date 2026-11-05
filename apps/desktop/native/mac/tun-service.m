@@ -276,6 +276,10 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
   @try {
     if((_session && _session.child>0) || (_session && Exists([_directory stringByAppendingPathComponent:@"owner.json"])))return Fail(error,@"in-memory Core owner requires its original stop/reconcile; no PID adoption");
     if(!SafeChain([self anchor],_directory,_owner,YES,error) || !_hooks.recoverResidualNetwork)return NO;
+    // Independently owned DNS/route-absence recovery must not depend on old PID
+    // absence or a final cache receipt. Overall off still requires all old gates.
+    NSString *networkFailure=nil;
+    if(!_hooks.recoverResidualNetwork(&networkFailure))return Fail(error,networkFailure?:@"residual network recovery not confirmed");
     KuroOwnedSession *observed=[[KuroOwnedSession alloc] initWithDirectory:_directory owner:_owner];
     if(![observed recoverExitedOwnerWithNetwork:_hooks.recoverResidualNetwork workCleanup:^BOOL(NSDictionary *record,KuroSessionHook stillAbsent,NSString **failure) {
       return [self recoverExitedWork:record stillAbsent:stillAbsent error:failure];
@@ -283,7 +287,7 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
     ok=observed.off && (!_session || _session.off) && !Exists([self work]);
     return ok || Fail(error,@"network/Core recovery did not independently clear ownership receipts");
   } @finally {
-    [self snapshot:ok?@"off":@"unknown" error:ok?_stopCheckpointFailure:@"residual ownership recovery is not proven"];
+    [self snapshot:ok?@"off":@"unknown" error:ok?_stopCheckpointFailure:((error&&*error)?*error:@"residual ownership recovery is not proven")];
     @synchronized(self) { _busy=NO; }
   }
 }

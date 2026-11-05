@@ -337,6 +337,7 @@ static NSArray<NSDictionary *> *KuroRouteDecodeDump(NSData *dump, NSString **err
   NSArray *observed=[_backend routes:error]; if (!observed) return NO;
   if (!Exists(path)) {
     for (NSDictionary *route in observed) if ([route[@"flags"]unsignedIntValue]&RTF_PROTO2) return Fail(error,@"unrecorded marked route remains; no restart cleanup authority");
+    if(![self syncDirectory:error])return NO;
     _routesOff=YES; return YES;
   }
   NSData *bytes=[self journalBytes:error]; NSDictionary *raw=bytes?KuroDecodeJSON(bytes,MessageLimit,error):nil;
@@ -366,6 +367,7 @@ static NSArray<NSDictionary *> *KuroRouteDecodeDump(NSData *dump, NSString **err
   if (!Exists(path)) {
     for (NSDictionary *route in observed) if ([route[@"interfaceIndex"] isEqual:@(association.interfaceIndex)] && ([route[@"flags"] unsignedIntValue]&RTF_PROTO2)) return Fail(error,@"unrecorded marked routes preserved; ownership unknown");
     if (ownership(association,error)==KuroRouteOwnerUnknown) return Fail(error,@"route absence lacks current owner evidence");
+    if(![self syncDirectory:error])return NO;
     _routesOff=YES; return YES;
   }
   NSData *bytes=nil; NSDictionary *record=[self recordForInterface:association bytes:&bytes error:error]; if (!record) return NO;

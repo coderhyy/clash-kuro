@@ -104,6 +104,8 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   uid_t _owner;
   BOOL _journaled;
   BOOL _unknown;
+  BOOL _directorySyncPending;
+  BOOL _ownerRemovalPending;
   KuroSessionHook _cleanup;
   NSDictionary *_launchEvidence;
   pid_t _reapedOwnedChild;
@@ -136,6 +138,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
 @property(nonatomic) KuroRestartReader fixtureRestartReader;
 @property(nonatomic) BOOL fixtureFailWorkCacheSync;
 @property(nonatomic) BOOL fixtureFailOwnerPublish;
+@property(nonatomic) BOOL fixtureFailDirectorySync;
 #endif
 - (BOOL)prepareWorkCache:(NSString **)error;
 - (BOOL)recordWorkSocket:(NSDictionary *)identity error:(NSString **)error;
@@ -177,7 +180,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   _stdoutDescriptor=output;_stderrDescriptor=errors;return YES;
 }
 - (BOOL)off {
-  if (_child || _journaled || _unknown) return NO;
+  if (_child || _journaled || _unknown || _directorySyncPending || _ownerRemovalPending) return NO;
   for (NSString *name in @[@"owner.json", @"network.json", @"network-dns.json"]) if (Exists([_directory stringByAppendingPathComponent:name])) return NO;
   return [self directoryProtected:NULL];
 }
@@ -191,7 +194,12 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
 - (BOOL)onThread:(NSString **)error { return pthread_equal(_thread, pthread_self()) || Fail(error, @"session must be used on its owning serial thread"); }
 - (BOOL)syncDirectory:(NSString **)error {
   int fd = open(_directory.fileSystemRepresentation, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
-  BOOL ok = fd >= 0 && !fsync(fd); if (fd >= 0) close(fd);
+  BOOL ok = fd >= 0;
+#ifdef KURO_TESTING
+  if(self.fixtureFailDirectorySync)ok=NO;
+#endif
+  ok=ok && !fsync(fd);if(fd>=0)close(fd);
+  _directorySyncPending=!ok;
   return ok || Fail(error, @"owner journal directory could not be synchronized");
 }
 - (BOOL)publishOwner:(NSDictionary *)record replacing:(NSData *)previous error:(NSString **)error {
@@ -230,7 +238,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   NSDictionary *record=bytes?KuroDecodeJSON(bytes,MessageLimit,error):nil;
   if(!KuroRestartRecord(record,error) || ![record[@"format"]isEqual:@2] || ![record[@"session"]isEqual:_identifier] || ![record[@"pid"]isEqual:@(_child)])return Fail(error,@"private socket checkpoint has no matching work owner");
   id previous=record[@"work"][@"socket"];
-  if(previous!=NSNull.null)return [previous isEqual:identity] || Fail(error,@"private socket differs from durable owner checkpoint");
+  if(previous!=NSNull.null)return ([previous isEqual:identity] && [self syncDirectory:error]) || Fail(error,@"private socket differs from durable owner checkpoint or directory sync failed");
   NSMutableDictionary *updated=[record mutableCopy],*work=[record[@"work"]mutableCopy]; work[@"socket"]=[identity copy]; updated[@"work"]=work;
   return [self publishOwner:updated replacing:bytes error:error];
 }
@@ -256,6 +264,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   if(!Exists(path)) {
     if(Exists(work))return Fail(error,@"unrecorded Core work/ownership cannot be cleared");
     if(!network(error))return NO;
+    if(![self syncDirectory:error])return NO;
     return self.off || Fail(error,@"residual network receipts remain");
   }
   NSData *bytes=ReadProtected(_directory,path,_owner,error); NSDictionary *record=bytes?KuroDecodeJSON(bytes,MessageLimit,error):nil;
@@ -416,6 +425,13 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
       if (![self reapUntil:KuroMonotonicMilliseconds() + 1000 error:error]) return Fail(error, @"owned child has not been reaped");
     }
   }
+  if(_ownerRemovalPending) {
+    // Only the original held/reaped cleanup may retry its own successful unlink.
+    for(NSString *name in @[@"owner.json",@"session-work",@"network.json",@"network-dns.json"])
+      if(Exists([_directory stringByAppendingPathComponent:name]))return Fail(error,@"post-unlink owner/work/network footprint appeared; preserving uncertain cleanup");
+    if(![self directoryProtected:error] || ![self syncDirectory:error])return NO;
+    _ownerRemovalPending=NO;_journaled=NO;_cleanup=nil;
+  }
   if (_journaled) {
     NSString *heldPath=[_directory stringByAppendingPathComponent:@"owner.json"];
     if(!_heldOwnerBytes || ![ReadProtected(_directory,heldPath,_owner,error)isEqual:_heldOwnerBytes])return Fail(error,@"held owner journal changed; network cleanup refused");
@@ -427,9 +443,12 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
     NSDictionary *completed=nil;
     if(_reapedOwnedChild && [record[@"pid"]intValue]==_reapedOwnedChild && KuroRestartRecord(record,NULL))
       completed=@{@"format":@1,@"session":_identifier,@"owner":record,@"ownerSHA256":Hash(bytes),@"childReaped":@YES,@"cleanupComplete":@YES};
-    if(![ReadProtected(_directory,path,_owner,error)isEqual:bytes] || unlink(path.fileSystemRepresentation) || ![self syncDirectory:error]) return Fail(error, @"owner journal removal is not durable");
-    _journaled = NO; _cleanup = nil; _completedStop=completed;
+    if(![ReadProtected(_directory,path,_owner,error)isEqual:bytes] || unlink(path.fileSystemRepresentation))return Fail(error,@"owner journal removal is not durable");
+    _ownerRemovalPending=YES;_completedStop=completed;
+    if(![self syncDirectory:error])return Fail(error,@"owner journal removal is not durable");
+    _ownerRemovalPending=NO;_journaled=NO;_cleanup=nil;
   }
+  if(_directorySyncPending && ![self syncDirectory:error])return NO;
   return YES;
 }
 - (BOOL)superviseSocket:(int)socket leaseMilliseconds:(NSUInteger)lease identityValid:(BOOL (^)(void))identityValid error:(NSString **)error {

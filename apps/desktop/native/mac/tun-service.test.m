@@ -360,7 +360,35 @@ static void ServiceDiagnosticTests(void) {
   }
   puts("native production diagnostics: 8 actual harmless service cases cover redacted startup/normal, exit37, overflow drain, timeout, failed-save explicit recovery, unknown checkpoint preservation and pre-cleanup invalid-frame reason; no Core/network");
 }
+static void PartialDNSServiceTests(void) {
+  for(NSUInteger scenario=0;scenario<5;scenario++) {
+    char temporary[]="/tmp/kuro-partial-dns-XXXXXX";CHECK(mkdtemp(temporary));char canonical[PATH_MAX];CHECK(realpath(temporary,canonical));NSString *directory=@(canonical),*ownerPath=[directory stringByAppendingPathComponent:@"owner.json"],*work=[directory stringByAppendingPathComponent:@"session-work"],*error=nil;
+    NSString *session=@"00112233-4455-6677-8899-AABBCCDDEEFF";KuroFakeDNSStore *dns=[KuroFakeDNSStore new];dns.directory=directory;NSDictionary *baseline=[dns.records copy];
+    KuroOwnedDNS *old=[[KuroOwnedDNS alloc]initWithDirectory:directory owner:geteuid() backend:dns];CHECK([old installForSession:session error:&error]);
+    KuroFakeRouteStore *routes=[KuroFakeRouteStore new];routes.directory=directory;
+    NSMutableDictionary *record=RestartRecord();
+    struct proc_bsdinfo identity={0};CHECK(proc_pidinfo(getpid(),PROC_PIDTBSDINFO,0,&identity,sizeof(identity))==sizeof(identity));record[@"pid"]=@(getpid());record[@"startSeconds"]=@(identity.pbi_start_tvsec);record[@"startMicros"]=@(identity.pbi_start_tvusec);
+    pid_t dead=0;
+    if(scenario==2||scenario==3) {int pipes[2];CHECK(!pipe(pipes));dead=fork();CHECK(dead>=0);if(!dead){close(pipes[1]);char byte;while(read(pipes[0],&byte,1)<0&&errno==EINTR){} _exit(0);}close(pipes[0]);CHECK(proc_pidinfo(dead,PROC_PIDTBSDINFO,0,&identity,sizeof(identity))==sizeof(identity));close(pipes[1]);CHECK(waitpid(dead,NULL,0)==dead);
+      record[@"pid"]=@(dead);record[@"startSeconds"]=@(identity.pbi_start_tvsec);record[@"startMicros"]=@(identity.pbi_start_tvusec);
+      Put([work stringByAppendingPathComponent:@"config.json"],Bytes(@"fixed runtime"),0600);Put([work stringByAppendingPathComponent:@"cache.db"],Bytes(@"owned cache"),0600);NSDictionary *cache=KuroWorkCacheSnapshot(directory,geteuid(),&error);CHECK(cache);
+      NSMutableDictionary *receipt=[@{@"configSHA256":Hash(Bytes(@"fixed runtime")),@"socket":NSNull.null,@"cacheOrigin":@{@"device":cache[@"device"],@"inode":cache[@"inode"],@"owner":@(geteuid()),@"mode":@0600}}mutableCopy];if(scenario==3)receipt[@"cache"]=cache;record[@"format"]=@2;record[@"work"]=receipt;
+    }
+    Put(ownerPath,scenario==1?Bytes(@"unknown owner"):JSONData(record),0600);NSData *ownerBytes=[NSData dataWithContentsOfFile:ownerPath];
+    if(scenario==4)dns.failRemove=YES;
+    __block NSUInteger calls=0;KuroTunServiceHooks *hooks=ServiceHooks();hooks.recoverResidualNetwork=^BOOL(NSString **failure){calls++;KuroProductionNetwork *fresh=[[KuroProductionNetwork alloc]initWithDirectory:directory owner:geteuid() routes:routes dns:dns environment:RecoveryFixtureEnvironment()];return [fresh recoverSession:nil error:failure];};
+    KuroTunService *service=[[KuroTunService alloc]initFixtureDirectory:directory core:[directory stringByAppendingPathComponent:@"unused"] hooks:hooks];BOOL ok=[service recoverNetworkOnly:&error];
+    CHECK(ok==(scenario==3));CHECK(calls>0&&dns.removals==1&&!routes.deletions);
+    if(scenario==4){CHECK([error hasPrefix:@"DNS: remove failed"]&&[service.statusSnapshot[@"error"]isEqual:error]&&Exists([directory stringByAppendingPathComponent:KuroDNSJournal]));}
+    else CHECK([dns.records isEqual:baseline]&&!Exists([directory stringByAppendingPathComponent:KuroDNSJournal]));
+    if(scenario==3)CHECK([service.statusSnapshot[@"state"]isEqual:@"off"]&&!Exists(work)&&!Exists(ownerPath)&&calls==2);
+    else {CHECK([service.statusSnapshot[@"state"]isEqual:@"unknown"]&&[[NSData dataWithContentsOfFile:ownerPath]isEqual:ownerBytes]);if(scenario==2)CHECK(Exists([work stringByAppendingPathComponent:@"cache.db"])&&[error containsString:@"cache lacks"]);}
+    CHECK(!Exists([directory stringByAppendingPathComponent:@"stopped.json"]));CHECK([[NSFileManager defaultManager]removeItemAtPath:directory error:NULL]);
+  }
+  puts("native service DNS partial recovery: 5 persisted positive chains retain live/unknown/origin-only owner gates, permit exact final-cache recovery, aggregate real deletion errors and never issue stopped proof; no Core/network");
+}
 static void ServiceTests(void) {
+  PartialDNSServiceTests();
   ServiceDiagnosticTests();
   ServiceCachePreparationTests();
   RetainedRecoveryTests();
@@ -512,25 +540,25 @@ static void ServiceTests(void) {
     CHECK(![service writeMode:@"rule" error:NULL]);
     if(scenario==0) {
       CHECK(healthChecks>0);
-      CHECK([service recoverNetworkOnly:NULL] && residualRecoveries==1);
+      CHECK([service recoverNetworkOnly:NULL] && residualRecoveries==2);
       NSString *journal=[directory stringByAppendingPathComponent:@"owner.json"];
       Put(journal,Bytes(@"unknown owner"),0600);
-      CHECK(![service recoverNetworkOnly:NULL] && residualRecoveries==1);
+      CHECK(![service recoverNetworkOnly:NULL] && residualRecoveries==2);
       CHECK(Exists(journal)); CHECK(!unlink(journal.fileSystemRepresentation));
       NSString *routes=[directory stringByAppendingPathComponent:@"network.json"],*dns=[directory stringByAppendingPathComponent:@"network-dns.json"];
       Put(routes,Bytes(@"retained route receipt"),0600); Put(dns,Bytes(@"retained DNS receipt"),0600);
       // A lying/incomplete recovery hook cannot publish off while receipts remain.
-      CHECK(![service recoverNetworkOnly:NULL] && residualRecoveries==2);
+      CHECK(![service recoverNetworkOnly:NULL] && residualRecoveries==4);
       CHECK([[service statusSnapshot][@"state"]isEqual:@"unknown"] && Exists(routes) && Exists(dns));
       Put(journal,Bytes(@"unknown old Core owner"),0600);
-      CHECK(![service recoverNetworkOnly:NULL] && residualRecoveries==2 && Exists(journal)); CHECK(!unlink(journal.fileSystemRepresentation));
+      CHECK(![service recoverNetworkOnly:NULL] && residualRecoveries==4 && Exists(journal)); CHECK(!unlink(journal.fileSystemRepresentation));
       FixtureDirectory([directory stringByAppendingPathComponent:@"session-work"]);
-      CHECK(![service recoverNetworkOnly:NULL] && residualRecoveries==2 && Exists(routes) && Exists(dns)); CHECK(!rmdir([directory stringByAppendingPathComponent:@"session-work"].fileSystemRepresentation));
+      CHECK(![service recoverNetworkOnly:NULL] && residualRecoveries==5 && Exists(routes) && Exists(dns)); CHECK(!rmdir([directory stringByAppendingPathComponent:@"session-work"].fileSystemRepresentation));
       hooks.recoverResidualNetwork=^BOOL(NSString **error) {
-        (void)error; residualRecoveries++; CHECK(Exists(routes) && Exists(dns));
-        return !unlink(routes.fileSystemRepresentation) && !unlink(dns.fileSystemRepresentation);
+        (void)error; residualRecoveries++;
+        return (!Exists(routes)||!unlink(routes.fileSystemRepresentation)) && (!Exists(dns)||!unlink(dns.fileSystemRepresentation));
       };
-      CHECK([service recoverNetworkOnly:NULL] && residualRecoveries==3);
+      CHECK([service recoverNetworkOnly:NULL] && residualRecoveries==7);
       CHECK([[service statusSnapshot][@"state"]isEqual:@"off"] && !Exists(routes) && !Exists(dns));
     }
     CHECK([[NSFileManager defaultManager] removeItemAtPath:directory error:NULL]);

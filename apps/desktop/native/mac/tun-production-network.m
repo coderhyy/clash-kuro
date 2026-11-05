@@ -281,7 +281,7 @@ static BOOL KuroPreservedEndpoint(NSString *text, NSArray *routes, NSString *phy
   NSDictionary *previous=_stoppedEvidence; _stoppedEvidence=nil;
   BOOL held=session && ([_session isEqual:session] || _prepared || [previous[@"session"]isEqual:session]);
   NSMutableDictionary *journals=[NSMutableDictionary dictionary];
-  for(NSString *name in @[KuroRouteJournal,KuroDNSJournal]) {
+  if(held)for(NSString *name in @[KuroRouteJournal,KuroDNSJournal]) {
     NSString *path=[_directory stringByAppendingPathComponent:name];
     NSData *bytes=Exists(path)?ReadProtected(_directory,path,_owner,error):nil;
     if(Exists(path)&&!bytes)return NO;
@@ -296,8 +296,18 @@ static BOOL KuroPreservedEndpoint(NSString *text, NSArray *routes, NSString *phy
     // must already have removed routes; presence is an unknown conflict.
     if (![_dns recoverDNS:error] || ![_routes recoverForInterface:_association ownership:_environment.ownership error:error]) return NO;
   } else {
-    // A fresh helper never derives write/kill authority from persisted PID data.
-    if (![_routes recoverRecordedAbsence:error] || ![_dns recoverDNSAbsence:error]) return NO;
+    // DNS authority is the protected exact UUID journal, not old process data.
+    // Route recovery remains absence-only. Neither failure blocks the other
+    // component's independent bounded recovery attempt.
+    NSString *dnsFailure=nil,*routeFailure=nil;
+    BOOL dnsRecovered=[_dns recoverDNS:&dnsFailure];
+    BOOL routesRecovered=[_routes recoverRecordedAbsence:&routeFailure];
+    if(!dnsRecovered || !routesRecovered) {
+      NSMutableArray *failures=[NSMutableArray array];
+      if(!dnsRecovered)[failures addObject:[@"DNS: "stringByAppendingString:dnsFailure?:@"recovery not confirmed"]];
+      if(!routesRecovered)[failures addObject:[@"routes: "stringByAppendingString:routeFailure?:@"absence not confirmed"]];
+      return Fail(error,[failures componentsJoinedByString:@"; "]);
+    }
   }
   _networkOff=_routes.routesOff && _dns.dnsOff;
   if(_networkOff && held) {

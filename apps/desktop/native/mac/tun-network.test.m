@@ -16,6 +16,7 @@
 @property(nonatomic) BOOL replaceAfterAdd;
 @property(nonatomic) BOOL changeOnSecondSnapshot;
 @property(nonatomic,copy) void (^onSnapshot)(void);
+@property(nonatomic,copy) void (^onValueRead)(void);
 @end
 @implementation KuroFakeDNSStore
 - (instancetype)init {
@@ -30,6 +31,7 @@
   return [_records copy];
 }
 - (id)valueForDNSKey:(NSString *)key error:(NSString **)error {
+  if(_onValueRead)_onValueRead();
   if (_failRead) { Fail(error, @"read failure"); return nil; }
   return _records[key];
 }
@@ -50,6 +52,14 @@
   if (!_lieRemove) [_records removeObjectForKey:key];
   return YES;
 }
+@end
+
+@interface KuroDNSDurabilityFixture : KuroOwnedDNS
+@property(nonatomic) BOOL refuseSync;
+@property(nonatomic) NSUInteger syncCalls;
+@end
+@implementation KuroDNSDurabilityFixture
+- (BOOL)syncDirectory:(NSString **)error {self.syncCalls++;return self.refuseSync?Fail(error,@"injected DNS sync failure"):[super syncDirectory:error];}
 @end
 
 #import "tun-production-network.test.m"
@@ -196,6 +206,23 @@ static void NetworkTests(void) {
       CHECK(Exists([directory stringByAppendingPathComponent:KuroDNSJournal])==(scenario==4));
     }
   }
+  // Fresh objects must perform a real positive exact-key removal; two reads
+  // reject a value/journal/extra owner changed before the write.
+  for(NSUInteger scenario=0;scenario<5;scenario++) {
+    NSString *directory=[base stringByAppendingPathComponent:[NSString stringWithFormat:@"fresh-exact%lu",(unsigned long)scenario]];FixtureDirectory(directory);
+    NSString *journal=[directory stringByAppendingPathComponent:KuroDNSJournal];KuroFakeDNSStore *backend=[KuroFakeDNSStore new];backend.directory=directory;
+    KuroOwnedDNS *old=[[KuroOwnedDNS alloc]initWithDirectory:directory owner:geteuid() backend:backend];CHECK([old installForSession:session error:&error]);
+    KuroDNSDurabilityFixture *fresh=[[KuroDNSDurabilityFixture alloc]initWithDirectory:directory owner:geteuid() backend:backend];
+    __block NSUInteger reads=0;
+    __weak KuroFakeDNSStore *weakBackend=backend;backend.onValueRead=^{if(++reads==2){if(scenario==1)weakBackend.records[key]=@{@"ServerAddresses":@[@"203.0.113.99"]};if(scenario==2)Put(journal,Bytes(@"changed journal"),0600);}};
+    if(scenario==3)backend.records[KuroDNSKey(@"11112233-4455-6677-8899-AABBCCDDEEFF")]=KuroDNSValue();
+    fresh.refuseSync=scenario==4;BOOL ok=[fresh recoverDNS:&error];CHECK(ok==(scenario==0));
+    if(scenario==0)CHECK(fresh.dnsOff&&backend.removals==1&&!Exists(journal));
+    else if(scenario<4)CHECK(!fresh.dnsOff&&!backend.removals&&Exists(journal));
+    else {CHECK(!fresh.dnsOff&&backend.removals==1&&!Exists(journal));NSUInteger calls=fresh.syncCalls;CHECK(![fresh recoverDNS:&error]&&!fresh.dnsOff&&fresh.syncCalls==calls+1);fresh.refuseSync=NO;CHECK([fresh recoverDNS:&error]&&fresh.dnsOff&&backend.removals==1);}
+    backend.onValueRead=nil;
+  }
+  puts("native DNS partial recovery: 5 fresh-object exact deletion, pre-remove value/journal changes, extra UUID and failed-unlink-sync retry cases passed");
   CHECK([[NSFileManager defaultManager] removeItemAtPath:base error:NULL]);
   puts("native DNS ownership: 30 journal + 5 route-admission scenarios passed; no Darwin store or system network operation executed");
 }

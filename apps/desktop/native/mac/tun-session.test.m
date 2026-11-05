@@ -112,7 +112,47 @@ static void CacheOriginTests(void) {
   CHECK(KuroRestartRecord(record,NULL));work[@"cacheOrigin"]=@{@"device":@1,@"inode":@2,@"owner":@(geteuid()),@"mode":@0644};CHECK(!KuroRestartRecord(record,NULL));
   puts("native cache origin: 11 ordinary-user held-child cases; exclusive0600, sync/publication failures, pre-resume replacement, same-inode writes, changed mode/inode and unknown-owner preservation; no Core/network");
 }
+static void SessionDurabilityTests(void) {
+  // A renamed socket receipt is not accepted until the directory sync succeeds.
+  char first[]="/tmp/kuro-socket-durable-XXXXXX";CHECK(mkdtemp(first));char resolved[PATH_MAX];CHECK(realpath(first,resolved));
+  NSString *directory=@(resolved),*work=[directory stringByAppendingPathComponent:@"session-work"],*config=[work stringByAppendingPathComponent:@"config.json"],*journal=[directory stringByAppendingPathComponent:@"owner.json"],*child=[directory stringByAppendingPathComponent:@"child"],*error=nil;
+  FixtureDirectory(work);Put(config,Bytes(@"fixture config"),0600);Put(child,[NSData dataWithContentsOfFile:Executable()],0755);
+  KuroOwnedSession *session=[[KuroOwnedSession alloc]initWithDirectory:directory owner:geteuid()];
+  CHECK(([session setLaunchEvidence:@{@"configSHA256":Hash(Bytes(@"fixture config")),@"coreSHA256":Hash([NSData dataWithContentsOfFile:child]),@"template":@"macos-dual-stack-v1"} error:&error]));
+  int output[2],errors[2];CHECK(!pipe(output)&&!pipe(errors));CHECK([session setOutputStdout:output[1] stderr:errors[1] error:&error]);
+  CHECK([session spawnExecutable:child arguments:@[@"--session-child"] workingDirectory:work beforeResume:^BOOL(NSString **failure){(void)failure;return YES;} afterReap:^BOOL(NSString **failure){(void)failure;CHECK(!unlink(config.fileSystemRepresentation));CHECK(!rmdir(work.fileSystemRepresentation));return YES;} error:&error]);
+  NSDictionary *identity=@{@"device":@1,@"inode":@2};session.fixtureFailDirectorySync=YES;
+  CHECK(![session recordWorkSocket:identity error:&error]);CHECK(error.length>0&&!session.off);
+  NSData *published=[NSData dataWithContentsOfFile:journal];CHECK([ReadJSON(directory,journal,geteuid(),NULL)[@"work"][@"socket"]isEqual:identity]);
+  CHECK(![session recordWorkSocket:identity error:&error]);CHECK([[NSData dataWithContentsOfFile:journal]isEqual:published]);
+  session.fixtureFailDirectorySync=NO;CHECK((![session recordWorkSocket:@{@"device":@1,@"inode":@3} error:&error]));CHECK([[NSData dataWithContentsOfFile:journal]isEqual:published]);
+  CHECK([session recordWorkSocket:identity error:&error]);CHECK([session stop:&error]&&session.off);close(output[0]);close(output[1]);close(errors[0]);close(errors[1]);CHECK([[NSFileManager defaultManager]removeItemAtPath:directory error:NULL]);
+  // Unlink followed by failed fsync must remain unknown, even when no file is visible.
+  for(NSUInteger existed=0;existed<2;existed++) {
+    char path[]="/tmp/kuro-recover-durable-XXXXXX";CHECK(mkdtemp(path));CHECK(realpath(path,resolved));directory=@(resolved);journal=[directory stringByAppendingPathComponent:@"owner.json"];
+    if(existed)Put(journal,JSONData(RestartRecord()),0600);
+    KuroOwnedSession *observed=[[KuroOwnedSession alloc]initWithDirectory:directory owner:geteuid()];observed.fixtureRestartReader=RestartReader;observed.fixtureFailDirectorySync=YES;
+    RestartObservation=0;RestartMode=0;RestartReappearAt=0;__block NSUInteger networks=0,works=0;
+    KuroSessionHook network=^BOOL(NSString **failure){(void)failure;networks++;return YES;};
+    KuroRestartWorkCleanup cleanup=^BOOL(NSDictionary *record,KuroSessionHook absent,NSString **failure){CHECK([record isEqual:RestartRecord()]);works++;return absent(failure);};
+    CHECK(![observed recoverExitedOwnerWithNetwork:network workCleanup:cleanup error:&error]);CHECK(!Exists(journal)&&!observed.off);CHECK(![observed completedStopEvidence:&error]);
+    CHECK(![observed recoverExitedOwnerWithNetwork:network workCleanup:cleanup error:&error]);CHECK(!observed.off);CHECK(works==existed&&networks==2);
+    observed.fixtureFailDirectorySync=NO;CHECK([observed recoverExitedOwnerWithNetwork:network workCleanup:cleanup error:&error]);CHECK(observed.off&&works==existed&&networks==3);CHECK(![observed completedStopEvidence:&error]);
+    CHECK([[NSFileManager defaultManager]removeItemAtPath:directory error:NULL]);
+  }
+  // The same accurately reaped owner can retry only its own completed unlink.
+  char held[]="/tmp/kuro-held-durable-XXXXXX";CHECK(mkdtemp(held));CHECK(realpath(held,resolved));directory=@(resolved);journal=[directory stringByAppendingPathComponent:@"owner.json"];child=[directory stringByAppendingPathComponent:@"child"];Put(child,[NSData dataWithContentsOfFile:Executable()],0755);
+  KuroOwnedSession *owned=[[KuroOwnedSession alloc]initWithDirectory:directory owner:geteuid()];__block NSUInteger cleanups=0;
+  CHECK([owned spawnExecutable:child arguments:@[@"--session-child"] beforeResume:^BOOL(NSString **failure){(void)failure;return YES;} afterReap:^BOOL(NSString **failure){(void)failure;cleanups++;owned.fixtureFailDirectorySync=YES;return YES;} error:&error]);pid_t original=owned.child;NSData *heldOwner=[NSData dataWithContentsOfFile:journal];NSDictionary *originalOwner=ReadJSON(directory,journal,geteuid(),NULL);
+  CHECK(![owned stop:&error]);CHECK(!owned.child&&!owned.off&&!Exists(journal)&&cleanups==1);CHECK(waitpid(original,NULL,WNOHANG)==-1&&errno==ECHILD);CHECK(![owned completedStopEvidence:&error]);
+  CHECK(![owned stop:&error]);CHECK(!owned.off&&cleanups==1&&!owned.child);CHECK(![owned completedStopEvidence:&error]);
+  Put(journal,Bytes(@"unknown new owner"),0600);owned.fixtureFailDirectorySync=NO;CHECK(![owned stop:&error]);CHECK(!owned.off&&cleanups==1);CHECK([[NSData dataWithContentsOfFile:journal]isEqual:Bytes(@"unknown new owner")]);CHECK(!unlink(journal.fileSystemRepresentation));
+  CHECK([owned stop:&error]&&owned.off&&cleanups==1);NSDictionary *proof=[owned completedStopEvidence:&error];CHECK(KuroCompletedStopEvidence(proof));CHECK([proof[@"ownerSHA256"]isEqual:Hash(heldOwner)]&&[proof[@"owner"]isEqual:originalOwner]&&[proof[@"owner"][@"pid"]intValue]==original);CHECK([owned stop:&error]&&cleanups==1);
+  CHECK([[NSFileManager defaultManager]removeItemAtPath:directory error:NULL]);
+  puts("native session durability: socket rename, absent owner recovery and held-owner unlink reject repeated sync failure; only successful sync permits acceptance/off, unknown replacement preserved; no Core/network");
+}
 static void SessionTests(void) {
+  SessionDurabilityTests();
   CacheOriginTests();
   RestartOwnerTests();
   char temporary[] = "/tmp/kuro-session-XXXXXX"; CHECK(mkdtemp(temporary));

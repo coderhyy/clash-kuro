@@ -32,11 +32,18 @@ static NSDictionary *ObservedRoute(NSDictionary *entry) {
   _deletions++; if (!_lieDelete) [_entries removeObjectAtIndex:index]; return YES;
 }
 @end
+@interface KuroRouteDurabilityFixture : KuroOwnedRoutes
+@property(nonatomic) BOOL refuseSync;
+@property(nonatomic) NSUInteger syncCalls;
+@end
+@implementation KuroRouteDurabilityFixture
+- (BOOL)syncDirectory:(NSString **)error {self.syncCalls++;return self.refuseSync?Fail(error,@"injected route sync failure"):[super syncDirectory:error];}
+@end
 static void RouteTests(void) {
   CHECK(geteuid()!=0);
   KuroCoreInterface association=RouteFixtureInterface();
   NSArray *plan=KuroSplitRouteCandidate(association); CHECK(plan.count==4);
-  NSString *error=nil, *session=@"00112233-4455-6677-8899-AABBCCDDEEFF";
+  __block NSString *error=nil;NSString *session=@"00112233-4455-6677-8899-AABBCCDDEEFF";
   // Pure packets, including both address families. No PF_ROUTE/sysctl operation.
   NSMutableData *dump=[NSMutableData data];
   for (NSDictionary *entry in plan) {
@@ -126,6 +133,16 @@ static void RouteTests(void) {
       CHECK(![routes recoverForInterface:association ownership:ownership error:&error] && !backend.deletions && Exists(journal));
     }
   }
+  for(NSUInteger scenario=0;scenario<2;scenario++) {
+    NSString *directory=[base stringByAppendingPathComponent:[NSString stringWithFormat:@"durable%lu",(unsigned long)scenario]];FixtureDirectory(directory);
+    KuroFakeRouteStore *backend=[KuroFakeRouteStore new];backend.directory=directory;
+    KuroRouteDurabilityFixture *routes=[[KuroRouteDurabilityFixture alloc]initWithDirectory:directory owner:geteuid() backend:backend];owner=KuroRouteOwnerLive;
+    CHECK([routes installForSession:session interface:association routes:plan ownership:ownership error:&error]);[backend.entries removeAllObjects];owner=KuroRouteOwnerExitedInterfaceGone;routes.refuseSync=YES;
+    BOOL (^recover)(void)=^BOOL{return scenario==0?[routes recoverRecordedAbsence:&error]:[routes recoverForInterface:association ownership:ownership error:&error];};
+    CHECK(!recover()&&!routes.routesOff&&!Exists([directory stringByAppendingPathComponent:KuroRouteJournal]));NSUInteger calls=routes.syncCalls;
+    CHECK(!recover()&&!routes.routesOff&&routes.syncCalls==calls+1);routes.refuseSync=NO;CHECK(recover()&&routes.routesOff&&!backend.deletions);
+  }
+  puts("native route durability: 2 absence-only retirement/retry paths require successful directory sync, no route deletion");
   CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);
   puts("native routes: bounded wire fixtures and 12 ownership/recovery scenarios passed; no PF_ROUTE/sysctl/network operation executed");
 }

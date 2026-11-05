@@ -23,6 +23,13 @@ static NSData *ReadinessReply(NSData *question, BOOL ipv6) {
   unsigned char record[12]={0xc0,12,0,ipv6?28:1,0,1,0,0,0,0,0,ipv6?16:4}; [packet appendBytes:record length:sizeof(record)];
   [packet appendData:KuroRouteIP(ipv6?@"fdfe:dcba:9876::1":@"198.18.0.1",ipv6?6:4)]; return packet;
 }
+static KuroNetworkEnvironment *RecoveryFixtureEnvironment(void) {
+  KuroNetworkEnvironment *environment=[KuroNetworkEnvironment new];
+  environment.interfaces=^NSArray *(NSString **error){(void)error;CHECK(NO);return nil;};
+  environment.observeChild=^BOOL(pid_t child,KuroCoreInterface *value,NSString **error){(void)child;(void)value;(void)error;CHECK(NO);return NO;};
+  environment.ownership=^KuroRouteOwnerState(KuroCoreInterface value,NSString **error){(void)value;(void)error;CHECK(NO);return KuroRouteOwnerUnknown;};
+  environment.probeDNS=^BOOL(KuroCoreInterface value,NSString **error){(void)value;(void)error;CHECK(NO);return NO;};return environment;
+}
 static void ProductionNetworkTests(void) {
   CHECK(geteuid()!=0); NSString *error=nil,*session=@"00112233-4455-6677-8899-AABBCCDDEEFF";
   CHECK(([KuroProductionRuntimeFields()[@"hosts"][KuroReadinessDomain]isEqual:@[@"198.18.0.1",@"fdfe:dcba:9876::1"]]));
@@ -101,11 +108,10 @@ static void ProductionNetworkTests(void) {
     if (scenario==6) { owner=KuroRouteOwnerUnknown; CHECK(![network recoverSession:session error:&error] && !routeBackend.deletions && !dnsBackend.removals); owner=KuroRouteOwnerLive; }
     if (scenario==7 || scenario==8) {
       KuroProductionNetwork *restarted=[[KuroProductionNetwork alloc]initWithDirectory:directory owner:geteuid() routes:routeBackend dns:dnsBackend environment:environment];
-      CHECK(![restarted recoverSession:nil error:&error] && !routeBackend.deletions && !dnsBackend.removals);
+      CHECK(![restarted recoverSession:nil error:&error] && !routeBackend.deletions && dnsBackend.removals==1 && !restarted.networkOff);
+      CHECK([error containsString:@"routes:"]&&[dnsBackend.records isEqual:baselineDNS]&&!Exists([directory stringByAppendingPathComponent:KuroDNSJournal]));
       NSIndexSet *own=[routeBackend.entries indexesOfObjectsPassingTest:^BOOL(NSDictionary *entry,NSUInteger index,BOOL *stop) { (void)index;(void)stop; return ([entry[@"flags"]unsignedIntValue]&RTF_PROTO2)!=0; }]; [routeBackend.entries removeObjectsAtIndexes:own];
-      if (scenario==8) { CHECK(![restarted recoverSession:nil error:&error] && !dnsBackend.removals); }
-      [dnsBackend.records removeObjectForKey:KuroDNSKey(session)];
-      CHECK([restarted recoverSession:nil error:&error] && restarted.networkOff && !routeBackend.deletions && !dnsBackend.removals); CHECK(![restarted stoppedEvidenceForSession:session error:&error]); continue;
+      CHECK([restarted recoverSession:nil error:&error] && restarted.networkOff && !routeBackend.deletions && dnsBackend.removals==1); CHECK(![restarted stoppedEvidenceForSession:session error:&error]); continue;
     }
     if (scenario==9) {
       owner=KuroRouteOwnerExitedInterfaceGone;
@@ -117,6 +123,18 @@ static void ProductionNetworkTests(void) {
     NSDictionary *stopped=[network stoppedEvidenceForSession:session error:&error];CHECK(stopped&&KuroBool(stopped[@"routesOff"])&&KuroBool(stopped[@"dnsOff"])&&[stopped[@"routesOff"]boolValue]&&[stopped[@"dnsOff"]boolValue]);
     CHECK(Match(stopped[@"routeJournalSHA256"],@"\\A[0-9a-f]{64}\\z")&&Match(stopped[@"dnsJournalSHA256"],@"\\A[0-9a-f]{64}\\z"));
     CHECK(![network stoppedEvidenceForSession:@"11112233-4455-6677-8899-AABBCCDDEEFF" error:&error]);
+  }
+  for(NSUInteger scenario=0;scenario<2;scenario++) {
+    NSString *directory=[base stringByAppendingPathComponent:[NSString stringWithFormat:@"aggregate%lu",(unsigned long)scenario]];FixtureDirectory(directory);
+    KuroFakeRouteStore *routes=[KuroFakeRouteStore new];routes.directory=directory;KuroFakeDNSStore *dns=[KuroFakeDNSStore new];dns.directory=directory;
+    KuroOwnedDNS *old=[[KuroOwnedDNS alloc]initWithDirectory:directory owner:geteuid() backend:dns];CHECK([old installForSession:session error:&error]);dns.failRemove=YES;
+    KuroOwnedRoutes *oldRoutes=[[KuroOwnedRoutes alloc]initWithDirectory:directory owner:geteuid() backend:routes];KuroRouteOwnership live=^KuroRouteOwnerState(KuroCoreInterface ignored,NSString **problem){(void)ignored;(void)problem;return KuroRouteOwnerLive;};
+    CHECK([oldRoutes installForSession:session interface:association routes:KuroSplitRouteCandidate(association) ownership:live error:&error]);if(scenario==1)[routes.entries removeAllObjects];
+    KuroProductionNetwork *fresh=[[KuroProductionNetwork alloc]initWithDirectory:directory owner:geteuid() routes:routes dns:dns environment:RecoveryFixtureEnvironment()];error=nil;
+    CHECK(![fresh recoverSession:nil error:&error]&&!fresh.networkOff&&dns.removals==1&&!routes.deletions&&[error hasPrefix:@"DNS: remove failed"]);
+    if(scenario==0)CHECK([error containsString:@"; routes:"]&&Exists([directory stringByAppendingPathComponent:KuroRouteJournal]));
+    else CHECK(![error containsString:@"; routes:"]&&!Exists([directory stringByAppendingPathComponent:KuroRouteJournal]));
+    CHECK(![fresh stoppedEvidenceForSession:session error:NULL]);
   }
   CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);
   puts("production network: inert construction, local-only DNS packets, baseline admission, dual-stack apply, partial failure, held-owner and restart absence fixtures passed (no system network calls)");
