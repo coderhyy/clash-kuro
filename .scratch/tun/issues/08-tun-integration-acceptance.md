@@ -11,6 +11,8 @@ Owner: 主会话集成与最终验证；验收 agent 准备记录
 - 本次系统授权已结束。固定Core监督策略的真实证据缺口已解除；生产旧helper身份/装载绑定、origin-only清退及崩溃后卸载/升级仍需实现，不能把本次实验receipt变成生产停止证明。
 - `69728e6` macOS／Windows CI通过；双栈/IPv4-only上游实现仍待首次TUN网络窗口验证，不改第三方配置。
 
+- 后续独立增量已集成：带supervision的旧owner恢复新增helper缺席拒绝门；live/复用/未知均保留。原生完整fixture通过、独立审查通过；不开放origin-only清退或新停止证明。[实现证据](../evidence/supervisor-absence-20261105/RESULT.md)。
+
 ## 负责范围
 
 在同一源码/精确 App/helper/Core 产物上集成 [04](04-macos-privileged-adapter.md) 与 [06](06-state-and-ui.md)，核验最终 CI、打包和真实结果。沿用原票及原型证据，不新增验收票；Git/公共接线与同机器系统时段由主会话统一协调。

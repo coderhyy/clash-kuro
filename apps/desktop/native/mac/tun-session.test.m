@@ -56,6 +56,51 @@ static void RestartOwnerTests(void) {
   RestartReappearAt=0;RestartMode=0;
   puts("native restart owner: strict/legacy receipts, present/reused/denied/incomplete PID observations, changing observation and retained DNS preserve ownership; ESRCH never proves descendants exited");
 }
+static NSUInteger RestartSupervisorObservation,RestartSupervisorMode,RestartSupervisorReappearAt;
+static int RestartSupervisorReader(int pid,int flavor,uint64_t arg,void *buffer,int size) {
+  if(pid==12345)return RestartReader(pid,flavor,arg,buffer,size);
+  CHECK(pid==12344 && flavor==PROC_PIDTBSDINFO && arg==0 && size==sizeof(struct proc_bsdinfo));
+  RestartSupervisorObservation++;
+  NSUInteger mode=RestartSupervisorReappearAt && RestartSupervisorObservation>=RestartSupervisorReappearAt?1:RestartSupervisorMode;
+  if(mode==0){errno=ESRCH;return 0;}
+  if(mode==3){errno=EPERM;return 0;}
+  if(mode==4){errno=0;return 1;}
+  if(mode==5){errno=0;return 0;}
+  if(mode==6){errno=ESRCH;return -1;}
+  struct proc_bsdinfo *value=buffer;memset(value,0,sizeof(*value));
+  value->pbi_pid=(uint32_t)pid;value->pbi_start_tvsec=50;value->pbi_start_tvusec=mode==2?61:60;
+  return sizeof(*value);
+}
+static void RestartSupervisorTests(void) {
+  for(NSUInteger scenario=0;scenario<11;scenario++) {
+    char temporary[]="/tmp/kuro-supervisor-absence-XXXXXX";CHECK(mkdtemp(temporary));char canonical[PATH_MAX];CHECK(realpath(temporary,canonical));
+    NSString *directory=@(canonical),*journal=[directory stringByAppendingPathComponent:@"owner.json"],*error=nil;
+    NSMutableDictionary *record=RestartRecord();
+    if(scenario!=10) {
+      record[@"format"]=@2;
+      record[@"work"]=@{@"configSHA256":record[@"launch"][@"configSHA256"],@"socket":NSNull.null};
+      record[@"supervision"]=@{@"policy":@"fixed-mihomo-launchd-v1",@"helperSHA256":Hash(Bytes(@"helper fixture")),@"startSeconds":@50,@"startMicros":@60};
+    }
+    CHECK(KuroRestartRecord(record,NULL));Put(journal,JSONData(record),0600);NSData *original=[NSData dataWithContentsOfFile:journal];
+    RestartObservation=0;RestartMode=0;RestartReappearAt=0;RestartGroupMode=0;
+    RestartSupervisorObservation=0;RestartSupervisorMode=scenario>=1&&scenario<=6?scenario:0;
+    RestartSupervisorReappearAt=scenario==7?3:scenario==8?4:scenario==9?5:0;
+    KuroOwnedSession *session=[[KuroOwnedSession alloc]initWithDirectory:directory owner:geteuid()];session.fixtureRestartReader=RestartSupervisorReader;session.fixtureRestartGroupReader=RestartGroupReader;
+    __block NSUInteger networks=0,works=0;
+    BOOL ok=[session recoverExitedOwnerWithNetwork:^BOOL(NSString **failure){(void)failure;networks++;return YES;} workCleanup:^BOOL(NSDictionary *owner,KuroSessionHook absent,NSString **failure){CHECK([owner isEqual:record]);works++;return absent(failure);} error:&error];
+    CHECK(ok==(scenario==0||scenario==10));CHECK(session.off==ok&&!session.child);CHECK(![session completedStopEvidence:NULL]);
+    if(ok)CHECK(!Exists(journal));
+    else {CHECK(error.length>0&&[error containsString:@"old helper"]);CHECK([[NSData dataWithContentsOfFile:journal]isEqual:original]);}
+    if(scenario>=1&&scenario<=6)CHECK(networks==0&&works==0);
+    if(scenario==7)CHECK(networks==1&&works==0);
+    if(scenario==8||scenario==9)CHECK(networks==1&&works==1);
+    if(scenario==0)CHECK(RestartSupervisorObservation==5);
+    if(scenario==10)CHECK(RestartSupervisorObservation==0);
+    CHECK([[NSFileManager defaultManager]removeItemAtPath:directory error:NULL]);
+  }
+  RestartMode=0;RestartReappearAt=0;RestartSupervisorReappearAt=0;
+  puts("native supervisor absence: 11 temporary owner cases; live/reused/unknown helper and reappearance before/during/after cleanup rejected; legacy unchanged; no PID signal or fresh stop proof");
+}
 static void CacheOriginTests(void) {
   for(NSUInteger scenario=0;scenario<11;scenario++) {
     char temporary[]="/tmp/kuro-origin-XXXXXX";CHECK(mkdtemp(temporary));char canonical[PATH_MAX];CHECK(realpath(temporary,canonical));
@@ -167,6 +212,7 @@ static void SessionTests(void) {
   SessionDurabilityTests();
   CacheOriginTests();
   RestartOwnerTests();
+  RestartSupervisorTests();
   char temporary[] = "/tmp/kuro-session-XXXXXX"; CHECK(mkdtemp(temporary));
   char canonical[PATH_MAX]; CHECK(realpath(temporary, canonical));
   NSString *base = [NSString stringWithUTF8String:canonical];

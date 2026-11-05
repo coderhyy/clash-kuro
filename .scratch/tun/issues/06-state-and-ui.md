@@ -11,6 +11,8 @@ Owner: TUN 接入 agent；主会话统一 Core/State/桌面公共接口与源码
 - 本次系统授权已结束。固定Core监督策略的真实证据缺口已解除；生产旧helper身份/装载绑定、origin-only清退及崩溃后卸载/升级仍需实现，不能把本次实验receipt变成生产停止证明。
 - `69728e6` macOS／Windows CI通过；双栈/IPv4-only上游实现仍待首次TUN网络窗口验证，不改第三方配置。
 
+- 后续独立增量已集成：带supervision的旧owner恢复新增helper缺席拒绝门；live/复用/未知均保留。原生完整fixture通过、独立审查通过；不开放origin-only清退或新停止证明。[实现证据](../evidence/supervisor-absence-20261105/RESULT.md)。
+
 ## 负责范围
 
 共享契约、配置准入、FakePlatform/调用方、State/UI/托盘/i18n/demo 接入同一生命周期。合并 [03 配置/契约](03-shared-contract-and-config.md) 和 [10 测试矩阵](10-mode-transition-contract.md)，[contract.md](../contract.md) 作为票内实施清单，旧票只留历史，不形成票间审批循环。与 [04 helper](04-macos-privileged-adapter.md) 的安装/认证实验并行；正式源码只采用主会话统一的最小接口。

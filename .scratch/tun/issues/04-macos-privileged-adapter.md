@@ -11,6 +11,8 @@ Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
 - 本次系统授权已结束。固定Core监督策略的真实证据缺口已解除；生产旧helper身份/装载绑定、origin-only清退及崩溃后卸载/升级仍需实现，不能把本次实验receipt变成生产停止证明。
 - `69728e6` macOS／Windows CI通过；双栈/IPv4-only上游实现仍待首次TUN网络窗口验证，不改第三方配置。
 
+- 后续独立增量已集成：带supervision的旧owner恢复新增helper缺席拒绝门；live/复用/未知均保留。原生完整fixture通过、独立审查通过；不开放origin-only清退或新停止证明。[实现证据](../evidence/supervisor-absence-20261105/RESULT.md)。
+
 ## 负责范围
 
 管理员安装传统 LaunchDaemon + 小型 helper：受保护安装、升级卸载、peer 认证与有限 broker、准确 Core owner、自有网络归属和清理。合并 [11 安装事务](11-protected-install-transaction.md) 与 [12 认证/broker](12-peer-authentication-and-broker.md)，保留其原型与证据；不改 State/UI。依据 [安全方案](../macos-helper-security.md)、ADR-0014/0015/0016 及 [0017](../../../docs/adr/0017-macos-tun-dual-stack.md)，不依赖付费会员，不使用 setuid Core、任意 root 命令/路径、关闭 SIP 或全局 Gatekeeper。

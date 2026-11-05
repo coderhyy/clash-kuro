@@ -33,6 +33,19 @@ static BOOL KuroRestartAbsent(NSDictionary *record,KuroRestartReader reader,NSSt
   }
   return Fail(error,@"old Core absence is not observable; preserving owner/work");
 }
+// Additional refusal gate only: helper absence grants no new writer/cleanup proof.
+static BOOL KuroRestartSupervisorAbsent(NSDictionary *record,KuroRestartReader reader,NSString **error) {
+  NSDictionary *supervision=record[@"supervision"];
+  if(!supervision)return YES;
+  struct proc_bsdinfo observed={0};errno=0;
+  int count=reader([record[@"parent"]intValue],PROC_PIDTBSDINFO,0,&observed,sizeof(observed));int failure=errno;
+  if(count==0 && failure==ESRCH)return YES;
+  if(count==sizeof(observed)) {
+    BOOL same=observed.pbi_pid==[record[@"parent"]unsignedIntValue] && observed.pbi_start_tvsec==[supervision[@"startSeconds"]unsignedLongLongValue] && observed.pbi_start_tvusec==[supervision[@"startMicros"]unsignedLongLongValue];
+    return Fail(error,same?@"old helper identity is still present; preserving owner/work":@"old helper PID now has a different identity; preserving owner/work");
+  }
+  return Fail(error,@"old helper absence is not observable; preserving owner/work");
+}
 // Reject-only observation: a reused PGID may block recovery, never authorize it.
 // Empty samples do not establish that detached descendants/writers have exited.
 static BOOL KuroRestartGroupEmpty(NSDictionary *record,KuroRestartGroupReader reader,NSString **error) {
@@ -310,7 +323,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   if(self.fixtureRestartGroupReader)groupReader=self.fixtureRestartGroupReader;
 #endif
   KuroSessionHook stillAbsent=^BOOL(NSString **failure) {
-    return [self directoryProtected:failure] && [ReadProtected(self->_directory,path,self->_owner,failure)isEqual:bytes] && KuroRestartAbsent(record,reader,failure) && KuroRestartGroupEmpty(record,groupReader,failure);
+    return [self directoryProtected:failure] && [ReadProtected(self->_directory,path,self->_owner,failure)isEqual:bytes] && KuroRestartAbsent(record,reader,failure) && KuroRestartSupervisorAbsent(record,reader,failure) && KuroRestartGroupEmpty(record,groupReader,failure);
   };
   // Sample twice before invoking even a receipt-only network cleanup.
   if(!stillAbsent(error) || !stillAbsent(error) || !network(error) || !stillAbsent(error) || !workCleanup(record,stillAbsent,error) || !stillAbsent(error))return NO;
