@@ -67,3 +67,6 @@ CI配置已串联native隔离测试→App dmg→disabled helper pkg，并保存s
 
 
 2026-11-05 当前下一实验改为[普通UID固定Core有限控制](../core-control-experiment.md)：不安装、不启动job、不改系统网络；需要另行授权真实Core执行。只准备normal与成功后EOF，不提供helper强杀入口。验收以实际version/有限控制读回、准确child退出、工作目录及socket清理为准；配置和fixture不替代实证。生产root启动前还缺运行后可卸载的停止证明及完整候选，升级继续保留交付要求。原鉴权实验通过范围不变，授权已结束。
+
+
+2026-11-05 固定前置实验：源码`639c64fbfd3d371057dfd59d8b01b882c8aebbe3`，独立普通UID runner已离线构建、严格签名校验及最终产物38 fixture断言通过；全native fixture通过，Core/-t显式未执行。精确目录、摘要、5–8分钟normal→EOF步骤与有限恢复方法见[准备结果](../evidence/core-control-preparation/RESULT.md)。状态为可执行、等待新授权；不包含root/TUN或helper强杀。

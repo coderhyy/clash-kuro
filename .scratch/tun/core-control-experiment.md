@@ -1,6 +1,6 @@
 # 04/06：普通 UID 固定 Core 的有限控制实验准备
 
-状态：准备中，未执行。此实验不安装 App/helper、不重复 root 客户端鉴权，不开放生产 `Authorize` 或 `activationAllowed`。auth observation 的精确包、pin、证据不复用为本实验 Core 证据。
+状态：已冻结可执行，真实 Core 未执行，等待新授权。精确产物和校验见[准备结果](evidence/core-control-preparation/RESULT.md)。此实验不安装 App/helper、不重复 root 客户端鉴权，不开放生产 `Authorize` 或 `activationAllowed`。auth observation 的精确包、pin、证据不复用为本实验 Core 证据。
 
 ## 离线交付与身份
 
