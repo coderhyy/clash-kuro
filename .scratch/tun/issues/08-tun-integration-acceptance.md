@@ -1,6 +1,6 @@
 # macOS TUN 集成验收
 
-Status: ready-for-agent（eb4 正常窗口已准备；独立包审查进行中，尚未执行）
+Status: ready-for-agent（eb4 正常窗口已准备；独立包审查通过，待用户授权执行）
 Type: validation
 Blocked by: 首次正常启停：现场基线/Profile一致性及主会话统一窗口；正式交付：真实异常恢复与升级验收
 Owner: 主会话集成与最终验证；验收 agent 准备记录
