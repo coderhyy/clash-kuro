@@ -187,3 +187,6 @@ helper死亡/跨重启对仍存在route/DNS的恢复、真实Core可能detach的
 
 
 2026-11-05 `07b4325`冻结普通UID无TUN实验真实normal/EOF均通过；预创建0600空cache由固定Core原地初始化，同inode/owner/mode，准确停止Core exit0且独立进程/运行目录消失。仅证明此cache兼容性，不授权跨helper清退。见[真实证据](../evidence/cache-precreation-07b4325/RESULT.md)。另已准备d62675f fresh → 9763482升级的同helper/Core、不同封印App版本对，两源CI通过，实际升级未执行；[产物对](../evidence/app-only-upgrade-pair/RESULT.md)。
+
+
+2026-11-05 固定Core独立LaunchDaemon无TUN生命周期候选已冻结于85834ab，完整清单、源blob和无害自测及独审通过，尚未执行真实root job/Core。normal先通过再独立kill epoch，retire仅清job、root证据保留；不能把它算生产恢复/完整卸载。新组合须一次专门窗口授权，具体产物、10–15分钟步骤、范围与停止/恢复边界见[可执行准备](../evidence/lifecycle-core-preparation-85834ab/RESULT.md)。
