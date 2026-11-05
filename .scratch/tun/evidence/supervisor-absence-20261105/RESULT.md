@@ -9,3 +9,5 @@ Production strict compilation and integrated test compilation passed. Test-only 
 This does not authorize origin-only cache snapshot/cleanup, establish all writers absent or grant a fresh stopped proof. The production service's independent residual DNS recovery path remains unchanged. Remaining implementation: trustworthy production installed/loaded supervision binding, durable finite cache recovery checkpoint and truthful post-crash uninstall/upgrade evidence.
 
 Main integrated full native fixture suite passed exit0 in20.710s, with `KURO_SKIP_CORE_SYNTAX=1`. New11 supervisor cases and final native-suite PASS are present in `/private/tmp/kuro-supervisor-absence-integrated/stdout.log`; stderr and result.json are retained alongside. No actual Core or system operation ran.
+
+Exact source3728bc7 subsequently passed both macOS and Windows CI; see `ci.json`. This is isolated/build/integration evidence, not another root or network experiment.

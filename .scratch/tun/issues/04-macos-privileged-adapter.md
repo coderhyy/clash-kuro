@@ -2,16 +2,16 @@
 
 Status: ready-for-agent（生产有限会话已接通；补 writer 恢复与升级缺口，root 窗口完成，TUN 窗口待准备）
 Type: task
-Blocked by: 跨 helper writer 退出证明；真实 TUN、升级及运行后卸载验收
+Blocked by: 首次正常启停：现场冲突、新 baseline 与网络窗口授权；正式交付：真实异常恢复、崩溃卸载/升级验收
 Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
 
-## 当前状态（2026-11-05）
+## 当前状态（2026-11-05，49f7dd6）
 
-- `69728e6` root无网络窗口已完成：真实normal私有接口/有限操作/持有停止通过；独立job SIGKILL后1s/5s准确Core及完整组消失，非30秒兜底。job及四安装文件已清除，证据和kill owner/work按约定保留。[本次证据](../evidence/root697-window-20261105/RESULT.md)。
-- 本次系统授权已结束。固定Core监督策略的真实证据缺口已解除；生产旧helper身份/装载绑定、origin-only清退及崩溃后卸载/升级仍需实现，不能把本次实验receipt变成生产停止证明。
-- `69728e6` macOS／Windows CI通过；双栈/IPv4-only上游实现仍待首次TUN网络窗口验证，不改第三方配置。
-
-- 后续独立增量已集成：带supervision的旧owner恢复新增helper缺席拒绝门；live/复用/未知均保留。原生完整fixture通过、独立审查通过；不开放origin-only清退或新停止证明。[实现证据](../evidence/supervisor-absence-20261105/RESULT.md)。
+- `3728bc7` CI 已通过；生产候选 `49f7dd6e610e18b2a4c59c85b92f2c29045b95d4` 的 CI 亦通过：https://github.com/coderhyy/clash-kuro/actions/runs/42017796326 。标准原生测试、固定 Core 普通用户 `-t`、硬化 App 和 fresh finite-session 包构建完成，未安装或运行新候选。
+- 已接通真实安装版本/manifest/receipt/Core/helper、会话与工作目录身份绑定；origin-only 缓存通过重复稳定快照、文件同步与持久检查点恢复，拒绝跨安装或未知对象。不凭旧 PID、空组或实验通过扩大删除权。[实现证据](../evidence/installed-recovery-20261105/RESULT.md)。
+- **首次正常启停**：产物已冻结，独立包审查通过；仍需现场冲突解除后的新 baseline、Profile 核对和首次 TUN 窗口授权。现有非本应用 utun 路由覆盖固定池及 split-default，当前会被启动前检查拒绝；不自动关闭第三方工具。IPv4-only 上游可用，外网 IPv6 验收需要相应环境。
+- **异常恢复/正式交付**：真实 helper 强杀后网络与缓存恢复、崩溃后的停止证明及卸载/升级仍未验收；真实 held-stop 证明写入与 owner 清退间的持久性修复独立推进，不作为首次正常启停的笼统前置。
+- root697 实验已完成且授权结束，结果只证明既定无网络监督场景；不重复。历史记录与证据保留，旧包/旧待执行状态不代表当前状态。详细边界见 [首次窗口准备](../evidence/first-tun-readiness-20261105/READINESS.md)。
 
 ## 负责范围
 
