@@ -7,10 +7,9 @@ Owner: 主会话集成与最终验证；验收 agent 准备记录
 
 ## 当前状态（2026-11-05）
 
-- 集成提交 `822b7fb1e6d01dc167d3c3f4fb451264079b8bba` 的 macOS／Windows CI 已通过。新 root 无网络候选已冻结，完整清单、源码blob、无害fixture和独立审查通过；[精确产物与完整窗口](../evidence/next-root-window-20261105/WINDOW.md)，待一次集中授权，尚未执行。
-- 下一窗口覆盖旧四文件退役/证据归档、fresh安装、normal→kill、独立恢复和精确清理。主会话21项driver＋9项archive集成测试通过；生产跨helper writer证明、origin-only工作目录清退和真实TUN网络仍未通过。
-- 诊断fixture取证已接入，有限10次/80场景未复现旧失败；历史exit97和零输出TERM15仍缺根因，不增加timeout/重试。[证据边界](../evidence/service-diagnostic-ci-20261105/RESULT.md)。
-- IPv4-only上游兼容修复已在源码；双栈能力保留，实际网络与第三方冲突验收另需窗口。正常重开保持TUN关闭。
+- 替代源码 `69728e6abeb27f45f1bbea5b47b5e638d5f0ae9e` 已冻结；13项清单、27项源码blob、实际driver、固定恢复依赖和生成cleanup已独立核验，旧822候选不再执行。[精确产物与完整窗口](../evidence/next-root-window-20261105/WINDOW.md)。
+- 22项driver、8项独立恢复回归通过；停止证明修复通过完整原生fixture和独立生产调用链复核。该提交macOS／Windows CI均已通过；未重复本机真实Core或root实验。
+- 下一窗口包含旧四文件退役/证据归档、fresh安装、normal→kill、独立恢复及精确清理，待集中授权。跨helper writer证明、origin-only清退、真实TUN及升级验收仍未完成；IPv4-only上游保留双栈能力，真实网络验证另安排。
 
 ## 负责范围
 
@@ -275,3 +274,10 @@ helper死亡/跨重启对仍存在route/DNS的恢复、真实Core可能detach的
 2026-11-05 `4a8c7ac`组合native＋固定Core -t及真实normal→独立absence→EOF通过，两个Core均SIGTERM后exit0；同源码finite-session包已构建并独立离线解包核验，未安装/未TUN。CI原生通过但旧readiness TS用例API超时失败，现仅修测试前置条件并保留500ms/原断言，等待新CI。证据见[恢复验证](../evidence/recovery-durability-20261105/RESULT.md)。
 
 2026-11-05 最终候选源码`4abee2431de852244e43bf5ecab86cfcf91fb259`：macOS/Windows CI通过，同提交fresh finite-session包SHA`f283dc18921aaf03980ca341c139d3721b38e5fffaafed15b711951f4365f4f6`已构建并独立离线核验。原生与刚通过真实normal/EOF的4a字节相同，不把旧执行重标为新执行。尚未安装该包、未获/执行root真实Core监督死亡或首次TUN窗口；异常writer退出证明、实际升级和运行后卸载仍开放。见[最终候选证据](../evidence/finite-candidate-4abee24/RESULT.md)。
+
+### 前次状态快照（替代69728e6前，保留历史）
+
+- 集成提交 `822b7fb1e6d01dc167d3c3f4fb451264079b8bba` 的 macOS／Windows CI 已通过。新 root 无网络候选已冻结，完整清单、源码blob、无害fixture和独立审查通过；[精确产物与完整窗口](../evidence/next-root-window-20261105/WINDOW.md)，待一次集中授权，尚未执行。
+- 下一窗口覆盖旧四文件退役/证据归档、fresh安装、normal→kill、独立恢复和精确清理。主会话21项driver＋9项archive集成测试通过；生产跨helper writer证明、origin-only工作目录清退和真实TUN网络仍未通过。
+- 诊断fixture取证已接入，有限10次/80场景未复现旧失败；历史exit97和零输出TERM15仍缺根因，不增加timeout/重试。[证据边界](../evidence/service-diagnostic-ci-20261105/RESULT.md)。
+- IPv4-only上游兼容修复已在源码；双栈能力保留，实际网络与第三方冲突验收另需窗口。正常重开保持TUN关闭。

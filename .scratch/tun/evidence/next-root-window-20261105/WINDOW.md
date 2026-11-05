@@ -1,12 +1,12 @@
 # Root no-network window — pending one explicit authorization
 
-Source: `822b7fb1e6d01dc167d3c3f4fb451264079b8bba`.
-Exact review: `/private/tmp/kuro-lifecycle-core-review-822b7fb`.
-The [freeze](freeze.json) records approval, executable, driver, cleanup, archive and Core hashes. Full SHA256SUMS, actual driver review and old frozen dependencies passed; the ordinary-UID harmless self-test passed. No real Core/system action has run from this candidate.
+Source: `69728e6abeb27f45f1bbea5b47b5e638d5f0ae9e`.
+Exact review: `/private/tmp/kuro-lifecycle-core-review-69728e6`.
+The [freeze](freeze.json) records approval, executable, driver, cleanup, archive and Core hashes. Complete SHA256SUMS passed; final independent review and CI are recorded in the freeze. No real Core/system action has run from this candidate.
 
 ## Requested window (15–20 minutes)
 
-The administrator handles system authorization prompts. Main serially runs each exact review driver operation using `/usr/bin/python3 -I`, the same review path and approval SHA `807b607cb7a2d6c984d0726584b73a56367902a1a2f9fc9f5a032c546e37fe8a`, recording output/exit and reviewing evidence before continuing:
+The administrator handles system authorization prompts. Main serially runs each exact review driver operation using `/usr/bin/python3 -I`, the same review path and approval SHA `3b29916ebe575c4679159b8241e89974e37779fd27aba330b62f8a9e8852902d`, recording output/exit and reviewing evidence before continuing:
 
 1. Recheck all hashes, current exact job/process absence, installation identities and archive collision. `archive-old`: only remove the old four approved installation files, then exclusively rename `/Library/Application Support/Clash Kuro/TunLifecycleExperimentA` to `TunLifecycleExperimentA-root858-preserved`. Preserve every old diagnostic/identity file. Unknown objects or partial installation reject.
 2. `install`: fresh dedicated helper binary, plist and normal/kill Core copies under the same four fixed locations and protected experiment data directory. Existing objects reject; no job/Core starts at installation.
@@ -23,3 +23,22 @@ Any hash/identity/permission mismatch, unknown object, archive collision, incomp
 This window changes only the dedicated experiment files/job and fixed Core processes. TUN, DNS service, IP proxy listeners, system proxy/routes/DNS, login items, third-party settings, logout/restart/shutdown remain excluded. Bounded no-IP FD observations are not an OS network sandbox. No production App data is used.
 
 Successful completion retains root0700 evidence at the old archive and new experiment BASE, plus ordinary-user output records. New kill owner/work/cache deliberately remain: this is launchd supervision evidence, not proof of production crash recovery or complete uninstall. The first real TUN/network window remains separate.
+
+## Exact retained locations and deletion scope
+
+The four install targets, both for old retirement and successful new cleanup, are:
+
+- `/Library/PrivilegedHelperTools/dev.kuro.tun.lifecycle-a`
+- `/Library/LaunchDaemons/dev.kuro.tun.lifecycle-a.plist`
+- `/Library/Application Support/Clash Kuro/TunLifecycleExperimentA/normal/mihomo`
+- `/Library/Application Support/Clash Kuro/TunLifecycleExperimentA/kill/mihomo`
+
+Retain `/Library/Application Support/Clash Kuro/TunLifecycleExperimentA-root858-preserved` for old immutable evidence and `/Library/Application Support/Clash Kuro/TunLifecycleExperimentA` for new approval, diagnostics, receipts and kill work/cache. No recursive removal. Keep `/private/tmp/kuro-lifecycle-core-review-69728e6`, old pinned `/private/tmp/kuro-lifecycle-core-review-85834ab`, `/private/tmp/kuro-root858-normal-retire-candidate` and `/private/tmp/kuro-root858-cleanup-candidate` available through the window: the entry checks the exact dependency paths/hashes. These are preserved inputs, not extra installation targets.
+
+Root command form (execute one operation at a time, never an unconditional chain):
+
+```text
+/usr/bin/python3 -I /private/tmp/kuro-lifecycle-core-review-69728e6/core-driver.py OPERATION --review /private/tmp/kuro-lifecycle-core-review-69728e6 --approval-sha 3b29916ebe575c4679159b8241e89974e37779fd27aba330b62f8a9e8852902d
+```
+
+The administrator supplies authorization through the system prompt; no passwords are recorded. Any partial installation or unverifiable live state is retained and reported. Recovery does not promise to stop an unknown/live process: it is deliberately limited to bootout after independently established absence.
