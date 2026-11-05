@@ -1,0 +1,57 @@
+vite v8.3.5 building ssr environment for production...
+transforming...
+✓ 114 modules transformed.
+rendering chunks...
+out/main/index.js  416.97 kB
+
+✓ built in 35ms
+vite v8.3.5 building ssr environment for production...
+transforming...
+✓ 3 modules transformed.
+rendering chunks...
+out/preload/index.js  1.92 kB
+
+✓ built in 4ms
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 2243 modules transformed.
+rendering chunks...
+out/renderer/index.html                   0.52 kB
+out/renderer/assets/index-Cf94k4JI.css   44.25 kB
+out/renderer/assets/index-Bbuu9jxH.js   991.25 kB
+
+✓ built in 158ms
+  • electron-builder  version=26.18.0 os=27.2.0
+  • loaded configuration  file=/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/electron-builder.yml
+  • description is missed in the package.json  appPackageFile=/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/package.json
+  • author is missed in the package.json  appPackageFile=/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/package.json
+  • packageManager not detected by file, falling back to environment detection  resolvedPackageManager=npm detected=/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop
+  • detected workspace root for project using packageManager field  pm=bun config=bun@1.4.4 resolved=/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro projectDir=/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop
+  • executing @electron/rebuild  electronVersion=45.1.0 arch=arm64 buildFromSource=false workspaceRoot=/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro projectDir=./ appDir=./
+  • installing native dependencies  arch=arm64
+  • completed installing native dependencies
+  • packaging       platform=darwin arch=arm64 electron=45.1.0 appOutDir=dist/electron-finite-session-candidate-8a989ec9d40b/mac-arm64
+  • downloaded      label=electron progress=100%
+  • downloaded electron zip extracted successfully  output=/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/electron-finite-session-candidate-8a989ec9d40b/mac-arm64
+  • searching for node modules  pm=bun searchDir=/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop
+  • note: bun does not support any CLI for dependency tree extraction, utilizing file traversal collector instead
+  • using manual traversal of node_modules to build dependency tree
+  • no node modules found in collection, trying next search directory  pm=bun searchDir=/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop
+  • searching for node modules  pm=bun searchDir=/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro
+  • note: bun does not support any CLI for dependency tree extraction, utilizing file traversal collector instead
+  • using manual traversal of node_modules to build dependency tree
+  • no node modules found in collection, trying next search directory  pm=bun searchDir=/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro
+  • searching for node modules  pm=traversal searchDir=/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop
+  • using manual traversal of node_modules to build dependency tree
+  • no node modules found in collection, trying next search directory  pm=traversal searchDir=/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop
+  • searching for node modules  pm=traversal searchDir=/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro
+  • using manual traversal of node_modules to build dependency tree
+  • no node modules found in collection, trying next search directory  pm=traversal searchDir=/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro
+  • no node modules returned while searching directories  searchDirectories=["","/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro"]
+  • executing @electron/fuses  electronPath=dist/electron-finite-session-candidate-8a989ec9d40b/mac-arm64/Clash Kuro.app
+  • ad-hoc signing with hardenedRuntime enabled requires the com.apple.security.cs.disable-library-validation entitlement to prevent app launch failures due to library validation. See https://electron.build/code-signing for details.
+  • signing         file=dist/electron-finite-session-candidate-8a989ec9d40b/mac-arm64/Clash Kuro.app platform=darwin type=distribution identityName=- identityHash=none provisioningProfile=none
+  • skipped macOS notarization  reason=`notarize` options were unable to be generated
+macOS App runtime/entitlements, seal, ASAR bytes and fuses verified (no launch; not privileged caller attestation)
+macOS App runtime/entitlements, seal, ASAR bytes and fuses verified (no launch; not privileged caller attestation)
+Fresh finite-session candidate: /Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/electron-finite-session-candidate-8a989ec9d40b/mac-arm64/Clash Kuro.app (not launched or installed)

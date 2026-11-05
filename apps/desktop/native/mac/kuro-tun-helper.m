@@ -399,7 +399,7 @@ static int Serve(void) {
     });
   }
   close(listener);
-  [service requestStop];
+  [service requestShutdown];
   if (dispatch_group_wait(workers, dispatch_time(DISPATCH_TIME_NOW, 3 * NSEC_PER_SEC))) return 1;
   if (!lstat(realSocket.fileSystemRepresentation, &info) && info.st_ino == ownedSocket.st_ino && info.st_dev == ownedSocket.st_dev) unlink(realSocket.fileSystemRepresentation);
   close(lock);

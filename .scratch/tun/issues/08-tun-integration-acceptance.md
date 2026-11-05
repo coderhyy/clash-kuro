@@ -126,3 +126,5 @@ CI配置已串联native隔离测试→App dmg→disabled helper pkg，并保存s
 helper死亡/跨重启对仍存在route/DNS的恢复、真实Core可能detach的后代约束、网络接口切换/单族回退、升级与回滚，继续保留在04/06/08验收清单；缺能力的段不在首窗口冒险执行，未测项目明确不通过，也不因窗口其它段成功关闭主票。
 
 2026-11-05 已实现same-held停止证明与运行后准确卸载，beforeStart/resume持久撤销旧proof，neverStarted=false不回真；已集成finite-session源码候选构建/严格同commit身份打包及固定测试数据隔离，auth-only不扩权。独立审查无阻塞，全native含固定Core-t通过。真实root/TUN仍未验，升级事务未实现；[准备证据](../evidence/stopped-proof-preparation/RESULT.md)。
+
+2026-11-05 同一helper的已reap会话现在保留原worker，通过现有已鉴权recover显式重试原线程清理；owner字节变化、并发/过期请求及新open/控制仍拒绝。独立审查及8个真实无害子进程fixture通过；网络回调为fixture，不代表真实TUN恢复。见[恢复证据](../evidence/retained-recovery-20261105/RESULT.md)。跨helper现存网络项、真实root/TUN及完整升级仍未验收。

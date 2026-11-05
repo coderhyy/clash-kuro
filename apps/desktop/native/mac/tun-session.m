@@ -90,6 +90,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   NSDictionary *_launchEvidence;
   pid_t _reapedOwnedChild;
   NSDictionary *_completedStop;
+  NSData *_heldOwnerBytes;
 #ifdef KURO_CORE_EXPERIMENT
   NSString *_terminationRequest;
   NSDictionary *_terminationEvidence;
@@ -120,6 +121,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
 - (BOOL)spawnExecutable:(NSString *)executable arguments:(NSArray<NSString *> *)arguments workingDirectory:(NSString *)workingDirectory beforeResume:(KuroSessionHook)prepare afterReap:(KuroSessionHook)cleanup error:(NSString **)error;
 - (BOOL)spawnExecutable:(NSString *)executable arguments:(NSArray<NSString *> *)arguments workingDirectory:(NSString *)workingDirectory beforeResume:(KuroSessionHook)prepare afterReap:(KuroSessionHook)cleanup resumeGate:(KuroSessionResumeGate)resumeGate error:(NSString **)error;
 - (BOOL)stop:(NSString **)error;
+- (BOOL)heldCleanupCanRetry;
 - (NSDictionary *)completedStopEvidence:(NSString **)error;
 - (BOOL)superviseSocket:(int)socket leaseMilliseconds:(NSUInteger)lease identityValid:(BOOL (^)(void))identityValid error:(NSString **)error;
 - (BOOL)superviseSocket:(int)socket leaseMilliseconds:(NSUInteger)lease identityValid:(BOOL (^)(void))identityValid tick:(KuroSessionHook)tick error:(NSString **)error;
@@ -162,6 +164,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   NSString *temporary=[_directory stringByAppendingPathComponent:[@".owner-" stringByAppendingString:NSUUID.UUID.UUIDString]];
   if(!WriteNew(temporary,JSONData(record),0600,error))return NO;
   if(rename(temporary.fileSystemRepresentation,path.fileSystemRepresentation)) { unlink(temporary.fileSystemRepresentation);return Fail(error,@"owner checkpoint publish failed"); }
+  _heldOwnerBytes=JSONData(record);
   return [self syncDirectory:error];
 }
 - (BOOL)recordWorkSocket:(NSDictionary *)identity error:(NSString **)error {
@@ -298,7 +301,8 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   _cleanup = [cleanup copy];
   // Mark uncertainty before creating the journal, including partial-write failures.
   _journaled = YES;
-  BOOL ready = known && WriteNew(journal, JSONData(record), 0600, error) && [self syncDirectory:error] && prepare(error);
+  _heldOwnerBytes=JSONData(record);
+  BOOL ready = known && WriteNew(journal, _heldOwnerBytes, 0600, error) && [self syncDirectory:error] && prepare(error);
   if (!ready) { NSString *ignored = nil; [self stop:&ignored]; return Fail(error, @"owner preparation failed; child was never resumed (cleanup status must be inspected)"); }
   __block BOOL resumed=NO;
   KuroSessionHook resume=^BOOL(NSString **problem) {
@@ -326,6 +330,9 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   }
   return YES;
 }
+- (BOOL)heldCleanupCanRetry {
+  return [self onThread:NULL] && _journaled && !_unknown && !_child && _reapedOwnedChild>0;
+}
 - (BOOL)stop:(NSString **)error {
   if (![self onThread:error]) return NO;
   if (_unknown) return Fail(error, @"session ownership is unknown");
@@ -350,6 +357,8 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
     }
   }
   if (_journaled) {
+    NSString *heldPath=[_directory stringByAppendingPathComponent:@"owner.json"];
+    if(!_heldOwnerBytes || ![ReadProtected(_directory,heldPath,_owner,error)isEqual:_heldOwnerBytes])return Fail(error,@"held owner journal changed; network cleanup refused");
     if (!_cleanup || !_cleanup(error)) return Fail(error, @"child reaped but network restoration is not proven");
     NSString *path = [_directory stringByAppendingPathComponent:@"owner.json"];
     NSData *bytes=ReadProtected(_directory,path,_owner,error);

@@ -49,6 +49,10 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
   NSMutableArray<KuroControlCall *> *_commands;
   BOOL _busy;
   BOOL _stopRequested;
+  BOOL _shutdownRequested;
+  NSString *_retainedSession;
+  KuroControlCall *_recoveryCall;
+  NSCondition *_recoveryWake;
   BOOL _workCreated;
   BOOL _resumeCheckpointAttempted, _stopCheckpointAttempted, _stopCheckpointComplete;
   NSString *_stopCheckpointFailure;
@@ -66,11 +70,16 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
 - (instancetype)initFixtureDirectory:(NSString *)directory core:(NSString *)core hooks:(KuroTunServiceHooks *)hooks;
 @property(nonatomic, copy) void (^fixtureAfterSupervise)(void);
 @property(nonatomic, copy) void (^fixtureBeforeResume)(void);
+@property(nonatomic, copy) void (^fixtureRetained)(void);
+@property(nonatomic, copy) void (^fixtureBeforeRecovery)(void);
+@property(nonatomic, copy) void (^fixtureRecoveryCompleted)(void);
 #endif
 // Must run on the dedicated owner worker. Other workers may call the methods below.
 - (BOOL)serveOpenFrame:(NSData *)frame peer:(int)peer error:(NSString **)error;
 - (NSDictionary *)statusSnapshot;
 - (void)requestStop;
+- (void)requestShutdown;
+- (BOOL)recoverHeldSession:(NSString *)session deadline:(uint64_t)deadline error:(NSString **)error;
 - (BOOL)recoverNetworkOnly:(NSString **)error;
 // Typed internal control only; a protocol adapter must independently authorize its caller.
 - (BOOL)writeMode:(NSString *)mode error:(NSString **)error;
@@ -79,7 +88,7 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
 @implementation KuroTunService
 - (instancetype)initWithHooks:(KuroTunServiceHooks *)hooks {
   if((self=[super init])) {
-    _directory=State; _owner=0; _hooks=hooks; _commands=[NSMutableArray array];
+    _directory=State; _owner=0; _hooks=hooks; _commands=[NSMutableArray array]; _recoveryWake=[NSCondition new];
     _snapshot=[Status(@"",0)[@"status"] copy];
   }
   return self;
@@ -87,7 +96,7 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
 #ifdef KURO_TESTING
 - (instancetype)initFixtureDirectory:(NSString *)directory core:(NSString *)core hooks:(KuroTunServiceHooks *)hooks {
   if((self=[super init])) {
-    _directory=[directory copy]; _owner=geteuid(); _fixtureCore=[core copy]; _hooks=hooks; _commands=[NSMutableArray array];
+    _directory=[directory copy]; _owner=geteuid(); _fixtureCore=[core copy]; _hooks=hooks; _commands=[NSMutableArray array]; _recoveryWake=[NSCondition new];
     _snapshot=@{@"availability":@"blocked",@"state":@"unknown",@"error":@"fixture has not established off evidence"};
   }
   return self;
@@ -106,8 +115,73 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
   @synchronized(self) { _snapshot=error ? @{@"availability":@"blocked",@"state":state,@"error":error} : @{@"availability":@"ready",@"state":state}; }
 }
 - (void)requestStop { @synchronized(self) { _stopRequested=YES; } }
+- (void)requestShutdown {
+  @synchronized(self) { _stopRequested=YES; _shutdownRequested=YES; }
+  [_recoveryWake lock]; [_recoveryWake broadcast]; [_recoveryWake unlock];
+}
+- (BOOL)recoverHeldSession:(NSString *)session deadline:(uint64_t)deadline error:(NSString **)error {
+  KuroControlCall *call=[KuroControlCall new];call.condition=[NSCondition new];call.deadline=deadline;
+  call.command=@{@"session":session?:@""};
+  @synchronized(self) {
+    if(!_retainedSession || ![_retainedSession isEqual:session] || _recoveryCall || _shutdownRequested || KuroMonotonicMilliseconds()>=deadline)
+      return Fail(error,@"no matching retained owner or recovery already pending/shutting down");
+    _recoveryCall=call;
+  }
+  [_recoveryWake lock];[_recoveryWake broadcast];[_recoveryWake unlock];
+  [call.condition lock];
+  while(!call.done && KuroMonotonicMilliseconds()<deadline)[call.condition waitUntilDate:[NSDate dateWithTimeIntervalSinceNow:.02]];
+  if(!call.done)call.cancelled=YES;
+  BOOL ok=call.done && [call.result isEqual:@YES] && !call.failure;NSString *failure=call.failure;
+  [call.condition unlock];
+  return ok || Fail(error,failure?:@"held recovery deadline expired; an already executing cleanup may still finish");
+}
+- (void)retainCleanupOnPeer:(int)peer {
+  if(![_session heldCleanupCanRetry])return;
+  @synchronized(self) { _retainedSession=_session.identifier; }
+  // The old V2 caller must see disconnection while this exact owner worker stays alive.
+  shutdown(peer,SHUT_RDWR);
+#ifdef KURO_TESTING
+  if(self.fixtureRetained)self.fixtureRetained();
+#endif
+  for(;;) @autoreleasepool {
+    [_recoveryWake lock];
+    KuroControlCall *call=nil;BOOL quitting=NO;
+    @synchronized(self) { quitting=_shutdownRequested;call=_recoveryCall; }
+    if(!quitting && !call) { [_recoveryWake waitUntilDate:[NSDate dateWithTimeIntervalSinceNow:.05]];[_recoveryWake unlock];continue; }
+    [_recoveryWake unlock];
+    if(quitting)break;
+#ifdef KURO_TESTING
+    if(self.fixtureBeforeRecovery)self.fixtureBeforeRecovery();
+#endif
+    [call.condition lock];
+    BOOL admitted=!call.cancelled && KuroMonotonicMilliseconds()<call.deadline;
+    [call.condition unlock];
+    @synchronized(self) { admitted=admitted && !_shutdownRequested && [call.command[@"session"]isEqual:_retainedSession]; }
+    NSString *failure=nil;BOOL ok=NO;
+    if(admitted && [_session heldCleanupCanRetry]) {
+      ok=[_session stop:&failure] && _session.off && !_workCreated;
+      if(ok)ok=[self checkpointStopped:&failure];
+      else [self snapshot:@"unknown" error:failure?:@"held cleanup retry not proven"];
+    } else failure=@"held recovery expired, cancelled, or ownership no longer admits retry";
+    [call.condition lock];call.result=@(ok);call.failure=failure;call.done=YES;[call.condition broadcast];[call.condition unlock];
+    @synchronized(self) { if(_recoveryCall==call)_recoveryCall=nil; }
+#ifdef KURO_TESTING
+    if(self.fixtureRecoveryCompleted)self.fixtureRecoveryCompleted();
+#endif
+    // A failed checkpoint after physical cleanup cannot authorize repeating network cleanup.
+    if(_session.off && !_workCreated)break;
+  }
+  KuroControlCall *pending=nil;
+  @synchronized(self) { _retainedSession=nil;pending=_recoveryCall;_recoveryCall=nil; }
+  if(pending) { [pending.condition lock];pending.failure=@"helper shutting down with ownership evidence preserved";pending.done=YES;[pending.condition broadcast];[pending.condition unlock]; }
+}
 - (BOOL)recoverNetworkOnly:(NSString **)error {
-  @synchronized(self) { if(_busy)return Fail(error,@"session transaction active; recovery refused"); _busy=YES; }
+  NSString *held=nil;
+  @synchronized(self) {
+    held=_retainedSession;
+    if(!held) { if(_busy || _shutdownRequested)return Fail(error,@"session transaction active or shutting down; recovery refused");_busy=YES; }
+  }
+  if(held)return [self recoverHeldSession:held deadline:KuroMonotonicMilliseconds()+2000 error:error];
   BOOL ok=NO;
   @try {
     if((_session && _session.child>0) || (_session && Exists([_directory stringByAppendingPathComponent:@"owner.json"])))return Fail(error,@"in-memory Core owner requires its original stop/reconcile; no PID adoption");
@@ -119,7 +193,7 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
     ok=observed.off && (!_session || _session.off) && !Exists([self work]);
     return ok || Fail(error,@"network/Core recovery did not independently clear ownership receipts");
   } @finally {
-    [self snapshot:ok?@"off":@"unknown" error:ok?nil:@"residual ownership recovery is not proven"];
+    [self snapshot:ok?@"off":@"unknown" error:ok?_stopCheckpointFailure:@"residual ownership recovery is not proven"];
     @synchronized(self) { _busy=NO; }
   }
 }
@@ -232,7 +306,10 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
   // Physical off remains true even when its uninstall checkpoint cannot be saved.
   [self snapshot:@"off" error:nil];
   if(!_resumeCheckpointAttempted)return YES;
-  if(_stopCheckpointAttempted)return _stopCheckpointComplete || Fail(error,_stopCheckpointFailure);
+  if(_stopCheckpointAttempted) {
+    if(!_stopCheckpointComplete)[self snapshot:@"off" error:_stopCheckpointFailure];
+    return _stopCheckpointComplete || Fail(error,_stopCheckpointFailure);
+  }
   _stopCheckpointAttempted=YES;
   NSString *failure=nil;NSDictionary *evidence=[_session completedStopEvidence:&failure];
   _stopCheckpointComplete=evidence && _hooks.confirmStopped && _hooks.confirmStopped(evidence,&failure);
@@ -290,7 +367,7 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
 - (BOOL)serveOpenFrame:(NSData *)frame peer:(int)peer error:(NSString **)error {
   BOOL previouslyOff=NO;
   @synchronized(self) {
-    if(_busy) { KuroServiceReply(peer,KuroServiceError(@"a session owner is already active")); return Fail(error,@"single owner busy"); }
+    if(_busy || _shutdownRequested) { KuroServiceReply(peer,KuroServiceError(@"a session owner is already active or shutting down")); return Fail(error,@"single owner busy"); }
     previouslyOff=[_snapshot[@"state"] isEqual:@"off"];
     _busy=YES; _stopRequested=NO; _nextNetworkCheck=0;
     _resumeCheckpointAttempted=NO; _stopCheckpointAttempted=NO; _stopCheckpointComplete=NO; _stopCheckpointFailure=nil;
@@ -380,6 +457,7 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
     if(!success && !failure)failure=[@"failed stage: " stringByAppendingString:stage];
     if(!success && !acknowledged)KuroServiceReply(peer,KuroServiceError(failure));
     [self finishPending];
+    if(!off)[self retainCleanupOnPeer:peer];
     @synchronized(self) { _busy=NO; }
     if(error)*error=failure;
   }

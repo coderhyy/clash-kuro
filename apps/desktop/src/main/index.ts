@@ -23,6 +23,7 @@ const SHUTDOWN_TIMEOUT_MS = 3_000
 
 let verificationDirectory: string | undefined
 let authenticationOnly = false
+let finiteSessionCandidate = false
 let startupRefused = false
 if (app.isPackaged) {
   try {
@@ -39,7 +40,10 @@ if (app.isPackaged) {
       app.disableHardwareAcceleration()
     } else {
       const paths = prepareSessionCandidateDirectory(sealedMetadata, app.getPath('appData'))
-      if (paths) for (const [name, path] of Object.entries(paths)) app.setPath(name as 'userData' | 'sessionData' | 'crashDumps', path)
+      if (paths) {
+        finiteSessionCandidate = true
+        for (const [name, path] of Object.entries(paths)) app.setPath(name as 'userData' | 'sessionData' | 'crashDumps', path)
+      }
     }
   } catch (error) {
     startupRefused = true
@@ -176,7 +180,7 @@ async function main(): Promise<void> {
   store = app_
 
   // Store startup reconciles TUN first, including with no active Profile. Unknown ownership forbids new proxy writes.
-  if (!startResident && app_.store.getState().tun.state === 'off') try {
+  if (!finiteSessionCandidate && !startResident && app_.store.getState().tun.state === 'off') try {
     await platform.cleanupStaleSystemProxy(app_.store.getState().settings.mixedPort)
   } catch (error) { console.warn('Stale System Proxy cleanup failed:', error) }
 
@@ -301,7 +305,7 @@ async function main(): Promise<void> {
 
   platform.onResume(() => {
     // Check ownership inside the same queue as mode changes, not before entering it.
-    app_.resumeCore().catch((error) => console.warn('Resume recovery failed:', error))
+    if (!finiteSessionCandidate) void app_.resumeCore().catch((error) => console.warn('Resume recovery failed:', error))
   })
 
   app.on('second-instance', (_event, argv) => {
@@ -320,12 +324,15 @@ async function main(): Promise<void> {
   // Launch at Login starts straight in Tray Mode (CONTEXT.md: 开机自启).
   if (process.platform === 'darwin' && app.getLoginItemSettings().wasOpenedAtLogin) app.dock?.hide()
   else if (process.platform !== 'win32' || !process.argv.includes('--hidden')) showWindow()
-  if (app_.store.getState().activeProfileId) {
-    const result = await app_.run('startCore', {})
-    if (!result.ok) console.warn('Core did not start:', result.error)
+  // The sealed candidate retains real TUN admission/recovery, but starts modes and fetches only on explicit UI actions.
+  if (!finiteSessionCandidate) {
+    if (app_.store.getState().activeProfileId) {
+      const result = await app_.run('startCore', {})
+      if (!result.ok) console.warn('Core did not start:', result.error)
+    }
+    scheduler.start()
+    void checkForUpdate({ repo: RELEASE_REPO, currentVersion: app.getVersion() }).then((update) => {
+      if (update) app_.store.setState((s) => ({ ...s, update, version: s.version + 1 }))
+    })
   }
-  scheduler.start()
-  void checkForUpdate({ repo: RELEASE_REPO, currentVersion: app.getVersion() }).then((update) => {
-    if (update) app_.store.setState((s) => ({ ...s, update, version: s.version + 1 }))
-  })
 }

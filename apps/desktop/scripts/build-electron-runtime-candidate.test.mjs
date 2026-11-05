@@ -1,4 +1,5 @@
 import { expect, test } from 'vitest'
+import { join } from 'node:path'
 import { candidateBuildPlan } from './build-electron-runtime-candidate.mjs'
 
 const commit = '1'.repeat(40)
@@ -12,7 +13,7 @@ test('candidate rebuild starts with source compilation and separates sealed norm
   expect(auth.commands[1][1]).toContain('-c.extraMetadata.kuroAuthObservationOnly=true')
   expect(finite.output).not.toBe(auth.output)
   expect(finite.output).toContain(commit.slice(0, 12))
-  expect(finite.bundle).toMatch(/mac-arm64\/Clash Kuro.app$/)
+  expect(finite.bundle).toBe(join(finite.output, 'mac-arm64', 'Clash Kuro.app'))
   expect(candidateBuildPlan('darwin-x64', 'finite-session', commit).commands[1][1]).toContain('--x64')
   // Plan has no re-sign/copy-old-App step and no launch/install command.
   expect(finite.commands).toHaveLength(2)

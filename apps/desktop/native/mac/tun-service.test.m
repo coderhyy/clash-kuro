@@ -163,7 +163,97 @@ static void RestartCacheTests(void) {
   }
   puts("native production cache: closed durable receipt, legacy refusal, changed/symlink/writable/unknown preservation, exact removal and partial cleanup retry passed; no Core/network");
 }
+static void ServiceWait(dispatch_semaphore_t event) {
+  CHECK(!dispatch_semaphore_wait(event,dispatch_time(DISPATCH_TIME_NOW,4*NSEC_PER_SEC)));
+}
+// The second connection is an independently dispatched, closed V1 recovery adapter.
+// Authorization is represented by ServiceHooks, not a production authorization bypass.
+static BOOL ServiceRecoverySocket(KuroTunService *service) {
+  int peers[2];CHECK(!socketpair(AF_UNIX,SOCK_STREAM,0,peers));int server=peers[0];
+  dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT,0),^{
+    NSDictionary *request=ServiceRead(server);NSString *error=nil;
+    BOOL ok=Keys(request,@[@"version",@"operation"]) && [request[@"version"]isEqual:@1] && [request[@"operation"]isEqual:@"recover"] && [service recoverNetworkOnly:&error];
+    CHECK(KuroServiceReply(server,ok?@{@"version":@1,@"ok":@YES,@"status":[service statusSnapshot]}:@{@"version":@1,@"ok":@NO,@"error":error?:@"invalid recovery fixture request"}));close(server);
+  });
+  ServiceSend(peers[1],@{@"version":@1,@"operation":@"recover"});NSDictionary *reply=ServiceRead(peers[1]);close(peers[1]);
+  CHECK(reply && [reply[@"version"]isEqual:@1]);
+  if([reply[@"ok"]boolValue])CHECK([reply[@"status"][@"state"]isEqual:@"off"]);
+  return [reply[@"ok"]boolValue];
+}
+static void RetainedRecoveryTests(void) {
+  for(NSUInteger scenario=0;scenario<8;scenario++) {
+    char temporary[]="/tmp/kuro-retain-XXXXXX";CHECK(mkdtemp(temporary));char canonical[PATH_MAX];CHECK(realpath(temporary,canonical));
+    NSString *directory=@(canonical),*core=[directory stringByAppendingPathComponent:@"core"],*journal=[directory stringByAppendingPathComponent:@"owner.json"],*work=[directory stringByAppendingPathComponent:@"session-work"];
+    Put(core,[NSData dataWithContentsOfFile:Executable()],0755);
+    NSObject *guard=[NSObject new];__block BOOL allowed=NO;__block NSUInteger recoveries=0,proofs=0;__block pthread_t owner;
+    KuroTunServiceHooks *hooks=ServiceHooks();
+    hooks.preflight=^BOOL(NSDictionary *config,NSString **error) { (void)config;(void)error;owner=pthread_self();return YES; };
+    dispatch_semaphore_t retained=dispatch_semaphore_create(0),entered=dispatch_semaphore_create(0),release=dispatch_semaphore_create(0),done=dispatch_semaphore_create(0);
+    __block BOOL blockRecovery=NO;
+    hooks.recoverNetwork=^BOOL(NSString *session,NSString **error) {
+      CHECK(pthread_equal(owner,pthread_self()));CHECK(session.length>0);
+      BOOL permit,pause;@synchronized(guard){recoveries++;permit=allowed;pause=blockRecovery;}
+      if(pause){dispatch_semaphore_signal(entered);ServiceWait(release);}
+      return permit || Fail(error,@"injected same-thread DNS readback failure");
+    };
+    hooks.confirmStopped=^BOOL(NSDictionary *proof,NSString **error) {
+      CHECK(pthread_equal(owner,pthread_self()));CHECK(KuroCompletedStopEvidence(proof));
+      CHECK(!Exists(journal)&&!Exists(work));@synchronized(guard){proofs++;}
+      return KuroCompletedStopEvidence(proof)||Fail(error,@"fixture stop evidence missing");
+    };
+    KuroTunService *service=[[KuroTunService alloc]initFixtureDirectory:directory core:core hooks:hooks];
+    service.fixtureRetained=^{CHECK(pthread_equal(owner,pthread_self()));dispatch_semaphore_signal(retained);};
+    int peers[2];CHECK(!socketpair(AF_UNIX,SOCK_STREAM,0,peers));int peer=peers[0];
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT,0),^{NSString *error=nil;(void)[service serveOpenFrame:ServiceOpen() peer:peer error:&error];close(peer);dispatch_semaphore_signal(done);});
+    NSDictionary *open=ServiceRead(peers[1]);CHECK([open[@"ok"]boolValue]);NSString *session=open[@"session"];
+    CHECK(!ServiceRecoverySocket(service)); // Live owner cannot be recovered/adopted.
+    if(scenario==6)shutdown(peers[1],SHUT_RDWR);
+    else {ServiceSend(peers[1],@{@"version":@2,@"operation":@"stop",@"session":session,@"sequence":@1});CHECK(![ServiceRead(peers[1])[@"ok"]boolValue]);}
+    ServiceWait(retained);CHECK([service.statusSnapshot[@"state"]isEqual:@"unknown"]);CHECK(Exists(journal)&&Exists(work));
+    NSDictionary *record=ReadJSON(directory,journal,geteuid(),NULL);pid_t child=[record[@"pid"]intValue];
+    CHECK(child>0 && waitpid(child,NULL,WNOHANG)==-1 && errno==ECHILD); // Already reaped, not a stored-PID stop capability.
+    NSUInteger before;@synchronized(guard){before=recoveries;}CHECK(before>=2);
+    CHECK(![service recoverHeldSession:NSUUID.UUID.UUIDString deadline:KuroMonotonicMilliseconds()+500 error:NULL]);
+    CHECK(![service writeMode:@"global" error:NULL]);CHECK(![service selectProxy:@"DIRECT" group:@"G/#" error:NULL]);
+    int concurrent[2];CHECK(!socketpair(AF_UNIX,SOCK_STREAM,0,concurrent));CHECK(![service serveOpenFrame:ServiceOpen() peer:concurrent[0] error:NULL]);CHECK(![ServiceRead(concurrent[1])[@"ok"]boolValue]);close(concurrent[0]);close(concurrent[1]);
+    [service requestStop]; // Ordinary stop does not destroy the retained cleanup capability.
+    CHECK([service.statusSnapshot[@"state"]isEqual:@"unknown"]);
+    if(scenario==1){CHECK(!ServiceRecoverySocket(service));@synchronized(guard){CHECK(recoveries==before+1);}CHECK(Exists(journal)&&Exists(work));}
+    if(scenario==2){
+      NSData *original=ReadProtected(directory,journal,geteuid(),NULL);NSMutableDictionary *changed=[record mutableCopy];changed[@"session"]=NSUUID.UUID.UUIDString;Put(journal,JSONData(changed),0600);
+      @synchronized(guard){allowed=YES;}CHECK(!ServiceRecoverySocket(service));@synchronized(guard){CHECK(recoveries==before);}CHECK(Exists(work)&&Exists(journal));Put(journal,original,0600);
+    }
+    if(scenario==3){
+      service.fixtureBeforeRecovery=^{dispatch_semaphore_signal(entered);ServiceWait(release);};
+      dispatch_semaphore_t expired=dispatch_semaphore_create(0);
+      dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT,0),^{CHECK(![service recoverHeldSession:session deadline:KuroMonotonicMilliseconds()+80 error:NULL]);dispatch_semaphore_signal(expired);});
+      ServiceWait(entered);ServiceWait(expired);
+      // The next queued call is admitted only after the cancelled one is consumed.
+      dispatch_semaphore_t consumed=dispatch_semaphore_create(0);
+      service.fixtureRecoveryCompleted=^{dispatch_semaphore_signal(consumed);};service.fixtureBeforeRecovery=nil;dispatch_semaphore_signal(release);ServiceWait(consumed);service.fixtureRecoveryCompleted=nil;
+      @synchronized(guard){CHECK(recoveries==before);}CHECK(Exists(journal)&&Exists(work));
+    }
+    if(scenario==4){
+      @synchronized(guard){allowed=YES;blockRecovery=YES;}
+      dispatch_semaphore_t recovered=dispatch_semaphore_create(0);
+      dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT,0),^{CHECK(ServiceRecoverySocket(service));dispatch_semaphore_signal(recovered);});
+      ServiceWait(entered);CHECK(!ServiceRecoverySocket(service));CHECK([service.statusSnapshot[@"state"]isEqual:@"unknown"]);
+      dispatch_semaphore_signal(release);ServiceWait(recovered);
+    } else if(scenario==5 || scenario==7){
+      if(scenario==7){ // Expired admission performs no cleanup, even if the network would now allow it.
+        @synchronized(guard){allowed=YES;}CHECK(![service recoverHeldSession:session deadline:KuroMonotonicMilliseconds() error:NULL]);
+      }
+      [service requestShutdown];ServiceWait(done);CHECK(Exists(journal)&&Exists(work));CHECK([service.statusSnapshot[@"state"]isEqual:@"unknown"]);
+      @synchronized(guard){CHECK(recoveries==before&&proofs==0);}CHECK(!ServiceRecoverySocket(service));
+    } else {@synchronized(guard){allowed=YES;}CHECK(ServiceRecoverySocket(service));}
+    if(scenario!=5&&scenario!=7){ServiceWait(done);CHECK(!Exists(journal)&&!Exists(work));CHECK([service.statusSnapshot[@"state"]isEqual:@"off"]);@synchronized(guard){CHECK(proofs==1);}}
+    close(peers[1]);CHECK([[NSFileManager defaultManager]removeItemAtPath:directory error:NULL]);
+  }
+  puts("native retained recovery: 8 harmless held-child cases; original pthread retained, second-socket explicit recovery, owner mismatch, expiry/cancellation, concurrent/open/write rejection, EOF and shutdown preservation; no Core/network");
+}
+
 static void ServiceTests(void) {
+  RetainedRecoveryTests();
   RestartWorkTests();
   RestartCacheTests();
   CHECK(geteuid()!=0);
@@ -190,7 +280,10 @@ static void ServiceTests(void) {
     if(scenario==1)hooks.authorize=^BOOL(int peer,NSString *digest,NSString **error) { (void)peer;(void)digest;return Fail(error,@"test caller denied"); };
     if(scenario==2)hooks.preflight=^BOOL(NSDictionary *config,NSString **error) { (void)config;return Fail(error,@"test preflight denied"); };
     if(scenario==25)hooks.confirmStopped=nil;
-    if(scenario==26)hooks.confirmStopped=^BOOL(NSDictionary *proof,NSString **error) { CHECK(KuroCompletedStopEvidence(proof));return Fail(error,@"injected stop checkpoint failure"); };
+    if(scenario==26) {
+      hooks.confirmStopped=^BOOL(NSDictionary *proof,NSString **error) { CHECK(KuroCompletedStopEvidence(proof));return Fail(error,@"injected stop checkpoint failure"); };
+      hooks.recoverResidualNetwork=^BOOL(NSString **error) { (void)error;return YES; };
+    }
     if(scenario==23)hooks.beforeResume=nil;
     if(scenario==24)hooks.beforeResume=^BOOL(NSString **error) { return Fail(error,@"durability gate denied"); };
     if(scenario==3)hooks.ready=nil;
@@ -204,6 +297,8 @@ static void ServiceTests(void) {
       hooks.recoverResidualNetwork=^BOOL(NSString **error) { (void)error; residualRecoveries++; return YES; };
     }
     KuroTunService *service=[[KuroTunService alloc] initFixtureDirectory:directory core:core hooks:hooks];
+    dispatch_semaphore_t retainedOwner=dispatch_semaphore_create(0);
+    service.fixtureRetained=^{dispatch_semaphore_signal(retainedOwner);};
     NSCondition *stopBarrier=[NSCondition new]; __block BOOL afterSupervise=NO, releaseStop=NO;
     if(scenario==0)service.fixtureAfterSupervise=^{
       [stopBarrier lock]; afterSupervise=YES; [stopBarrier broadcast];
@@ -286,13 +381,14 @@ static void ServiceTests(void) {
         }
       }
     } else CHECK(opened && ![opened[@"ok"] boolValue]);
+    if(scenario==8||scenario==9||scenario==20){ServiceWait(retainedOwner);[service requestShutdown];}
     [finished lock]; NSDate *deadline=[NSDate dateWithTimeIntervalSinceNow:4]; while(!done && [finished waitUntilDate:deadline]) {} CHECK(done);[finished unlock];
     char trailing[256]; CHECK(recv(pair[1],trailing,sizeof(trailing),MSG_DONTWAIT)==0); close(pair[1]); starting=nil;
     if(scenario==8||scenario==9||scenario==20) {
       CHECK(!result && [[service statusSnapshot][@"state"] isEqual:@"unknown"]);
       CHECK(Exists([directory stringByAppendingPathComponent:@"owner.json"]));
       CHECK(Exists([directory stringByAppendingPathComponent:@"session-work"]));
-    } else if(scenario==26) {CHECK(!result&&[[service statusSnapshot][@"state"]isEqual:@"off"]&&[[service statusSnapshot][@"error"]containsString:@"uninstall checkpoint failed"]);CHECK(!Exists([directory stringByAppendingPathComponent:@"owner.json"])&&!Exists([directory stringByAppendingPathComponent:@"session-work"]));
+    } else if(scenario==26) {CHECK(!result&&[[service statusSnapshot][@"state"]isEqual:@"off"]&&[[service statusSnapshot][@"error"]containsString:@"uninstall checkpoint failed"]);CHECK(!Exists([directory stringByAppendingPathComponent:@"owner.json"])&&!Exists([directory stringByAppendingPathComponent:@"session-work"]));CHECK(![service checkpointStopped:NULL]);CHECK([[service statusSnapshot][@"state"]isEqual:@"off"]&&[[service statusSnapshot][@"error"]containsString:@"uninstall checkpoint failed"]);CHECK([service recoverNetworkOnly:NULL]);CHECK([[service statusSnapshot][@"state"]isEqual:@"off"]&&[[service statusSnapshot][@"availability"]isEqual:@"blocked"]&&[[service statusSnapshot][@"error"]containsString:@"uninstall checkpoint failed"]);
     } else if(accepted) { CHECK(result && [[service statusSnapshot][@"state"] isEqual:@"off"]); CHECK(!Exists([directory stringByAppendingPathComponent:@"owner.json"])); CHECK(!Exists([directory stringByAppendingPathComponent:@"session-work"])); }
     else CHECK(!result && failure);
     if(scenario==1||scenario==2||scenario==3||scenario==10||scenario==12||scenario==13||scenario==16||scenario==25) { CHECK(applied==0 && recovered==0); CHECK(Exists([directory stringByAppendingPathComponent:@"owner.json"])==(scenario==12)); }
