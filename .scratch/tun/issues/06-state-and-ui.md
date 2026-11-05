@@ -5,21 +5,12 @@ Type: task
 Blocked by: 04 的 root Core 监督/跨 helper 恢复证据；首次 TUN 窗口与真实 App 退出验收
 Owner: TUN 接入 agent；主会话统一 Core/State/桌面公共接口与源码分工
 
-## 当前状态（2026-11-05，覆盖下方历史检查点）
+## 当前状态（2026-11-05）
 
-**本轮集成：** 新 root 完整窗口已接入旧四文件精确退役/证据归档、新候选构建、normal→kill、独立失败恢复和成功清理；主会话集成验证21项driver＋9项archive通过，独立审查确认源码一致。[集成证据](../evidence/next-root-window-20261105/RESULT.md)。未执行新root窗口；生产跨helper writer证明与真实TUN仍未完成。
-
-诊断fixture取证补丁已集成，未放宽1秒期限或断言；偶发启动失败仍在定位。32af9dd的CI已通过，不据此宣布稳定性问题已解决。
-
-**最新真实窗口：** root normal 的 Core 私有接口、SIGTERM exit0及 native清退通过，但观察器把布尔输出为数字1，严格驱动拒绝；kill未执行。原retire同门失败后，单独获准的独立恢复入口已bootout；宿主独立读回job不存在。四安装文件及受限证据保留，不重跑normal/kill。[结果与准确残留](../evidence/root-core-window-20261105/RESULT.md)。
-
-配置准入、有限会话、模式互斥、启动/停止、恢复入口与最小 UI 已接线；停止证据不足仍拒绝 Backup/模式切换。固定双栈/LAN/分域 DNS 已实现但未完成真实网络验收；owner EOF 实验不等于 Electron 退出。正常重开保持 TUN 关闭，不自动恢复。
-
-本轮已补齐旧组非空/不可完整观察时的恢复拒绝及升级最后回执fsync重试，两项均通过独立审查和组合隔离测试；不把空组当writer证明，修复尚未进入旧包。[增量证据](../evidence/recovery-followup-20261105/RESULT.md)。
-
-**IPv4-only 上游准入已修复，真机未验收**：可信IPv4默认出口必需，IPv6默认出口可缺；存在时仍要求同物理出口。无IPv6默认时literal IPv6 DNS/代理端点须有明确可保留路径，不能静默删DNS/换供应商。保留双栈utun、四路由、A/AAAA及恢复门；18个新增隔离场景和原网络场景通过独立审查及主会话集成验证。冻结旧生产包尚不含本修复，第三方split-default冲突依然独立拒绝。
-
-精确产物与证据见 [当前候选](../evidence/finite-candidate-4abee24/RESULT.md)。人工操作集中见 [08 当前窗口](08-tun-integration-acceptance.md#当前人工窗口与前置条件)。历史记录保留，不将旧拒绝门或旧授权描述当作当前状态。
+- 集成提交 `822b7fb1e6d01dc167d3c3f4fb451264079b8bba` 的 macOS／Windows CI 已通过。新 root 无网络候选已冻结，完整清单、源码blob、无害fixture和独立审查通过；[精确产物与完整窗口](../evidence/next-root-window-20261105/WINDOW.md)，待一次集中授权，尚未执行。
+- 下一窗口覆盖旧四文件退役/证据归档、fresh安装、normal→kill、独立恢复和精确清理。主会话21项driver＋9项archive集成测试通过；生产跨helper writer证明、origin-only工作目录清退和真实TUN网络仍未通过。
+- 诊断fixture取证已接入，有限10次/80场景未复现旧失败；历史exit97和零输出TERM15仍缺根因，不增加timeout/重试。[证据边界](../evidence/service-diagnostic-ci-20261105/RESULT.md)。
+- IPv4-only上游兼容修复已在源码；双栈能力保留，实际网络与第三方冲突验收另需窗口。正常重开保持TUN关闭。
 
 ## 负责范围
 
@@ -36,6 +27,23 @@ Owner: TUN 接入 agent；主会话统一 Core/State/桌面公共接口与源码
 - Core/State/桌面受影响测试、类型检查与构建通过；真实适配与产物验收交 [08](08-tun-integration-acceptance.md)，不能以 UI 可点击标记完成。
 
 ## Comments
+
+### 集成前检查点（历史保留，当前状态以上方为准）
+
+**本轮集成：** 新 root 完整窗口已接入旧四文件精确退役/证据归档、新候选构建、normal→kill、独立失败恢复和成功清理；主会话集成验证21项driver＋9项archive通过，独立审查确认源码一致。[集成证据](../evidence/next-root-window-20261105/RESULT.md)。未执行新root窗口；生产跨helper writer证明与真实TUN仍未完成。
+
+诊断fixture取证补丁已集成，未放宽1秒期限或断言；偶发启动失败仍在定位。32af9dd的CI已通过，不据此宣布稳定性问题已解决。
+
+**最新真实窗口：** root normal 的 Core 私有接口、SIGTERM exit0及 native清退通过，但观察器把布尔输出为数字1，严格驱动拒绝；kill未执行。原retire同门失败后，单独获准的独立恢复入口已bootout；宿主独立读回job不存在。四安装文件及受限证据保留，不重跑normal/kill。[结果与准确残留](../evidence/root-core-window-20261105/RESULT.md)。
+
+配置准入、有限会话、模式互斥、启动/停止、恢复入口与最小 UI 已接线；停止证据不足仍拒绝 Backup/模式切换。固定双栈/LAN/分域 DNS 已实现但未完成真实网络验收；owner EOF 实验不等于 Electron 退出。正常重开保持 TUN 关闭，不自动恢复。
+
+本轮已补齐旧组非空/不可完整观察时的恢复拒绝及升级最后回执fsync重试，两项均通过独立审查和组合隔离测试；不把空组当writer证明，修复尚未进入旧包。[增量证据](../evidence/recovery-followup-20261105/RESULT.md)。
+
+**IPv4-only 上游准入已修复，真机未验收**：可信IPv4默认出口必需，IPv6默认出口可缺；存在时仍要求同物理出口。无IPv6默认时literal IPv6 DNS/代理端点须有明确可保留路径，不能静默删DNS/换供应商。保留双栈utun、四路由、A/AAAA及恢复门；18个新增隔离场景和原网络场景通过独立审查及主会话集成验证。冻结旧生产包尚不含本修复，第三方split-default冲突依然独立拒绝。
+
+精确产物与证据见 [当前候选](../evidence/finite-candidate-4abee24/RESULT.md)。人工操作集中见 [08 当前窗口](08-tun-integration-acceptance.md#当前人工窗口与前置条件)。历史记录保留，不将旧拒绝门或旧授权描述当作当前状态。
+
 
 2026-11-04：03/10 仅票务归并，未表示 TUN 已实现。历史证据包括普通配置准入 Core138/State125/桌面调用方7项及类型检查、既有生命周期定向12项；详见历史票，不跨范围宣称通过。后续源码由实施 agent 交付，最终命令与证据待回填；没有真实系统操作。
 

@@ -5,23 +5,12 @@ Type: task
 Blocked by: root 固定 Core 监督退出证据；跨 helper writer 退出证明；真实 TUN、升级及运行后卸载验收
 Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
 
-## 当前状态（2026-11-05，覆盖下方历史检查点）
+## 当前状态（2026-11-05）
 
-**本轮集成：** 新 root 完整窗口已接入旧四文件精确退役/证据归档、新候选构建、normal→kill、独立失败恢复和成功清理；主会话集成验证21项driver＋9项archive通过，独立审查确认源码一致。[集成证据](../evidence/next-root-window-20261105/RESULT.md)。未执行新root窗口；生产跨helper writer证明与真实TUN仍未完成。
-
-诊断fixture取证补丁已集成，未放宽1秒期限或断言；偶发启动失败仍在定位。32af9dd的CI已通过，不据此宣布稳定性问题已解决。
-
-**最新真实窗口：** root normal 的 Core 私有接口、SIGTERM exit0及 native清退通过，但观察器把布尔输出为数字1，严格驱动拒绝；kill未执行。原retire同门失败后，单独获准的独立恢复入口已bootout；宿主独立读回job不存在。四安装文件及受限证据保留，不重跑normal/kill。[结果与准确残留](../evidence/root-core-window-20261105/RESULT.md)。
-
-安装鉴权、有限控制、held-child 停止证明、升级事务及精确卸载已有实现/隔离证据；真实普通用户 Core normal/EOF 已通过。fresh 安装/卸载历史验收通过，不代表升级或运行后卸载通过。跨 helper 精确 DNS 可独立清理；origin-only cache 和未知 writer 继续保留，不能报告完整恢复。
-
-本轮已补齐旧组非空/不可完整观察时的恢复拒绝及升级最后回执fsync重试，两项均通过独立审查和组合隔离测试；不把空组当writer证明，修复尚未进入旧包。[增量证据](../evidence/recovery-followup-20261105/RESULT.md)。
-
-root 无网络窗口的正常收尾采用固定四文件清理：成功 normal/kill 且 job、准确进程/完整组确认退出后移除专用 binary/plist/两份 Core；批准、原始诊断、身份/观察记录及 kill 后 owner/work/cache 保留。部分安装失败或未知身份不套用成功清理；不把保留证据目录称为完整卸载。具体入口、复核和授权范围见 08。
-
-诊断fixture的hash相关断言输入已定位并窄修（不改生产脱敏/断言），但主会话独立启动fixture仍有未定位失败，不能据观测版单次通过声称稳定性或完整CI已通过。[准确证据边界](../evidence/service-diagnostic-ci-20261105/RESULT.md)。
-
-精确产物与证据见 [当前候选](../evidence/finite-candidate-4abee24/RESULT.md)。人工操作集中见 [08 当前窗口](08-tun-integration-acceptance.md#当前人工窗口与前置条件)。历史记录保留，不将旧拒绝门或旧授权描述当作当前状态。
+- 集成提交 `822b7fb1e6d01dc167d3c3f4fb451264079b8bba` 的 macOS／Windows CI 已通过。新 root 无网络候选已冻结，完整清单、源码blob、无害fixture和独立审查通过；[精确产物与完整窗口](../evidence/next-root-window-20261105/WINDOW.md)，待一次集中授权，尚未执行。
+- 下一窗口覆盖旧四文件退役/证据归档、fresh安装、normal→kill、独立恢复和精确清理。主会话21项driver＋9项archive集成测试通过；生产跨helper writer证明、origin-only工作目录清退和真实TUN网络仍未通过。
+- 诊断fixture取证已接入，有限10次/80场景未复现旧失败；历史exit97和零输出TERM15仍缺根因，不增加timeout/重试。[证据边界](../evidence/service-diagnostic-ci-20261105/RESULT.md)。
+- IPv4-only上游兼容修复已在源码；双栈能力保留，实际网络与第三方冲突验收另需窗口。正常重开保持TUN关闭。
 
 ## 负责范围
 
@@ -89,6 +78,25 @@ root 无网络窗口的正常收尾采用固定四文件清理：成功 normal/k
 真实安装、服务变更和强杀均仍等“开始”。实验只回答此 fixture 的进程生命周期，不能证明 Core 或生产网络清理。Backup／登录项不因此重打包。完整命令、产物摘要、影响范围、耗时与停止条件以实验 README 为准。
 
 ## Comments
+
+### 集成前检查点（历史保留，当前状态以上方为准）
+
+**本轮集成：** 新 root 完整窗口已接入旧四文件精确退役/证据归档、新候选构建、normal→kill、独立失败恢复和成功清理；主会话集成验证21项driver＋9项archive通过，独立审查确认源码一致。[集成证据](../evidence/next-root-window-20261105/RESULT.md)。未执行新root窗口；生产跨helper writer证明与真实TUN仍未完成。
+
+诊断fixture取证补丁已集成，未放宽1秒期限或断言；偶发启动失败仍在定位。32af9dd的CI已通过，不据此宣布稳定性问题已解决。
+
+**最新真实窗口：** root normal 的 Core 私有接口、SIGTERM exit0及 native清退通过，但观察器把布尔输出为数字1，严格驱动拒绝；kill未执行。原retire同门失败后，单独获准的独立恢复入口已bootout；宿主独立读回job不存在。四安装文件及受限证据保留，不重跑normal/kill。[结果与准确残留](../evidence/root-core-window-20261105/RESULT.md)。
+
+安装鉴权、有限控制、held-child 停止证明、升级事务及精确卸载已有实现/隔离证据；真实普通用户 Core normal/EOF 已通过。fresh 安装/卸载历史验收通过，不代表升级或运行后卸载通过。跨 helper 精确 DNS 可独立清理；origin-only cache 和未知 writer 继续保留，不能报告完整恢复。
+
+本轮已补齐旧组非空/不可完整观察时的恢复拒绝及升级最后回执fsync重试，两项均通过独立审查和组合隔离测试；不把空组当writer证明，修复尚未进入旧包。[增量证据](../evidence/recovery-followup-20261105/RESULT.md)。
+
+root 无网络窗口的正常收尾采用固定四文件清理：成功 normal/kill 且 job、准确进程/完整组确认退出后移除专用 binary/plist/两份 Core；批准、原始诊断、身份/观察记录及 kill 后 owner/work/cache 保留。部分安装失败或未知身份不套用成功清理；不把保留证据目录称为完整卸载。具体入口、复核和授权范围见 08。
+
+诊断fixture的hash相关断言输入已定位并窄修（不改生产脱敏/断言），但主会话独立启动fixture仍有未定位失败，不能据观测版单次通过声称稳定性或完整CI已通过。[准确证据边界](../evidence/service-diagnostic-ci-20261105/RESULT.md)。
+
+精确产物与证据见 [当前候选](../evidence/finite-candidate-4abee24/RESULT.md)。人工操作集中见 [08 当前窗口](08-tun-integration-acceptance.md#当前人工窗口与前置条件)。历史记录保留，不将旧拒绝门或旧授权描述当作当前状态。
+
 
 2026-11-04 实验 A 实证：获用户明确授权后执行固定 epoch，强杀测试 supervisor 后约 1s/5s 两进程均 absent，job runs=1 且未重启；没有停止标记/到期退出证据，判定本 fixture 的 launchd 组清理通过。随后精确 bootout/清单移除成功，最终独立只读核验 job 与三个安装目标均不存在。共享父目录及用户态 review/build 留存。完整[结果和原始证据](../prototypes/helper-lifecycle/results-668F8E2A/RESULT.md)。该结果不证明 mihomo 不脱组或网络清理；生产仍需固定 Core/接口行为及路由/DNS恢复实证，另行准备和授权，不能沿用 A 授权。安装级 App 鉴权离线核验并行推进，start 继续拒绝。
 

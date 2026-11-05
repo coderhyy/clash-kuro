@@ -5,27 +5,12 @@ Type: validation
 Blocked by: root 无网络实验窗口授权；首次 TUN 窗口的 baseline/Profile 与恢复前置；实际升级验收
 Owner: 主会话集成与最终验证；验收 agent 准备记录
 
-## 当前状态（2026-11-05，覆盖下方历史检查点）
+## 当前状态（2026-11-05）
 
-**本轮集成：** 新 root 完整窗口已接入旧四文件精确退役/证据归档、新候选构建、normal→kill、独立失败恢复和成功清理；主会话集成验证21项driver＋9项archive通过，独立审查确认源码一致。[集成证据](../evidence/next-root-window-20261105/RESULT.md)。未执行新root窗口；生产跨helper writer证明与真实TUN仍未完成。
-
-诊断fixture取证补丁已集成，未放宽1秒期限或断言；偶发启动失败仍在定位。32af9dd的CI已通过，不据此宣布稳定性问题已解决。
-
-**最新真实窗口：** root normal 的 Core 私有接口、SIGTERM exit0及 native清退通过，但观察器把布尔输出为数字1，严格驱动拒绝；kill未执行。原retire同门失败后，单独获准的独立恢复入口已bootout；宿主独立读回job不存在。四安装文件及受限证据保留，不重跑normal/kill。[结果与准确残留](../evidence/root-core-window-20261105/RESULT.md)。
-
-冻结生产候选 4abee2431de852244e43bf5ecab86cfcf91fb259，同提交 macOS/Windows CI 与离线包核验通过；普通用户真实 Core normal/EOF 通过。本轮恢复/升级增量单独提交，尚未进入该包；首次相关验收前再冻结，不为文档或未变链路重打。下一步 root Core → TUN 正常启停 → 实际 App 退出 → 条件满足后异常恢复。未批准的系统操作不执行；相关实现未变不重复普通用户实验或重打包。
-
-本轮[恢复/升级增量](../evidence/recovery-followup-20261105/RESULT.md)已通过独立审查和组合隔离测试；未据此重跑真实Core或生成新包。
-
-精确产物与证据见 [当前候选](../evidence/finite-candidate-4abee24/RESULT.md)。人工操作集中见 [08 当前窗口](08-tun-integration-acceptance.md#当前人工窗口与前置条件)。历史记录保留，不将旧拒绝门或旧授权描述当作当前状态。
-
-真实Foundation序列化→严格驱动回归，以及独立证据→失败恢复串联回归已集成并独审通过；数字1验收仍拒，live/unknown/错误epoch/记录变化仍阻止恢复。[测试和实际恢复证据分列](../evidence/recovery-separation-20261105/RESULT.md)。
-
-### 已完成的最小恢复与后续授权边界
-
-固定normal job恢复入口（source ecb303c，SHA `29c5fc0ae37902f77a89ed1f03ff2fcaeabe4dbad541d096d24ab6432a61fd27`）经单独批准已执行exit0，主会话独立读回launchctl113/service不存在；所有文件保留。[原始恢复说明](../prototypes/helper-lifecycle/root858-normal-retire/README.md)及上述结果记录共同保存。
-
-验收判定与失败恢复分开：验收仍严格拒绝numeric1，恢复独立复核受保护安装/normal凭据、当前准确job及kernel进程/完整组absence。后续同一已批准实验范围内，仅为停止/卸载本次准确job所需的恢复修复无需逐脚本确认，须先复核新源码/摘要并留证据；不扩展为Core启动、网络变更、未知删除或旧PID信号。当前不重复root normal/kill，先完成真实协议及失败恢复回归后再集中安排新窗口。
+- 集成提交 `822b7fb1e6d01dc167d3c3f4fb451264079b8bba` 的 macOS／Windows CI 已通过。新 root 无网络候选已冻结，完整清单、源码blob、无害fixture和独立审查通过；[精确产物与完整窗口](../evidence/next-root-window-20261105/WINDOW.md)，待一次集中授权，尚未执行。
+- 下一窗口覆盖旧四文件退役/证据归档、fresh安装、normal→kill、独立恢复和精确清理。主会话21项driver＋9项archive集成测试通过；生产跨helper writer证明、origin-only工作目录清退和真实TUN网络仍未通过。
+- 诊断fixture取证已接入，有限10次/80场景未复现旧失败；历史exit97和零输出TERM15仍缺根因，不增加timeout/重试。[证据边界](../evidence/service-diagnostic-ci-20261105/RESULT.md)。
+- IPv4-only上游兼容修复已在源码；双栈能力保留，实际网络与第三方冲突验收另需窗口。正常重开保持TUN关闭。
 
 ## 负责范围
 
@@ -45,7 +30,7 @@ Owner: 主会话集成与最终验证；验收 agent 准备记录
 
 | 阶段 | 已准备 | 仍缺什么 | 维护者最少操作 |
 | --- | --- | --- | --- |
-| A：root 固定 Core，无 TUN | 85834ab 冻结执行器/两个独立 epoch/精确清单、normal/kill/retire 驱动；另补四固定安装文件cleanup入口 | 布尔源码已修、准确job已卸；补独立恢复回归，kill未执行 | 当前不重试；下一实验窗口另集中确认 |
+| A：root 固定 Core，无 TUN | 822b7fb 新冻结候选、两个独立epoch、完整清单、旧858精确退役归档、normal/kill/独立恢复/四文件cleanup；CI与离线复核通过 | 本候选的真实normal与kill观察尚未执行 | 一次批准[完整15–20分钟窗口](../evidence/next-root-window-20261105/WINDOW.md)，本人处理管理员弹窗；不重跑旧858 |
 | B：首次 TUN 正常启停及实际 App 退出 | 4abee24 finite-session 候选、双平台 CI、生产鉴权/会话/双栈/停止和恢复入口；固定 job 命令 | A 的结果评估；现场只读 baseline、真实 DNS/Profile 可表达性、精确 YAML/hash 与受控 IPv4/IPv6/LAN/分域目标；load-F/rootTUN/实际Quit/运行后卸载实证 | 在上述前置核验后集中批准约35–50分钟窗口；管理员弹窗；必要时确认现有 Profile/受控目标，无需逐参数选择 |
 | C：helper 强杀及下次启动完整恢复 | 精确 DNS 局部恢复、旧 Core 身份拒绝门、工作目录校验 | **实现和实证均缺**：可信且绑定原会话的 writer 退出依据、origin-only cache 清退、完整恢复/停止证明；仍存在的 route 不因记录 PID 获得删除权 | 当前不请求故障注入授权；不得因 A 组观察通过就跳过实现门 |
 | D：实际升级及恢复 | 升级事务/回滚入口、已冻结 App-only 升级对、隔离中断测试；末次fsync重试已修复并通过隔离测试 | 实际升级/失败恢复验收；运行过后升级需先有准确停止证明 | 单独明确非网络升级范围及管理员弹窗；不把 fresh 授权扩大为主动中断升级 |
@@ -85,6 +70,29 @@ Owner: 主会话集成与最终验证；验收 agent 准备记录
 baseline含准确接口/两族route/resolver及scoped DNS/代理/既存VPN、自有job和安装/owner/work回执。第三方split-default、双默认出口不受支持、地址冲突或DNS不能无损表达则在写网络前停止，不关闭第三方VPN或替换DNS来换取通过。只影响本次准确Core的utun、固定自有route和临时DNS key；不新增公共DNS供应商。正常停止或恢复无法确认就保留unknown及证据，不用卸载/flush/reset/旧PID kill绕过。无独立kill switch，路由消失可能恢复直连。**此阶段暂不包含helper强杀。**
 
 ## Comments
+
+### 集成前检查点（历史保留，当前状态以上方为准）
+
+**本轮集成：** 新 root 完整窗口已接入旧四文件精确退役/证据归档、新候选构建、normal→kill、独立失败恢复和成功清理；主会话集成验证21项driver＋9项archive通过，独立审查确认源码一致。[集成证据](../evidence/next-root-window-20261105/RESULT.md)。未执行新root窗口；生产跨helper writer证明与真实TUN仍未完成。
+
+诊断fixture取证补丁已集成，未放宽1秒期限或断言；偶发启动失败仍在定位。32af9dd的CI已通过，不据此宣布稳定性问题已解决。
+
+**最新真实窗口：** root normal 的 Core 私有接口、SIGTERM exit0及 native清退通过，但观察器把布尔输出为数字1，严格驱动拒绝；kill未执行。原retire同门失败后，单独获准的独立恢复入口已bootout；宿主独立读回job不存在。四安装文件及受限证据保留，不重跑normal/kill。[结果与准确残留](../evidence/root-core-window-20261105/RESULT.md)。
+
+冻结生产候选 4abee2431de852244e43bf5ecab86cfcf91fb259，同提交 macOS/Windows CI 与离线包核验通过；普通用户真实 Core normal/EOF 通过。本轮恢复/升级增量单独提交，尚未进入该包；首次相关验收前再冻结，不为文档或未变链路重打。下一步 root Core → TUN 正常启停 → 实际 App 退出 → 条件满足后异常恢复。未批准的系统操作不执行；相关实现未变不重复普通用户实验或重打包。
+
+本轮[恢复/升级增量](../evidence/recovery-followup-20261105/RESULT.md)已通过独立审查和组合隔离测试；未据此重跑真实Core或生成新包。
+
+精确产物与证据见 [当前候选](../evidence/finite-candidate-4abee24/RESULT.md)。人工操作集中见 [08 当前窗口](08-tun-integration-acceptance.md#当前人工窗口与前置条件)。历史记录保留，不将旧拒绝门或旧授权描述当作当前状态。
+
+真实Foundation序列化→严格驱动回归，以及独立证据→失败恢复串联回归已集成并独审通过；数字1验收仍拒，live/unknown/错误epoch/记录变化仍阻止恢复。[测试和实际恢复证据分列](../evidence/recovery-separation-20261105/RESULT.md)。
+
+### 已完成的最小恢复与后续授权边界
+
+固定normal job恢复入口（source ecb303c，SHA `29c5fc0ae37902f77a89ed1f03ff2fcaeabe4dbad541d096d24ab6432a61fd27`）经单独批准已执行exit0，主会话独立读回launchctl113/service不存在；所有文件保留。[原始恢复说明](../prototypes/helper-lifecycle/root858-normal-retire/README.md)及上述结果记录共同保存。
+
+验收判定与失败恢复分开：验收仍严格拒绝numeric1，恢复独立复核受保护安装/normal凭据、当前准确job及kernel进程/完整组absence。后续同一已批准实验范围内，仅为停止/卸载本次准确job所需的恢复修复无需逐脚本确认，须先复核新源码/摘要并留证据；不扩展为Core启动、网络变更、未知删除或旧PID信号。当前不重复root normal/kill，先完成真实协议及失败恢复回归后再集中安排新窗口。
+
 
 2026-11-04 实验 A 已获明确授权并完成：独立无网络 LaunchDaemon 的 supervisor 强杀后约 1s/5s，准确 child 均 absent；无 marker/TTL 自退出，job 未重启。清理驱动 bootout 并移除精确安装文件；独立最终读回确认 job、binary、plist、实验数据目录不存在。详见[本轮结果与保存证据](../prototypes/helper-lifecycle/results-668F8E2A/RESULT.md)。这是测试 fixture 的 launchd 组清理实证，不是生产 Core、utun、路由或 DNS 验收；未运行 Core/改网络/改登录项。后续系统实验须另获授权，04/06/08不关闭。
 
