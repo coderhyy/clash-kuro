@@ -650,26 +650,52 @@ test.skipIf(process.platform === 'win32')('start rechecks unix socket mode after
 test.skipIf(process.platform === 'win32')('start refuses replacement control socket throughout the readiness handshake', async () => {
   let platform: DesktopPlatform
   let mixedPort: number
-  const result = await fixture({ startTimeoutMs: 250, spawn: (_file, _args, options) => {
+  let evidencePath: string
+  let childClosed = false
+  const result = await fixture({ startTimeoutMs: 1000, spawn: (_file, _args, options) => {
     const channel = platform.controlChannel()
     if (channel.kind !== 'unix') throw new Error('Expected unix')
-    return spawn(process.execPath, ['-e', `
+    const child = spawn(process.execPath, ['-e', `
       const fs = require('node:fs'), http = require('node:http');
+      const path = ${JSON.stringify(channel.path)}, evidencePath = ${JSON.stringify(evidencePath)};
+      const evidence = { replacements: 0, versionResponses: 0, mixedProbes: 0, original: null, replacement: null };
+      function save() { fs.writeFileSync(evidencePath, JSON.stringify(evidence), { mode: 0o600 }); }
       function listen() {
         http.createServer((req, res) => {
-          fs.unlinkSync(${JSON.stringify(channel.path)});
+          const before = fs.lstatSync(path);
+          fs.unlinkSync(path);
           listen();
+          const after = fs.lstatSync(path);
+          evidence.replacements++;
+          evidence.original = { dev: before.dev, ino: before.ino };
+          evidence.replacement = { dev: after.dev, ino: after.ino };
+          res.once('finish', () => { evidence.versionResponses++; save(); });
           res.end('{"version":"replacement"}');
-        }).listen(${JSON.stringify(channel.path)});
+        }).listen(path);
       }
       listen();
-      require('node:net').createServer(socket => socket.once('data', () => socket.write(Buffer.from([5, 0])))).listen(${mixedPort}, '127.0.0.1');
+      require('node:net').createServer({ allowHalfOpen: true }, socket => {
+        socket.once('data', () => socket.write(Buffer.from([5, 0])));
+        socket.once('end', () => { evidence.mixedProbes++; save(); socket.end(); });
+      }).listen(${mixedPort}, '127.0.0.1');
     `], options)
+    child.once('close', () => { childClosed = true })
+    return child
   } })
   platform = result.platform
   mixedPort = result.mixedPort
+  evidencePath = join(result.dataDir, 'replacement-evidence.json')
   await platform.writeFileAtomic('runtime.yaml', 'mode: direct')
-  await expect(platform.startCore()).rejects.toThrow(/readiness timed out: Core control socket identity/)
+  // A later retry may time out at the shared deadline; the fixture independently
+  // proves replacement and a completed HTTP/SOCKS handshake before rejection.
+  await expect(platform.startCore()).rejects.toThrow('Core readiness timed out:')
+  const evidence = JSON.parse(await readFile(evidencePath, 'utf8'))
+  expect(evidence.replacements).toBeGreaterThan(0)
+  expect(evidence.versionResponses).toBeGreaterThan(0)
+  expect(evidence.mixedProbes).toBeGreaterThan(0)
+  expect(evidence.original.dev).toBe(evidence.replacement.dev)
+  expect(evidence.original.ino).not.toBe(evidence.replacement.ino)
+  expect(childClosed).toBe(true)
   expect(await platform.isCoreRunning()).toBe(false)
   expect(await platform.readFile('core.pid')).toBeNull()
 })

@@ -1,0 +1,18 @@
+{
+  "scope": "test-only",
+  "sharedFile": "/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/src/main/platform/platform.test.ts",
+  "sharedSHA256": "06177b85a3c5e29efef298eb05357665844926c80b3c6c4db75d7b8140da55e2",
+  "files": {
+    "socket-test-determinism.patch": "82bad2720ca1e5496d40fa3d0edbfb9311798cd6c32b2c572239022b4c220032",
+    "platform.test.baseline.ts": "be47e6d232bcb43af2f1bc5f3998a7b553cd7ad92954e6613f67c8a3a4c82bce",
+    "RESULT.md": "dfd5b646efd060a05805b05b03a3be33cc2179bb94930ff46a24ff6dd4262b28",
+    "focused.stdout.log": "dea2ecd3e231da0a784f24b29a598d4d4cc02c61b68f28d156062adae7d11685",
+    "focused.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "mutant.stdout.log": "951ade4a23a26da138de34afcff4f162329b0a8bff5a7f513a7b2253e10e4d7d",
+    "mutant.stderr.log": "2247470856f1cd4d978b63b9ab216020044e8a3b92f1aeab88e386f82cc58af6",
+    "platform.stdout.log": "98ff8da96b30bf77a3eddb6ae96e5148fdd2de447d46fa542866334b655c0de5",
+    "platform.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "typecheck.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "typecheck.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}
