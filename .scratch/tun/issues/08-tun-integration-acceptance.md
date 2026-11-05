@@ -15,6 +15,10 @@ Owner: 主会话集成与最终验证；验收 agent 准备记录
 
 精确产物与证据见 [当前候选](../evidence/finite-candidate-4abee24/RESULT.md)。人工操作集中见 [08 当前窗口](08-tun-integration-acceptance.md#当前人工窗口与前置条件)。历史记录保留，不将旧拒绝门或旧授权描述当作当前状态。
 
+### 下一项最小恢复（未获新授权，未执行）
+
+[固定normal job退役入口](../prototypes/helper-lifecycle/root858-normal-retire/README.md)只用已冻结模块的安装/normal凭据/job检查及独立libproc观察，重新证明当前准确进程/组均不存在后bootout精确normal job。无Core/fixture执行，无数字1转布尔，无文件删除；job已absent时只核验。执行路径 `/private/tmp/kuro-root858-normal-retire-candidate/retire-normal-root858.py`，SHA256 `29c5fc0ae37902f77a89ed1f03ff2fcaeabe4dbad541d096d24ab6432a61fd27`；约10–30秒加管理员弹窗。任一身份/安装/凭据/进程/组/job检查失败即保留。此新增恢复入口需用户单独批准，不延用已结束的root窗口。
+
 ## 负责范围
 
 在同一源码/精确 App/helper/Core 产物上集成 [04](04-macos-privileged-adapter.md) 与 [06](06-state-and-ui.md)，核验最终 CI、打包和真实结果。沿用原票及原型证据，不新增验收票；Git/公共接线与同机器系统时段由主会话统一协调。
