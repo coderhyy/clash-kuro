@@ -63,7 +63,7 @@ def review(review_path, approval_sha):
     artifact = json.loads(read(review_path / 'artifact.json', limit=262144))
     require(re.fullmatch('[0-9a-f]{40}', artifact.get('sourceCommit','')) and artifact.get('sourceClean') is True and artifact.get('sourceBlobsVerified') is True, 'committed blob-verified source record required')
     require(artifact['approvalSHA256'] == approval_sha and artifact['fixtureSHA256'] == approval['fixtureSHA256'] and artifact['coreSHA256'] == approval['coreSHA256'], 'artifact binding mismatch')
-    expected = {'lifecycle-a','normal/mihomo','kill/mihomo','normal.plist','kill.plist','approval.json','core-driver.py','experiment-a.py','CORE.md','core.lock.json'}
+    expected = {'lifecycle-a','normal/mihomo','kill/mihomo','normal.plist','kill.plist','approval.json','core-driver.py','experiment-a.py','CORE.md','core.lock.json','cleanup.py','archive-root858.py'}
     require(set(artifact['inventory']) == expected, 'unknown review inventory entry')
     payload = {name: read(review_path / name) for name in expected}
     require(read(Path(__file__).resolve()) == payload['core-driver.py'] and read(Path(__file__).with_name('experiment-a.py').resolve()) == payload['experiment-a.py'], 'executing driver/utility differs from reviewed bytes')
@@ -190,7 +190,7 @@ def normal(approval):
             break
         require(time.monotonic() < deadline and not re.search(r'^\s*last terminating signal =', text, re.M), 'normal job exit evidence unavailable')
         time.sleep(.05)
-    print('NORMAL-PASS; main must independently verify these identities and paths before authorizing the distinct kill epoch.')
+    print('NORMAL-PASS; main must independently verify these identities and paths before continuing the distinct kill epoch within the approved window.')
 
 def prepare_kill(approval, payload):
     installed(approval, 'normal')
@@ -244,18 +244,89 @@ def retire(approval, stage):
         require(u.launch('bootout', 'system/' + LABEL).returncode == 0 and u.job() is None, 'job unload failed/unknown')
     print('Job absent; root files/evidence retained. No recursive cleanup or persisted-PID adoption. Main must review exact known-file removal separately.')
 
+def cleanup_module(payload, review_path):
+    namespace = {'__file__': str(review_path / 'cleanup.py'), '__name__': 'reviewed_fixed_cleanup'}
+    exec(compile(payload['cleanup.py'], str(review_path / 'cleanup.py'), 'exec'), namespace)
+    return namespace
+
+
+def recovery_identity(approval, stage):
+    directory = BASE / stage
+    u.chain(directory, True)
+    path = directory / 'evidence.json'
+    u.chain(path)
+    require(stat.S_IMODE(BASE.lstat().st_mode) == stat.S_IMODE(directory.lstat().st_mode) == 0o700
+            and stat.S_IMODE(path.lstat().st_mode) == 0o600, 'recovery evidence must remain root0700/0600')
+    raw = read(path, 0, 16384)
+    value = json.loads(raw)
+    require(set(value) == {'format','stage','epoch','coreSHA256','fixtureSHA256','supervisor','child','startedMilliseconds'}
+            and type(value['format']) is int and value['format'] == 1 and value['stage'] == stage
+            and value['epoch'] == approval[stage + 'Epoch'] and value['coreSHA256'] == approval['coreSHA256']
+            and value['fixtureSHA256'] == approval['fixtureSHA256'] and type(value['startedMilliseconds']) is int
+            and value['startedMilliseconds'] >= 0, 'recovery stage/epoch/pins malformed')
+    for name, executable in (('supervisor', BINARY), ('child', directory / 'mihomo')):
+        item = value[name]
+        require(set(item) == {'pid','startSeconds','startMicros','processGroup','executable'}
+                and all(type(item[key]) is int and 2 <= item[key] <= 2147483647 for key in ('pid','processGroup'))
+                and type(item['startSeconds']) is int and 1 <= item['startSeconds'] <= 9007199254740991
+                and type(item['startMicros']) is int and 0 <= item['startMicros'] <= 999999
+                and item['executable'] == str(executable), 'recovery process identity malformed')
+    require(value['supervisor']['pid'] == value['supervisor']['processGroup'] == value['child']['processGroup']
+            and value['supervisor']['pid'] != value['child']['pid'], 'recovery inherited group mismatch')
+    return value, raw
+
+
+def recover_retire(approval, stage, observer):
+    # Recovery uses independent kernel reads; a malformed acceptance observer cannot authorize or block it.
+    installed(approval, stage)
+    identity, raw = recovery_identity(approval, stage)
+    for _ in range(3):
+        installed(approval, stage)
+        require(recovery_identity(approval, stage)[1] == raw, 'recovery evidence changed')
+        observer['processes_absent']({stage:identity})
+        text = u.job()
+        if text is not None:
+            job_matches(text, approval, stage)
+            require(not re.search(r'^\s*pid = [1-9][0-9]*\s*$', text, re.M)
+                    and re.search(r'^\s*state = not running\s*$', text, re.M)
+                    and re.search(r'^\s*runs = 1\s*$', text, re.M), 'recovery exact job is not stopped once')
+        time.sleep(.05)
+    # Recheck after the final observation, immediately before the only permitted mutation.
+    require(recovery_identity(approval, stage)[1] == raw, 'recovery evidence changed before bootout')
+    observer['processes_absent']({stage:identity})
+    text = u.job()
+    if text is not None:
+        job_matches(text, approval, stage)
+        require(not re.search(r'^\s*pid = [1-9][0-9]*\s*$', text, re.M)
+                and re.search(r'^\s*state = not running\s*$', text, re.M)
+                and re.search(r'^\s*runs = 1\s*$', text, re.M), 'recovery job changed before bootout')
+        require(u.launch('bootout', 'system/' + LABEL).returncode == 0, 'recovery fixed job bootout failed')
+    require(u.job() is None, 'recovery job absence unproven')
+    observer['processes_absent']({stage:identity})
+    installed(approval, stage)
+    require(recovery_identity(approval, stage)[1] == raw, 'recovery evidence changed after bootout')
+    print('RECOVERED-JOB-ONLY: exact stopped job absent; all installation files and evidence retained. This is not stage acceptance.')
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('operation', choices=['install','normal','prepare-kill','kill-test','inspect-normal','inspect-kill','retire-normal','retire-kill'])
+    parser.add_argument('operation', choices=['install','normal','prepare-kill','kill-test','inspect-normal','inspect-kill','retire-normal','retire-kill','cleanup','recover-normal','recover-kill','archive-old'])
     parser.add_argument('--review', required=True, type=Path)
     parser.add_argument('--approval-sha', required=True)
     args = parser.parse_args()
     require(os.geteuid() == 0, 'system driver requires separately authorized root window; never sudo automatically')
     approval, payload = review(args.review, args.approval_sha)
-    if args.operation == 'install': install(approval, payload)
+    if args.operation == 'archive-old':
+        namespace = {'__file__': str(args.review / 'archive-root858.py'), '__name__': 'reviewed_old858_archive'}
+        exec(compile(payload['archive-root858.py'], str(args.review / 'archive-root858.py'), 'exec'), namespace)
+        namespace['archive'](*namespace['modules']())
+    elif args.operation == 'install': install(approval, payload)
     elif args.operation == 'normal': normal(approval)
     elif args.operation == 'prepare-kill': prepare_kill(approval, payload)
     elif args.operation == 'kill-test': kill_test(approval)
+    elif args.operation == 'cleanup':
+        cleanup_module(payload, args.review)['cleanup']()
+    elif args.operation.startswith('recover-'):
+        recover_retire(approval, args.operation.removeprefix('recover-'), cleanup_module(payload, args.review))
     elif args.operation.startswith('inspect-'):
         stage = args.operation.removeprefix('inspect-'); installed(approval, stage); inspect(approval, stage)
     else: retire(approval, args.operation.removeprefix('retire-'))

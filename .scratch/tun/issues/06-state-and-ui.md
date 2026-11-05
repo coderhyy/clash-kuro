@@ -7,6 +7,10 @@ Owner: TUN 接入 agent；主会话统一 Core/State/桌面公共接口与源码
 
 ## 当前状态（2026-11-05，覆盖下方历史检查点）
 
+**本轮集成：** 新 root 完整窗口已接入旧四文件精确退役/证据归档、新候选构建、normal→kill、独立失败恢复和成功清理；主会话集成验证21项driver＋9项archive通过，独立审查确认源码一致。[集成证据](../evidence/next-root-window-20261105/RESULT.md)。未执行新root窗口；生产跨helper writer证明与真实TUN仍未完成。
+
+诊断fixture取证补丁已集成，未放宽1秒期限或断言；偶发启动失败仍在定位。32af9dd的CI已通过，不据此宣布稳定性问题已解决。
+
 **最新真实窗口：** root normal 的 Core 私有接口、SIGTERM exit0及 native清退通过，但观察器把布尔输出为数字1，严格驱动拒绝；kill未执行。原retire同门失败后，单独获准的独立恢复入口已bootout；宿主独立读回job不存在。四安装文件及受限证据保留，不重跑normal/kill。[结果与准确残留](../evidence/root-core-window-20261105/RESULT.md)。
 
 配置准入、有限会话、模式互斥、启动/停止、恢复入口与最小 UI 已接线；停止证据不足仍拒绝 Backup/模式切换。固定双栈/LAN/分域 DNS 已实现但未完成真实网络验收；owner EOF 实验不等于 Electron 退出。正常重开保持 TUN 关闭，不自动恢复。

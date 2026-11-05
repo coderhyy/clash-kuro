@@ -7,6 +7,10 @@ Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
 
 ## 当前状态（2026-11-05，覆盖下方历史检查点）
 
+**本轮集成：** 新 root 完整窗口已接入旧四文件精确退役/证据归档、新候选构建、normal→kill、独立失败恢复和成功清理；主会话集成验证21项driver＋9项archive通过，独立审查确认源码一致。[集成证据](../evidence/next-root-window-20261105/RESULT.md)。未执行新root窗口；生产跨helper writer证明与真实TUN仍未完成。
+
+诊断fixture取证补丁已集成，未放宽1秒期限或断言；偶发启动失败仍在定位。32af9dd的CI已通过，不据此宣布稳定性问题已解决。
+
 **最新真实窗口：** root normal 的 Core 私有接口、SIGTERM exit0及 native清退通过，但观察器把布尔输出为数字1，严格驱动拒绝；kill未执行。原retire同门失败后，单独获准的独立恢复入口已bootout；宿主独立读回job不存在。四安装文件及受限证据保留，不重跑normal/kill。[结果与准确残留](../evidence/root-core-window-20261105/RESULT.md)。
 
 安装鉴权、有限控制、held-child 停止证明、升级事务及精确卸载已有实现/隔离证据；真实普通用户 Core normal/EOF 已通过。fresh 安装/卸载历史验收通过，不代表升级或运行后卸载通过。跨 helper 精确 DNS 可独立清理；origin-only cache 和未知 writer 继续保留，不能报告完整恢复。

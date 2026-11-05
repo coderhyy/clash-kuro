@@ -45,6 +45,22 @@ def plist_for(approval, stage):
     return {'Label': LABEL, 'ProgramArguments': [BINARY, '--core-supervisor', stage, approval[stage + 'Epoch']],
             'RunAtLoad': False, 'KeepAlive': False, 'AbandonProcessGroup': False}
 
+def cleanup_source(source_commit, approval, approval_sha):
+    # Rebind only the reviewed four-file cleaner; never grant a general cleanup path.
+    template = regular(HERE / 'root858-cleanup/cleanup-root858.py')
+    require(sha(template) == '768d0938c0d0e321f8152c0328c8a629d0e30379ad57aa3052f1094ccfe482dc', 'reviewed cleanup template changed')
+    replacements = {
+        'SOURCE': source_commit, 'APPROVAL_SHA': approval_sha,
+        'BINARY_SHA': approval['fixtureSHA256'], 'CORE_SHA': approval['coreSHA256'],
+        'NORMAL_EPOCH': approval['normalEpoch'], 'KILL_EPOCH': approval['killEpoch'],
+        'RECORD_NAME': 'cleanup-approved-window.json',
+    }
+    text = template.decode()
+    for name, value in replacements.items():
+        text, count = re.subn(r'^' + name + r" = '[^'\n]*'$", name + ' = ' + repr(value), text, flags=re.M)
+        require(count == 1, 'cleanup template binding missing: ' + name)
+    return text.replace('root858', 'window').encode()
+
 def source_inventory():
     result = {}
     def visit(path):
@@ -58,7 +74,7 @@ def source_inventory():
         for imported in re.findall(rb'^\s*#(?:import|include)\s+"([^"\n]+)"', data, re.M):
             visit(path.parent / imported.decode())
     visit(HERE / 'lifecycle-a.m')
-    for name in ('prepare-core.py', 'core-driver.py', 'experiment-a.py', 'test_core_driver.py', 'CORE.md'):
+    for name in ('prepare-core.py', 'core-driver.py', 'experiment-a.py', 'test_core_driver.py', 'CORE.md', 'root858-cleanup/cleanup-root858.py', 'root858-archive/archive-root858.py', 'root858-archive/test_archive.py'):
         result[str((HERE / name).relative_to(REPO))] = sha(regular(HERE / name))
     result['apps/desktop/core.lock.json'] = sha(regular(REPO / 'apps/desktop/core.lock.json'))
     return dict(sorted(result.items()))
@@ -117,6 +133,8 @@ def prepare(output, source_commit):
         write(stage + '/mihomo', core, 0o755)
         write(stage + '.plist', plistlib.dumps(plist_for(approval, stage), sort_keys=True))
     write('approval.json', json_bytes(approval))
+    write('cleanup.py', cleanup_source(source_commit, approval, sha(json_bytes(approval))))
+    write('archive-root858.py', regular(HERE / 'root858-archive/archive-root858.py'))
     for name in ('core-driver.py', 'experiment-a.py', 'CORE.md'):
         write(name, regular(HERE / name))
     write('core.lock.json', lock_bytes)

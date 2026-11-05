@@ -7,6 +7,10 @@ Owner: 主会话集成与最终验证；验收 agent 准备记录
 
 ## 当前状态（2026-11-05，覆盖下方历史检查点）
 
+**本轮集成：** 新 root 完整窗口已接入旧四文件精确退役/证据归档、新候选构建、normal→kill、独立失败恢复和成功清理；主会话集成验证21项driver＋9项archive通过，独立审查确认源码一致。[集成证据](../evidence/next-root-window-20261105/RESULT.md)。未执行新root窗口；生产跨helper writer证明与真实TUN仍未完成。
+
+诊断fixture取证补丁已集成，未放宽1秒期限或断言；偶发启动失败仍在定位。32af9dd的CI已通过，不据此宣布稳定性问题已解决。
+
 **最新真实窗口：** root normal 的 Core 私有接口、SIGTERM exit0及 native清退通过，但观察器把布尔输出为数字1，严格驱动拒绝；kill未执行。原retire同门失败后，单独获准的独立恢复入口已bootout；宿主独立读回job不存在。四安装文件及受限证据保留，不重跑normal/kill。[结果与准确残留](../evidence/root-core-window-20261105/RESULT.md)。
 
 冻结生产候选 4abee2431de852244e43bf5ecab86cfcf91fb259，同提交 macOS/Windows CI 与离线包核验通过；普通用户真实 Core normal/EOF 通过。本轮恢复/升级增量单独提交，尚未进入该包；首次相关验收前再冻结，不为文档或未变链路重打。下一步 root Core → TUN 正常启停 → 实际 App 退出 → 条件满足后异常恢复。未批准的系统操作不执行；相关实现未变不重复普通用户实验或重打包。

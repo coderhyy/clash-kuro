@@ -20,17 +20,17 @@ Kill was NOT executed. No launchd forced group-cleanup or timeout-fallback resul
 
 The authorized unchanged `retire-normal` recovery was attempted and failed at the same strict check before bootout. No bypass or recorded PID/PGID signal was used. Final read-only job state remains loaded but not running, runs1/exit0; fixed plist RunAtLoad=false, KeepAlive=false. Four-file success-only cleanup was NOT run.
 
-## Retained objects and conditions
+## Retained objects after recovery
 
-- `/Library/PrivilegedHelperTools/dev.kuro.tun.lifecycle-a`: frozen experiment binary, retained because recovery gate failed.
-- `/Library/LaunchDaemons/dev.kuro.tun.lifecycle-a.plist`: exact normal epoch plist; job still registered, not running.
+- `/Library/PrivilegedHelperTools/dev.kuro.tun.lifecycle-a`: frozen experiment binary, retained because the authorized recovery only unloaded the job.
+- `/Library/LaunchDaemons/dev.kuro.tun.lifecycle-a.plist`: exact normal epoch plist; the job has been unloaded, while the plist file remains.
 - `/Library/Application Support/Clash Kuro/TunLifecycleExperimentA/normal/mihomo` and `/Library/Application Support/Clash Kuro/TunLifecycleExperimentA/kill/mihomo`: fixed Core copies, neither deleted.
 - `/Library/Application Support/Clash Kuro/TunLifecycleExperimentA/approval.json`: root0600 source/epoch binding.
 - `/Library/Application Support/Clash Kuro/TunLifecycleExperimentA/normal/`: root0700; attempt/config.redacted/launch/evidence/reaped/result/normal-success and stdout/stderr evidence root0600. No owner.json or session-work remained at observation.
 - `/Library/Application Support/Clash Kuro/TunLifecycleExperimentA/kill/`: root0700; only mihomo, no attempt, owner or work: stage never started.
 - `/private/tmp/kuro-root858-window-jjwvtwqy`: user0700; preflight/install/normal/inspect/retire logs and final read-only root inventory/job evidence, files0600. Preserve for diagnosis; no user Profile/credentials recorded.
 
-The original frozen review and cleanup directories remain unchanged. No Installer receipt exists. A separately reviewed/authorized narrow recovery is required to unload the exact stopped job after fresh identity/absence checks; the success-only cleanup cannot handle this failed-normal case. No recursive deletion is proposed. Retained diagnostics may be archived/deleted only after recovery is recorded and no unresolved ownership/diagnostic need remains.
+The original frozen review and cleanup directories remain unchanged. No Installer receipt exists. The separately authorized narrow recovery above has unloaded the exact stopped job after fresh identity/absence checks. The success-only cleanup cannot handle this failed-normal case; precise file retirement remains part of a future approved window. No recursive deletion is proposed. Retained diagnostics may be archived/deleted only after recovery is recorded and no unresolved ownership/diagnostic need remains.
 
 No TUN, DNS service or public proxy listener was enabled; no system proxy/routes/DNS/login-item/third-party settings were changed. The observed no-IP checks are bounded observations, not an OS network sandbox. The window ended after the failed agreed recovery and final inventory; authorization is not carried to another experiment.
 

@@ -14,7 +14,7 @@ python3 .scratch/tun/prototypes/helper-lifecycle/prepare-core.py \
   --source-commit 主会话冻结的40位commit
 ```
 
-准备器校验本地 `core.lock.json` 中 v1.19.33 的下载 archive SHA，解压后验证本机 thin Mach-O/filetype EXECUTE，并将实际 executable SHA 编译进 fixture。无网络下载；从不执行 `mihomo`。输出包含 fixture、两份同 SHA Core、两个独立 UUID、精确 normal/kill plist、八字段 approval、源码/编译参数/字节 inventory、SHA256SUMS。输出存在就拒绝，不覆盖旧包；失败输出保留。`--config stage epoch` 只调用实验自己的序列化器，不调用 Core。
+准备器校验本地 `core.lock.json` 中 v1.19.33 的下载 archive SHA，解压后验证本机 thin Mach-O/filetype EXECUTE，并将实际 executable SHA 编译进 fixture。无网络下载；从不执行 `mihomo`。输出包含 fixture、两份同 SHA Core、两个独立 UUID、精确 normal/kill plist、八字段 approval、只准四文件的绑定 cleanup.py、固定旧858归档入口archive-root858.py、源码/编译参数/字节 inventory、SHA256SUMS。输出存在就拒绝，不覆盖旧包；失败输出保留。`--config stage epoch` 只调用实验自己的序列化器，不调用 Core。
 
 普通用户可以编译候选后执行其 `lifecycle-a --self-test`：它只复制当前测试程序充当 Core fixture，创建临时 Unix socket/子进程，并在**测试外层**建立一次性组。真实 supervisor 路径从不 `setsid`/`setpgid`。它验证私有 readiness、继承组、held-child 停止、布尔成功凭据与 owner/work 清理。另执行 `python3 -m unittest discover -s .scratch/tun/prototypes/helper-lifecycle -p test_core_driver.py`，纯隔离测试不调用 launchctl。
 
@@ -24,7 +24,7 @@ python3 .scratch/tun/prototypes/helper-lifecycle/prepare-core.py \
 
 ## 专门授权窗口中的顺序（当前不要执行）
 
-主会话需先核对产物/SHA/固定源码和确切系统窗口。以下 CLI 均使用本 review 里的完整、已审核 `core-driver.py`，以 `python3 -I` 调用；不会自动 sudo。每步参数：
+主会话需先核对产物/SHA/固定源码和确切系统窗口，一次明确覆盖旧资源精确退役归档、fresh新候选、normal、kill及成功收尾；不逐脚本申请。各阶段证据核对仍不可跳过，失败恢复和验收采用各自独立门禁。以下 CLI 均使用本 review 里的完整、已审核 `core-driver.py`，以 `python3 -I` 调用；不会自动 sudo。每步参数：
 
 ```text
 sudo /usr/bin/python3 -I /private/tmp/kuro-lifecycle-core-review-唯一名字/core-driver.py 操作 \
@@ -32,12 +32,16 @@ sudo /usr/bin/python3 -I /private/tmp/kuro-lifecycle-core-review-唯一名字/co
   --approval-sha 准备器打印的approvalSHA256
 ```
 
+0. `archive-old`：仅对已经独立卸载job的旧858，校验原冻结模块摘要、原normal严格成功receipt、固定旧epoch/Core/helper以及当前独立job/PID/完整组absence。首删前持久批准，仅退役旧binary/plist/两份mihomo，再以独占rename保留完整BASE证据到固定`TunLifecycleExperimentA-root858-preserved`。碰撞、未知、身份变化拒绝；不重做旧normal、不运行旧Core；部分安装失败不适用。原目录不存在且归档完整时仅重做持久化确认，不能删除新候选。
 1. `install`：仅固定 root 文件复制，不加载 job。拒绝任何已有 binary/plist/数据目录；保护链拒 symlink、写权限、ACL。固定 label/binary/plist 与旧实验 A 相同，因此旧资源未清完就阻塞。数据目录下 normal/kill 各自 Core 副本和日志；无自动部分安装回滚。
 2. `normal`：bootstrap + kickstart normal epoch。持有 direct child → 私有 `/version` + typed只读 mode/selection → 两次 FD/noIP 检查 → 持有该同一 child 的 TERM/必要时 KILL → waitpid/reap → 持久化 bounded日志与 reaped/cache证据 → 精确已知 work 清理/owner unlink/fsync。只有完整成功才原子发布 `normal-success.json`。命令还独立读回 supervisor/child 内核启动身份、组为空、work/owner不存在，两次确认。**驱动另要求精确 normal job 的 runs=1、not running、无 live PID/termination signal、last exit code=0（缺失/非0均拒绝，避免最后 fsync失败却留下完整成功文件时被误用）。root 成功 receipt 仍不能替代主会话独立核对这些 PID/start/PGID/executable、路径/进程消失及 launchctl 状态。** 如失败，不继续 kill，不重试该 epoch。
 3. 主会话核对 normal 原始证据后，才准 `prepare-kill`：再次核对 protected normal成功、实际进程/组/路径已消失、normal job精确一次exit0且无 live PID，bootout并确认 absent；仅把精确旧 plist 替换为独立 kill epoch 的精确 plist。不启动 Core。
-4. 独立授权的 `kill-test`：开始一次 kill epoch，readiness后核对 live supervisor/child/start/path/PGID、完整组仅两者、距 evidence单调时钟 <25秒。唯一 kill 操作为 `launchctl kill SIGKILL system/dev.kuro.tun.lifecycle-a`；从不对 evidence PID/旧 PGID 发信号。之后 1秒/5秒只读采样必须两者 absent且完整组空，且没有 supervisor正常 reap/fallback结果，才能写 `group-observation.json`。这仍是本次观察；主会话需独立核对。默认无 KeepAlive/RunAtLoad，不自动重启。
+4. 同一已批准窗口中的 `kill-test`：开始一次 kill epoch，readiness后核对 live supervisor/child/start/path/PGID、完整组仅两者、距 evidence单调时钟 <25秒。唯一 kill 操作为 `launchctl kill SIGKILL system/dev.kuro.tun.lifecycle-a`；从不对 evidence PID/旧 PGID 发信号。之后 1秒/5秒只读采样必须两者 absent且完整组空，且没有 supervisor正常 reap/fallback结果，才能写 `group-observation.json`。这仍是本次观察；主会话需独立核对。默认无 KeepAlive/RunAtLoad，不自动重启。
 5. `inspect-normal` / `inspect-kill`：只读核验当前 stage精确安装、保护证据和实际身份/完整组/work存在性。未知或身份复用不当成 absent。检查旧 stage 前 plist 必须仍匹配它；切换后使用 kill observer。
-6. `retire-normal` / `retire-kill`：只在两次实际进程/组 absent、精确 job无 live PID 后卸载该 job，再确认 job absent。**此命令不删除 root文件或证据。** 主会话保留日志后按确切已知文件另行审阅清理；不递归删除、不按旧 PID杀、不猜未知 cache/owner。kill 后 owner/work预计保留，不把此事实当生产恢复通过。
+6. `retire-normal` / `retire-kill`：只在两次实际进程/组 absent、精确 job无 live PID 后卸载该 job，再确认 job absent。**此命令不删除 root文件或证据。** 主会话保留日志后继续本窗口中的 `cleanup`；不递归删除、不按旧 PID杀、不猜未知 cache/owner。kill 后 owner/work预计保留，不把此事实当生产恢复通过。
+7. `cleanup`：消费 review inventory 中精确 hash 的 cleanup.py；该脚本由固定已审768d模板在构建期只绑定本候选commit/approval/helper/Core/两epoch。normal成功＋kill无fallback/reap＋严格JSON布尔组观察通过，且当前job/双方PID/完整组独立两次absent后，先持久化root0600批准记录，再每项复核并仅unlink专用binary/plist/normal及kill两份mihomo。中断只准按原身份记录重试；全部BASE批准/日志/owner/work/cache和目录保留。未知文件不删，身份变化保留，failed normal或partial install不能借本成功清理入口处理。
+
+失败恢复：`recover-normal` / `recover-kill`不调用native acceptance observer。它们复核root0700/0600的闭合epoch/实际进程身份、精确安装，独立libproc重复要求两PID ESRCH与完整组空，再只卸载同label且该stage/epoch的not-running、runs=1 job，之后再次读回。原阶段exit非0不能通过验收，但不妨碍这些独立条件成立时准确卸载已停止job。无新Core、无PID signal、无文件删除；job已absent可重复独立核对。缺证据、live、unknown、错epoch/改记录继续保留阻塞，不把JSON数字1转布尔。
 
 若 kill未按时发生，supervisor30秒窗口到期会仅停止自己仍持有的 child，记录 blocked并保留 work；该 fallback不算 launchd通过。若 helper已死而 Core/组仍存活或身份未知，驱动停止并保留所有证据，**不能凭记录 PID/PGID补杀**。没有新增 guardian/常驻监护层，真实失败需主会话按仍持有的 launchd job身份另行审阅，不能宣称自动恢复。
 

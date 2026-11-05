@@ -1,8 +1,46 @@
 #import "tun-service.m"
 // This branch is compiled only into the ordinary-user test binary. No Core/network.
+static void ServiceFixtureStage(int trace, const char *stage, int failure, size_t pathBytes) {
+  (void)dprintf(trace,"fixture-stage=%s monotonicMs=%llu pid=%d errno=%d pathBytes=%zu capacity=%zu\n",stage,(unsigned long long)KuroMonotonicMilliseconds(),getpid(),failure,pathBytes,sizeof(((struct sockaddr_un *)0)->sun_path));
+}
+static int ServiceFixtureListener(NSString *path, int trace) {
+  struct sockaddr_un address={.sun_family=AF_UNIX};size_t length=strlcpy(address.sun_path,path.fileSystemRepresentation,sizeof(address.sun_path));
+  if(length>=sizeof(address.sun_path)){ServiceFixtureStage(trace,"path-too-long",ENAMETOOLONG,length);errno=ENAMETOOLONG;return -1;}
+  int listener=socket(AF_UNIX,SOCK_STREAM,0),failure=errno;
+  if(listener<0){ServiceFixtureStage(trace,"socket-failed",failure,length);errno=failure;return -1;}
+  if(bind(listener,(struct sockaddr *)&address,sizeof(address))){failure=errno;close(listener);ServiceFixtureStage(trace,"bind-failed",failure,length);errno=failure;return -1;}
+  if(listen(listener,4)){failure=errno;close(listener);ServiceFixtureStage(trace,"listen-failed",failure,length);errno=failure;return -1;}
+  ServiceFixtureStage(trace,"listener-ready",0,length);return listener;
+}
+static void ServiceFixtureListenerTests(void) {
+  char temporary[]="/tmp/kuro-fixture-listener-XXXXXX";CHECK(mkdtemp(temporary));char canonical[PATH_MAX];CHECK(realpath(temporary,canonical));NSString *base=@(canonical),*path=[base stringByAppendingPathComponent:@"core.sock"],*trace=[base stringByAppendingPathComponent:@"trace.log"];
+  int fd=open(trace.fileSystemRepresentation,O_WRONLY|O_CREAT|O_EXCL,0600);CHECK(fd>=0);
+  int listener=ServiceFixtureListener(path,fd);CHECK(listener>=0);
+  errno=0;CHECK(ServiceFixtureListener(path,fd)==-1&&errno==EADDRINUSE);
+  struct stat original={0};CHECK(!lstat(path.fileSystemRepresentation,&original)&&S_ISSOCK(original.st_mode));
+  NSString *longPath=[base stringByAppendingPathComponent:[@"x"stringByPaddingToLength:108 withString:@"x" startingAtIndex:0]];errno=0;CHECK(ServiceFixtureListener(longPath,fd)==-1&&errno==ENAMETOOLONG);
+  struct stat preserved={0};CHECK(!lstat(path.fileSystemRepresentation,&preserved)&&original.st_dev==preserved.st_dev&&original.st_ino==preserved.st_ino);CHECK(!close(fd));
+  NSString *evidence=[[NSString alloc]initWithData:[NSData dataWithContentsOfFile:trace] encoding:NSUTF8StringEncoding];
+  CHECK(([evidence containsString:@"fixture-stage=listener-ready"]&&[evidence containsString:@"fixture-stage=bind-failed"]&&[evidence containsString:[NSString stringWithFormat:@"errno=%d",EADDRINUSE]]&&[evidence containsString:@"fixture-stage=path-too-long"]&&[evidence containsString:@"pathBytes="]));
+  CHECK(!close(listener)&&!unlink(path.fileSystemRepresentation));CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);
+  puts("fixture listener evidence: real temporary Unix listen success, EADDRINUSE and overlong path preserve existing socket; no Core/system network");
+}
+// Read only already-redacted evidence; never runtime config or raw capture pipes.
+static void ServiceFixtureReportMismatch(NSString *directory, NSUInteger scenario, uint64_t elapsed) {
+  fprintf(stderr,"service diagnostic open mismatch scenario=%lu elapsedMs=%llu directory=%s\n",(unsigned long)scenario,(unsigned long long)elapsed,directory.fileSystemRepresentation);
+  NSString *root=[directory stringByAppendingPathComponent:@"TunDiagnostics"];
+  for(NSString *name in [[NSFileManager defaultManager]contentsOfDirectoryAtPath:root error:NULL]) {
+    NSString *session=[root stringByAppendingPathComponent:name];
+    for(NSString *file in @[@"diagnostics.json",@"stderr.log"]) {
+      NSData *bytes=ReadProtected(directory,[session stringByAppendingPathComponent:file],geteuid(),NULL);if(!bytes)continue;
+      fprintf(stderr,"redacted %s (%lu bytes, first <=4096):\n",file.UTF8String,(unsigned long)bytes.length);fwrite(bytes.bytes,1,MIN(bytes.length,(NSUInteger)4096),stderr);fputc('\n',stderr);
+    }
+  }
+}
 static int ServiceFixtureMain(int argc,const char **argv) {
   if(argc!=5 || strcmp(argv[1],"-d") || strcmp(argv[3],"-f"))return -1;
   if(geteuid()==0)return 91;
+  ServiceFixtureStage(STDERR_FILENO,"entry",0,0);
   @autoreleasepool {
     NSString *work=[NSString stringWithUTF8String:argv[2]],*config=[NSString stringWithUTF8String:argv[4]];
     if(![config isEqual:[work stringByAppendingPathComponent:@"config.json"]])return 92;
@@ -12,6 +50,7 @@ static int ServiceFixtureMain(int argc,const char **argv) {
     char cwd[PATH_MAX]; if(!getcwd(cwd,sizeof(cwd)) || ![work isEqual:[NSString stringWithUTF8String:cwd]])return 94;
     struct stat initialCache={0};NSString *cache=[work stringByAppendingPathComponent:@"cache.db"];
     if(lstat(cache.fileSystemRepresentation,&initialCache)||!SafeMetadata(initialCache,geteuid(),NO)||(initialCache.st_mode&07777)!=0600||initialCache.st_size!=0)return 99;
+    ServiceFixtureStage(STDERR_FILENO,"runtime-validated",0,strlen(socketPath.fileSystemRepresentation));
     NSString *fixtureName=Executable().lastPathComponent;
     if([fixtureName hasPrefix:@"core-diagnostic"]) {
       NSString *credential=[value[@"proxies"]firstObject][@"password"]?:@"none";
@@ -30,9 +69,7 @@ static int ServiceFixtureMain(int argc,const char **argv) {
     if([Executable().lastPathComponent isEqual:@"core-unknown-work"]) {
       if(!WriteNew([work stringByAppendingPathComponent:@"unknown"],Bytes(@"preserve"),0600,NULL))return 96;
     }
-    struct sockaddr_un address={.sun_family=AF_UNIX}; strlcpy(address.sun_path,socketPath.fileSystemRepresentation,sizeof(address.sun_path));
-    int listener=socket(AF_UNIX,SOCK_STREAM,0);
-    if(listener<0 || bind(listener,(struct sockaddr *)&address,sizeof(address)) || listen(listener,4))return 97;
+    int listener=ServiceFixtureListener(socketPath,STDERR_FILENO);if(listener<0)return 97;
     for(;;) @autoreleasepool {
       int peer=accept(listener,NULL,NULL); if(peer<0)continue;
       unsigned char bytes[8192]; ssize_t count=recv(peer,bytes,sizeof(bytes),0);
@@ -40,6 +77,7 @@ static int ServiceFixtureMain(int argc,const char **argv) {
       if(![request containsString:[NSString stringWithFormat:@"Authorization: Bearer %@\r\n",value[@"secret"]]]) { close(peer); continue; }
       NSString *reply=nil;
       if([request hasPrefix:@"GET /version HTTP/1.1\r\n"]) {
+        ServiceFixtureStage(STDERR_FILENO,"version-request",0,strlen(socketPath.fileSystemRepresentation));
         NSString *body=@"{\"version\":\"fixture-1\"}";
         reply=[NSString stringWithFormat:@"HTTP/1.1 200 OK\r\nContent-Length: %lu\r\nConnection: close\r\n\r\n%@",(unsigned long)[body lengthOfBytesUsingEncoding:NSUTF8StringEncoding],body];
         if([Executable().lastPathComponent isEqual:@"core-chunked"])reply=@"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n";
@@ -294,6 +332,7 @@ static void ServiceCachePreparationTests(void) {
   puts("native service cache preparation: 4 actual startup-chain failures preserve work/unknown before resume (collision, cache fsync, owner publication, resume identity replacement); no Core/network");
 }
 static void ServiceDiagnosticTests(void) {
+  ServiceFixtureListenerTests();
   for(NSUInteger scenario=0;scenario<8;scenario++) {
     char temporary[]="/tmp/kuro-diag-service-XXXXXX";CHECK(mkdtemp(temporary));char canonical[PATH_MAX];CHECK(realpath(temporary,canonical));
     NSString *directory=@(canonical),*work=[directory stringByAppendingPathComponent:@"session-work"],*journal=[directory stringByAppendingPathComponent:@"owner.json"];
@@ -313,8 +352,10 @@ static void ServiceDiagnosticTests(void) {
     config[@"proxies"]=@[@{@"name":@"proxy",@"type":@"socks5",@"server":@"192.0.2.10",@"port":@1080,@"username":@"fixture-user-unique",@"password":credential,@"tls":@NO}];
     int peers[2];CHECK(!socketpair(AF_UNIX,SOCK_STREAM,0,peers));int peer=peers[0];
     __block BOOL result=NO;__block NSString *failure=nil;
+    uint64_t started=KuroMonotonicMilliseconds();
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT,0),^{NSString *error=nil;result=[service serveOpenFrame:JSONData(@{@"version":@2,@"operation":@"open",@"config":config}) peer:peer error:&error];failure=error;close(peer);dispatch_semaphore_signal(done);});
     NSDictionary *opened=ServiceRead(peers[1]);BOOL accepted=scenario==0||(scenario>=4&&scenario<=6);
+    if([opened[@"ok"]boolValue]!=accepted)ServiceFixtureReportMismatch(directory,scenario,KuroMonotonicMilliseconds()-started);
     CHECK([opened[@"ok"]boolValue]==accepted);
     NSString *secret=nil;
     if(accepted) {
@@ -352,7 +393,12 @@ static void ServiceDiagnosticTests(void) {
       NSString *out=[[NSString alloc]initWithData:ReadProtected(directory,[evidence stringByAppendingPathComponent:@"stdout.log"],geteuid(),NULL) encoding:NSUTF8StringEncoding];
       NSString *err=[[NSString alloc]initWithData:ReadProtected(directory,[evidence stringByAppendingPathComponent:@"stderr.log"],geteuid(),NULL) encoding:NSUTF8StringEncoding];
       if(scenario==7)CHECK(out.length==0&&err.length==0&&[metadata[@"stage"]isEqual:@"private runtime creation"]&&[metadata[@"error"]length]>0);
-      else CHECK([out containsString:@"fixture stdout secret=[REDACTED]"]&&[err containsString:@"fixture stderr secret=[REDACTED]"]);
+      else {
+        CHECK([out containsString:@"fixture stdout secret=[REDACTED]"]&&[err containsString:@"fixture stderr secret=[REDACTED]"]);
+        CHECK([err containsString:@"fixture-stage=entry"]&&[err containsString:@"fixture-stage=runtime-validated"]);
+        if(accepted)CHECK([err containsString:@"fixture-stage=listener-ready"]&&[err containsString:@"fixture-stage=version-request"]);
+        if(scenario==3)CHECK(![err containsString:@"fixture-stage=listener-ready"]);
+      }
       if(scenario==1||scenario==2)CHECK([metadata[@"termination"][@"exitCode"]isEqual:@37]);
       if(scenario==2)CHECK([metadata[@"capture"][@"stdout"][@"bytesRead"]unsignedLongLongValue]>65536&&[metadata[@"capture"][@"stderr"][@"truncated"]boolValue]);
       if(scenario==3)CHECK([metadata[@"stage"]isEqual:@"private Core version readiness"]&&[metadata[@"termination"][@"signal"]isEqual:@15]);
