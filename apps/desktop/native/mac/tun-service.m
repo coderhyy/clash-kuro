@@ -70,6 +70,7 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
 - (instancetype)initFixtureDirectory:(NSString *)directory core:(NSString *)core hooks:(KuroTunServiceHooks *)hooks;
 @property(nonatomic, copy) void (^fixtureAfterSupervise)(void);
 @property(nonatomic, copy) void (^fixtureBeforeResume)(void);
+@property(nonatomic, copy) void (^fixtureBeforeCachePrepare)(KuroOwnedSession *session);
 @property(nonatomic, copy) void (^fixtureRetained)(void);
 @property(nonatomic, copy) void (^fixtureBeforeRecovery)(void);
 @property(nonatomic, copy) void (^fixtureRecoveryCompleted)(void);
@@ -405,6 +406,11 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
     NSData *coreBytes=ReadProtected([self anchor],core,_owner,&failure); if(!coreBytes)return NO;
     if(mkdir([self work].fileSystemRepresentation,0700)) { failure=@"private work directory creation failed"; return NO; } _workCreated=YES;
     if(!WriteNew([[self work] stringByAppendingPathComponent:@"config.json"],runtime,0600,&failure))return NO;
+    stage=@"cache provenance preparation";
+#ifdef KURO_TESTING
+    if(self.fixtureBeforeCachePrepare)self.fixtureBeforeCachePrepare(_session);
+#endif
+    if(![_session prepareWorkCache:&failure])return NO;
     if(![_session setLaunchEvidence:@{@"configSHA256":_configDigest,@"coreSHA256":Hash(coreBytes),@"template":@"macos-dual-stack-v1"} error:&failure])return NO;
     __weak KuroTunService *weakSelf=self;
     stage=@"owned Core spawn"; BOOL spawned=[_session spawnExecutable:core arguments:@[@"-d",[self work],@"-f",[[self work] stringByAppendingPathComponent:@"config.json"]] workingDirectory:[self work] beforeResume:^BOOL(NSString **problem) {

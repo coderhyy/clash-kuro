@@ -10,6 +10,8 @@ static int ServiceFixtureMain(int argc,const char **argv) {
     NSString *socketPath=[work stringByAppendingPathComponent:@"core.sock"];
     if(![value[@"external-controller-unix"] isEqual:socketPath] || !KuroText(value[@"secret"],128))return 93;
     char cwd[PATH_MAX]; if(!getcwd(cwd,sizeof(cwd)) || ![work isEqual:[NSString stringWithUTF8String:cwd]])return 94;
+    struct stat initialCache={0};NSString *cache=[work stringByAppendingPathComponent:@"cache.db"];
+    if(lstat(cache.fileSystemRepresentation,&initialCache)||!SafeMetadata(initialCache,geteuid(),NO)||(initialCache.st_mode&07777)!=0600||initialCache.st_size!=0)return 99;
     if([Executable().lastPathComponent isEqual:@"core-exit"])return 95;
     if([Executable().lastPathComponent isEqual:@"core-must-not-run"]) { if(!WriteNew([work stringByAppendingPathComponent:@"resumed"],Bytes(@"unexpected resume"),0600,NULL))return 96; }
     if([Executable().lastPathComponent isEqual:@"core-config-changed"]) { if(![Bytes(@"changed") writeToFile:config atomically:NO])return 96; }
@@ -36,7 +38,7 @@ static int ServiceFixtureMain(int argc,const char **argv) {
         NSDictionary *body=bodyStart.location==NSNotFound ? nil : KuroDecodeJSON(Bytes([request substringFromIndex:NSMaxRange(bodyStart)]),1024,NULL);
         BOOL mode=[request hasPrefix:@"PATCH /configs HTTP/1.1\r\n"] && Keys(body,@[@"mode"]) && [body[@"mode"] isEqual:@"global"];
         BOOL select=[request hasPrefix:@"PUT /proxies/G%2F%23 HTTP/1.1\r\n"] && Keys(body,@[@"name"]) && [body[@"name"] isEqual:@"DIRECT"];
-        if(select && !Exists([work stringByAppendingPathComponent:@"cache.db"]) && !WriteNew([work stringByAppendingPathComponent:@"cache.db"],Bytes(@"fixture bbolt cache"),0600,NULL))return 98;
+        if(select && ![Bytes(@"fixture bbolt cache")writeToFile:cache atomically:NO])return 98;
         if(mode||select)reply=@"HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n";
       }
       if(!reply)reply=@"HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\n\r\n";
@@ -122,7 +124,7 @@ static void RestartWorkTests(void) {
   puts("native restart work: exact runtime/socket cleanup, mismatch/unknown/symlink/unsafe reread rejection and partial cleanup retry passed (temporary sockets only)");
 }
 static void RestartCacheTests(void) {
-  for(NSUInteger scenario=0;scenario<9;scenario++) {
+  for(NSUInteger scenario=0;scenario<10;scenario++) {
     char temporary[]="/tmp/kuro-rcache-XXXXXX";CHECK(mkdtemp(temporary));char canonical[PATH_MAX];CHECK(realpath(temporary,canonical));
     NSString *directory=@(canonical),*work=[directory stringByAppendingPathComponent:@"session-work"],*journal=[directory stringByAppendingPathComponent:@"owner.json"],*error=nil;
     NSString *config=[work stringByAppendingPathComponent:@"config.json"],*cache=[work stringByAppendingPathComponent:@"cache.db"];
@@ -130,6 +132,7 @@ static void RestartCacheTests(void) {
     NSDictionary *cacheIdentity=KuroWorkCacheSnapshot(directory,geteuid(),&error);CHECK(cacheIdentity&&KuroWorkCacheReceipt(cacheIdentity));
     NSMutableDictionary *record=RestartRecord();record[@"format"]=@2;
     NSMutableDictionary *receipt=[@{@"configSHA256":Hash(Bytes(@"runtime config")),@"socket":NSNull.null,@"cache":cacheIdentity}mutableCopy];record[@"work"]=receipt;
+    if(scenario==9){[receipt removeObjectForKey:@"cache"];receipt[@"cacheOrigin"]=@{@"device":cacheIdentity[@"device"],@"inode":cacheIdentity[@"inode"],@"owner":@(geteuid()),@"mode":@0600};}
     if(scenario==1)[receipt removeObjectForKey:@"cache"]; // Legacy format2 cannot adopt a newly discovered cache.
     if(scenario==2)Put(cache,Bytes(@"changed"),0600);
     if(scenario==3) { CHECK(!unlink(cache.fileSystemRepresentation));CHECK(!symlink(config.fileSystemRepresentation,cache.fileSystemRepresentation)); }
@@ -252,7 +255,33 @@ static void RetainedRecoveryTests(void) {
   puts("native retained recovery: 8 harmless held-child cases; original pthread retained, second-socket explicit recovery, owner mismatch, expiry/cancellation, concurrent/open/write rejection, EOF and shutdown preservation; no Core/network");
 }
 
+static void ServiceCachePreparationTests(void) {
+  for(NSUInteger scenario=0;scenario<4;scenario++) {
+    char temporary[]="/tmp/kuro-sorigin-XXXXXX";CHECK(mkdtemp(temporary));char canonical[PATH_MAX];CHECK(realpath(temporary,canonical));
+    NSString *directory=@(canonical),*work=[directory stringByAppendingPathComponent:@"session-work"],*cache=[work stringByAppendingPathComponent:@"cache.db"],*core=[directory stringByAppendingPathComponent:@"core-must-not-run"];
+    Put(core,[NSData dataWithContentsOfFile:Executable()],0755);
+    KuroTunService *service=[[KuroTunService alloc]initFixtureDirectory:directory core:core hooks:ServiceHooks()];
+    __block NSUInteger prepared=0;
+    service.fixtureBeforeCachePrepare=^(KuroOwnedSession *session){
+      prepared++;CHECK(Exists(work)&&Exists([work stringByAppendingPathComponent:@"config.json"]));
+      if(scenario==0)Put(cache,Bytes(@"preserve unknown existing cache"),0600);
+      if(scenario==1)session.fixtureFailWorkCacheSync=YES;
+      if(scenario==2)session.fixtureFailOwnerPublish=YES;
+    };
+    if(scenario==3)service.fixtureBeforeResume=^{CHECK(!rename(cache.fileSystemRepresentation,[work stringByAppendingPathComponent:@"original-cache"].fileSystemRepresentation));Put(cache,NSData.data,0600);};
+    __weak KuroTunService *weak=service;service.fixtureRetained=^{[weak requestShutdown];};
+    int peers[2];CHECK(!socketpair(AF_UNIX,SOCK_STREAM,0,peers));NSString *error=nil;
+    CHECK(![service serveOpenFrame:ServiceOpen() peer:peers[0] error:&error]);CHECK(prepared==1&&error.length>0);
+    CHECK([service.statusSnapshot[@"state"]isEqual:@"unknown"]&&Exists(work)&&Exists(cache));
+    CHECK(!Exists([work stringByAppendingPathComponent:@"resumed"])); // Every failure remained before actual Core resume.
+    CHECK(![service recoverNetworkOnly:NULL]);CHECK(Exists(work)&&Exists(cache));
+    if(scenario==0)CHECK([[NSData dataWithContentsOfFile:cache]isEqual:Bytes(@"preserve unknown existing cache")]);
+    close(peers[0]);close(peers[1]);CHECK([[NSFileManager defaultManager]removeItemAtPath:directory error:NULL]);
+  }
+  puts("native service cache preparation: 4 actual startup-chain failures preserve work/unknown before resume (collision, cache fsync, owner publication, resume identity replacement); no Core/network");
+}
 static void ServiceTests(void) {
+  ServiceCachePreparationTests();
   RetainedRecoveryTests();
   RestartWorkTests();
   RestartCacheTests();

@@ -44,7 +44,69 @@ static void RestartOwnerTests(void) {
   RestartReappearAt=0;RestartMode=0;
   puts("native restart owner: strict/legacy receipts, present/reused/denied/incomplete PID observations, changing observation and retained DNS preserve ownership; ESRCH never proves descendants exited");
 }
+static void CacheOriginTests(void) {
+  for(NSUInteger scenario=0;scenario<11;scenario++) {
+    char temporary[]="/tmp/kuro-origin-XXXXXX";CHECK(mkdtemp(temporary));char canonical[PATH_MAX];CHECK(realpath(temporary,canonical));
+    NSString *directory=@(canonical),*work=[directory stringByAppendingPathComponent:@"session-work"],*cache=[work stringByAppendingPathComponent:@"cache.db"],*journal=[directory stringByAppendingPathComponent:@"owner.json"],*child=[directory stringByAppendingPathComponent:@"child"],*error=nil;
+    Put(child,[NSData dataWithContentsOfFile:Executable()],0755);FixtureDirectory(work);Put([work stringByAppendingPathComponent:@"config.json"],Bytes(@"fixture config"),0600);
+    KuroOwnedSession *session=[[KuroOwnedSession alloc]initWithDirectory:directory owner:geteuid()];
+    if(scenario==1)Put(cache,Bytes(@"unknown existing cache"),0600);
+    if(scenario==2)CHECK(!symlink(child.fileSystemRepresentation,cache.fileSystemRepresentation));
+    if(scenario==3)session.fixtureFailWorkCacheSync=YES;
+    BOOL prepared=[session prepareWorkCache:&error];CHECK(prepared==(scenario!=1&&scenario!=2&&scenario!=3));
+    if(!prepared) {
+      CHECK(error.length>0 && Exists(cache) && !session.child && Exists(work));
+      if(scenario==1)CHECK([[NSData dataWithContentsOfFile:cache]isEqual:Bytes(@"unknown existing cache")]);
+      if(scenario==2){struct stat node={0};CHECK(!lstat(cache.fileSystemRepresentation,&node)&&S_ISLNK(node.st_mode));}
+      CHECK(![session prepareWorkCache:&error]);CHECK([[NSFileManager defaultManager]removeItemAtPath:directory error:NULL]);continue;
+    }
+    NSDictionary *initial=KuroWorkCacheSnapshot(directory,geteuid(),&error);CHECK(initial&&[initial[@"size"]isEqual:@0]&&[initial[@"mode"]isEqual:@0600]);
+    CHECK(![session prepareWorkCache:&error]); // No existing file adoption, even by the original object.
+    NSDictionary *evidence=@{@"configSHA256":Hash(Bytes(@"fixture config")),@"coreSHA256":Hash([NSData dataWithContentsOfFile:child]),@"template":@"macos-dual-stack-v1"};CHECK([session setLaunchEvidence:evidence error:&error]);
+    if(scenario==4){CHECK(!rename(cache.fileSystemRepresentation,[work stringByAppendingPathComponent:@"held-original"].fileSystemRepresentation));Put(cache,NSData.data,0600);}
+    if(scenario==8)Put(journal,Bytes(@"unknown owner collision"),0600);
+    if(scenario==9)session.fixtureFailOwnerPublish=YES;
+    __block BOOL sawOrigin=NO;
+    KuroSessionHook cleanup=^BOOL(NSString **failure) {
+      NSDictionary *record=ReadJSON(directory,journal,geteuid(),NULL),*origin=record[@"work"][@"cacheOrigin"];
+      CHECK(KuroWorkCacheOrigin(origin)&&[origin[@"owner"]unsignedLongLongValue]==geteuid());sawOrigin=YES;
+      NSDictionary *final=KuroWorkCacheSnapshot(directory,geteuid(),failure);
+      if(!final || ![session recordReapedWorkCache:final error:failure])return NO;
+      CHECK([KuroWorkCacheSnapshot(directory,geteuid(),NULL)isEqual:final]);
+      CHECK(!unlink(cache.fileSystemRepresentation));CHECK(!unlink([work stringByAppendingPathComponent:@"config.json"].fileSystemRepresentation));CHECK(!rmdir(work.fileSystemRepresentation));return YES;
+    };
+    BOOL spawned=[session spawnExecutable:child arguments:@[@"--session-child"] workingDirectory:work beforeResume:^BOOL(NSString **failure) {
+      NSDictionary *record=ReadJSON(directory,journal,geteuid(),NULL);CHECK(KuroRestartRecord(record,NULL)&&KuroWorkCacheOrigin(record[@"work"][@"cacheOrigin"]));
+      if(scenario==10)return Fail(failure,@"injected owner preparation failure before resume");return YES;
+    } afterReap:cleanup resumeGate:^BOOL(KuroSessionHook resume,NSString **failure) {
+      if(scenario==5){CHECK(!rename(cache.fileSystemRepresentation,[work stringByAppendingPathComponent:@"held-original"].fileSystemRepresentation));Put(cache,NSData.data,0600);}
+      return resume(failure);
+    } error:&error];
+    CHECK(spawned==(scenario==0||scenario==6||scenario==7));
+    if(spawned) {
+      if(scenario==6)CHECK(!chmod(cache.fileSystemRepresentation,0400));
+      else if(scenario==7){CHECK(!rename(cache.fileSystemRepresentation,[work stringByAppendingPathComponent:@"held-original"].fileSystemRepresentation));Put(cache,Bytes(@"replacement"),0600);}
+      else CHECK([Bytes(@"in-place cache initialization")writeToFile:cache atomically:NO]);
+      BOOL stopped=[session stop:&error];CHECK(stopped==(scenario==0));
+      if(scenario==0){NSDictionary *record=ReadJSON(directory,journal,geteuid(),NULL);CHECK(!record);CHECK(session.off);}
+    }
+    CHECK(!session.child);
+    if(scenario==0||scenario==10)CHECK(!Exists(work)&&!Exists(cache)&&session.off);
+    else CHECK(Exists(work)&&Exists(cache));
+    if(scenario!=0&&scenario!=10)CHECK(!session.off); // Failed/unknown ownership never masquerades as off.
+    if(scenario==8)CHECK([[NSData dataWithContentsOfFile:journal]isEqual:Bytes(@"unknown owner collision")]);
+    if(scenario==9)CHECK(!sawOrigin&&!Exists(journal));
+    if(scenario==0||scenario==10)CHECK(sawOrigin);
+    CHECK([[NSFileManager defaultManager]removeItemAtPath:directory error:NULL]);
+  }
+  // Optional provenance is accepted on old format2, but never substitutes for the final cache receipt.
+  NSMutableDictionary *record=RestartRecord();record[@"format"]=@2;
+  NSMutableDictionary *work=[@{@"configSHA256":Hash(Bytes(@"config")),@"socket":NSNull.null,@"cacheOrigin":@{@"device":@1,@"inode":@2,@"owner":@(geteuid()),@"mode":@0600}}mutableCopy];record[@"work"]=work;
+  CHECK(KuroRestartRecord(record,NULL));work[@"cacheOrigin"]=@{@"device":@1,@"inode":@2,@"owner":@(geteuid()),@"mode":@0644};CHECK(!KuroRestartRecord(record,NULL));
+  puts("native cache origin: 11 ordinary-user held-child cases; exclusive0600, sync/publication failures, pre-resume replacement, same-inode writes, changed mode/inode and unknown-owner preservation; no Core/network");
+}
 static void SessionTests(void) {
+  CacheOriginTests();
   RestartOwnerTests();
   char temporary[] = "/tmp/kuro-session-XXXXXX"; CHECK(mkdtemp(temporary));
   char canonical[PATH_MAX]; CHECK(realpath(temporary, canonical));
