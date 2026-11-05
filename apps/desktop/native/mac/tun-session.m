@@ -65,6 +65,8 @@ static BOOL KuroRestartRecord(NSDictionary *record,NSString **error) {
 @property(nonatomic, readonly) BOOL off;
 #ifdef KURO_CORE_EXPERIMENT
 @property(nonatomic, readonly) NSDictionary *terminationEvidence;
+@property(nonatomic) int experimentStdoutDescriptor;
+@property(nonatomic) int experimentStderrDescriptor;
 #endif
 #ifdef KURO_TESTING
 @property(nonatomic) KuroRestartReader fixtureRestartReader;
@@ -167,6 +169,14 @@ static BOOL KuroRestartRecord(NSDictionary *record,NSString **error) {
 }
 - (BOOL)spawnExecutable:(NSString *)executable arguments:(NSArray<NSString *> *)arguments workingDirectory:(NSString *)workingDirectory beforeResume:(KuroSessionHook)prepare afterReap:(KuroSessionHook)cleanup resumeGate:(KuroSessionResumeGate)resumeGate error:(NSString **)error {
   if (![self onThread:error]) return NO;
+#ifdef KURO_CORE_EXPERIMENT
+  // Diagnostic failure must never silently restore the production /dev/null path.
+  for(NSNumber *number in @[@(self.experimentStdoutDescriptor),@(self.experimentStderrDescriptor)]) {
+    int fd=number.intValue;struct stat info={0};int flags=fd>3?fcntl(fd,F_GETFL):-1;
+    if(fd<=3||flags<0||(flags&O_ACCMODE)!=O_WRONLY||fstat(fd,&info)||!S_ISFIFO(info.st_mode))return Fail(error,@"two valid capture pipe writers above FD3 are required");
+  }
+  if(self.experimentStdoutDescriptor==self.experimentStderrDescriptor)return Fail(error,@"distinct capture pipe writers are required");
+#endif
   if (_child || _journaled || _unknown || !prepare || !cleanup) return Fail(error, @"session is not clean or lifecycle hooks are absent");
   // No resume from a persisted PID: only this process's unreaped direct child is owned.
   NSString *journal = [_directory stringByAppendingPathComponent:@"owner.json"];
@@ -191,7 +201,13 @@ static BOOL KuroRestartRecord(NSDictionary *record,NSString **error) {
   sigset_t empty, defaults; sigemptyset(&empty); sigemptyset(&defaults); sigaddset(&defaults, SIGTERM); sigaddset(&defaults, SIGINT); sigaddset(&defaults, SIGPIPE);
   int setup = posix_spawnattr_setflags(&attr, POSIX_SPAWN_START_SUSPENDED | POSIX_SPAWN_CLOEXEC_DEFAULT | POSIX_SPAWN_SETSIGMASK | POSIX_SPAWN_SETSIGDEF);
   setup |= posix_spawnattr_setsigmask(&attr, &empty); setup |= posix_spawnattr_setsigdefault(&attr, &defaults);
-  for (int descriptor = 0; descriptor < 3; descriptor++) setup |= posix_spawn_file_actions_addopen(&actions, descriptor, "/dev/null", descriptor ? O_WRONLY : O_RDONLY, 0);
+  for (int descriptor = 0; descriptor < 3; descriptor++) {
+#ifdef KURO_CORE_EXPERIMENT
+    int captured=descriptor==1?self.experimentStdoutDescriptor:descriptor==2?self.experimentStderrDescriptor:0;
+    if(captured>2) {setup|=posix_spawn_file_actions_adddup2(&actions,captured,descriptor);continue;}
+#endif
+    setup|=posix_spawn_file_actions_addopen(&actions,descriptor,"/dev/null",descriptor?O_WRONLY:O_RDONLY,0);
+  }
   if (workingDirectory) {
     if (![workingDirectory isEqual:[_directory stringByAppendingPathComponent:@"session-work"]] || !SafeChain(_directory, workingDirectory, _owner, YES, error)) setup = EINVAL;
     else {

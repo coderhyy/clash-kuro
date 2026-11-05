@@ -73,3 +73,6 @@ CI配置已串联native隔离测试→App dmg→disabled helper pkg，并保存s
 
 
 2026-11-05 已授权639c64f普通UID真实Core normal实际失败：Core控制ready前自行exit1、无信号，runner exit2；EOF按门禁未执行。准确Core/worker均ESRCH，guardian组空，owner/work/socket清退；仅固定Core副本及证据按失败策略保留。Core输出被旧候选丢弃，根因未知；下一最小修复为有界诊断日志并另冻候选，不重试原包。本轮授权结束。[实际结果](../evidence/core-control-execution-639c64f/RESULT.md)。
+
+
+2026-11-05 639c64f旧包/失败证据保留，不修改或重试。新诊断候选按同范围normal→完整通过才EOF准备，仍需新提交/epoch/精确摘要及新授权。离线核对没有证明历史exit1原因；本轮不运行Core/-t。来源与结论见[固定版本离线核对](../core-control-offline-review.md)，最终新产物和fixture证据由主会话追加。

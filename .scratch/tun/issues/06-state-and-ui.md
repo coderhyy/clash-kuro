@@ -62,3 +62,6 @@ LAN/split支持边界具体为：保留现有更具体route及已识别的search
 
 
 2026-11-05 已授权639c64f普通UID真实Core normal实际失败：Core控制ready前自行exit1、无信号，runner exit2；EOF按门禁未执行。准确Core/worker均ESRCH，guardian组空，owner/work/socket清退；仅固定Core副本及证据按失败策略保留。Core输出被旧候选丢弃，根因未知；下一最小修复为有界诊断日志并另冻候选，不重试原包。本轮授权结束。[实际结果](../evidence/core-control-execution-639c64f/RESULT.md)。
+
+
+2026-11-05 离线源码核对证实v1.19.33 select会先初始化cache.db，再判断store-selected=false；本轮仅实验增加已reap后安全类型/owner/nlink/大小、稳定dev/inode/时间/内容hash的精确cache清退，未知/替换对象保留。生产root旧owner/work schema并未据此开放cache删除，继续列为其集成缺口。Unix controller不验证Bearer，私有目录和socket身份才是访问边界；并不宣称同UID隔离。

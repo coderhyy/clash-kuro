@@ -123,3 +123,6 @@ Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
 
 
 2026-11-05 已授权639c64f普通UID真实Core normal实际失败：Core控制ready前自行exit1、无信号，runner exit2；EOF按门禁未执行。准确Core/worker均ESRCH，guardian组空，owner/work/socket清退；仅固定Core副本及证据按失败策略保留。Core输出被旧候选丢弃，根因未知；下一最小修复为有界诊断日志并另冻候选，不重试原包。本轮授权结束。[实际结果](../evidence/core-control-execution-639c64f/RESULT.md)。
+
+
+2026-11-05 诊断修复沿用本票：普通UID候选必须有独立受限证据目录、每流64KiB输出上限及持续drain、会话secret脱敏、启动元数据和真实termination；缺失有效capture管道拒绝spawn。失败先持久化诊断再清runtime，错误分开记录。生产helper宏外stdio未在本轮改动，后续root真实实验候选也必须满足诊断保留要求，不得以丢弃全部输出进入验收。

@@ -12,6 +12,9 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const repository = resolve(root, '../..')
 const targets = { 'darwin-arm64': { arch: 'arm64', cpu: 0x0100000c }, 'darwin-x64': { arch: 'x86_64', cpu: 0x01000007 } }
 const json = value => Buffer.from(`${JSON.stringify(value, null, 2)}\n`)
+const diagnostics = Object.freeze({ format: 1, directoryPrefix: '/private/tmp/kuro-core-evidence-', directoryMode: 0o700, fileMode: 0o600,
+  files: ['config.redacted.json', 'launch.json', 'stdout.log', 'stderr.log', 'diagnostics.json'], retainedBytesPerStream: 64 * 1024,
+  overflow: 'drain-and-discard', redaction: 'session-secret-before-persist', coreStdIO: 'bounded-redacted-capture' })
 
 export function verifiedCoreArchive(lock, target, archive) {
   const entry = lock?.mihomo?.targets?.[target]
@@ -98,6 +101,7 @@ export async function buildCoreControlExperiment(target = `darwin-${process.arch
       core: { version: experiment.coreVersion, url: lock.mihomo.targets[target].url, archiveSHA256: experiment.coreArchiveSHA256, executableSHA256: experiment.coreSHA256, lockSHA256: sha256(lockBytes) },
       binarySHA256: experiment.runnerSHA256, experimentManifestSHA256: sha256(json(experiment)), inventorySHA256: sha256(inventoryBytes), bundleSHA256: sha256(inventoryBytes),
       bundleHashMeaning: 'SHA256 of sorted inventory.json for fixed payload files, not an App identity', appBundle: null, productionHelper: null,
+      diagnostics,
       coreExecuted: false, experimentExecuted: false, coreSyntaxExecuted: false, installed: false, networkChangesAuthorized: false,
       stages: { normal: 'requires separate authorization', eof: 'requires successful same-epoch normal evidence and authorization', helperSigkill: 'not implemented or executable' } }
     await writeFile(join(temporary, 'artifact.json'), json(artifact), { mode: 0o600, flag: 'wx' })
