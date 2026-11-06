@@ -315,7 +315,7 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
   NSString *safeWork=KuroDiagnosticText([self work],_diagnosticSecrets);if(!safeWork)return Fail(error,@"diagnostic work directory redaction failed");
   for(NSString *digest in @[Hash(runtime),Hash(redactedBytes),coreSHA256])if([_diagnosticSecrets containsObject:digest])return Fail(error,@"diagnostic hash conflicts with a confidential value");
   NSDictionary *launch=@{@"format":@1,@"argv":safeArguments,@"workingDirectory":safeWork,@"configSHA256":Hash(runtime),@"redactedConfigSHA256":Hash(redactedBytes),@"coreSHA256":coreSHA256,
-    @"environment":@{@"PATH":@YES,@"LANG":@YES,@"HOME":@NO,@"DYLD_INSERT_LIBRARIES":@NO,@"DYLD_LIBRARY_PATH":@NO,@"DYLD_FRAMEWORK_PATH":@NO,@"CLASH_HOME_DIR":@NO,@"CLASH_CONFIG_FILE":@NO,@"CLASH_OVERRIDE_CONFIG":@NO,@"CLASH_OVERRIDE_RULES":@NO},@"stdio":@"bounded-redacted-capture"};
+    @"environment":@{@"PATH":@YES,@"LANG":@YES,@"SKIP_SYSTEM_IPV6_CHECK":@YES,@"HOME":@NO,@"DYLD_INSERT_LIBRARIES":@NO,@"DYLD_LIBRARY_PATH":@NO,@"DYLD_FRAMEWORK_PATH":@NO,@"CLASH_HOME_DIR":@NO,@"CLASH_CONFIG_FILE":@NO,@"CLASH_OVERRIDE_CONFIG":@NO,@"CLASH_OVERRIDE_RULES":@NO},@"stdio":@"bounded-redacted-capture"};
   if(![self saveDiagnostic:@"config.redacted.json" bytes:redactedBytes error:error] || ![self saveDiagnostic:@"launch.json" bytes:JSONData(launch) error:error])return NO;
   _output=[[KuroCoreOutput alloc]initWithSecrets:_diagnosticSecrets];
   if(!_output || ![_session setOutputStdout:[_output writer:0] stderr:[_output writer:1] error:error])return Fail(error,@"mandatory Core diagnostic capture is unavailable");

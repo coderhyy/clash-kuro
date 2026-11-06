@@ -1,11 +1,19 @@
 # TUN 接入生命周期
 
-Status: ready-for-agent（持续正常窗口已授权；c138生产只读预检发现DNS元数据兼容问题，未安装）
+Status: ready-for-agent（持续正常窗口；432真实Core启动后双栈就绪拒绝，已恢复并精确卸载）
 Type: task
-Blocked by: 首次正常启停：真实kernel路由编码兼容修复、回归/独审及新候选窗口；正式交付：真实异常恢复与升级验收
+Blocked by: 首次正常启停：固定Core IPv4-only上游环境兼容及启动错误预算修复、回归/独审/CI、新候选；正式交付：异常恢复与升级验收
 Owner: TUN 接入 agent；主会话统一 Core/State/桌面公共接口与源码分工
 
-## 当前状态（2026-11-05，eb4beec）
+## 当前状态（2026-11-06，432实机失败已清理）
+
+- 实际App鉴权恢复ready成功，真实root Core和IPv4 utun启动；固定双栈地址就绪失败，未达到TUN接管验收。生产清理SIGTERM/exit0、真实held停止证明通过；App/job/精确安装文件/socket/receipt已清理，证据和候选用户数据保留。[本轮结果](../evidence/432-tun-window-20261106/RESULT.md)。
+- 固定Core在IPv4-only宿主剥离IPv6地址、客户端2秒open掩盖原始错误，分别作最小修复；不放宽双栈/恢复门禁。持续正常窗口允许验证后重试，不包含故障注入或升级。
+- 清理前网络文本出现动态邻居项差异，原始证据完整保留；下一轮先只读核验，不修改第三方设置或静默换Profile。外网IPv6仍未验证。
+
+## 历史准备状态（保留原时间和产物边界）
+
+### 当时状态（2026-11-05，eb4beec）
 
 - **持续窗口已授权，c138安装前只读预检**：实际生产route/interface/config通过，Global DNS系统元数据被拒；未安装/未修改网络，前后基线一致。[现场记录](../evidence/c138-readonly-preflight-20261106/RESULT.md)。修复回归与同版本只读预检继续，无需逐包确认；未知归属/恢复失败/扩大范围仍停下询问。
 

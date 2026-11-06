@@ -478,7 +478,10 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   }
   NSDictionary *workDirectory=workingDirectory?KuroWorkDirectorySnapshot(_directory,_owner,error):nil;
   if(workingDirectory && !workDirectory)setup=EINVAL;
-  char *environment[] = {"PATH=/usr/bin:/bin", "LANG=C", NULL};
+  // Fixed mihomo otherwise drops inet6-address when the host has no existing
+  // global IPv6 address. Our owned internal dual-stack utun is verified after
+  // resume; this switch does not claim physical IPv6 connectivity.
+  char *environment[] = {"PATH=/usr/bin:/bin", "LANG=C", "SKIP_SYSTEM_IPV6_CHECK=true", NULL};
   _terminationRequest=nil;_terminationEvidence=nil;_stopContext=nil;
   int spawned = setup ? setup : posix_spawn(&_child, executable.fileSystemRepresentation, &actions, &attr, argv, environment);
   posix_spawn_file_actions_destroy(&actions); posix_spawnattr_destroy(&attr);

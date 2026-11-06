@@ -1,3 +1,4 @@
+#include <poll.h>
 // Deterministic observer: explicit ESRCH means only the recorded process is
 // absent. It does not establish descendant/process-group exit or signal any PID.
 static NSUInteger RestartObservation,RestartMode,RestartReappearAt;
@@ -284,7 +285,32 @@ static void RestartCacheCheckpointTests(void) {
   puts("native restart cache checkpoint: 19 real temporary-file chains; explicit fixed approval validator, stable origin snapshot and durable marked owner, changed bytes/inode/mode/symlink/unknown and replaced/reappeared work-directory refusals, all installed records require validator including cache-absent/final-cache/owner-only; nil retry and fsync/publish/partial cleanup retries; no Core/stop proof");
 }
 
+static int SessionEnvironmentFixtureMain(int argc,const char **argv) {
+  if(argc!=2 || strcmp(argv[1],"--session-env-fixture"))return -1;
+  extern char **environ;for(char **entry=environ;*entry;entry++)puts(*entry);return 0;
+}
+static void OwnedCoreEnvironmentTests(void) {
+  CHECK(geteuid()!=0);char temporary[]="/tmp/kuro-core-env-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));
+  NSString *directory=@(canonical),*child=[directory stringByAppendingPathComponent:@"child"],*error=nil;
+  Put(child,[NSData dataWithContentsOfFile:Executable()],0755);NSString *work=[directory stringByAppendingPathComponent:@"session-work"],*config=[work stringByAppendingPathComponent:@"config.json"];FixtureDirectory(work);Put(config,Bytes(@"fixture config"),0600);
+  const char *previous=getenv("SKIP_SYSTEM_IPV6_CHECK");NSString *saved=previous?@(previous):nil;CHECK(!setenv("SKIP_SYSTEM_IPV6_CHECK","false",1));
+  int output[2],errors[2];CHECK(!pipe(output)&&!pipe(errors));KuroOwnedSession *session=[[KuroOwnedSession alloc]initWithDirectory:directory owner:geteuid()];
+  CHECK([session setOutputStdout:output[1] stderr:errors[1] error:&error]);CHECK(([session setLaunchEvidence:@{@"configSHA256":Hash(Bytes(@"fixture config")),@"coreSHA256":Hash([NSData dataWithContentsOfFile:child]),@"template":@"macos-dual-stack-v1"}error:&error]));
+  CHECK([session spawnExecutable:child arguments:@[@"--session-env-fixture"] workingDirectory:work beforeResume:^BOOL(NSString **failure){(void)failure;return YES;} afterReap:^BOOL(NSString **failure){(void)failure;CHECK(!unlink(config.fileSystemRepresentation)&&!rmdir(work.fileSystemRepresentation));return YES;} error:&error]);
+  close(output[1]);close(errors[1]);struct pollfd ready={.fd=output[0],.events=POLLIN};CHECK(poll(&ready,1,2000)>0);
+  NSMutableData *data=[NSMutableData data];char bytes[1024];ssize_t count;while((count=read(output[0],bytes,sizeof(bytes)))>0)[data appendBytes:bytes length:(NSUInteger)count];CHECK(count==0);
+  NSString *text=[[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding];NSMutableSet *actual=[NSMutableSet setWithArray:[text componentsSeparatedByString:@"\n"]];
+  // Foundation may add its own text-encoding key during process initialization;
+  // it is not an input passed to posix_spawn. No other extra key is accepted.
+  for(NSString *line in [actual copy])if([line hasPrefix:@"__CF_USER_TEXT_ENCODING="])[actual removeObject:line];
+  CHECK(([actual isEqual:[NSSet setWithArray:@[@"PATH=/usr/bin:/bin",@"LANG=C",@"SKIP_SYSTEM_IPV6_CHECK=true",@""]]]));
+  CHECK([session stop:&error]&&session.off&&[session.terminationEvidence[@"exitCode"]isEqual:@0]);
+  close(output[0]);close(errors[0]);if(saved)CHECK(!setenv("SKIP_SYSTEM_IPV6_CHECK",saved.UTF8String,1));else CHECK(!unsetenv("SKIP_SYSTEM_IPV6_CHECK"));
+  CHECK([[NSFileManager defaultManager]removeItemAtPath:directory error:NULL]);puts("native Core environment: actual held ordinary env child receives fixed PATH/LANG/IPv6-check switch, no inherited extra environment (apart from Foundation runtime encoding key), hostile inherited false is ignored; no Core/network execution");
+}
+
 static void SessionTests(void) {
+  OwnedCoreEnvironmentTests();
   RestartCacheCheckpointTests();
   SessionDurabilityTests();
   CacheOriginTests();

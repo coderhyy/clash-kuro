@@ -280,6 +280,63 @@ test.skipIf(process.platform === 'win32')('EOF after open is unknown and an open
   await expect(openTunHelperSession(config, hung.path, { timeoutMs: 20 })).rejects.toThrow('timed out')
 })
 
+test.skipIf(process.platform === 'win32')('opening preserves an exact native failure after the shorter command budget', async () => {
+  let received!: () => void
+  const frameReceived = new Promise<void>(resolve => { received = resolve })
+  let connection!: Socket
+  const peer = await fixture((_frame, socket) => { connection = socket; received() })
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+  try {
+    const outcome = openTunHelperSession(config, peer.path).then(() => 'unexpected success', error => (error as Error).message)
+    await frameReceived
+    await vi.advanceTimersByTimeAsync(2500)
+    reply(connection, { version: 2, ok: false, error: 'fixed dual-stack utun addresses are not uniquely ready' })
+    expect(await outcome).toBe('fixed dual-stack utun addresses are not uniquely ready')
+  } finally { vi.useRealTimers(); await peer.dispose() }
+})
+
+test.skipIf(process.platform === 'win32')('opening has a finite independent budget and cannot accept late success', async () => {
+  let received!: () => void
+  const frameReceived = new Promise<void>(resolve => { received = resolve })
+  let connection!: Socket
+  const peer = await fixture((_frame, socket) => { connection = socket; received() })
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+  try {
+    let settled = false
+    const outcome = openTunHelperSession(config, peer.path).then(() => 'unexpected success', error => (error as Error).message).finally(() => { settled = true })
+    await frameReceived
+    await vi.advanceTimersByTimeAsync(14999)
+    expect(settled).toBe(false)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(await outcome).toBe('TUN session response timed out; network state unknown')
+    reply(connection, opened)
+    expect(await outcome).toBe('TUN session response timed out; network state unknown')
+  } finally { vi.useRealTimers(); await peer.dispose() }
+})
+
+test.skipIf(process.platform === 'win32').each(['heartbeat', 'stop'] as const)('default %s replies still have the shorter command budget', async operation => {
+  let received!: () => void
+  const commandReceived = new Promise<void>(resolve => { received = resolve })
+  const peer = await fixture((frame, socket) => {
+    if (frame.operation === 'open') reply(socket, opened)
+    else { expect(frame.operation).toBe(operation); received() }
+  })
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+  let session: Awaited<ReturnType<typeof openTunHelperSession>> | undefined
+  try {
+    session = await openTunHelperSession(config, peer.path, { heartbeatMs: operation === 'heartbeat' ? 5 : 5000 })
+    let outcome: Promise<string> | undefined
+    if (operation === 'heartbeat') await vi.advanceTimersToNextTimerAsync()
+    else outcome = session.stop().then(() => 'unexpected success', error => (error as Error).message)
+    await commandReceived
+    await vi.advanceTimersByTimeAsync(1999)
+    expect(session.error()).toBeUndefined()
+    await vi.advanceTimersByTimeAsync(1)
+    expect(session.error()?.message).toBe('TUN session response timed out; network state unknown')
+    if (outcome) expect(await outcome).toBe('TUN session response timed out; network state unknown')
+  } finally { session?.disconnect(); vi.useRealTimers(); await peer.dispose() }
+})
+
 test.skipIf(process.platform === 'win32')('a heartbeat lease expires independently of a longer reply timeout', async () => {
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
   const frames: Record<string, unknown>[] = []

@@ -395,7 +395,7 @@ static void ServiceDiagnosticTests(void) {
       CHECK([redacted[@"secret"]isEqual:@"[REDACTED]"]&&[redacted[@"proxies"][0][@"password"]isEqual:@"[REDACTED]"]);
       CHECK([launch[@"redactedConfigSHA256"]isEqual:Hash(ReadProtected(directory,[evidence stringByAppendingPathComponent:@"config.redacted.json"],geteuid(),NULL))]);
       CHECK([launch[@"coreSHA256"]isEqual:coreDigest]); // Password starts with this SHA's final character; summaries must remain exact.
-      CHECK(![launch[@"environment"][@"HOME"]boolValue]&&[launch[@"environment"][@"LANG"]boolValue]);
+      CHECK(![launch[@"environment"][@"HOME"]boolValue]&&[launch[@"environment"][@"LANG"]boolValue]&&[launch[@"environment"][@"SKIP_SYSTEM_IPV6_CHECK"]isEqual:@YES]);
       for(NSString *file in @[@"config.redacted.json",@"launch.json",@"stdout.log",@"stderr.log",@"diagnostics.json"]) {
         NSString *text=[[NSString alloc]initWithData:ReadProtected(directory,[evidence stringByAppendingPathComponent:file],geteuid(),NULL) encoding:NSUTF8StringEncoding];CHECK(text);
         CHECK(![text containsString:credential]);if(secret)CHECK(![text containsString:secret]);

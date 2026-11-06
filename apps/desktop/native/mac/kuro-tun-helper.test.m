@@ -51,6 +51,7 @@ static NSDictionary *Payload(NSString *prefix) {
 #import "tun-service.test.m"
 #import "tun-admission.test.m"
 int main(int argc, const char **argv) {
+  int environmentFixture=SessionEnvironmentFixtureMain(argc,argv);if(environmentFixture>=0)return environmentFixture;
   @autoreleasepool {
     if(argc==4&&!strcmp(argv[1],"--upgrade-package-layout-fixture")){char canonical[PATH_MAX];CHECK(geteuid()!=0&&realpath(argv[2],canonical));NSString *error=nil;BOOL ok=UpgradePackageLayoutFixture(@(canonical),@(argv[3]),&error);if(!ok)fprintf(stderr,"package layout: %s\n",error.UTF8String);return ok?0:1;}
     if(argc==2&&!strcmp(argv[1],"--upgrade-tests")){UpgradeTests();return 0;}

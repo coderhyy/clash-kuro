@@ -137,6 +137,9 @@ export async function openTunHelperSession(config: TunSessionConfig, path = sock
   const frame = `${JSON.stringify({ version: 2, operation: 'open', config: admitted })}\n`
   if (Buffer.byteLength(frame) > 66000) throw new Error('TUN open frame exceeds limit')
   const timeoutMs = options.timeoutMs ?? 2000
+  // Native open runs serial readiness and stop/diagnostic cleanup before replying.
+  // Keep a finite opening budget without extending heartbeat or stop deadlines.
+  const openTimeoutMs = options.timeoutMs ?? 15000
   const heartbeatMs = options.heartbeatMs ?? 5000
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0 || !Number.isFinite(heartbeatMs) || heartbeatMs <= 0 || heartbeatMs > 5000) {
     throw new Error('Invalid TUN session timing')
@@ -172,9 +175,9 @@ export async function openTunHelperSession(config: TunSessionConfig, path = sock
     leaseTimer = setTimeout(() => fail(new Error('TUN session lease expired; network state unknown')), remaining)
     leaseTimer.unref()
   }
-  const exchange = (frame: string): Promise<unknown> => new Promise((resolve, reject) => {
+  const exchange = (frame: string, responseTimeoutMs = timeoutMs): Promise<unknown> => new Promise((resolve, reject) => {
     if (failure || finished || pending) { reject(failure ?? new Error('TUN session is not available')); return }
-    const timer = setTimeout(() => fail(new Error('TUN session response timed out; network state unknown')), timeoutMs)
+    const timer = setTimeout(() => fail(new Error('TUN session response timed out; network state unknown')), responseTimeoutMs)
     pending = { resolve, reject, timer }
     socket.write(frame)
   })
@@ -235,7 +238,7 @@ export async function openTunHelperSession(config: TunSessionConfig, path = sock
   }
   try {
     const sentAt = performance.now()
-    const opened = response(await exchange(frame), ['version', 'ok', 'session', 'leaseMilliseconds', 'sequence', 'status', 'error'])
+    const opened = response(await exchange(frame, openTimeoutMs), ['version', 'ok', 'session', 'leaseMilliseconds', 'sequence', 'status', 'error'])
     if (typeof opened.session !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(opened.session)
       || opened.leaseMilliseconds !== 15000 || opened.sequence !== 0) throw new Error('Invalid TUN session opening')
     status(opened.status, 'on')
