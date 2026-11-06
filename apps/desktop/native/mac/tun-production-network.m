@@ -198,7 +198,7 @@ static BOOL KuroPreservedEndpoint(NSString *text, NSArray *routes, NSString *phy
   for (NSDictionary *route in routes) if ([route[@"prefix"]intValue]>0 && (KuroRouteContainsIP(route,@"198.18.0.1") || KuroRouteContainsIP(route,@"198.18.0.2") || KuroRouteContainsIP(route,@"fdfe:dcba:9876::1") || KuroRouteContainsIP(route,@"fdfe:dcba:9876::2"))) return Fail(error,@"existing route overlaps fixed internal DNS/utun pool");
   for (NSString *key in dns) {
     NSDictionary *record=dns[key]; NSString *scoped=[key containsString:@"/Interface/"]?[[key componentsSeparatedByString:@"/"]objectAtIndex:3]:nil;
-    NSNumber *index=record[@"InterfaceIndex"]; BOOL known=!scoped && !index;
+    NSNumber *index=record[@"InterfaceIndex"]?:record[@"__IF_INDEX__"]; BOOL known=!scoped && !index;
     for (NSDictionary *entry in interfaces) if ((!scoped || [entry[@"name"]isEqual:scoped]) && (!index || [entry[@"index"]isEqual:index])) known=YES;
     if (!known) return Fail(error,@"scoped DNS interface is unavailable; preserving existing resolver");
     for (NSString *address in record[@"ServerAddresses"]) {

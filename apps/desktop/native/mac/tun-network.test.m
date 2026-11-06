@@ -62,9 +62,38 @@
 - (BOOL)syncDirectory:(NSString **)error {self.syncCalls++;return self.refuseSync?Fail(error,@"injected DNS sync failure"):[super syncDirectory:error];}
 @end
 
+// Sanitized actual State Global shape; source metadata is never stripped.
+static NSDictionary *DarwinDNSMetadataFixture(void) {
+  return @{@"State:/Network/Global/DNS":@{@"ServerAddresses":@[@"192.168.1.1"],
+    @"__CONFIGURATION_ID__":@"Default: 00112233-4455-6677-8899-AABBCCDDEEFF 0",@"__ORDER__":@0,@"__IF_INDEX__":@2,@"__FLAGS__":@2},
+    @"State:/Network/Service/00112233-4455-6677-8899-AABBCCDDEEFF/DNS":@{@"ServerAddresses":@[@"192.168.1.1"]}};
+}
+static void DNSMetadataTests(void) {
+  NSString *error=nil,*key=@"State:/Network/Global/DNS";
+  NSDictionary *fixture=DarwinDNSMetadataFixture();CHECK([KuroDNSPreflight(fixture,&error)isEqual:fixture]);
+  for(NSNumber *flags in @[@0,@2,@4,@6]) {
+    NSMutableDictionary *records=[fixture mutableCopy],*global=[fixture[key]mutableCopy];
+    global[@"__FLAGS__"]=flags;global[@"InterfaceIndex"]=@2;records[key]=global;
+    NSDictionary *snapshot=KuroDNSPreflight(records,&error);CHECK([snapshot isEqual:records]);
+    global[@"__ORDER__"]=@1;CHECK([snapshot[key][@"__ORDER__"]isEqual:@0]);
+  }
+  NSArray *changes=@[@{@"__FLAGS__":@0x1000},@{@"__FLAGS__":@0x2000},@{@"__FLAGS__":@0x4000},@{@"__FLAGS__":@8},@{@"__FLAGS__":@YES},
+    @{@"__CONFIGURATION_ID__":@"Supplemental: 00112233-4455-6677-8899-AABBCCDDEEFF 0"},@{@"__CONFIGURATION_ID__":@[]},
+    @{@"__IF_INDEX__":@0},@{@"__IF_INDEX__":@65536},@{@"__IF_INDEX__":@"2"},@{@"__IF_INDEX__":@YES},
+    @{@"__ORDER__":@(-1)},@{@"__ORDER__":@YES},@{@"__ORDER__":@1.5},@{@"__FUTURE__":@0},@{@"InterfaceIndex":@3}];
+  for(NSDictionary *change in changes) {
+    NSMutableDictionary *records=[fixture mutableCopy],*global=[fixture[key]mutableCopy];[global addEntriesFromDictionary:change];records[key]=global;
+    CHECK(!KuroDNSPreflight(records,&error));
+  }
+  for(NSString *other in @[@"Setup:/Network/Global/DNS",@"State:/Network/Interface/en0/DNS",@"State:/Network/Service/default/DNS"])CHECK(!KuroDNSPreflight(@{other:fixture[key]},&error));
+  NSMutableDictionary *incomplete=[fixture[key]mutableCopy];[incomplete removeObjectForKey:@"__IF_INDEX__"];CHECK(!KuroDNSPreflight(@{key:incomplete},&error));
+  puts("DNS metadata: immutable raw Global default snapshot, known A/AAAA flags, typed metadata/alias binding; unsupported scope/service/unknown/incomplete metadata retained and refused");
+}
+
 #import "tun-production-network.test.m"
 
 static void NetworkTests(void) {
+  DNSMetadataTests();
   CHECK(geteuid() != 0);
   RouteTests();
   ProductionNetworkTests();

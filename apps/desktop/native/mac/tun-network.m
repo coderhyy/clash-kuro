@@ -73,8 +73,23 @@ static NSDictionary *KuroDNSPreflight(NSDictionary *records, NSString **error) {
       !Match(key, @"\\A(State|Setup):/Network/(Global|Service/[^/]+|Interface/[a-zA-Z][a-zA-Z0-9]{0,14})/DNS\\z")) { Fail(error,@"DNS preflight found retained ownership or unsupported resolver key"); return nil; }
     NSDictionary *value=records[key];
     if (![value isKindOfClass:NSDictionary.class]) { Fail(error,@"DNS record is not a mapping"); return nil; }
-    for (NSString *field in value) if (![@[@"ServerAddresses",@"ServerPort",@"SearchOrder",@"SearchDomains",@"DomainName",@"SupplementalMatchDomains",@"SupplementalMatchOrders",@"SupplementalMatchDomainsNoSearch",@"InterfaceIndex"]containsObject:field]) {
+    for (NSString *field in value) if (![@[@"ServerAddresses",@"ServerPort",@"SearchOrder",@"SearchDomains",@"DomainName",@"SupplementalMatchDomains",@"SupplementalMatchOrders",@"SupplementalMatchDomainsNoSearch",@"InterfaceIndex",@"__CONFIGURATION_ID__",@"__ORDER__",@"__IF_INDEX__",@"__FLAGS__"]containsObject:field]) {
       Fail(error,[NSString stringWithFormat:@"unsupported DNS resolver field %@; preserving existing configuration",field]); return nil;
+    }
+    // configd's State Global default-resolver metadata is retained verbatim.
+    // __IF_INDEX__ selects the resolver interface; the coordinator consumes it.
+    // Only the observed default shape/query flags are supported, not scoped,
+    // service-specific or supplemental private configurations.
+    NSArray *metadata=@[@"__CONFIGURATION_ID__",@"__ORDER__",@"__IF_INDEX__",@"__FLAGS__"];
+    BOOL hasMetadata=NO; for(NSString *field in metadata)if(value[field])hasMetadata=YES;
+    if(hasMetadata) {
+      if(![key isEqual:@"State:/Network/Global/DNS"] ||
+        !Match(value[@"__CONFIGURATION_ID__"],@"\\ADefault: [0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12} 0\\z") ||
+        !KuroNumber(value[@"__ORDER__"],0,INT32_MAX) || !KuroNumber(value[@"__IF_INDEX__"],1,UINT16_MAX) ||
+        !KuroNumber(value[@"__FLAGS__"],0,UINT32_MAX) || ([value[@"__FLAGS__"]unsignedIntValue]&~(uint32_t)0x0006) ||
+        (value[@"InterfaceIndex"] && ![value[@"InterfaceIndex"]isEqual:value[@"__IF_INDEX__"]])) {
+        Fail(error,@"unsupported Global default DNS metadata or conflicting interface; preserving existing resolver");return nil;
+      }
     }
     NSArray *servers=value[@"ServerAddresses"];
     if (![servers isKindOfClass:NSArray.class] || !servers.count || servers.count>16) { Fail(error,@"DNS record lacks bounded explicit servers"); return nil; }
