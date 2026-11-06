@@ -1,11 +1,17 @@
 # macOS TUN 集成验收
 
-Status: ready-for-agent（持续正常窗口；11902精确路由拒绝已定位并清理，最小修复已集成）
+Status: ready-for-agent（持续正常窗口；95a8808路由ACK失败已安全恢复并清理，定位中）
 Type: validation
-Blocked by: 首次正常启停：固定内部host2分阶段路由新候选验证及实际正常启停；正式交付：异常恢复与升级验收
+Blocked by: 首次正常启停：真实路由ACK失败定位/修复及正常启停；正式交付：异常恢复与升级验收
 Owner: 主会话集成与最终验证；验收 agent 准备记录
 
-## 当前状态（2026-11-06，11902实机证据与路由修复）
+## 当前状态（2026-11-06，95a8808实机）
+
+- 实际安装App鉴权恢复ready/off、固定Core及双族utun创建通过；路由写入ACK失败，尚无on或测试流量通过证据。[实机及清理证据](../evidence/internal-dns-probe-20261106/candidate-95a8808/REAL-WINDOW.md)。
+- 原会话Core SIGTERM/exit0、网络恢复与持久停止证明通过；job/安装/socket/receipt准确清除。DNS192.168.0.1、系统代理及生产稳定路由基线匹配，Profile未修改。
+- 当前仅定位真实ACK失败；不放宽归属或回执检查。持续正常窗口有效，异常恢复/升级验收另排。隔离普通子进程超时仍独立未解释。
+
+## 前轮状态（2026-11-06，11902实机证据与路由修复）
 
 - 11902实际App鉴权ready及双族utun创建通过，拒绝的是本会话utun6的 `ff00::%25/8`，flags `0x01800101`。Core正常终止、网络恢复、停止证明及准确卸载通过；job/receipt/安装与进程缺席。[实际结果](../evidence/7c351-route-rejection-20261106/11902-real-result.md)。
 - 固定XNU与旧接口基线支持该路由属于系统IPv6多播伴生项。最小识别仅接受held接口/索引、精确三种形状/flags及新鲜唯一link-local网关；不增加删除权。独立修复四条split路由的精确PRCLONING读回，ADD/DELETE请求不变；两处RED/GREEN与独审通过。[证据](../evidence/utun-multicast-20261106/implementation.md)。

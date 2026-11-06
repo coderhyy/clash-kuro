@@ -179,7 +179,110 @@ static void RoutePreparationTests(void) {
   puts("native staged routes: 20 continuation + 4 host-preparation failure cases + old4/host2/combined6 absence-only recovery PASS; no network operations");
 }
 
+
+// Actual production wire loop, with fixed syscall results and no PF_ROUTE access.
+static NSDictionary *RouteIOFixture,*RouteIOEvent;
+static NSData *RouteIORequest;
+static NSUInteger RouteIOCursor,RouteIOCloses,RouteIOPolls,RouteIOReceives,RouteIOClockCalls;
+static uint64_t RouteIONow;
+static int RouteIOOpen(int domain,int kind,int protocol) {
+  CHECK(domain==PF_ROUTE&&kind==SOCK_RAW&&protocol==AF_UNSPEC);
+  if(RouteIOFixture[@"socketError"]){errno=[RouteIOFixture[@"socketError"]intValue];return -1;}return 73;
+}
+static int RouteIOControl(int fd,int operation,int value) {
+  CHECK(fd==73);if(operation==F_SETFL)CHECK(value&O_NONBLOCK);if(operation==F_SETFD)CHECK(value==FD_CLOEXEC);
+  if([RouteIOFixture[@"controlError"]isEqual:@(operation)]){errno=EBADF;return -1;}return 0;
+}
+static ssize_t RouteIOSend(int fd,const void *bytes,size_t size,int flags) {
+  CHECK(fd==73&&!flags&&[[NSData dataWithBytes:bytes length:size]isEqual:RouteIORequest]);
+  if(RouteIOFixture[@"sendError"]){errno=[RouteIOFixture[@"sendError"]intValue];return -1;}
+  return RouteIOFixture[@"partialSend"]?(ssize_t)size-1:(ssize_t)size;
+}
+static int RouteIOPoll(struct pollfd *fds,nfds_t count,int timeout) {
+  CHECK(count==1&&fds[0].fd==73&&fds[0].events==POLLIN&&timeout>0&&timeout<=1000);RouteIOPolls++;
+  NSArray *events=RouteIOFixture[@"events"];if(RouteIOCursor>=events.count){RouteIONow+=(uint64_t)timeout;fds[0].revents=0;return 0;}
+  RouteIOEvent=events[RouteIOCursor++];fds[0].revents=RouteIOEvent[@"revents"]?[RouteIOEvent[@"revents"]shortValue]:POLLIN;
+  if(RouteIOEvent[@"pollError"]){errno=[RouteIOEvent[@"pollError"]intValue];return -1;}return 1;
+}
+static ssize_t RouteIOReceive(int fd,void *bytes,size_t size,int flags) {
+  CHECK(fd==73&&size==8192&&flags==MSG_DONTWAIT);RouteIOReceives++;
+  if(RouteIOEvent[@"recvError"]){errno=[RouteIOEvent[@"recvError"]intValue];return -1;}
+  NSData *packet=RouteIOEvent[@"packet"]?:NSData.data;CHECK(packet.length<=size);memcpy(bytes,packet.bytes,packet.length);return (ssize_t)packet.length;
+}
+static int RouteIOClose(int fd) {CHECK(fd==73);RouteIOCloses++;errno=EIO;return 0;}
+static int RouteIOClock(clockid_t clock,struct timespec *value) {
+  CHECK(clock==CLOCK_MONOTONIC);RouteIOClockCalls++;if(RouteIOFixture[@"deadline"]&&RouteIOClockCalls>=3)RouteIONow=1000;
+  value->tv_sec=(time_t)(RouteIONow/1000);value->tv_nsec=(long)(RouteIONow%1000)*1000000;return 0;
+}
+static NSDictionary *RouteExchangeDetails(NSString *error) {
+  NSRange marker=[error rangeOfString:@"; routeExchange="];CHECK(marker.location!=NSNotFound);
+  NSData *data=[[error substringFromIndex:NSMaxRange(marker)]dataUsingEncoding:NSUTF8StringEncoding];CHECK(data.length<=2048);
+  return [NSJSONSerialization JSONObjectWithData:data options:0 error:NULL];
+}
+static void RouteExchangeTests(void) {
+  KuroCoreInterface association=RouteFixtureInterface();NSDictionary *route=KuroInternalDNSRouteCandidate(association)[0];
+  const KuroRouteExchangeIO io={.openSocket=RouteIOOpen,.control=RouteIOControl,.sendPacket=RouteIOSend,.waitPacket=RouteIOPoll,.receivePacket=RouteIOReceive,.closeSocket=RouteIOClose,.clock=RouteIOClock};
+  for(NSUInteger scenario=0;scenario<24;scenario++) {
+    NSString *error=nil;int operation=scenario==1?RTM_DELETE:RTM_ADD,sequence=17;
+    RouteIORequest=KuroRouteMessage(route,operation,sequence,&error);CHECK(RouteIORequest);
+    NSMutableData *ack=[RouteIORequest mutableCopy];struct rt_msghdr *header=ack.mutableBytes;header->rtm_flags|=RTF_DONE;
+    NSMutableDictionary *fixture=[NSMutableDictionary dictionary];NSMutableArray *events=[NSMutableArray array];
+    if(scenario==2){NSMutableData *other=[ack mutableCopy];((struct rt_msghdr *)other.mutableBytes)->rtm_pid++;[events addObject:@{@"packet":other}];}
+    if(scenario==3)[events addObject:@{@"pollError":@(EINTR)}];
+    if(scenario==4)[events addObject:@{@"recvError":@(EAGAIN)}];
+    if(scenario==5)header->rtm_errno=EEXIST;
+    if(scenario==6)header->rtm_version++;
+    if(scenario==7)header->rtm_type=RTM_CHANGE;
+    if(scenario==8)header->rtm_msglen--;
+    if(scenario==9){struct ifa_msghdr shortHeader={.ifam_msglen=sizeof(shortHeader),.ifam_version=RTM_VERSION,.ifam_type=RTM_NEWADDR,.ifam_index=7};CHECK(sizeof(shortHeader)<sizeof(struct rt_msghdr));ack=[[NSMutableData alloc]initWithBytes:&shortHeader length:sizeof(shortHeader)];}
+    if(scenario==10)fixture[@"socketError"]=@(EACCES);
+    if(scenario==11)fixture[@"controlError"]=@(F_GETFL);
+    if(scenario==12)fixture[@"controlError"]=@(F_SETFL);
+    if(scenario==13)fixture[@"controlError"]=@(F_SETFD);
+    if(scenario==14)fixture[@"sendError"]=@(ENETUNREACH);
+    if(scenario==15)fixture[@"partialSend"]=@YES;
+    if(scenario==16)[events addObject:@{@"pollError":@(EBADF)}];
+    if(scenario==17)[events addObject:@{@"revents":@(POLLERR)}];
+    if(scenario==18)[events addObject:@{@"recvError":@(EIO)}];
+    if(scenario==20){header->rtm_seq++;for(NSUInteger i=0;i<256;i++)[events addObject:@{@"packet":ack}];}
+    if(scenario==21)fixture[@"deadline"]=@YES;
+    if(scenario==22){header->rtm_flags|=RTF_REJECT;} // ACK flags are checked by subsequent independent route readback, as before.
+    if(scenario==23)[events addObject:@{@"recvError":@(EINTR)}];
+    if(scenario!=19&&scenario!=20&&scenario!=21)[events addObject:@{@"packet":ack}];
+    fixture[@"events"]=events;RouteIOFixture=fixture;RouteIOEvent=nil;RouteIOCursor=RouteIOCloses=RouteIOPolls=RouteIOReceives=RouteIOClockCalls=0;RouteIONow=0;
+    BOOL accepted=KuroRouteExchangeWithIO(route,RouteIORequest,operation,sequence,&io,&error);
+    BOOL expected=scenario<5||scenario==22||scenario==23;CHECK(accepted==expected);CHECK(RouteIOCloses==(scenario==10?0:1));
+    if(expected){CHECK(!error);if(scenario==2||scenario==3||scenario==4||scenario==23)CHECK(RouteIOPolls==2);continue;}
+    NSDictionary *details=RouteExchangeDetails(error);CHECK([details[@"operation"]isEqual:@(operation)]&&[details[@"route"]isEqual:route]&&[details[@"sequence"]isEqual:@17]);
+    CHECK([details[@"requestBytes"]isEqual:@(RouteIORequest.length)]);
+    if(scenario>=5&&scenario<=8){CHECK([details[@"stage"]isEqual:@"matching-ack"]&&[details[@"matchingAck"]isEqual:KuroRouteAckFields(*header)]&&[details[@"syscallErrno"]isEqual:@0]);}
+    if(scenario==5) {
+      CHECK([details[@"matchingAck"][@"errno"]isEqual:@(EEXIST)]);
+      NSString *runtimeSecret=@"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+      NSString *redacted=KuroDiagnosticText(error,@[runtimeSecret]);CHECK([redacted isEqual:error]&&[redacted lengthOfBytesUsingEncoding:NSUTF8StringEncoding]<=4096);
+      CHECK([redacted containsString:@"matching-ack"]&&[redacted containsString:@"198.18.0.2"]&&[redacted containsString:@"matchingAck"]);
+      for(NSString *credential in @[@"q",@"e",@"0"]) {
+        NSString *restricted=KuroDiagnosticText(error,@[runtimeSecret,credential]);CHECK(restricted&&[restricted lengthOfBytesUsingEncoding:NSUTF8StringEncoding]<=4096);
+      }
+    }
+    if(scenario==9){CHECK([details[@"stage"]isEqual:@"recv"]&&details[@"matchingAck"]==NSNull.null&&[details[@"received"]isEqual:@(ack.length)]);CHECK([details[@"shortHeaderPrefixHex"]isEqual:Hex([ack subdataWithRange:NSMakeRange(0,MIN(ack.length,(NSUInteger)32))])]);}
+    if(scenario==10)CHECK([details[@"stage"]isEqual:@"socket"]&&[details[@"syscallErrno"]isEqual:@(EACCES)]);
+    if(scenario>=11&&scenario<=13)CHECK([details[@"syscallErrno"]isEqual:@(EBADF)]);
+    if(scenario==14)CHECK([details[@"stage"]isEqual:@"send"]&&[details[@"syscallErrno"]isEqual:@(ENETUNREACH)]);
+    if(scenario==15)CHECK([details[@"sent"]isEqual:@(RouteIORequest.length-1)]&&[details[@"syscallErrno"]isEqual:@0]);
+    if(scenario==16)CHECK([details[@"stage"]isEqual:@"poll"]&&[details[@"syscallErrno"]isEqual:@(EBADF)]);
+    if(scenario==17)CHECK([details[@"revents"]isEqual:@(POLLERR)]&&[details[@"syscallErrno"]isEqual:@0]);
+    if(scenario==18)CHECK([details[@"stage"]isEqual:@"recv"]&&[details[@"syscallErrno"]isEqual:@(EIO)]);
+    if(scenario==19)CHECK([details[@"stage"]isEqual:@"poll"]&&[details[@"polled"]isEqual:@0]&&[details[@"elapsedMs"]isEqual:@1000]);
+    if(scenario==20)CHECK([details[@"stage"]isEqual:@"packet-limit"]&&[details[@"ignoredHeaders"]isEqual:@256]&&RouteIOPolls==256&&RouteIOReceives==256);
+    if(scenario==21)CHECK([details[@"stage"]isEqual:@"deadline"]&&[details[@"elapsedMs"]isEqual:@1000]&&!RouteIOPolls);
+  }
+  RouteIOFixture=RouteIOEvent=nil;RouteIORequest=nil;
+  puts("native route exchange: 24 actual wire-loop syscall/ACK/short-NEWADDR/timeout/packet-cap fixtures PASS; unchanged acceptance and 1000ms/256 bounds, no socket execution");
+}
+
 static void RouteTests(void) {
+  RouteExchangeTests();
   RoutePreparationTests();
   RouteKernelDumpTests();
   CHECK(geteuid()!=0);

@@ -1,0 +1,7 @@
+{
+  "status": "passed",
+  "evidence": "/private/tmp/kuro-offline-package-95a88084518f",
+  "sourceFiles": 201,
+  "packageSHA256": "83e24b7af760ac58fb276d22bfcad4183088bb4010e0f175661ccc7147f41763",
+  "metadataSHA256": "8530e1a55d34de6d5151a4ef8c54c0a55bf4f8f7adaab08221871de055c39391"
+}

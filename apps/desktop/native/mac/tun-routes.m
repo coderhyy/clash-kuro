@@ -200,6 +200,52 @@ static NSArray<NSDictionary *> *KuroRouteDecodeDump(NSData *dump, NSString **err
 - (BOOL)addRoute:(NSDictionary *)entry error:(NSString **)error;
 - (BOOL)deleteRoute:(NSDictionary *)entry error:(NSString **)error;
 @end
+// Private transport seam: production uses these exact syscalls; fixtures use no socket.
+typedef struct {
+  int (*openSocket)(int,int,int); int (*control)(int,int,int);
+  ssize_t (*sendPacket)(int,const void *,size_t,int); int (*waitPacket)(struct pollfd *,nfds_t,int);
+  ssize_t (*receivePacket)(int,void *,size_t,int); int (*closeSocket)(int);
+  int (*clock)(clockid_t,struct timespec *);
+} KuroRouteExchangeIO;
+static int KuroRouteControl(int fd,int operation,int value) { return fcntl(fd,operation,value); }
+static NSDictionary *KuroRouteAckFields(struct rt_msghdr value) {
+  return @{@"pid":@(value.rtm_pid),@"sequence":@(value.rtm_seq),@"version":@(value.rtm_version),@"type":@(value.rtm_type),@"length":@(value.rtm_msglen),@"errno":@(value.rtm_errno),@"flags":@((uint32_t)value.rtm_flags),@"interfaceIndex":@(value.rtm_index),@"addresses":@(value.rtm_addrs)};
+}
+static BOOL KuroRouteExchangeWithIO(NSDictionary *entry,NSData *request,int operation,int sequence,const KuroRouteExchangeIO *io,NSString **error) {
+  struct timespec started={0},began={0},now={0};io->clock(CLOCK_MONOTONIC,&started);
+  NSString *stage=@"socket",*reason=@"PF_ROUTE socket unavailable";int savedErrno=0,polled=0;short revents=0;
+  ssize_t sent=-1,count=-1;NSUInteger packets=0,ignored=0;NSDictionary *matching=nil,*lastHeader=nil;NSString *shortPrefix=@"";BOOL ok=NO;
+  int fd=io->openSocket(PF_ROUTE,SOCK_RAW,AF_UNSPEC);if(fd<0)savedErrno=errno;
+  if(fd>=0)do {
+    reason=@"route socket cannot be bounded";stage=@"fcntl-getfl";int flags=io->control(fd,F_GETFL,0);if(flags<0){savedErrno=errno;break;}
+    stage=@"fcntl-nonblock";if(io->control(fd,F_SETFL,flags|O_NONBLOCK)){savedErrno=errno;break;}
+    stage=@"fcntl-cloexec";if(io->control(fd,F_SETFD,FD_CLOEXEC)){savedErrno=errno;break;}
+    reason=@"route request was not sent completely; inspect journal";stage=@"send";
+    sent=io->sendPacket(fd,request.bytes,request.length,0);if(sent!=(ssize_t)request.length){if(sent<0)savedErrno=errno;break;}
+    reason=@"route acknowledgement absent or rejected; ownership must be reconciled";io->clock(CLOCK_MONOTONIC,&began);
+    for(packets=0;packets<256;packets++) {
+      stage=@"deadline";io->clock(CLOCK_MONOTONIC,&now);long elapsed=(now.tv_sec-began.tv_sec)*1000+(now.tv_nsec-began.tv_nsec)/1000000;
+      if(elapsed>=1000)break;
+      stage=@"poll";struct pollfd ready={.fd=fd,.events=POLLIN};polled=io->waitPacket(&ready,1,(int)(1000-elapsed));revents=ready.revents;savedErrno=polled<0?errno:0;
+      if(polled<0 && savedErrno==EINTR)continue;if(polled<=0 || (revents&(POLLERR|POLLNVAL)))break;
+      stage=@"recv";unsigned char bytes[8192];count=io->receivePacket(fd,bytes,sizeof(bytes),MSG_DONTWAIT);savedErrno=count<0?errno:0;
+      if(count<0 && (savedErrno==EAGAIN || savedErrno==EINTR))continue;
+      if(count<(ssize_t)sizeof(struct rt_msghdr)){if(count>0)shortPrefix=Hex([NSData dataWithBytes:bytes length:MIN((NSUInteger)count,(NSUInteger)32)]);break;}
+      struct rt_msghdr response;memcpy(&response,bytes,sizeof(response));lastHeader=KuroRouteAckFields(response);
+      if(response.rtm_pid!=getpid() || response.rtm_seq!=sequence){ignored++;continue;}
+      stage=@"matching-ack";matching=lastHeader;
+      if(response.rtm_version!=RTM_VERSION || response.rtm_type!=operation || response.rtm_msglen!=count || response.rtm_errno)break;
+      ok=YES;break;
+    }
+    if(packets==256)stage=@"packet-limit";
+  }while(NO);
+  // Capture errno before close and preserve only the closed request/header metadata.
+  if(fd>=0)io->closeSocket(fd);if(ok)return YES;io->clock(CLOCK_MONOTONIC,&now);
+  long elapsed=(now.tv_sec-started.tv_sec)*1000+(now.tv_nsec-started.tv_nsec)/1000000;
+  NSDictionary *details=@{@"operation":@(operation),@"route":entry,@"sequence":@(sequence),@"stage":stage,@"syscallErrno":@(savedErrno),@"elapsedMs":@(elapsed),@"sent":@(sent),@"requestBytes":@(request.length),@"polled":@(polled),@"revents":@((unsigned short)revents),@"received":@(count),@"iterations":@(packets),@"ignoredHeaders":@(ignored),@"matchingAck":matching?:NSNull.null,@"lastHeader":lastHeader?:NSNull.null,@"shortHeaderPrefixHex":shortPrefix};
+  NSData *encoded=JSONData(details);NSString *text=encoded.length<=2048?[[NSString alloc]initWithData:encoded encoding:NSUTF8StringEncoding]:@"[bounded route diagnostic unavailable]";
+  return Fail(error,[NSString stringWithFormat:@"%@; routeExchange=%@",reason,text]);
+}
 @interface KuroDarwinRouteStore : NSObject <KuroRouteStore> { int _sequence; }
 @end
 @implementation KuroDarwinRouteStore
@@ -223,26 +269,8 @@ static NSArray<NSDictionary *> *KuroRouteDecodeDump(NSData *dump, NSString **err
   NSData *request=KuroRouteMessage(entry,operation,++_sequence,error); if (!request) return NO;
   char currentName[IF_NAMESIZE]={0}; unsigned int index=[entry[@"interfaceIndex"]unsignedIntValue];
   if (!if_indextoname(index,currentName) || ![entry[@"interfaceName"]isEqual:@(currentName)] || if_nametoindex(currentName)!=index) return Fail(error,@"route target interface no longer matches the admitted association");
-  int fd=socket(PF_ROUTE,SOCK_RAW,AF_UNSPEC); if (fd<0) return Fail(error,@"PF_ROUTE socket unavailable");
-  BOOL ok=NO; int flags=fcntl(fd,F_GETFL,0);
-  if (flags<0 || fcntl(fd,F_SETFL,flags|O_NONBLOCK) || fcntl(fd,F_SETFD,FD_CLOEXEC)) { close(fd); return Fail(error,@"route socket cannot be bounded"); }
-  ssize_t sent=send(fd,request.bytes,request.length,0);
-  if (sent!=(ssize_t)request.length) { close(fd); return Fail(error,@"route request was not sent completely; inspect journal"); }
-  struct timespec began; clock_gettime(CLOCK_MONOTONIC,&began);
-  for (NSUInteger packets=0;packets<256;packets++) {
-    struct timespec now; clock_gettime(CLOCK_MONOTONIC,&now); long elapsed=(now.tv_sec-began.tv_sec)*1000+(now.tv_nsec-began.tv_nsec)/1000000;
-    if (elapsed>=1000) break;
-    struct pollfd ready={.fd=fd,.events=POLLIN}; int polled=poll(&ready,1,(int)(1000-elapsed));
-    if (polled<0 && errno==EINTR) continue; if (polled<=0 || (ready.revents&(POLLERR|POLLNVAL))) break;
-    unsigned char bytes[8192]; ssize_t count=recv(fd,bytes,sizeof(bytes),MSG_DONTWAIT);
-    if (count<0 && (errno==EAGAIN || errno==EINTR)) continue;
-    if (count<(ssize_t)sizeof(struct rt_msghdr)) break;
-    struct rt_msghdr response; memcpy(&response,bytes,sizeof(response));
-    if (response.rtm_pid!=getpid() || response.rtm_seq!=_sequence) continue;
-    if (response.rtm_version!=RTM_VERSION || response.rtm_type!=operation || response.rtm_msglen!=count || response.rtm_errno) break;
-    ok=YES; break;
-  }
-  close(fd); return ok || Fail(error,@"route acknowledgement absent or rejected; ownership must be reconciled");
+  const KuroRouteExchangeIO io={.openSocket=socket,.control=KuroRouteControl,.sendPacket=send,.waitPacket=poll,.receivePacket=recv,.closeSocket=close,.clock=clock_gettime};
+  return KuroRouteExchangeWithIO(entry,request,operation,_sequence,&io,error);
 }
 - (BOOL)addRoute:(NSDictionary *)entry error:(NSString **)error {
   NSArray *before=[self routes:error]; if (!before) return NO;
