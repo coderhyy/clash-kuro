@@ -1,11 +1,13 @@
 # macOS TUN 集成验收
 
-Status: ready-for-agent（eb4真实fresh恢复失败且已清理；c138修复候选双平台CI/独审通过，待新窗口授权）
+Status: ready-for-agent（持续正常窗口已授权；c138生产只读预检发现DNS元数据兼容问题，未安装）
 Type: validation
 Blocked by: 首次正常启停：真实kernel路由编码兼容修复、回归/独审及新候选窗口；正式交付：真实异常恢复与升级验收
 Owner: 主会话集成与最终验证；验收 agent 准备记录
 
 ## 当前状态（2026-11-05，eb4beec）
+
+- **持续窗口已授权，c138安装前只读预检**：实际生产route/interface/config通过，Global DNS系统元数据被拒；未安装/未修改网络，前后基线一致。[现场记录](../evidence/c138-readonly-preflight-20261106/RESULT.md)。修复回归与同版本只读预检继续，无需逐包确认；未知归属/恢复失败/扩大范围仍停下询问。
 
 - **最新可验收候选**：`c138652131a6bf9035225b0ff93b74b9c360b21d`，包SHA256 `f3b7fbdbb3fc7f49da44b9006418fc9cbc24cb6a1ebcd503f9adf0fed2c9f8d8`；CI42148141090双平台成功、干净源码构建及实际包离线独审通过。尚未安装/启动；[冻结](../evidence/darwin-route-parser-20261106/freeze-c138.json)及[新正常窗口](../evidence/darwin-route-parser-20261106/NEXT-WINDOW.md)。
 
