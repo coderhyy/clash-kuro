@@ -34,7 +34,8 @@
 - (id)valueForDNSKey:(NSString *)key error:(NSString **)error {
   CFPropertyListRef value = SCDynamicStoreCopyValue(_store, (__bridge CFStringRef)key);
   if (value) return CFBridgingRelease(value);
-  if (SCError() != kSCStatusNoKey) Fail(error, @"owned DNS key readback failed; state unknown");
+  int status=SCError();
+  if (status != kSCStatusNoKey) Fail(error, [NSString stringWithFormat:@"owned DNS key readback failed; SCError=%d; state unknown",status]);
   return nil;
 }
 - (BOOL)addTemporaryDNSValue:(NSDictionary *)value key:(NSString *)key error:(NSString **)error {
@@ -191,7 +192,13 @@ static NSDictionary *KuroDNSPreflight(NSDictionary *records, NSString **error) {
   if (!admission(error) || ![_backend addTemporaryDNSValue:KuroDNSValue() key:key error:error]) return NO;
   failure = nil;
   id observed = [_backend valueForDNSKey:key error:&failure];
-  if (failure || ![observed isEqual:KuroDNSValue()] || !admission(error)) return Fail(error, @"temporary DNS write was not independently confirmed; journal retained");
+  if (failure) return Fail(error,[NSString stringWithFormat:@"temporary DNS write was not independently confirmed; journal retained; stage=copy-value; reason=%@",[failure substringToIndex:MIN(failure.length,(NSUInteger)1024)]]);
+  if (![observed isEqual:KuroDNSValue()]) {
+    NSDictionary *mapping=[observed isKindOfClass:NSDictionary.class]?observed:nil,*expected=KuroDNSValue();
+    return Fail(error,[NSString stringWithFormat:@"temporary DNS write was not independently confirmed; journal retained; stage=readback-value; present=%d; mapping=%d; fieldCount=%lu; serversMatch=%d; domainsMatch=%d; ordersMatch=%d",observed!=nil,mapping!=nil,(unsigned long)MIN(mapping.count,(NSUInteger)257),[mapping[@"ServerAddresses"]isEqual:expected[@"ServerAddresses"]],[mapping[@"SupplementalMatchDomains"]isEqual:expected[@"SupplementalMatchDomains"]],[mapping[@"SupplementalMatchOrders"]isEqual:expected[@"SupplementalMatchOrders"]]]);
+  }
+  NSString *admissionFailure=nil;
+  if (!admission(&admissionFailure)) return Fail(error,[NSString stringWithFormat:@"temporary DNS write was not independently confirmed; journal retained; stage=post-write-admission; reason=%@",admissionFailure?[admissionFailure substringToIndex:MIN(admissionFailure.length,(NSUInteger)1024)]:@"admission returned false without reason"]);
   return YES;
 }
 - (BOOL)recoverDNS:(NSString **)error { return [self recoverDNSAllowRemoval:YES error:error]; }

@@ -92,7 +92,25 @@ static void DNSMetadataTests(void) {
 
 #import "tun-production-network.test.m"
 
+static void DNSWriteDiagnosticTests(void) {
+  char temporary[]="/tmp/kuro-dns-write-diag-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));NSString *base=@(canonical),*session=@"00112233-4455-6677-8899-AABBCCDDEEFF",*key=KuroDNSKey(session);
+  for(NSUInteger scenario=0;scenario<5;scenario++) {
+    NSString *directory=[base stringByAppendingPathComponent:[NSString stringWithFormat:@"case%lu",(unsigned long)scenario]],*error=nil;FixtureDirectory(directory);
+    KuroFakeDNSStore *backend=[KuroFakeDNSStore new];backend.directory=directory;__weak KuroFakeDNSStore *weak=backend;
+    if(scenario==0)backend.onValueRead=^{KuroFakeDNSStore *value=weak;if(value.additions)value.failRead=YES;};
+    if(scenario==1)backend.onValueRead=^{KuroFakeDNSStore *value=weak;if(value.additions)value.records[key]=@{@"ServerAddresses":@[@"do-not-publish-dns-secret"],@"unknown-private-key":@"do-not-publish-dns-secret"};};
+    KuroOwnedDNS *dns=[[KuroOwnedDNS alloc]initWithDirectory:directory owner:geteuid() backend:backend];
+    BOOL ok=[dns installPreparedSession:session admission:^BOOL(NSString **failure){if(backend.additions&&(scenario==2||scenario==3))return scenario==2?Fail(failure,@"exact route/probe admission failure"):NO;return YES;} error:&error];
+    CHECK(ok==(scenario==4)&&backend.additions==1);CHECK(Exists([directory stringByAppendingPathComponent:KuroDNSJournal]));
+    if(!ok){CHECK([error containsString:scenario==0?@"stage=copy-value":scenario==1?@"stage=readback-value":@"stage=post-write-admission"]);CHECK(![error containsString:@"do-not-publish-dns-secret"]&&! [error containsString:@"unknown-private-key"]);if(scenario==0)CHECK([error containsString:@"read failure"]);if(scenario==1)CHECK([error containsString:@"serversMatch=0"]);if(scenario==2)CHECK([error containsString:@"exact route/probe admission failure"]);if(scenario==3)CHECK([error containsString:@"without reason"]);}
+    backend.onValueRead=nil;backend.failRead=NO;
+    if(scenario==1){CHECK(![dns recoverDNS:&error]&&backend.removals==0&&Exists([directory stringByAppendingPathComponent:KuroDNSJournal]));}
+    else CHECK([dns recoverDNS:&error]&&dns.dnsOff&&!Exists([directory stringByAppendingPathComponent:KuroDNSJournal]));
+  }
+  CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);puts("DNS write diagnostics: copy error/value mismatch/admission cause remain distinct, no private DNS values emitted, unknown values preserved, success/recovery unchanged PASS");
+}
 static void NetworkTests(void) {
+  DNSWriteDiagnosticTests();
   DNSMetadataTests();
   CHECK(geteuid() != 0);
   RouteTests();

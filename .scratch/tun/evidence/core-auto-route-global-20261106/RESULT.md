@@ -11,3 +11,13 @@ Same-session failed-start recovery: SIGTERM exit0, both output EOF, durable chil
 No traffic probe was attempted. Normal active TUN traffic and shutdown, external IPv6 and abnormal recovery remain unverified. USB/peer-interface dynamics require later compatibility validation; exact whole-baseline comparison in this controlled experiment is not a product requirement to reject all unrelated network changes.
 
 Full local native/upgrade fixtures, fixed Core syntax validation, all eight production admission chains and bounded-output tests passed; no root/service/network activation. Raw execution log remains /private/tmp/kuro-global-full-native.log.
+
+## dd312 controlled retry
+
+Exact source dd312b63bb890cf97a14edecfd18addfa1a2a818, package SHA764e0061317e88767cec9431f4ab6f6262e31f81325f01adf06b0ca1979aa6c9; both-platform CI42198982549 and actual package review passed. Same approved Profile, disconnected-phone baseline, fresh install. Actual App reached ready; route readiness and internal DNS checks proceeded beyond the previous GLOBAL refusal. Resolver publication then failed with `temporary DNS write was not independently confirmed; journal retained`.
+
+Core logs contain background connections classified MATCH,DIRECT, proving delivery into this Core but not successful outbound forwarding. Several TCP ENETUNREACH messages occurred before the final shutdown log; their timing does not resolve possible cleanup races. No controlled flow probe completed. Fixed runtime interface binding remains enabled and must not be relaxed based on these logs.
+
+Same-session recovery passed: SIGTERM exit0, both output EOF, durable child/route/DNS-off proof, exact baseline route/DNS restoration. App exited after proof; accurate job/native uninstall and exact receipt cleanup succeeded. No install/process/job residue. Raw evidence remains local at /private/tmp/kuro-dd312b6-window-952rhs4a; retained protected diagnostics are local only.
+
+Source review found the DNS generic error overwrites three distinct failures: readback backend error, value mismatch, and post-write admission error. Next minimal diagnostic change preserves the real branch/reason without changing acceptance, retrying, or adding network reads. Full TUN start/traffic/normal stop remains unverified.

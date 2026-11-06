@@ -345,13 +345,21 @@ static void ServiceCachePreparationTests(void) {
 }
 static void ServiceDiagnosticTests(void) {
   ServiceFixtureListenerTests();
-  for(NSUInteger scenario=0;scenario<8;scenario++) {
+  for(NSUInteger scenario=0;scenario<11;scenario++) {
     char temporary[]="/tmp/kuro-diag-service-XXXXXX";CHECK(mkdtemp(temporary));char canonical[PATH_MAX];CHECK(realpath(temporary,canonical));
     NSString *directory=@(canonical),*work=[directory stringByAppendingPathComponent:@"session-work"],*journal=[directory stringByAppendingPathComponent:@"owner.json"];
     NSString *name=scenario==1?@"core-diagnostic-exit37":scenario==2?@"core-diagnostic-overflow":scenario==3?@"core-diagnostic-timeout":@"core-diagnostic";
     NSString *core=[directory stringByAppendingPathComponent:name];Put(core,[NSData dataWithContentsOfFile:Executable()],0755);
     KuroTunServiceHooks *hooks=ServiceHooks();__block NSUInteger recovered=0;
     hooks.recoverNetwork=^BOOL(NSString *session,NSString **error){(void)session;(void)error;recovered++;return YES;};
+    __block NSString *dnsPrimary=nil;
+    if(scenario>=8) {
+      KuroFakeDNSStore *backend=[KuroFakeDNSStore new];backend.directory=directory;__block KuroOwnedDNS *owned=nil;
+      hooks.applyNetwork=^BOOL(pid_t child,NSString *session,NSString **error){(void)child;owned=[[KuroOwnedDNS alloc]initWithDirectory:directory owner:geteuid() backend:backend];__weak KuroFakeDNSStore *weak=backend;
+        backend.onValueRead=^{KuroFakeDNSStore *value=weak;if(value.additions){if(scenario==8)value.failRead=YES;if(scenario==9)[value.records removeObjectForKey:KuroDNSKey(session)];}};
+        BOOL ok=[owned installPreparedSession:session admission:^BOOL(NSString **problem){return !(scenario==10&&backend.additions)||Fail(problem,@"exact post-write route admission failure");} error:error];if(error)dnsPrimary=[*error copy];return ok;};
+      hooks.recoverNetwork=^BOOL(NSString *session,NSString **error){(void)session;recovered++;backend.onValueRead=nil;backend.failRead=NO;return [owned recoverDNS:error];};
+    }
     KuroTunService *service=[[KuroTunService alloc]initFixtureDirectory:directory core:core hooks:hooks];
     dispatch_semaphore_t done=dispatch_semaphore_create(0),retained=dispatch_semaphore_create(0);
     service.fixtureRetained=^{dispatch_semaphore_signal(retained);};
@@ -360,7 +368,7 @@ static void ServiceDiagnosticTests(void) {
     if(scenario==5)service.fixtureBeforeDiagnosticFinish=^(NSString *path){NSString *file=[path stringByAppendingPathComponent:@"diagnostics.json"];if(!Exists(file))Put(file,Bytes(@"unknown diagnostic checkpoint"),0600);};
     // A SHA ending in 'e' would redact the invalid-frame reason's final 'e'.
     // Other cases retain the SHA-suffix credential to exercise exact hash summaries.
-    NSMutableDictionary *config=ValidTunConfig();NSString *coreDigest=Hash([NSData dataWithContentsOfFile:core]);unichar credentialPrefix=scenario==6?'!':[coreDigest characterAtIndex:coreDigest.length-1];NSString *credential=[NSString stringWithFormat:@"%C-fixture-credential-unique\"/",credentialPrefix];
+    NSMutableDictionary *config=ValidTunConfig();NSString *coreDigest=Hash([NSData dataWithContentsOfFile:core]);unichar credentialPrefix=(scenario>=8||scenario==6)?'!':[coreDigest characterAtIndex:coreDigest.length-1];NSString *credential=[NSString stringWithFormat:@"%C-fixture-credential-unique\"/",credentialPrefix];
     config[@"proxies"]=@[@{@"name":@"proxy",@"type":@"socks5",@"server":@"192.0.2.10",@"port":@1080,@"username":@"fixture-user-unique",@"password":credential,@"tls":@NO}];
     int peers[2];CHECK(!socketpair(AF_UNIX,SOCK_STREAM,0,peers));int peer=peers[0];
     __block BOOL result=NO;__block NSString *failure=nil;
@@ -411,6 +419,7 @@ static void ServiceDiagnosticTests(void) {
         if(accepted)CHECK([err containsString:@"fixture-stage=listener-ready"]&&[err containsString:@"fixture-stage=version-request"]);
         if(scenario==3)CHECK(![err containsString:@"fixture-stage=listener-ready"]);
       }
+      if(scenario>=8) {CHECK(!result&&[failure isEqual:dnsPrimary]&&[metadata[@"error"]isEqual:dnsPrimary]);CHECK([dnsPrimary containsString:scenario==8?@"stage=copy-value":scenario==9?@"stage=readback-value":@"stage=post-write-admission"]);CHECK([metadata[@"networkRecovery"][@"restored"]boolValue]&&!Exists([directory stringByAppendingPathComponent:KuroDNSJournal]));}
       if(scenario==1||scenario==2)CHECK([metadata[@"termination"][@"exitCode"]isEqual:@37]);
       if(scenario==2)CHECK([metadata[@"capture"][@"stdout"][@"bytesRead"]unsignedLongLongValue]>65536&&[metadata[@"capture"][@"stderr"][@"truncated"]boolValue]);
       if(scenario==3)CHECK([metadata[@"stage"]isEqual:@"private Core version readiness"]&&[metadata[@"termination"][@"signal"]isEqual:@15]);
@@ -419,7 +428,7 @@ static void ServiceDiagnosticTests(void) {
     if(scenario==0)CHECK(result);else if(scenario<4)CHECK(!result&&failure.length>0);
     close(peers[1]);CHECK([[NSFileManager defaultManager]removeItemAtPath:directory error:NULL]);
   }
-  puts("native production diagnostics: 8 actual harmless service cases cover redacted startup/normal, exit37, overflow drain, timeout, failed-save explicit recovery, unknown checkpoint preservation and pre-cleanup invalid-frame reason; no Core/network");
+  puts("native production diagnostics: 11 actual harmless service cases (including 3 DNS write/readback/admission failures retained through real held cleanup) cover redacted startup/normal, exit37, overflow drain, timeout, failed-save explicit recovery, unknown checkpoint preservation and pre-cleanup invalid-frame reason; no Core/network");
 }
 static void PartialDNSServiceTests(void) {
   for(NSUInteger scenario=0;scenario<5;scenario++) {
