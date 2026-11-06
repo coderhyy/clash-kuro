@@ -27,6 +27,25 @@ async function replace(path, bytes, mode) {
   } finally { await rm(temporary, { recursive: true, force: true }) }
 }
 
+// Keep inherited fixture output, but preserve the exit/timeout distinction that
+// the CLI's short error.message otherwise loses. This changes no test budget.
+export function runNativeCheck(stage, file, args, options) {
+  const started = performance.now()
+  const log = (event, details = {}) => console.error(`[native-check] ${JSON.stringify({
+    stage, event, file, timeoutMs: options.timeout, elapsedMs: Math.round(performance.now() - started), ...details,
+  })}`)
+  log('started')
+  try {
+    const result = execFileSync(file, args, options)
+    log('passed', { status: 0 })
+    return result
+  } catch (error) {
+    log('failed', { code: error.code ?? null, status: error.status ?? null, signal: error.signal ?? null,
+      syscall: error.syscall ?? null, errno: error.errno ?? null })
+    throw error
+  }
+}
+
 export async function buildMacosHelper(target, test = false) {
   if (process.platform !== 'darwin' || !Object.hasOwn(known, target)) throw new Error('build-macos-helper requires macOS and darwin-arm64 or darwin-x64')
   const arch = known[target]
@@ -40,11 +59,11 @@ export async function buildMacosHelper(target, test = false) {
       execFileSync('/usr/bin/clang', [...flags, '-Wno-unused-function', join(source, 'kuro-tun-helper.test.m'), '-o', binary], { stdio: 'inherit' })
       // Tests reject root; only socketpair and private temporary-directory operations.
       // The full install/recovery matrix exceeds 30s on hosted runners; individual waits stay bounded.
-      execFileSync(binary, [], { stdio: 'inherit', timeout: 90_000 })
-      execFileSync(binary, ['--upgrade-tests'], { stdio: 'inherit', timeout: 180_000 })
+      runNativeCheck('native-suite', binary, [], { stdio: 'inherit', timeout: 90_000 })
+      runNativeCheck('upgrade-suite', binary, ['--upgrade-tests'], { stdio: 'inherit', timeout: 180_000 })
       // Exercise the production client/store against the signed native fixture before removing it.
       const admissionReport = join(temporary, 'admission.json')
-      execFileSync('node', [join(root, '../../node_modules/vitest/vitest.mjs'), 'run', 'src/main/candidate-startup.test.ts', '-t', 'authenticated native admission', '--maxWorkers=1', '--reporter=default', '--reporter=json', `--outputFile.json=${admissionReport}`], {
+      runNativeCheck('admission-chains', 'node', [join(root, '../../node_modules/vitest/vitest.mjs'), 'run', 'src/main/candidate-startup.test.ts', '-t', 'authenticated native admission', '--maxWorkers=1', '--reporter=default', '--reporter=json', `--outputFile.json=${admissionReport}`], {
         cwd: root, env: { ...process.env, KURO_ADMISSION_FIXTURE: binary }, stdio: 'inherit', timeout: 120_000,
       })
       const admission = JSON.parse(await readFile(admissionReport, 'utf8')).testResults.flatMap(result => result.assertionResults)
@@ -52,7 +71,7 @@ export async function buildMacosHelper(target, test = false) {
       if (admission.length !== 8 || admission.some(result => result.status !== 'passed')) throw new Error('All eight production admission chains must execute and pass')
       const outputTests = join(temporary, 'output-tests')
       execFileSync('/usr/bin/clang', [...flags, '-Wno-unused-function', join(source, 'tun-output.test.m'), '-o', outputTests], { stdio: 'inherit' })
-      execFileSync(outputTests, [], { stdio: 'inherit', timeout: 20_000 })
+      runNativeCheck('output-suite', outputTests, [], { stdio: 'inherit', timeout: 20_000 })
     }
     const binary = join(temporary, 'helper')
     execFileSync('/usr/bin/clang', [...flags, join(source, 'kuro-tun-helper.m'), '-o', binary], { stdio: 'inherit' })
