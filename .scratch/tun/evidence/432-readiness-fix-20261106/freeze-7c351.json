@@ -1,0 +1,10 @@
+{
+  "sourceCommit": "7c3511f1193df258fb123b0fc9eef844b0a3cef7",
+  "packageSHA256": "05f11d41e0db8b9108d2b6066ec05389d77679b8a71ffe2a46a7af9e97094c1e",
+  "offlinePackageReview": "passed",
+  "readonlyProductionPreflight": "passed root context, en0",
+  "ciRun": 42156320520,
+  "ci": "success on attempt2; initial Windows timing failures retained",
+  "installedOrLaunched": false,
+  "windowEvidence": "/private/tmp/kuro-7c351-window-2ve0msza"
+}

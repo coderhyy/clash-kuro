@@ -229,7 +229,13 @@ static BOOL KuroPreservedEndpoint(NSString *text, NSArray *routes, NSString *phy
     NSString *destination=extra[@"destination"]; int prefix=[extra[@"prefix"]intValue];
     BOOL expected=([extra[@"family"]isEqual:@4] && (([destination isEqual:@"198.18.0.0"] && prefix==30) || ([destination isEqual:@"198.18.0.1"] && prefix==32))) ||
       ([extra[@"family"]isEqual:@6] && (([destination isEqual:@"fdfe:dcba:9876::"] && prefix==126) || ([destination isEqual:@"fdfe:dcba:9876::1"] && prefix==128) || ([destination hasPrefix:@"fe80:"] && (prefix==64 || prefix==128))));
-    if (!own || !expected || ([extra[@"flags"]unsignedIntValue]&(RTF_GATEWAY|RTF_PROTO2))) return Fail(error,@"unexpected route appeared while creating Core utun; refusing takeover");
+    if (!own || !expected || ([extra[@"flags"]unsignedIntValue]&(RTF_GATEWAY|RTF_PROTO2))) {
+      // Preserve the exact closed read-only entry before stopping the child.
+      // This evidence never changes admission or grants cleanup authority.
+      NSData *encoded=JSONData(extra);
+      NSString *observed=encoded && encoded.length<=1024 ? [[NSString alloc]initWithData:encoded encoding:NSUTF8StringEncoding] : @"[route evidence unavailable or oversized]";
+      return Fail(error,[NSString stringWithFormat:@"unexpected route appeared while creating Core utun; refusing takeover; phase=%@; owned-interface=%s/%u; observed=%@",installed?@"active verification":@"Core startup",_association.interfaceName,_association.interfaceIndex,observed]);
+    }
   }
   NSMutableDictionary *dns=[[_dnsBackend dnsRecords:error]mutableCopy];
   if (installed) {

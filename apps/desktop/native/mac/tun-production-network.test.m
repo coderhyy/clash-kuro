@@ -84,7 +84,29 @@ static void ProductionDNSMetadataTests(void) {
   CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);puts("PASS 4 production DNS metadata cases: effective interface admission, preserved scoped path, exact journal/baseline and mutation refusal, UUID-only recovery");
 }
 
+static void UnexpectedRouteEvidenceTests(void) {
+  char temporary[]="/tmp/kuro-route-evidence-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));NSString *base=@(canonical),*session=@"00112233-4455-6677-8899-AABBCCDDEEFF";KuroCoreInterface association=RouteFixtureInterface();
+  for(NSUInteger scenario=0;scenario<3;scenario++) {
+    NSString *directory=[base stringByAppendingPathComponent:[NSString stringWithFormat:@"case%lu",(unsigned long)scenario]],*error=nil;FixtureDirectory(directory);
+    KuroFakeRouteStore *routes=[KuroFakeRouteStore new];routes.directory=directory;routes.entries=[ProductionBaseline()mutableCopy];KuroFakeDNSStore *dns=[KuroFakeDNSStore new];dns.directory=directory;
+    __block NSArray *interfaces=ProductionInterfaces(NO);__block NSUInteger probes=0;KuroNetworkEnvironment *environment=[KuroNetworkEnvironment new];
+    environment.interfaces=^NSArray *(NSString **failure){(void)failure;return interfaces;};environment.observeChild=^BOOL(pid_t child,KuroCoreInterface *result,NSString **failure){(void)failure;CHECK(child==association.process.pid);*result=association;return YES;};
+    environment.ownership=^KuroRouteOwnerState(KuroCoreInterface expected,NSString **failure){(void)expected;(void)failure;return KuroRouteOwnerLive;};environment.probeDNS=^BOOL(KuroCoreInterface expected,NSString **failure){(void)expected;(void)failure;probes++;return YES;};
+    KuroProductionNetwork *network=[[KuroProductionNetwork alloc]initWithDirectory:directory owner:geteuid() routes:routes dns:dns environment:environment];CHECK([network preflightConfig:ProductionConfig() error:&error]);
+    interfaces=ProductionInterfaces(YES);[routes.entries addObject:ProductionRoute(4,@"198.18.0.0",30,@"link",@"utun7",7,RTF_UP)];[routes.entries addObject:ProductionRoute(6,@"fdfe:dcba:9876::",126,@"link",@"utun7",7,RTF_UP)];
+    NSDictionary *extra=ProductionRoute(4,scenario==2?@"198.18.0.1":@"203.0.113.0",scenario==2?32:24,@"link",scenario==2?@"en1":@"utun7",scenario==2?3:7,RTF_UP);
+    if(scenario==1){CHECK([network readyChild:association.process.pid session:session error:&error]);CHECK([network applyChild:association.process.pid session:session error:&error]);}
+    [routes.entries addObject:extra];BOOL accepted=scenario==1?[network confirmSession:session error:&error]:[network readyChild:association.process.pid session:session error:&error];CHECK(!accepted);
+    CHECK([error containsString:@"unexpected route appeared"]&&[error containsString:scenario==1?@"phase=active verification":@"phase=Core startup"]&&[error containsString:@"owned-interface=utun7/7"]);
+    NSRange marker=[error rangeOfString:@"observed="];CHECK(marker.location!=NSNotFound);NSData *encoded=[[error substringFromIndex:NSMaxRange(marker)]dataUsingEncoding:NSUTF8StringEncoding];CHECK(encoded.length<=1024);CHECK([KuroDecodeJSON(encoded,1024,NULL)isEqual:extra]);
+    if(scenario==1)CHECK(routes.additions==4&&dns.additions==1);else CHECK(!routes.additions&&!dns.additions&&!probes);
+    [routes.entries removeObject:extra];CHECK([network recoverSession:session error:&error]);
+  }
+  CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);puts("PASS 3 unexpected-route diagnostic cases: exact closed entry and stage retained, original startup/active and wrong-interface refusal unchanged; fake backend only");
+}
+
 static void ProductionNetworkTests(void) {
+  UnexpectedRouteEvidenceTests();
   ProductionDNSMetadataTests();
   RecoveredNetworkReadbackTests();
   IPv4UpstreamTests();
