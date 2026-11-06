@@ -695,9 +695,9 @@ static void HeldStopCheckpointTests(void) {
       service.fixtureRetained=^{if(scenario==12)dispatch_semaphore_signal(retained);else [weak requestShutdown];};
       int peers[2];CHECK(!socketpair(AF_UNIX,SOCK_STREAM,0,peers));
       if(scenario==12) {
-        KuroStoppedFault=2;int peer=peers[0];__block BOOL result=YES;
+        KuroStoppedFault=2;int peer=peers[0];__block BOOL result=YES;uint64_t openBegan=KuroMonotonicMilliseconds();
         dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT,0),^{NSString *failure=nil;result=[service serveOpenFrame:ServiceOpen()peer:peer error:&failure];close(peer);dispatch_semaphore_signal(done);});
-        NSDictionary *open=ServiceRead(peers[1]);CHECK([open[@"ok"]boolValue]);ServiceSend(peers[1],@{@"version":@2,@"operation":@"stop",@"session":open[@"session"],@"sequence":@1});CHECK(![ServiceRead(peers[1])[@"ok"]boolValue]);ServiceWait(retained);
+        NSDictionary *open=ServiceRead(peers[1]);if(![open[@"ok"]boolValue]){fprintf(stderr,"held checkpoint open reply: %s\n",open.description.UTF8String);ServiceFixtureReportMismatch(state,scenario,KuroMonotonicMilliseconds()-openBegan);}CHECK([open[@"ok"]boolValue]);ServiceSend(peers[1],@{@"version":@2,@"operation":@"stop",@"session":open[@"session"],@"sequence":@1});CHECK(![ServiceRead(peers[1])[@"ok"]boolValue]);ServiceWait(retained);
         CHECK(Exists(path)&&Exists(stopped)&&!Exists([state stringByAppendingPathComponent:@"session-work"]));CHECK([service.statusSnapshot[@"state"]isEqual:@"unknown"]);CHECK(!Uninstall(prefix,geteuid(),NO,At(prefix,Recovery),&error));
         KuroStoppedFault=0;CHECK(ServiceRecoverySocket(service));ServiceWait(done);CHECK(!result&&proofs>=2);close(peers[1]);
       } else {
