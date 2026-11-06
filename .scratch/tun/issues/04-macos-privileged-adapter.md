@@ -1,11 +1,13 @@
 # macOS 特权 helper
 
-Status: ready-for-agent（eb4真实fresh恢复失败且已清理；路由修复及生产组合已整合，待CI/新候选）
+Status: ready-for-agent（eb4真实fresh恢复失败且已清理；c138修复候选双平台CI/独审通过，待新窗口授权）
 Type: task
 Blocked by: 首次正常启停：真实kernel路由编码兼容修复、回归/独审及新候选窗口；正式交付：真实异常恢复与升级验收
 Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
 
 ## 当前状态（2026-11-05，eb4beec）
+
+- **最新可验收候选**：`c138652131a6bf9035225b0ff93b74b9c360b21d`，包SHA256 `f3b7fbdbb3fc7f49da44b9006418fc9cbc24cb6a1ebcd503f9adf0fed2c9f8d8`；CI42148141090双平台成功、干净源码构建及实际包离线独审通过。尚未安装/启动；[冻结](../evidence/darwin-route-parser-20261106/freeze-c138.json)及[新正常窗口](../evidence/darwin-route-parser-20261106/NEXT-WINDOW.md)。
 
 - **2026-11-06 最新真实结果**：eb4 fresh安装及实际App身份核验通过，但自动恢复被 `routes: invalid route mask` 阻止；未启动Core/TUN。准确卸载、job/receipt/进程缺席，网络与新基线一致。窗口结束；[现场证据与下一修复](../evidence/eb4-tun-window-20261106/RESULT.md)。以下eb4准备记录仅为历史，不再重试旧包。
 - 后续离线修复：Darwin压缩mask与LOCAL/HOST IPv6 zone兼容已集成；原decoder在实际恢复链blocked，新decoder7/7组合通过，标准原生与固定Core-t通过。[整合记录](../evidence/darwin-route-parser-20261106/INTEGRATED.md)。
