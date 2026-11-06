@@ -56,9 +56,30 @@ IPv4-only宿主仍建立固定双族utun：固定Core受控环境设置其支持
 
 **互斥的必要推论：** 应用必须决定 Runtime Config 中 `tun.enable` 此刻是否可以生效。Profile / Override 在此字段上的值不得越过已确认模式、关闭或恢复门禁。正常重开先残留检查、保持 TUN 关闭、仅用户手动开启已由 ADR-0016 批准，不实现自动恢复上次 TUN 偏好。该互斥推论本身不选择参数；D8 已另行允许技术选型。候选、技术门和产品影响如下，不把源码支持当作真机通过。
 
+## 路由执行方决定（2026-11-06，维护者已批准，生产接线完成）
+
+**结论：没有找到已批准要求必须由 helper 自写 PF_ROUTE、而固定 Core 自动路由明确无法满足的证据。维护者已批准 Core `auto-route: true` 负责路由，helper 保留鉴权、监督、只读核验与现有 DNS；配置、观察账本和生命周期已完成替换，八条生产组合回归通过；独审/CI/新候选与真实网络验收尚未完成。** 不再把已投入的手工账本或 host2→probe→split4 顺序当作产品要求。ADR-0014/17/18 未指定路由写入方；本 spec 最初候选也为 auto-route:true。
+
+固定 mihomo v1.19.33 (`3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8`) 锁定 sing-tun v0.4.28 (`a128d0c3c8001e041725fa67ff3b521502298f17`)。已只读核对固定源文件及缓存 Git blob：
+
+- [路由计算](https://github.com/MetaCubeX/sing-tun/blob/a128d0c3c8001e041725fa67ff3b521502298f17/tun_rules.go#L106-L192)支持两族 route-address/exclude；Darwin 默认是每族8个子范围，**不是**当前四条/1。[创建阶段](https://github.com/MetaCubeX/sing-tun/blob/a128d0c3c8001e041725fa67ff3b521502298f17/tun_darwin.go#L330-L347)自行加路由，[写入器](https://github.com/MetaCubeX/sing-tun/blob/a128d0c3c8001e041725fa67ff3b521502298f17/tun_darwin.go#L517-L543)使用 x/net/route 和自身.1/::1网关，仅检查Write，不提供独立ACK或持久receipt。后两项需要helper核验，不证明helper必须写路由。
+- [Close](https://github.com/MetaCubeX/sing-tun/blob/a128d0c3c8001e041725fa67ff3b521502298f17/tun_darwin.go#L185-L191)关闭DNS session与utun FD，没有显式逐条delete。正常/部分启动失败/异常退出后路由是否消失必须实机读回，不能从源码或无TUN root实验推导通过。[flushDNSCache](https://github.com/MetaCubeX/sing-tun/blob/a128d0c3c8001e041725fa67ff3b521502298f17/tun_darwin.go#L546-L548)会异步派生固定dscacheutil -flushcache，需纳入既有进程组退出证据，不新增常驻监督组件。
+- Core在创建TUN时先安装路由，无法原样维持我们选择的host2→DNS probe→split4时序；该时序不是已批准产品约束。改变执行方后须承认DNS-ready前路由可能短暂生效，启动失败仍停止准确Core并恢复，不能把后置读回写成写前保证。
+
+**最小调整范围（04/06内，不新增框架/RPC/UI）：**
+
+1. 保留受保护安装/升级/卸载、实际App身份、固定Core与受限配置、私有控制通道、loaded-job/held-child/lease、准确owner/work/cache、模式互斥、重开关闭和诊断。路由参数仍由root固定生成，不接受App任意route字段。
+2. 只换路由执行方，保持 `dns-mode: disabled`、原Profile DNS及现有helper临时DNS/精确恢复；不捆绑迁移Core native DNS。采用固定 `route-address: [0.0.0.0/1, 128.0.0.0/1, ::/1, 8000::/1]` 保持当前/1范围，由固定Core计算实际项，避免未经核对直接改为默认16条。上游会附加IPv4自身/30的ADD请求，实际安装仍需读回，gateway/flags也改变，必须按实际结果核验；不重写第三套路由算法。
+3. 启动前持久化基线、有限预计计划及安装/Core/会话绑定；Core启动后验证准确held utun与实际路由、内部双族DNS，随后才激活现有helper DNS。新路由记录是Core创建的观测证据，不冒充手工PROTO2/applied删除授权。旧 routes-v1 账本仅在严格证明记录条目缺席后退役，不保留旧 writer；未知或第三方条目不删除。
+4. 停止准确Core后，独立核验接口、计划路由缺席和DNS/基线恢复再签发停止证明。必须适配当前网络协调器及fresh恢复逻辑，不能只把auto-route布尔值翻转。离线覆盖部分创建、冲突、读回不符与旧账本；实机验证正常启停、LAN/scoped DNS、失败恢复及后续另批异常窗口。
+
+**现有手工路径不只剩一个已收敛问题。** e2addf7现场完整写出188字节后，首先读到64字节RTM_NEWMADDR通知；代码在分类前按rt_msghdr长度拒绝，因此未读到匹配ACK，不能把syscall errno0当作内核ACK成功。回滚前目标IPv6 host路由存在。通知分类最小补丁已完成同测试旧源码RED/新源码GREEN并独审，但未安装/重试。另有实际flags0x4c05相对期望0x4805多RTF_LLINFO，将被后续精确读回拒绝；未放宽该门。内部双族DNS、完整on、流量接管、LAN/split DNS及网络异常恢复仍缺实证。[现场证据](evidence/route-ack-diagnostic-20261106/candidate-e2addf7/REAL-WINDOW.md)。因此不建议继续把自写PF_ROUTE当首版关键路径。
+
+维护者已恢复同范围正常启停持续授权；须先完成组合回归、独审、必要 CI 和新候选冻结，再确认上一轮已清理及现场基线匹配。上一轮 job/安装/socket/receipt 已准确清理。本轮尚无 auto-route 实机成功证据；异常注入、升级不在正常窗口内。
+
 ## 固定版本事实与技术候选
 
-本轮只读核对 mihomo **v1.19.33 / `3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8`** 与其锁定 sing-tun **v0.4.28 / `a128d0c3c8001e041725fa67ff3b521502298f17`**。下表保留固定源码事实与最初研究候选；当前已生成受限离线候选，采用 `auto-route: false`、`dns-mode: disabled`，网络变更由 helper 显式拥有。没有执行真实 root、utun、路由或 DNS 实验，不能把候选或语法校验当作网络通过。
+本轮只读核对 mihomo **v1.19.33 / `3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8`** 与其锁定 sing-tun **v0.4.28 / `a128d0c3c8001e041725fa67ff3b521502298f17`**。下表保留固定源码事实与最初研究候选。当前实施选择已由上节及 ADR-0017 更新为 Core `auto-route: true` / 固定四个 `/1` 范围、helper DNS（`dns-mode: disabled`）。历史手工路径实机已创建过 Core/utun，但没有 TUN-on/流量通过；新自动路由路径仍待组合与实机验证，语法校验不代表网络通过。
 
 | 已证实事实（固定提交） | 对模板的约束与候选 |
 | --- | --- |

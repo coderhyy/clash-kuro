@@ -1,60 +1,45 @@
 #import "tun-routes.m"
 static KuroCoreInterface RouteFixtureInterface(void) {
   KuroCoreInterface value={.process={.pid=456,.startSeconds=123,.startMicros=456},.descriptor=9,.controlID=1,.controlUnit=8,.socketHandle=55,.pcbHandle=66,.interfaceIndex=7};
-  strlcpy(value.interfaceName,"utun7",sizeof(value.interfaceName)); return value;
+  strlcpy(value.interfaceName,"utun7",sizeof(value.interfaceName));return value;
 }
+// Models the upstream Darwin route request + fixed XNU non-host callback.
 static NSDictionary *ObservedRoute(NSDictionary *entry) {
-  NSMutableDictionary *value=[entry mutableCopy]; // Model the fixed Darwin callback, independently of the expected-readback function.
-  unsigned int flags=KuroRouteFlags(entry);
-  if (!(flags&(RTF_HOST|RTF_CLONING|RTF_MULTICAST))) flags|=RTF_PRCLONING;
-  value[@"flags"]=@(flags); return value;
+  NSMutableDictionary *route=[entry mutableCopy];route[@"flags"]=@(RTF_UP|RTF_STATIC|RTF_GATEWAY|RTF_PRCLONING);return route;
 }
-@interface KuroFakeRouteStore : NSObject <KuroRouteStore>
+@interface KuroFakeRouteStore:NSObject <KuroRouteStore>
 @property(nonatomic) NSMutableArray<NSDictionary *> *entries;
 @property(nonatomic) NSString *directory;
-@property(nonatomic) NSUInteger additions, deletions, snapshots;
-@property(nonatomic) BOOL addThenFail, lieDelete, failRead;
+@property(nonatomic) NSUInteger snapshots;
+@property(nonatomic) BOOL failRead;
 @property(nonatomic,copy) void (^onSnapshot)(KuroFakeRouteStore *);
-@property(nonatomic,copy) void (^onAdd)(KuroFakeRouteStore *,NSDictionary *);
 @end
 @implementation KuroFakeRouteStore
-- (instancetype)init { if ((self=[super init])) _entries=[NSMutableArray array]; return self; }
+- (instancetype)init{if((self=[super init]))_entries=[NSMutableArray array];return self;}
 - (NSArray *)routes:(NSString **)error {
-  _snapshots++; if (_onSnapshot) _onSnapshot(self);
-  if (_failRead) { Fail(error,@"injected unknown snapshot"); return nil; }
-  return [_entries copy];
-}
-- (BOOL)addRoute:(NSDictionary *)entry error:(NSString **)error {
-  if (_onAdd) _onAdd(self,entry);
-  NSDictionary *record=ReadJSON(_directory,[_directory stringByAppendingPathComponent:KuroRouteJournal],geteuid(),NULL);
-  CHECK([record[@"routes"]containsObject:entry] && [record[@"applied"]unsignedIntegerValue]==_additions);
-  for (NSDictionary *route in _entries) if (KuroRouteKey(route,entry)) return Fail(error,@"existing fixture route");
-  _additions++; [_entries addObject:ObservedRoute(entry)];
-  return !_addThenFail || Fail(error,@"simulated lost add acknowledgement");
-}
-- (BOOL)deleteRoute:(NSDictionary *)entry error:(NSString **)error {
-  NSUInteger index=[_entries indexOfObject:ObservedRoute(entry)]; if (index==NSNotFound) return Fail(error,@"fixture exact-delete failed");
-  _deletions++; if (!_lieDelete) [_entries removeObjectAtIndex:index]; return YES;
+  self.snapshots++;if(self.onSnapshot)self.onSnapshot(self);
+  if(self.failRead){Fail(error,@"injected unknown snapshot");return nil;}return [self.entries copy];
 }
 @end
-@interface KuroRouteDurabilityFixture : KuroOwnedRoutes
+@interface KuroRouteDurabilityFixture:KuroOwnedRoutes
 @property(nonatomic) BOOL refuseSync;
-@property(nonatomic) NSUInteger syncCalls, failSyncAt;
-@property(nonatomic) BOOL refuseContinuationPublish;
-@property(nonatomic) NSDictionary *lastSyncedRecord;
+@property(nonatomic) NSUInteger syncCalls,failSyncAt;
 @end
 @implementation KuroRouteDurabilityFixture
 - (BOOL)syncDirectory:(NSString **)error {
-  self.syncCalls++;
-  if(self.refuseSync || (self.failSyncAt && self.syncCalls==self.failSyncAt))return Fail(error,@"injected route sync failure");
-  if(![super syncDirectory:error])return NO;
-  self.lastSyncedRecord=[self recordForInterface:RouteFixtureInterface() bytes:NULL error:NULL];return YES;
-}
-- (BOOL)persist:(NSDictionary *)record replacing:(NSData *)previous error:(NSString **)error {
-  if(self.refuseContinuationPublish && previous && [record[@"routes"]count]==6 && [record[@"applied"]isEqual:@2])return Fail(error,@"injected continuation publish refusal");
-  return [super persist:record replacing:previous error:error];
+  self.syncCalls++;if(self.refuseSync||(self.failSyncAt&&self.syncCalls==self.failSyncAt))return Fail(error,@"injected observation sync failure");return [super syncDirectory:error];
 }
 @end
+static NSDictionary *RouteFixtureBinding(void) {
+  KuroCoreInterface value=RouteFixtureInterface();
+  return @{@"configSHA256":[@"a"stringByPaddingToLength:64 withString:@"a"startingAtIndex:0],@"runtimeSHA256":[@"b"stringByPaddingToLength:64 withString:@"b"startingAtIndex:0],@"coreSHA256":[@"c"stringByPaddingToLength:64 withString:@"c"startingAtIndex:0],@"template":@"macos-dual-stack-v1",@"process":@{@"pid":@(value.process.pid),@"startSeconds":@(value.process.startSeconds),@"startMicros":@(value.process.startMicros)}};
+}
+static NSArray *RouteFixtureBaseline(void) {
+  return @[@{@"family":@4,@"destination":@"0.0.0.0",@"prefix":@0,@"gateway":@"192.0.2.1",@"interfaceIndex":@2,@"interfaceName":@"en0",@"flags":@(RTF_UP|RTF_GATEWAY)}];
+}
+static void RouteFixtureCoreAppears(KuroFakeRouteStore *store) {
+  for(NSDictionary *target in KuroCoreAutoRouteCandidate(RouteFixtureInterface()))[store.entries addObject:ObservedRoute(target)];
+}
 // Fixed, sanitized Darwin RTM_GET wire shapes shared with admission tests.
 // Masks retain radix bytes; local host scope belongs to en0 even via lo0.
 static NSArray<NSData *> *DarwinRouteFixturePackets(void) {
@@ -95,358 +80,123 @@ static void RouteKernelDumpTests(void) {
 }
 
 
-static void RoutePreparationTests(void) {
-  CHECK(geteuid()!=0);KuroCoreInterface association=RouteFixtureInterface();
-  NSArray *hosts=KuroInternalDNSRouteCandidate(association),*combined=KuroSessionRouteCandidate(association);
-  CHECK(hosts.count==2 && combined.count==6 && [[combined subarrayWithRange:NSMakeRange(0,2)]isEqual:hosts]);
-  CHECK([hosts[0][@"destination"]isEqual:@"198.18.0.2"] && [hosts[0][@"prefix"]isEqual:@32]);
-  CHECK([hosts[1][@"destination"]isEqual:@"fdfe:dcba:9876::2"] && [hosts[1][@"prefix"]isEqual:@128]);
-  for(NSDictionary *host in hosts)CHECK(KuroRouteEntry(host) && (KuroRouteFlags(host)&RTF_HOST) && !(KuroRouteObservedFlags(host)&RTF_PRCLONING));
-  KuroCoreInterface invalid=association;invalid.interfaceIndex=0;CHECK(!KuroInternalDNSRouteCandidate(invalid)&&!KuroSessionRouteCandidate(invalid));
-  char temporary[]="/tmp/kuro-route-preparation-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));NSString *base=@(canonical);
-  NSString *session=@"00112233-4455-6677-8899-AABBCCDDEEFF";__block KuroRouteOwnerState owner=KuroRouteOwnerLive;
-  KuroRouteOwnership ownership=^KuroRouteOwnerState(KuroCoreInterface expected,NSString **failure){(void)failure;CHECK([KuroRouteAssociation(expected)isEqual:KuroRouteAssociation(association)]);return owner;};
+static void RouteObservationTests(void) {
+  CHECK(geteuid()!=0);KuroCoreInterface association=RouteFixtureInterface();NSArray *targets=KuroCoreAutoRouteCandidate(association);
+  CHECK(targets.count==5 && [targets[2][@"prefix"]isEqual:@30] && [targets[2][@"destination"]isEqual:@"198.18.0.0"]);
+  for(NSDictionary *target in targets) {
+    CHECK([target[@"gateway"]isEqual:([target[@"family"]isEqual:@4]?@"198.18.0.1":@"fdfe:dcba:9876::1")]);
+    NSMutableDictionary *observed=[ObservedRoute(target)mutableCopy];CHECK(KuroCoreAutoRouteEqual(observed,target));
+    unsigned int flags=[observed[@"flags"]unsignedIntValue];observed[@"flags"]=@(flags|RTF_DONE|RTF_IFREF);CHECK(KuroCoreAutoRouteEqual(observed,target));
+    for(NSNumber *bit in @[@(RTF_UP),@(RTF_STATIC),@(RTF_GATEWAY),@(RTF_PRCLONING)]){observed[@"flags"]=@(flags&~bit.unsignedIntValue);CHECK(!KuroCoreAutoRouteEqual(observed,target));}
+    for(NSNumber *bit in @[@(RTF_HOST),@(RTF_LLINFO),@(RTF_PROTO2),@(RTF_IFSCOPE),@(RTF_CLONING),@(RTF_MULTICAST),@(RTF_REJECT),@(RTF_BLACKHOLE),@(RTF_WASCLONED)]){observed[@"flags"]=@(flags|bit.unsignedIntValue);CHECK(!KuroCoreAutoRouteEqual(observed,target));}
+  }
+  KuroCoreInterface invalid=association;invalid.interfaceIndex=0;CHECK(!KuroCoreAutoRouteCandidate(invalid));
+  char temporary[]="/tmp/kuro-route-observer-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));NSString *base=@(canonical),*session=@"00112233-4455-6677-8899-AABBCCDDEEFF";
   for(NSUInteger scenario=0;scenario<20;scenario++) {
-    NSString *directory=[base stringByAppendingPathComponent:[NSString stringWithFormat:@"case%lu",(unsigned long)scenario]];FixtureDirectory(directory);
-    NSString *journal=[directory stringByAppendingPathComponent:KuroRouteJournal],*error=nil;
-    KuroFakeRouteStore *backend=[KuroFakeRouteStore new];backend.directory=directory;
-    KuroRouteDurabilityFixture *routes=[[KuroRouteDurabilityFixture alloc]initWithDirectory:directory owner:geteuid() backend:backend];owner=KuroRouteOwnerLive;
-    NSArray *initial=hosts;if(scenario==2)initial=KuroSplitRouteCandidate(association);if(scenario==3)initial=@[hosts[1],hosts[0]];
-    CHECK([routes installForSession:session interface:association routes:initial ownership:ownership error:&error]);
-    CHECK(backend.additions==initial.count && [ReadJSON(directory,journal,geteuid(),NULL)[@"applied"]isEqual:@(initial.count)]);
-    NSData *before=[NSData dataWithContentsOfFile:journal];NSUInteger synced=routes.syncCalls;
+    NSString *directory=[base stringByAppendingPathComponent:[NSString stringWithFormat:@"case%lu",(unsigned long)scenario]],*error=nil;FixtureDirectory(directory);
+    NSString *journal=[directory stringByAppendingPathComponent:KuroRouteJournal];KuroFakeRouteStore *store=[KuroFakeRouteStore new];store.entries=[RouteFixtureBaseline()mutableCopy];
+    KuroRouteDurabilityFixture *routes=[[KuroRouteDurabilityFixture alloc]initWithDirectory:directory owner:geteuid() backend:store];
+    __block KuroRouteOwnerState owner=KuroRouteOwnerLive;KuroRouteOwnership ownership=^KuroRouteOwnerState(KuroCoreInterface value,NSString **failure){(void)failure;CHECK([KuroRouteAssociation(value)isEqual:KuroRouteAssociation(association)]);return owner;};
+    NSDictionary *dns=@{@"State:/Network/Global/DNS":@{@"ServerAddresses":@[@"192.0.2.53"]}};
+    CHECK(![routes preparedRecord:&error]&&!error);
+    if(scenario==16)routes.refuseSync=YES;
+    NSArray *baseline=scenario==18?@[ObservedRoute(targets[0])]:RouteFixtureBaseline();
+    if(scenario==17)dns=@{@"oversized":[@"x"stringByPaddingToLength:MessageLimit withString:@"x"startingAtIndex:0]};
+    BOOL prepared=[routes prepareForSession:session binding:RouteFixtureBinding() baselineRoutes:baseline baselineDNS:dns physicalInterface:@"en0" error:&error];
+    if(scenario==16){CHECK(!prepared&&Exists(journal)&&!routes.routesOff);RouteFixtureCoreAppears(store);CHECK(![routes observeForSession:session interface:association ownership:ownership error:&error]);store.entries=[RouteFixtureBaseline()mutableCopy];CHECK(![routes recoverRecordedAbsence:&error]&&!routes.routesOff);routes.refuseSync=NO;CHECK([routes recoverRecordedAbsence:&error]&&routes.routesOff);continue;}
+    if(scenario==17||scenario==18){CHECK(!prepared&&!Exists(journal));continue;}
+    CHECK(prepared&&store.snapshots==0&&!routes.routesOff);
+    NSDictionary *record=[routes preparedRecord:&error];CHECK([record[@"phase"]isEqual:@"prepared"]&&record[@"interface"]==NSNull.null&&[record[@"baselineRoutes"]isEqual:baseline]&&[record[@"baselineDNS"]isEqual:dns]);
+    if(scenario==19){CHECK(![routes prepareForSession:session binding:RouteFixtureBinding() baselineRoutes:baseline baselineDNS:dns physicalInterface:@"en0" error:&error]);continue;}
+    RouteFixtureCoreAppears(store);NSData *preparedBytes=[NSData dataWithContentsOfFile:journal];
+    if(scenario==1)[store.entries removeLastObject];
+    if(scenario==2)[store.entries addObject:store.entries.lastObject];
+    if(scenario>=3&&scenario<=5){NSMutableDictionary *changed=[store.entries.lastObject mutableCopy];if(scenario==3)changed[@"gateway"]=@"fdfe:dcba:9876::2";if(scenario==4)changed[@"interfaceIndex"]=@9;if(scenario==5)changed[@"flags"]=@([changed[@"flags"]unsignedIntValue]|RTF_LLINFO);store.entries[store.entries.count-1]=changed;}
+    if(scenario==6)owner=KuroRouteOwnerUnknown;
+    if(scenario==7)store.onSnapshot=^(KuroFakeRouteStore *value){(void)value;owner=KuroRouteOwnerUnknown;};
+    if(scenario==8)store.failRead=YES;
+    KuroCoreInterface value=association;if(scenario==9)value.process.startSeconds++;
+    NSString *requested=scenario==10?@"11112233-4455-6677-8899-AABBCCDDEEFF":session;
+    if(scenario==11)Put(journal,Bytes(@"[]"),0600);
+    if(scenario==13)routes=[[KuroRouteDurabilityFixture alloc]initWithDirectory:directory owner:geteuid() backend:store];
+    if(scenario==14){NSMutableDictionary *changed=[record mutableCopy];changed[@"physicalInterface"]=@"en1";Put(journal,JSONData(changed),0600);}
+    if(scenario==15)routes.refuseSync=YES;
+    BOOL observed=[routes observeForSession:requested interface:value ownership:ownership error:&error];
+    if(scenario==0||scenario==12){CHECK(observed&&[routes confirmObservedSession:session interface:association ownership:ownership error:&error]);record=[routes preparedRecord:&error];CHECK([record[@"phase"]isEqual:@"observed"]&&[record[@"routes"]isEqual:targets]);if(scenario==12){KuroOwnedRoutes *fresh=[[KuroOwnedRoutes alloc]initWithDirectory:directory owner:geteuid() backend:store];CHECK(![fresh confirmObservedSession:session interface:association ownership:ownership error:&error]);}continue;}
+    CHECK(!observed&&!routes.routesOff&&Exists(journal));
+    if(scenario>=1&&scenario<=10)CHECK([[NSData dataWithContentsOfFile:journal]isEqual:preparedBytes]);
+    if(scenario==15){CHECK([[routes preparedRecord:&error][@"phase"]isEqual:@"observed"]);CHECK(![routes confirmObservedSession:session interface:association ownership:ownership error:&error]);CHECK(![routes observeForSession:session interface:association ownership:ownership error:&error]);routes.refuseSync=NO;CHECK([routes observeForSession:session interface:association ownership:ownership error:&error]);}
+  }
+  CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);
+  puts("native Core auto-route observer: fixed upstream five routes, closed pre-CONT baseline/binding, 20 observation/adoption/material-flags/durable-retry cases PASS; snapshot only");
+}
+static void RouteReadinessTests(void) {
+  char temporary[]="/tmp/kuro-route-readiness-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));
+  NSString *base=@(canonical),*session=@"00112233-4455-6677-8899-AABBCCDDEEFF";KuroCoreInterface association=RouteFixtureInterface();
+  for(NSUInteger scenario=0;scenario<11;scenario++) {
+    NSString *directory=[base stringByAppendingPathComponent:[NSString stringWithFormat:@"case%lu",(unsigned long)scenario]],*error=nil;FixtureDirectory(directory);
+    NSString *journal=[directory stringByAppendingPathComponent:KuroRouteJournal];KuroFakeRouteStore *store=[KuroFakeRouteStore new];store.entries=[RouteFixtureBaseline()mutableCopy];
+    KuroRouteDurabilityFixture *routes=[[KuroRouteDurabilityFixture alloc]initWithDirectory:directory owner:geteuid() backend:store];
+    CHECK([routes prepareForSession:session binding:RouteFixtureBinding() baselineRoutes:RouteFixtureBaseline() baselineDNS:@{} physicalInterface:@"en0" error:&error]);
+    NSData *before=[NSData dataWithContentsOfFile:journal];NSUInteger syncs=routes.syncCalls;
+    __block KuroRouteOwnerState owner=KuroRouteOwnerLive;
+    KuroRouteOwnership ownership=^KuroRouteOwnerState(KuroCoreInterface value,NSString **failure){(void)value;(void)failure;return owner;};
+    NSArray *targets=KuroCoreAutoRouteCandidate(association);
     if(scenario==0) {
-      __weak KuroRouteDurabilityFixture *weakRoutes=routes;
-      backend.onAdd=^(KuroFakeRouteStore *store,NSDictionary *target){(void)target;NSDictionary *durable=weakRoutes.lastSyncedRecord;CHECK([durable[@"routes"]isEqual:combined] && [durable[@"applied"]unsignedIntegerValue]==store.additions);};
-      CHECK([routes continueSessionRoutesForSession:session interface:association ownership:ownership error:&error]);
-      CHECK(backend.additions==6 && routes.syncCalls==synced+6); // host confirm + merged publish + four receipts.
-      CHECK([routes confirmInstalledSession:session interface:association ownership:ownership error:&error]);
-      CHECK(![routes continueSessionRoutesForSession:session interface:association ownership:ownership error:&error] && backend.additions==6);
-      CHECK([routes recoverForInterface:association ownership:ownership error:&error]&&routes.routesOff&&backend.deletions==6&&!Exists(journal));continue;
+      for(NSUInteger count=0;count<targets.count;count++) {
+        error=@"stale caller error";
+        CHECK([routes observeReadinessForSession:session interface:association ownership:ownership error:&error]==KuroRouteObservationPending&&!error);
+        CHECK([[NSData dataWithContentsOfFile:journal]isEqual:before]&&routes.syncCalls==syncs&&!routes.routesOff);
+        [store.entries addObject:ObservedRoute(targets[count])];
+      }
+      CHECK([routes observeReadinessForSession:session interface:association ownership:ownership error:&error]==KuroRouteObservationReady);
+      CHECK([[routes preparedRecord:&error][@"phase"]isEqual:@"observed"]&&[routes confirmObservedSession:session interface:association ownership:ownership error:&error]);
+      continue;
     }
-    if(scenario==1)routes=[[KuroRouteDurabilityFixture alloc]initWithDirectory:directory owner:geteuid() backend:backend]; // No restart adoption.
-    if(scenario==4){NSMutableDictionary *record=[ReadJSON(directory,journal,geteuid(),NULL)mutableCopy];record[@"session"]=@"11112233-4455-6677-8899-AABBCCDDEEFF";Put(journal,JSONData(record),0600);}
-    if(scenario==5){NSMutableDictionary *foreign=[backend.entries[0]mutableCopy];foreign[@"gateway"]=@"198.18.0.1";backend.entries[0]=foreign;}
-    if(scenario==6)[backend.entries addObject:backend.entries[0]];
-    if(scenario==7)[backend.entries removeObjectAtIndex:0];
-    if(scenario==8)[backend.entries addObject:ObservedRoute(combined[2])];
-    if(scenario==9)owner=KuroRouteOwnerUnknown;
-    if(scenario==10)owner=KuroRouteOwnerExitedInterfaceGone;
-    if(scenario==11)backend.failRead=YES;
-    if(scenario==12)routes.refuseContinuationPublish=YES;
-    if(scenario==13)routes.failSyncAt=synced+2; // confirm sync then merged publish actual rename/sync failure.
-    if(scenario==14)backend.addThenFail=YES;
-    if(scenario==15)backend.onSnapshot=^(KuroFakeRouteStore *store){if(store.additions==3){NSMutableDictionary *foreign=[store.entries.lastObject mutableCopy];foreign[@"gateway"]=@"198.18.0.1";store.entries[store.entries.count-1]=foreign;}};
-    if(scenario==16)routes.failSyncAt=synced+6; // Actual final applied=6 publication fails its directory sync.
-    if(scenario==17)routes.refuseSync=YES; // Even existing complete host receipt must re-sync before continuation.
-    if(scenario==18)backend.onSnapshot=^(KuroFakeRouteStore *store){if(store.snapshots==5)[store.entries removeObjectAtIndex:0];};
-    if(scenario==19)backend.onSnapshot=^(KuroFakeRouteStore *store){if(store.additions==3)owner=KuroRouteOwnerUnknown;};
-    CHECK(![routes continueSessionRoutesForSession:session interface:association ownership:ownership error:&error]);
-    CHECK(!backend.deletions && Exists(journal));
-    if(scenario<=13 || scenario==17 || scenario==18)CHECK(backend.additions==initial.count);
-    if(scenario==12){CHECK([[NSData dataWithContentsOfFile:journal]isEqual:before]);routes.refuseContinuationPublish=NO;CHECK(![routes continueSessionRoutesForSession:session interface:association ownership:ownership error:&error]);}
-    if(scenario==13){NSDictionary *record=ReadJSON(directory,journal,geteuid(),NULL);CHECK([record[@"routes"]isEqual:combined]&&[record[@"applied"]isEqual:@2]);routes.failSyncAt=0;CHECK(![routes continueSessionRoutesForSession:session interface:association ownership:ownership error:&error]);CHECK([routes recoverForInterface:association ownership:ownership error:&error]&&routes.routesOff&&backend.deletions==2);}
-    if(scenario==14 || scenario==15 || scenario==19){CHECK(backend.additions==3);CHECK(![routes recoverForInterface:association ownership:ownership error:&error]&&!backend.deletions&&Exists(journal));backend.onSnapshot=nil;[backend.entries removeAllObjects];owner=KuroRouteOwnerExitedInterfaceGone;CHECK([routes recoverForInterface:association ownership:ownership error:&error]&&routes.routesOff&&!backend.deletions);}
-    if(scenario==16){CHECK(backend.additions==6&&[ReadJSON(directory,journal,geteuid(),NULL)[@"applied"]isEqual:@6]);routes.refuseSync=YES;NSUInteger calls=routes.syncCalls;CHECK(![routes confirmInstalledSession:session interface:association ownership:ownership error:&error]&&routes.syncCalls==calls+1);CHECK(![routes confirmInstalledSession:session interface:association ownership:ownership error:&error]&&routes.syncCalls==calls+2);routes.refuseSync=NO;CHECK([routes confirmInstalledSession:session interface:association ownership:ownership error:&error]);CHECK(![routes continueSessionRoutesForSession:session interface:association ownership:ownership error:&error]&&backend.additions==6);}
-  }
-  // Preparation failures cannot mint same-actor continuation authority, even if a later sync confirms the file.
-  for(NSUInteger scenario=0;scenario<4;scenario++) {
-    NSString *directory=[base stringByAppendingPathComponent:[NSString stringWithFormat:@"hostFailure%lu",(unsigned long)scenario]];FixtureDirectory(directory);NSString *error=nil,*journal=[directory stringByAppendingPathComponent:KuroRouteJournal];
-    KuroFakeRouteStore *backend=[KuroFakeRouteStore new];backend.directory=directory;
-    KuroRouteDurabilityFixture *routes=[[KuroRouteDurabilityFixture alloc]initWithDirectory:directory owner:geteuid() backend:backend];owner=KuroRouteOwnerLive;
-    if(scenario==0)backend.addThenFail=YES;
-    if(scenario==1)backend.onAdd=^(KuroFakeRouteStore *store,NSDictionary *entry){(void)entry;if(store.additions==1)store.addThenFail=YES;};
-    if(scenario==2)routes.failSyncAt=3;
-    if(scenario==3)routes.failSyncAt=1;
-    CHECK(![routes installForSession:session interface:association routes:hosts ownership:ownership error:&error] && Exists(journal));
-    CHECK(backend.additions==(scenario==0?1:scenario==3?0:2));
-    CHECK(![routes continueSessionRoutesForSession:session interface:association ownership:ownership error:&error]&&!backend.deletions);
-    if(scenario==2){routes.refuseSync=YES;CHECK(![routes confirmInstalledSession:session interface:association ownership:ownership error:&error]);CHECK(![routes confirmInstalledSession:session interface:association ownership:ownership error:&error]);routes.refuseSync=NO;CHECK([routes confirmInstalledSession:session interface:association ownership:ownership error:&error]);CHECK(![routes continueSessionRoutesForSession:session interface:association ownership:ownership error:&error]);}
-    if(scenario<2)CHECK(![routes recoverForInterface:association ownership:ownership error:&error]&&!backend.deletions);
-    [backend.entries removeAllObjects];owner=KuroRouteOwnerExitedInterfaceGone;routes.refuseSync=NO;CHECK([routes recoverForInterface:association ownership:ownership error:&error]&&routes.routesOff&&!backend.deletions);
-  }
-  // Old four-entry and new host-only/combined v1 receipts all retain absence-only restart semantics.
-  for(NSArray *plan in @[KuroSplitRouteCandidate(association),hosts,combined]) {
-    NSString *directory=[base stringByAppendingPathComponent:[NSString stringWithFormat:@"restart%lu",(unsigned long)plan.count]];FixtureDirectory(directory);NSString *error=nil,*journal=[directory stringByAppendingPathComponent:KuroRouteJournal];
-    KuroFakeRouteStore *backend=[KuroFakeRouteStore new];backend.directory=directory;KuroOwnedRoutes *routes=[[KuroOwnedRoutes alloc]initWithDirectory:directory owner:geteuid() backend:backend];owner=KuroRouteOwnerLive;
-    CHECK([routes installForSession:session interface:association routes:plan ownership:ownership error:&error]);
-    KuroOwnedRoutes *restarted=[[KuroOwnedRoutes alloc]initWithDirectory:directory owner:geteuid() backend:backend];
-    CHECK(![restarted recoverRecordedAbsence:&error] && !backend.deletions && Exists(journal));
-    owner=KuroRouteOwnerExitedInterfaceGone;CHECK(![routes recoverForInterface:association ownership:ownership error:&error]&&!backend.deletions&&Exists(journal));
-    [backend.entries removeAllObjects];CHECK([restarted recoverRecordedAbsence:&error]&&restarted.routesOff&&!backend.deletions&&!Exists(journal));
+    // The first target remains missing while later keys expose hard failures.
+    if(scenario>=1&&scenario<=4) {
+      NSMutableDictionary *last=[ObservedRoute(targets.lastObject)mutableCopy];
+      if(scenario==1)last[@"gateway"]=@"fdfe:dcba:9876::2";
+      if(scenario==2)last[@"interfaceIndex"]=@99;
+      if(scenario==3)last[@"flags"]=@([last[@"flags"]unsignedIntValue]|RTF_LLINFO);
+      [store.entries addObject:last];if(scenario==4)[store.entries addObject:last];
+    }
+    if(scenario==5)store.failRead=YES;
+    if(scenario==6)store.onSnapshot=^(KuroFakeRouteStore *value){(void)value;owner=KuroRouteOwnerUnknown;};
+    if(scenario==7)store.onSnapshot=^(KuroFakeRouteStore *value){(void)value;NSMutableDictionary *changed=[KuroDecodeJSON(before,MessageLimit,NULL)mutableCopy];changed[@"physicalInterface"]=@"en1";Put(journal,JSONData(changed),0600);};
+    if(scenario==8){RouteFixtureCoreAppears(store);routes.refuseSync=YES;}
+    if(scenario==9){RouteFixtureCoreAppears(store);CHECK([routes observeForSession:session interface:association ownership:ownership error:&error]);[store.entries removeLastObject];CHECK(![routes confirmObservedSession:session interface:association ownership:ownership error:&error]);}
+    KuroCoreInterface value=association;if(scenario==10)value.process.startMicros++;
+    CHECK([routes observeReadinessForSession:session interface:value ownership:ownership error:&error]==KuroRouteObservationInvalid&&error&&!routes.routesOff);
+    if(scenario!=7&&scenario!=8&&scenario!=9)CHECK([[NSData dataWithContentsOfFile:journal]isEqual:before]);
   }
   CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);
-  puts("native staged routes: 20 continuation + 4 host-preparation failure cases + old4/host2/combined6 absence-only recovery PASS; no network operations");
+  puts("native route readiness: 11 typed pending/late-complete/later-conflict/duplicate/read-error/identity/journal/durability/disappeared-route cases PASS; missing-only pending grants no observation");
 }
-
-
-// Actual production wire loop, with fixed syscall results and no PF_ROUTE access.
-static NSDictionary *RouteIOFixture,*RouteIOEvent;
-static NSData *RouteIORequest;
-static NSUInteger RouteIOCursor,RouteIOCloses,RouteIOPolls,RouteIOReceives,RouteIOClockCalls;
-static uint64_t RouteIONow;
-static int RouteIOOpen(int domain,int kind,int protocol) {
-  CHECK(domain==PF_ROUTE&&kind==SOCK_RAW&&protocol==AF_UNSPEC);
-  if(RouteIOFixture[@"socketError"]){errno=[RouteIOFixture[@"socketError"]intValue];return -1;}return 73;
-}
-static int RouteIOControl(int fd,int operation,int value) {
-  CHECK(fd==73);if(operation==F_SETFL)CHECK(value&O_NONBLOCK);if(operation==F_SETFD)CHECK(value==FD_CLOEXEC);
-  if([RouteIOFixture[@"controlError"]isEqual:@(operation)]){errno=EBADF;return -1;}return 0;
-}
-static ssize_t RouteIOSend(int fd,const void *bytes,size_t size,int flags) {
-  CHECK(fd==73&&!flags&&[[NSData dataWithBytes:bytes length:size]isEqual:RouteIORequest]);
-  if(RouteIOFixture[@"sendError"]){errno=[RouteIOFixture[@"sendError"]intValue];return -1;}
-  return RouteIOFixture[@"partialSend"]?(ssize_t)size-1:(ssize_t)size;
-}
-static int RouteIOPoll(struct pollfd *fds,nfds_t count,int timeout) {
-  CHECK(count==1&&fds[0].fd==73&&fds[0].events==POLLIN&&timeout>0&&timeout<=1000);RouteIOPolls++;
-  NSArray *events=RouteIOFixture[@"events"];if(RouteIOCursor>=events.count){RouteIONow+=(uint64_t)timeout;fds[0].revents=0;return 0;}
-  RouteIOEvent=events[RouteIOCursor++];fds[0].revents=RouteIOEvent[@"revents"]?[RouteIOEvent[@"revents"]shortValue]:POLLIN;
-  if(RouteIOEvent[@"pollError"]){errno=[RouteIOEvent[@"pollError"]intValue];return -1;}return 1;
-}
-static ssize_t RouteIOReceive(int fd,void *bytes,size_t size,int flags) {
-  CHECK(fd==73&&size==8192&&flags==MSG_DONTWAIT);RouteIOReceives++;
-  if(RouteIOEvent[@"recvError"]){errno=[RouteIOEvent[@"recvError"]intValue];return -1;}
-  NSData *packet=RouteIOEvent[@"packet"]?:NSData.data;CHECK(packet.length<=size);memcpy(bytes,packet.bytes,packet.length);return (ssize_t)packet.length;
-}
-static int RouteIOClose(int fd) {CHECK(fd==73);RouteIOCloses++;errno=EIO;return 0;}
-static int RouteIOClock(clockid_t clock,struct timespec *value) {
-  CHECK(clock==CLOCK_MONOTONIC);RouteIOClockCalls++;if(RouteIOFixture[@"deadline"]&&RouteIOClockCalls>=3)RouteIONow=1000;
-  value->tv_sec=(time_t)(RouteIONow/1000);value->tv_nsec=(long)(RouteIONow%1000)*1000000;return 0;
-}
-static NSDictionary *RouteExchangeDetails(NSString *error) {
-  NSRange marker=[error rangeOfString:@"; routeExchange="];CHECK(marker.location!=NSNotFound);
-  NSData *data=[[error substringFromIndex:NSMaxRange(marker)]dataUsingEncoding:NSUTF8StringEncoding];CHECK(data.length<=2048);
-  return [NSJSONSerialization JSONObjectWithData:data options:0 error:NULL];
-}
-static void RouteExchangeTests(void) {
-  KuroCoreInterface association=RouteFixtureInterface();NSDictionary *route=KuroInternalDNSRouteCandidate(association)[0];
-  const KuroRouteExchangeIO io={.openSocket=RouteIOOpen,.control=RouteIOControl,.sendPacket=RouteIOSend,.waitPacket=RouteIOPoll,.receivePacket=RouteIOReceive,.closeSocket=RouteIOClose,.clock=RouteIOClock};
-  for(NSUInteger scenario=0;scenario<24;scenario++) {
-    NSString *error=nil;int operation=scenario==1?RTM_DELETE:RTM_ADD,sequence=17;
-    RouteIORequest=KuroRouteMessage(route,operation,sequence,&error);CHECK(RouteIORequest);
-    NSMutableData *ack=[RouteIORequest mutableCopy];struct rt_msghdr *header=ack.mutableBytes;header->rtm_flags|=RTF_DONE;
-    NSMutableDictionary *fixture=[NSMutableDictionary dictionary];NSMutableArray *events=[NSMutableArray array];
-    if(scenario==2){NSMutableData *other=[ack mutableCopy];((struct rt_msghdr *)other.mutableBytes)->rtm_pid++;[events addObject:@{@"packet":other}];}
-    if(scenario==3)[events addObject:@{@"pollError":@(EINTR)}];
-    if(scenario==4)[events addObject:@{@"recvError":@(EAGAIN)}];
-    if(scenario==5)header->rtm_errno=EEXIST;
-    if(scenario==6)header->rtm_version++;
-    if(scenario==7)header->rtm_type=RTM_CHANGE;
-    if(scenario==8)header->rtm_msglen--;
-    if(scenario==9){struct ifa_msghdr shortHeader={.ifam_msglen=sizeof(shortHeader),.ifam_version=RTM_VERSION,.ifam_type=RTM_NEWADDR,.ifam_index=7};CHECK(sizeof(shortHeader)<sizeof(struct rt_msghdr));ack=[[NSMutableData alloc]initWithBytes:&shortHeader length:sizeof(shortHeader)];}
-    if(scenario==10)fixture[@"socketError"]=@(EACCES);
-    if(scenario==11)fixture[@"controlError"]=@(F_GETFL);
-    if(scenario==12)fixture[@"controlError"]=@(F_SETFL);
-    if(scenario==13)fixture[@"controlError"]=@(F_SETFD);
-    if(scenario==14)fixture[@"sendError"]=@(ENETUNREACH);
-    if(scenario==15)fixture[@"partialSend"]=@YES;
-    if(scenario==16)[events addObject:@{@"pollError":@(EBADF)}];
-    if(scenario==17)[events addObject:@{@"revents":@(POLLERR)}];
-    if(scenario==18)[events addObject:@{@"recvError":@(EIO)}];
-    if(scenario==20){header->rtm_seq++;for(NSUInteger i=0;i<256;i++)[events addObject:@{@"packet":ack}];}
-    if(scenario==21)fixture[@"deadline"]=@YES;
-    if(scenario==22){header->rtm_flags|=RTF_REJECT;} // ACK flags are checked by subsequent independent route readback, as before.
-    if(scenario==23)[events addObject:@{@"recvError":@(EINTR)}];
-    if(scenario!=19&&scenario!=20&&scenario!=21)[events addObject:@{@"packet":ack}];
-    fixture[@"events"]=events;RouteIOFixture=fixture;RouteIOEvent=nil;RouteIOCursor=RouteIOCloses=RouteIOPolls=RouteIOReceives=RouteIOClockCalls=0;RouteIONow=0;
-    BOOL accepted=KuroRouteExchangeWithIO(route,RouteIORequest,operation,sequence,&io,&error);
-    BOOL expected=scenario<5||scenario==22||scenario==23;CHECK(accepted==expected);CHECK(RouteIOCloses==(scenario==10?0:1));
-    if(expected){CHECK(!error);if(scenario==2||scenario==3||scenario==4||scenario==23)CHECK(RouteIOPolls==2);continue;}
-    NSDictionary *details=RouteExchangeDetails(error);CHECK([details[@"operation"]isEqual:@(operation)]&&[details[@"route"]isEqual:route]&&[details[@"sequence"]isEqual:@17]);
-    CHECK([details[@"requestBytes"]isEqual:@(RouteIORequest.length)]);
-    if(scenario>=5&&scenario<=8){CHECK([details[@"stage"]isEqual:@"matching-ack"]&&[details[@"matchingAck"]isEqual:KuroRouteAckFields(*header)]&&[details[@"syscallErrno"]isEqual:@0]);}
-    if(scenario==5) {
-      CHECK([details[@"matchingAck"][@"errno"]isEqual:@(EEXIST)]);
-      NSString *runtimeSecret=@"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
-      NSString *redacted=KuroDiagnosticText(error,@[runtimeSecret]);CHECK([redacted isEqual:error]&&[redacted lengthOfBytesUsingEncoding:NSUTF8StringEncoding]<=4096);
-      CHECK([redacted containsString:@"matching-ack"]&&[redacted containsString:@"198.18.0.2"]&&[redacted containsString:@"matchingAck"]);
-      for(NSString *credential in @[@"q",@"e",@"0"]) {
-        NSString *restricted=KuroDiagnosticText(error,@[runtimeSecret,credential]);CHECK(restricted&&[restricted lengthOfBytesUsingEncoding:NSUTF8StringEncoding]<=4096);
-      }
-    }
-    if(scenario==9){CHECK([details[@"stage"]isEqual:@"recv"]&&details[@"matchingAck"]==NSNull.null&&[details[@"received"]isEqual:@(ack.length)]);CHECK([details[@"shortHeaderPrefixHex"]isEqual:Hex([ack subdataWithRange:NSMakeRange(0,MIN(ack.length,(NSUInteger)32))])]);}
-    if(scenario==10)CHECK([details[@"stage"]isEqual:@"socket"]&&[details[@"syscallErrno"]isEqual:@(EACCES)]);
-    if(scenario>=11&&scenario<=13)CHECK([details[@"syscallErrno"]isEqual:@(EBADF)]);
-    if(scenario==14)CHECK([details[@"stage"]isEqual:@"send"]&&[details[@"syscallErrno"]isEqual:@(ENETUNREACH)]);
-    if(scenario==15)CHECK([details[@"sent"]isEqual:@(RouteIORequest.length-1)]&&[details[@"syscallErrno"]isEqual:@0]);
-    if(scenario==16)CHECK([details[@"stage"]isEqual:@"poll"]&&[details[@"syscallErrno"]isEqual:@(EBADF)]);
-    if(scenario==17)CHECK([details[@"revents"]isEqual:@(POLLERR)]&&[details[@"syscallErrno"]isEqual:@0]);
-    if(scenario==18)CHECK([details[@"stage"]isEqual:@"recv"]&&[details[@"syscallErrno"]isEqual:@(EIO)]);
-    if(scenario==19)CHECK([details[@"stage"]isEqual:@"poll"]&&[details[@"polled"]isEqual:@0]&&[details[@"elapsedMs"]isEqual:@1000]);
-    if(scenario==20)CHECK([details[@"stage"]isEqual:@"packet-limit"]&&[details[@"ignoredHeaders"]isEqual:@256]&&RouteIOPolls==256&&RouteIOReceives==256);
-    if(scenario==21)CHECK([details[@"stage"]isEqual:@"deadline"]&&[details[@"elapsedMs"]isEqual:@1000]&&!RouteIOPolls);
+static void RouteAbsenceTests(void) {
+  char temporary[]="/tmp/kuro-route-absence-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));NSString *base=@(canonical),*session=@"00112233-4455-6677-8899-AABBCCDDEEFF";KuroCoreInterface association=RouteFixtureInterface();
+  for(NSUInteger scenario=0;scenario<15;scenario++) {
+    NSString *directory=[base stringByAppendingPathComponent:[NSString stringWithFormat:@"case%lu",(unsigned long)scenario]],*error=nil;FixtureDirectory(directory);NSString *journal=[directory stringByAppendingPathComponent:KuroRouteJournal];
+    KuroFakeRouteStore *store=[KuroFakeRouteStore new];store.entries=[RouteFixtureBaseline()mutableCopy];KuroRouteDurabilityFixture *routes=[[KuroRouteDurabilityFixture alloc]initWithDirectory:directory owner:geteuid() backend:store];
+    if(scenario!=10&&scenario!=11)CHECK([routes prepareForSession:session binding:RouteFixtureBinding() baselineRoutes:RouteFixtureBaseline() baselineDNS:@{} physicalInterface:@"en0" error:&error]);
+    if(scenario==1){RouteFixtureCoreAppears(store);KuroRouteOwnership live=^KuroRouteOwnerState(KuroCoreInterface value,NSString **failure){(void)value;(void)failure;return KuroRouteOwnerLive;};CHECK([routes observeForSession:session interface:association ownership:live error:&error]);}
+    if(scenario>=2&&scenario<=5){NSMutableDictionary *target=[ObservedRoute(KuroCoreAutoRouteCandidate(association)[0])mutableCopy];if(scenario==3)target[@"gateway"]=@"192.0.2.99";if(scenario==4)target[@"interfaceIndex"]=@9;[store.entries addObject:target];if(scenario==5)[store.entries addObject:target];}
+    if(scenario==6)store.failRead=YES;
+    if(scenario==7)store.onSnapshot=^(KuroFakeRouteStore *value){if(value.snapshots==2)RouteFixtureCoreAppears(value);};
+    if(scenario==8)routes.refuseSync=YES;
+    if(scenario==9)Put(journal,Bytes(@"{\"format\":2,\"format\":2}"),0600);
+    if(scenario==11)RouteFixtureCoreAppears(store);
+    if(scenario==12){NSMutableDictionary *legacy=[KuroCoreAutoRouteCandidate(association)[0]mutableCopy];legacy[@"gateway"]=@"link";Put(journal,JSONData(@{@"format":@1,@"kind":@"routes-v1",@"session":session,@"interface":KuroRouteAssociation(association),@"routes":@[legacy],@"applied":@1}),0600);}
+    if(scenario==13){NSMutableDictionary *legacy=[KuroCoreAutoRouteCandidate(association)[0]mutableCopy];legacy[@"gateway"]=@"link";Put(journal,JSONData(@{@"format":@1,@"kind":@"routes-v1",@"session":session,@"interface":KuroRouteAssociation(association),@"routes":@[legacy],@"applied":@1}),0600);[store.entries addObject:ObservedRoute(legacy)];}
+    if(scenario==14){NSMutableDictionary *extra=[ObservedRoute(KuroCoreAutoRouteCandidate(association)[0])mutableCopy];extra[@"destination"]=@"203.0.113.0";extra[@"prefix"]=@24;extra[@"flags"]=@(RTF_UP|RTF_PROTO2);[store.entries addObject:extra];}
+    NSData *prior=Exists(journal)?[NSData dataWithContentsOfFile:journal]:nil;NSUInteger count=store.entries.count;
+    BOOL retired=[routes recoverRecordedAbsence:&error];BOOL expected=scenario==0||scenario==10||scenario==12;
+    if(retired!=expected||routes.routesOff!=expected)fprintf(stderr,"absence case %lu expected %d actual %d: %s\n",(unsigned long)scenario,expected,retired,error.UTF8String);
+    CHECK(retired==expected&&routes.routesOff==expected&&store.entries.count==count+(scenario==7?5:0));
+    if(expected)CHECK(!Exists(journal));else if(scenario!=8&&prior)CHECK([[NSData dataWithContentsOfFile:journal]isEqual:prior]);
+    if(scenario==8){CHECK(!Exists(journal));CHECK(![routes recoverRecordedAbsence:&error]&&!routes.routesOff);RouteFixtureCoreAppears(store);routes.refuseSync=NO;CHECK(![routes recoverRecordedAbsence:&error]&&!routes.routesOff);store.entries=[RouteFixtureBaseline()mutableCopy];CHECK([routes recoverRecordedAbsence:&error]&&routes.routesOff);}
   }
-  RouteIOFixture=RouteIOEvent=nil;RouteIORequest=nil;
-  puts("native route exchange: 24 actual wire-loop syscall/ACK/short-NEWADDR/timeout/packet-cap fixtures PASS; unchanged acceptance and 1000ms/256 bounds, no socket execution");
-}
-
-static void RouteFailedReadbackTests(void) {
-  NSDictionary *target=KuroInternalDNSRouteCandidate(RouteFixtureInterface())[0];
-  const KuroRouteExchangeIO io={.openSocket=RouteIOOpen,.control=RouteIOControl,.sendPacket=RouteIOSend,.waitPacket=RouteIOPoll,.receivePacket=RouteIOReceive,.closeSocket=RouteIOClose,.clock=RouteIOClock};
-  for(NSUInteger scenario=0;scenario<9;scenario++) {
-    NSString *error=nil;RouteIORequest=KuroRouteMessage(target,RTM_ADD,17,&error);
-    NSMutableData *ack=[RouteIORequest mutableCopy];((struct rt_msghdr *)ack.mutableBytes)->rtm_errno=EEXIST;
-    RouteIOFixture=@{@"events":@[@{@"packet":ack}]};RouteIOCursor=RouteIOCloses=RouteIOPolls=RouteIOReceives=RouteIOClockCalls=0;RouteIONow=0;
-    CHECK(!KuroRouteExchangeWithIO(target,RouteIORequest,RTM_ADD,17,&io,&error));NSString *original=error;
-    KuroFakeRouteStore *backend=[KuroFakeRouteStore new];
-    NSMutableDictionary *changed=[ObservedRoute(target)mutableCopy];changed[@"gateway"]=@"198.18.0.1";changed[@"interfaceIndex"]=@9;changed[@"interfaceName"]=@"utun9";changed[@"flags"]=@(RTF_UP|RTF_GATEWAY);
-    if(scenario==1||scenario==3||scenario==5)[backend.entries addObject:ObservedRoute(target)];
-    if(scenario==2||scenario==3)[backend.entries addObject:changed];
-    if(scenario==4||scenario==5)backend.failRead=YES;
-    if(scenario==6)for(NSUInteger i=0;i<10;i++)[backend.entries addObject:ObservedRoute(target)];
-    if(scenario==7)for(NSUInteger i=0;i<4;i++){NSMutableDictionary *large=[changed mutableCopy];large[@"gateway"]=[@"link:"stringByAppendingString:[@"ab"stringByPaddingToLength:510 withString:@"ab"startingAtIndex:0]];[backend.entries addObject:large];}
-    // An unrelated route must never be exposed by the failure-only targeted view.
-    NSMutableDictionary *foreign=[ObservedRoute(target)mutableCopy];foreign[@"destination"]=@"203.0.113.17";[backend.entries addObject:foreign];
-    RouteIOCursor=RouteIOCloses=RouteIOPolls=RouteIOReceives=RouteIOClockCalls=0;RouteIONow=0;error=nil;
-    if(scenario==8){((struct rt_msghdr *)ack.mutableBytes)->rtm_errno=0;CHECK(KuroRouteExchangeAndReadback(target,RouteIORequest,RTM_ADD,17,&io,backend,&error)&&!error&&!backend.snapshots);continue;}
-    CHECK(!KuroRouteExchangeAndReadback(target,RouteIORequest,RTM_ADD,17,&io,backend,&error));
-    CHECK(backend.snapshots==1&&!backend.additions&&!backend.deletions&&[error hasPrefix:[original stringByAppendingString:@"; failedRouteReadback="]]);
-    NSRange marker=[error rangeOfString:@"; failedRouteReadback="];NSDictionary *details=[NSJSONSerialization JSONObjectWithData:[[error substringFromIndex:NSMaxRange(marker)]dataUsingEncoding:NSUTF8StringEncoding] options:0 error:NULL];CHECK(details);
-    CHECK([error lengthOfBytesUsingEncoding:NSUTF8StringEncoding]<=4096 && ![error containsString:@"203.0.113.17"]);
-    if(scenario==0)CHECK([details[@"state"]isEqual:@"absent"]&&[details[@"matchCount"]isEqual:@0]&&![details[@"matches"]count]);
-    if(scenario==1)CHECK([details[@"state"]isEqual:@"present"]&&[details[@"matches"]isEqual:@[ObservedRoute(target)]]);
-    if(scenario==2)CHECK([details[@"state"]isEqual:@"present"]&&[details[@"matches"]isEqual:@[changed]]);
-    if(scenario==3)CHECK([details[@"matchCount"]isEqual:@2]&&[details[@"matches"]isEqual:(@[ObservedRoute(target),changed])]&&[details[@"truncated"]isEqual:@NO]);
-    if(scenario==4||scenario==5)CHECK([details[@"state"]isEqual:@"unavailable"]&&[details[@"error"]isEqual:@"injected unknown snapshot"]&&!details[@"matchCount"]&&!details[@"matches"]);
-    if(scenario==6)CHECK([details[@"matchCount"]isEqual:@10]&&[details[@"matches"]count]==4&&[details[@"truncated"]isEqual:@YES]);
-    if(scenario==7)CHECK([details[@"matchCount"]isEqual:@4]&&[details[@"matches"]count]<4&&[details[@"truncated"]isEqual:@YES]);
-    NSString *preserved=[error copy];[backend.entries removeAllObjects];CHECK([preserved isEqual:error]); // Later rollback cannot alter the self-contained observation.
-  }
-  RouteIOFixture=RouteIOEvent=nil;RouteIORequest=nil;
-  puts("native failed route readback: absent/present/changed/duplicate/snapshot-error/bounded-match evidence + success-no-snapshot PASS; original ACK/NO preserved, no route writes");
-}
-
-static void RouteTests(void) {
-  RouteFailedReadbackTests();
-  RouteExchangeTests();
-  RoutePreparationTests();
-  RouteKernelDumpTests();
-  CHECK(geteuid()!=0);
-  KuroCoreInterface association=RouteFixtureInterface();
-  NSArray *plan=KuroSplitRouteCandidate(association); CHECK(plan.count==4);
-  __block NSString *error=nil;NSString *session=@"00112233-4455-6677-8899-AABBCCDDEEFF";
-  // Pure packets, including both address families. No PF_ROUTE/sysctl operation.
-  NSMutableData *dump=[NSMutableData data];
-  for (NSDictionary *entry in plan) {
-    CHECK(KuroRouteEntry(entry)); NSMutableData *packet=[KuroRouteMessage(entry,RTM_ADD,1,&error) mutableCopy];
-    CHECK(packet && ((struct rt_msghdr *)packet.mutableBytes)->rtm_index==7);
-    struct rt_msghdr *header=packet.mutableBytes;
-    CHECK(!(header->rtm_flags&(RTF_PRCLONING|RTF_IFSCOPE)));
-    header->rtm_type=RTM_GET; header->rtm_flags|=RTF_PRCLONING; [dump appendData:packet];
-  }
-  NSArray *decoded=KuroRouteDecodeDump(dump,&error); CHECK(decoded.count==4);
-  for (NSUInteger i=0;i<plan.count;i++) CHECK(KuroRouteEqual(decoded[i],plan[i]));
-  // The fixed IPv4/IPv6 non-host callbacks add exactly PRCLONING. Missing it,
-  // unexpected scope/cloning/ownership bits, and host-route PRCLONING are material.
-  for (NSDictionary *entry in plan) {
-    NSMutableDictionary *readback=[ObservedRoute(entry)mutableCopy];
-    CHECK(KuroRouteEqual(readback,entry));
-    unsigned int expected=[readback[@"flags"]unsignedIntValue];
-    readback[@"flags"]=@(expected|RTF_DONE|RTF_IFREF); CHECK(KuroRouteEqual(readback,entry));
-    readback[@"flags"]=@(expected&~RTF_PRCLONING); CHECK(!KuroRouteEqual(readback,entry));
-    for (NSNumber *flag in @[@(RTF_IFSCOPE),@(RTF_CLONING),@(RTF_HOST),@(RTF_MULTICAST),@(RTF_GATEWAY),@(RTF_REJECT),@(RTF_BLACKHOLE),@(RTF_WASCLONED),@(RTF_DYNAMIC)]) {
-      readback[@"flags"]=@(expected|flag.unsignedIntValue); CHECK(!KuroRouteEqual(readback,entry));
-    }
-    for (NSNumber *flag in @[@(RTF_UP),@(RTF_STATIC),@(RTF_PROTO2)]) {
-      readback[@"flags"]=@(expected&~flag.unsignedIntValue); CHECK(!KuroRouteEqual(readback,entry));
-    }
-    NSMutableDictionary *host=[entry mutableCopy];host[@"prefix"]=[entry[@"family"]isEqual:@4]?@32:@128;
-    CHECK(KuroRouteEntry(host));readback=[ObservedRoute(host)mutableCopy];
-    CHECK(KuroRouteEqual(readback,host)&&!([readback[@"flags"]unsignedIntValue]&RTF_PRCLONING));
-    readback[@"flags"]=@([readback[@"flags"]unsignedIntValue]|RTF_PRCLONING);CHECK(!KuroRouteEqual(readback,host));
-  }
-  NSMutableData *bad=[dump mutableCopy]; ((struct rt_msghdr *)bad.mutableBytes)->rtm_msglen=1;
-  CHECK(!KuroRouteDecodeDump(bad,&error)); CHECK(!KuroRouteDecodeDump([dump subdataWithRange:NSMakeRange(0,dump.length-1)],&error));
-  // Corrupted gateway index must never compare as our link gateway.
-  bad=[KuroRouteMessage(plan[0],RTM_ADD,1,&error) mutableCopy]; ((struct rt_msghdr *)bad.mutableBytes)->rtm_type=RTM_GET;
-  struct sockaddr_dl *gateway=(void *)((char *)bad.mutableBytes+sizeof(struct rt_msghdr)+sizeof(struct sockaddr_in)); gateway->sdl_index=8;
-  CHECK(!KuroRouteEqual(KuroRouteDecodeDump(bad,&error).firstObject,plan[0]));
-  // Non-contiguous masks and scoped IPv6 addresses are conservatively rejected.
-  bad=[KuroRouteMessage(plan[0],RTM_ADD,1,&error) mutableCopy]; ((struct rt_msghdr *)bad.mutableBytes)->rtm_type=RTM_GET;
-  struct sockaddr_in *mask=(void *)((char *)bad.mutableBytes+sizeof(struct rt_msghdr)+sizeof(struct sockaddr_in)+KuroRouteAligned(sizeof(struct sockaddr_dl)));
-  ((unsigned char *)&mask->sin_addr)[1]=1; CHECK(!KuroRouteDecodeDump(bad,&error));
-  bad=[KuroRouteMessage(plan[2],RTM_ADD,1,&error) mutableCopy]; ((struct rt_msghdr *)bad.mutableBytes)->rtm_type=RTM_GET;
-  ((struct sockaddr_in6 *)((char *)bad.mutableBytes+sizeof(struct rt_msghdr)))->sin6_scope_id=7;
-  CHECK(!KuroRouteDecodeDump(bad,&error));
-  // A scoped link-local gateway is baseline metadata, never an admitted write.
-  NSMutableDictionary *scoped=[plan[2]mutableCopy]; scoped[@"gateway"]=@"2001:db8::1";
-  bad=[KuroRouteMessage(scoped,RTM_ADD,1,&error)mutableCopy]; ((struct rt_msghdr *)bad.mutableBytes)->rtm_type=RTM_GET;
-  struct sockaddr_in6 *v6gateway=(void *)((char *)bad.mutableBytes+sizeof(struct rt_msghdr)+sizeof(struct sockaddr_in6));
-  inet_pton(AF_INET6,"fe80::1",&v6gateway->sin6_addr); v6gateway->sin6_scope_id=7;
-  NSDictionary *observedScoped=KuroRouteDecodeDump(bad,&error).firstObject; CHECK([observedScoped[@"gateway"]isEqual:@"fe80::1%7"]);
-  CHECK(!KuroRouteEqual(observedScoped,plan[2])); v6gateway->sin6_scope_id=8; CHECK(!KuroRouteDecodeDump(bad,&error));
-  v6gateway->sin6_scope_id=0; v6gateway->sin6_addr.s6_addr[3]=7; CHECK([KuroRouteDecodeDump(bad,&error).firstObject[@"gateway"]isEqual:@"fe80::1%7"]);
-  NSMutableDictionary *invalid=[plan[0] mutableCopy]; invalid[@"prefix"]=@0; CHECK(!KuroRouteEntry(invalid));
-  invalid=[plan[0] mutableCopy]; invalid[@"destination"]=@"1.0.0.0"; CHECK(!KuroRouteEntry(invalid));
-  invalid=[plan[0] mutableCopy]; invalid[@"interfaceIndex"]=@YES; CHECK(!KuroRouteEntry(invalid));
-  invalid=[plan[0] mutableCopy]; invalid[@"command"]=@"route"; CHECK(!KuroRouteMessage(invalid,RTM_ADD,1,&error));
-  char temporary[]="/tmp/kuro-route-owner-XXXXXX"; CHECK(mkdtemp(temporary)); char canonical[PATH_MAX]; CHECK(realpath(temporary,canonical)); NSString *base=@(canonical);
-  __block KuroRouteOwnerState owner=KuroRouteOwnerLive;
-  KuroRouteOwnership ownership=^KuroRouteOwnerState(KuroCoreInterface expected, NSString **failure) { (void)failure; CHECK([KuroRouteAssociation(expected)isEqual:KuroRouteAssociation(association)]); return owner; };
-  for (NSUInteger scenario=0;scenario<12;scenario++) {
-    NSString *directory=[base stringByAppendingPathComponent:[NSString stringWithFormat:@"run%lu",(unsigned long)scenario]]; FixtureDirectory(directory);
-    NSString *journal=[directory stringByAppendingPathComponent:KuroRouteJournal];
-    KuroFakeRouteStore *backend=[KuroFakeRouteStore new]; backend.directory=directory;
-    NSDictionary *lan=@{@"family":@4,@"destination":@"192.168.1.0",@"prefix":@24,@"gateway":@"link",@"interfaceIndex":@2,@"interfaceName":@"en0",@"flags":@(RTF_UP)};
-    [backend.entries addObject:lan];
-    KuroOwnedRoutes *routes=[[KuroOwnedRoutes alloc]initWithDirectory:directory owner:geteuid() backend:backend]; owner=KuroRouteOwnerLive;
-    if (scenario==0) {
-      CHECK([routes installForSession:session interface:association routes:plan ownership:ownership error:&error]);
-      CHECK([routes confirmInstalledSession:session interface:association ownership:ownership error:&error]);
-      CHECK(![routes confirmInstalledSession:@"11112233-4455-6677-8899-AABBCCDDEEFF" interface:association ownership:ownership error:&error]);
-      CHECK([ReadJSON(directory,journal,geteuid(),NULL)[@"applied"]isEqual:@4]);
-      CHECK([routes recoverForInterface:association ownership:ownership error:&error] && routes.routesOff && backend.deletions==4 && backend.entries.count==1 && [backend.entries.firstObject isEqual:lan] && !Exists(journal));
-    } else if (scenario==1) {
-      [backend.entries addObject:ObservedRoute(plan[0])];
-      CHECK(![routes installForSession:session interface:association routes:plan ownership:ownership error:&error] && !Exists(journal) && !backend.additions && !backend.deletions);
-    } else if (scenario==2 || scenario==3) {
-      backend.addThenFail=YES;
-      CHECK(![routes installForSession:session interface:association routes:plan ownership:ownership error:&error] && Exists(journal));
-      CHECK(![routes recoverForInterface:association ownership:ownership error:&error] && !backend.deletions && Exists(journal));
-      if (scenario==3) {
-        [backend.entries removeLastObject]; owner=KuroRouteOwnerExitedInterfaceGone;
-        CHECK([routes recoverForInterface:association ownership:ownership error:&error] && routes.routesOff && !backend.deletions);
-      }
-    } else if (scenario==4 || scenario==5 || scenario==6) {
-      CHECK([routes installForSession:session interface:association routes:plan ownership:ownership error:&error]);
-      if (scenario==4) { NSMutableDictionary *foreign=[backend.entries[1]mutableCopy]; foreign[@"gateway"]=@"198.18.0.1"; backend.entries[1]=foreign; }
-      if (scenario==5) owner=KuroRouteOwnerUnknown;
-      if (scenario==6) owner=KuroRouteOwnerExitedInterfaceGone;
-      CHECK(![routes recoverForInterface:association ownership:ownership error:&error] && Exists(journal) && !backend.deletions && !routes.routesOff);
-    } else if (scenario==7) {
-      CHECK([routes installForSession:session interface:association routes:plan ownership:ownership error:&error]); backend.lieDelete=YES;
-      CHECK(![routes recoverForInterface:association ownership:ownership error:&error] && Exists(journal) && !routes.routesOff);
-      backend.lieDelete=NO; CHECK([routes recoverForInterface:association ownership:ownership error:&error] && routes.routesOff);
-    } else if (scenario==8) {
-      Put(journal,Bytes(@"[]"),0600); CHECK(![routes recoverForInterface:association ownership:ownership error:&error] && !backend.deletions && Exists(journal));
-    } else if (scenario==9) {
-      CHECK([routes installForSession:session interface:association routes:plan ownership:ownership error:&error]);
-      KuroCoreInterface changed=association; changed.socketHandle++;
-      CHECK(![routes recoverForInterface:changed ownership:ownership error:&error] && !backend.deletions && Exists(journal));
-    } else if (scenario==10) {
-      CHECK([routes installForSession:session interface:association routes:plan ownership:ownership error:&error]);
-      [backend.entries removeObjectsInRange:NSMakeRange(1,backend.entries.count-1)]; owner=KuroRouteOwnerExitedInterfaceGone;
-      CHECK([routes recoverForInterface:association ownership:ownership error:&error] && !backend.deletions && routes.routesOff);
-    } else {
-      // Previously absent/unreceipted entry appears between preflight and deletion.
-      backend.addThenFail=YES; CHECK(![routes installForSession:session interface:association routes:plan ownership:ownership error:&error]); [backend.entries removeLastObject];
-      __block NSUInteger reads=0;
-      backend.onSnapshot=^(KuroFakeRouteStore *store) { if (++reads==2) [store.entries addObject:ObservedRoute(plan[3])]; };
-      CHECK(![routes recoverForInterface:association ownership:ownership error:&error] && !backend.deletions && Exists(journal));
-    }
-  }
-  for(NSUInteger scenario=0;scenario<2;scenario++) {
-    NSString *directory=[base stringByAppendingPathComponent:[NSString stringWithFormat:@"durable%lu",(unsigned long)scenario]];FixtureDirectory(directory);
-    KuroFakeRouteStore *backend=[KuroFakeRouteStore new];backend.directory=directory;
-    KuroRouteDurabilityFixture *routes=[[KuroRouteDurabilityFixture alloc]initWithDirectory:directory owner:geteuid() backend:backend];owner=KuroRouteOwnerLive;
-    CHECK([routes installForSession:session interface:association routes:plan ownership:ownership error:&error]);[backend.entries removeAllObjects];owner=KuroRouteOwnerExitedInterfaceGone;routes.refuseSync=YES;
-    BOOL (^recover)(void)=^BOOL{return scenario==0?[routes recoverRecordedAbsence:&error]:[routes recoverForInterface:association ownership:ownership error:&error];};
-    CHECK(!recover()&&!routes.routesOff&&!Exists([directory stringByAppendingPathComponent:KuroRouteJournal]));NSUInteger calls=routes.syncCalls;
-    CHECK(!recover()&&!routes.routesOff&&routes.syncCalls==calls+1);routes.refuseSync=NO;CHECK(recover()&&routes.routesOff&&!backend.deletions);
-  }
-  puts("native route durability: 2 absence-only retirement/retry paths require successful directory sync, no route deletion");
   CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);
-  puts("native kernel flags: both IPv4/IPv6 /1 readbacks require PRCLONING, host routes do not; scope/material flag negatives preserved");
-  puts("native routes: bounded wire fixtures and 12 ownership/recovery scenarios passed; no PF_ROUTE/sysctl/network operation executed");
+  puts("native route absence: 15 prepared/observed/legacy/no-journal/foreign/duplicate/read-failure/two-snapshot/unlink-sync retry cases PASS; no route deletion method exists");
 }
+static void RouteTests(void) {RouteKernelDumpTests();RouteObservationTests();RouteReadinessTests();RouteAbsenceTests();}

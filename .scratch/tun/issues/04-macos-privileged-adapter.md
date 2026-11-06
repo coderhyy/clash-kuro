@@ -1,12 +1,29 @@
 # macOS 特权 helper
 
-Status: ready-for-agent（持续正常窗口；95a8808路由ACK失败已安全恢复并清理，定位中）
+Status: ready-for-agent（Core auto-route 生产替换及八条组合回归已通过；独审/CI/新候选进行中；实机未通过）
 Type: task
-Blocked by: 首次正常启停：真实路由ACK失败定位/修复及正常启停；正式交付：异常恢复与升级验收
+Blocked by: 首次正常启停：auto-route 组合回归、独审/CI、候选冻结与现场基线；正式交付：异常恢复与升级验收
 Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
 
-## 当前状态（2026-11-06，95a8808实机）
+## 当前交付状态（auto-route 决定后）
 
+- 新增证据：[auto-route 组合结果](../evidence/core-auto-route-20261106/RESULT.md)。手工 writer 已删除；fresh/start/stop 与部分路由启动失败恢复八条生产链通过（模拟系统后端），固定 Core -t 通过；尚无新实机流量结论。
+- 负责范围沿用本票；04 移除手工 writer、保留鉴权/监督，06 接入固定配置与只读网络生命周期，08 负责生产组合回归、独审/CI 和同范围真实正常启停。
+- Blocked by：新候选的组合回归、独审/CI、产物冻结及现场基线；不以异常恢复全部完成阻塞首次正常启停。
+- 验收：fresh→ready→start→stop、启动失败恢复；真实流量经过本会话 Core/utun、停止后网络恢复和持久证明、准确卸载。源码支持与模拟测试不代替实机。
+- Core 独占路由写入，helper DNS 保持；旧账本只允许缺席退役，未知不删。持续正常窗口授权有效，管理员弹窗由维护者处理；异常注入/升级另行安排。
+
+以下为保留的历史记录，旧“建议/暂停”状态已由本节替代。
+
+## 路线复核结论（2026-11-06）
+
+没有固定版本证据证明已批准需求必须由helper手写PF_ROUTE；推荐仅将路由交回固定Core auto-route，保留鉴权、受保护安装、准确Core监督/互斥、原Profile及现helper DNS。需把host2/split4写账本改为有限Core计划与held-utun只读证明，停止后仍独立核对缺席，未知不删；不能只翻布尔值。固定源码依据、最小落点与验收边界集中在[规格“路由执行方复核”](../spec.md)。
+
+本次ACK根因是RTM_NEWMADDR短通知被误判；局部补丁离线RED/GREEN及独审通过但未部署。另有LLINFO精确读回不符及未验证网络行为，不能说仅剩一个局部问题。按维护者要求暂停新增网络重试，上一轮已完整恢复/卸载；不新增票或通用网络框架。
+
+## 当前状态（2026-11-06，e2addf7实机）
+
+- e2addf7实机：IPv6 host ADD188字节完整写出，先读到64字节/type0x0f通知并被当短ACK拒绝；未读匹配ACK，目标路由实际存在。Core退出/网络恢复/持久证明及精确卸载全部通过。[具体证据](../evidence/route-ack-diagnostic-20261106/candidate-e2addf7/REAL-WINDOW.md)。仅修复通知分类，不放宽ACK或归属检查。
 - 实际安装App鉴权恢复ready/off、固定Core及双族utun创建通过；路由写入ACK失败，尚无on或测试流量通过证据。[实机及清理证据](../evidence/internal-dns-probe-20261106/candidate-95a8808/REAL-WINDOW.md)。
 - 原会话Core SIGTERM/exit0、网络恢复与持久停止证明通过；job/安装/socket/receipt准确清除。DNS192.168.0.1、系统代理及生产稳定路由基线匹配，Profile未修改。
 - 当前仅定位真实ACK失败；不放宽归属或回执检查。持续正常窗口有效，异常恢复/升级验收另排。隔离普通子进程超时仍独立未解释。

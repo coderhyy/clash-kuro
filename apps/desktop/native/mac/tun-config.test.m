@@ -30,7 +30,8 @@ static void ConfigTests(void) {
   NSData *candidate = KuroTunRuntimeJSON(JSONData(config), &error);
   CHECK([[[NSString alloc] initWithData:candidate encoding:NSUTF8StringEncoding] rangeOfString:@"\\/"].location == NSNotFound);
   NSDictionary *runtime = KuroDecodeJSON(candidate, 128 * 1024, &error);
-  CHECK([runtime[@"tun"][@"auto-route"] isEqual:@NO] && [runtime[@"tun"][@"dns-mode"] isEqual:@"disabled"]);
+  CHECK(([runtime[@"tun"][@"route-address"] isEqual:@[@"0.0.0.0/1",@"128.0.0.0/1",@"::/1",@"8000::/1"]]));
+  CHECK([runtime[@"tun"][@"auto-route"] isEqual:@YES] && [runtime[@"tun"][@"dns-mode"] isEqual:@"disabled"]);
   CHECK([runtime[@"tun"][@"stack"] isEqual:@"mips"]); CHECK([runtime[@"rules"] isEqual:@[@"MATCH,DIRECT"]]);
   CHECK(!runtime[@"external-controller"] && !runtime[@"external-controller-unix"] && !runtime[@"proxy-providers"]);
   for (NSString *extra in @[@"path", @"external-controller", @"external-controller-unix", @"script", @"proxy-providers", @"tun", @"profile"]) {

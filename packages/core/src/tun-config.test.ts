@@ -38,7 +38,7 @@ test('admits explicit inline data, preserves DIRECT and local DNS policy, and do
 test('fixed dual-stack candidate does not delegate routes or system DNS to Core, add providers or open listeners', () => {
   const source = session()
   const output = parse(buildTunRuntimeCandidate(source))
-  expect(output.tun).toEqual({ enable: true, stack: 'mips', mtu: 1500, 'auto-route': false, 'auto-detect-interface': true, 'strict-route': false, 'dns-mode': 'disabled', 'dns-hijack': [], 'inet6-address': ['fdfe:dcba:9876::1/126'] })
+  expect(output.tun).toEqual({ enable: true, stack: 'mips', mtu: 1500, 'auto-route': true, 'route-address': ['0.0.0.0/1', '128.0.0.0/1', '::/1', '8000::/1'], 'auto-detect-interface': true, 'strict-route': false, 'dns-mode': 'disabled', 'dns-hijack': [], 'inet6-address': ['fdfe:dcba:9876::1/126'] })
   expect(output.ipv6).toBe(true)
   expect(output.dns).toMatchObject({ enable: true, ipv6: true, 'enhanced-mode': 'redir-host', listen: '', fallback: [], 'default-nameserver': source.dns.bootstrap, nameserver: source.dns.nameservers, 'proxy-server-nameserver': source.dns.proxyNameservers, 'fake-ip-range': '198.18.0.1/16', 'respect-rules': false })
   expect(output['geo-auto-update']).toBe(false)

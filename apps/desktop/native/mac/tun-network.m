@@ -152,7 +152,7 @@ static NSDictionary *KuroDNSPreflight(NSDictionary *records, NSString **error) {
 - (BOOL)installForSession:(NSString *)session routes:(KuroOwnedRoutes *)routes interface:(KuroCoreInterface)association ownership:(KuroRouteOwnership)ownership dnsReady:(BOOL (^)(NSString **))dnsReady error:(NSString **)error {
   _dnsOff=NO;
   BOOL (^admission)(NSString **)=^BOOL(NSString **failure) {
-    return routes && [routes confirmInstalledSession:session interface:association ownership:ownership error:failure];
+    return routes && [routes confirmObservedSession:session interface:association ownership:ownership error:failure];
   };
   if (![self onThread:error] || !dnsReady || !admission(error) || !dnsReady(error) || !admission(error)) return Fail(error,@"DNS activation requires current route receipts and a successful internal resolver probe");
   return [self installPreparedSession:session admission:admission error:error];

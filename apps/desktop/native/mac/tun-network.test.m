@@ -223,7 +223,7 @@ static void NetworkTests(void) {
     KuroRouteOwnership ownership=^KuroRouteOwnerState(KuroCoreInterface value,NSString **failure) { (void)value; (void)failure; return owner; };
     KuroFakeRouteStore *routeStore=[KuroFakeRouteStore new]; routeStore.directory=directory;
     KuroOwnedRoutes *routes=[[KuroOwnedRoutes alloc]initWithDirectory:directory owner:geteuid() backend:routeStore];
-    if (scenario!=0) CHECK([routes installForSession:session interface:association routes:KuroSplitRouteCandidate(association) ownership:ownership error:&error]);
+    if(scenario!=0){CHECK([routes prepareForSession:session binding:RouteFixtureBinding() baselineRoutes:@[] baselineDNS:@{} physicalInterface:@"en0" error:&error]);for(NSDictionary *route in KuroCoreAutoRouteCandidate(association))[routeStore.entries addObject:ObservedRoute(route)];CHECK([routes observeForSession:session interface:association ownership:ownership error:&error]);}
     KuroFakeDNSStore *store=[KuroFakeDNSStore new]; store.directory=directory;
     KuroOwnedDNS *dns=[[KuroOwnedDNS alloc]initWithDirectory:directory owner:geteuid() backend:store];
     BOOL (^probe)(NSString **)=^BOOL(NSString **failure) { (void)failure; if (scenario==2) { owner=KuroRouteOwnerUnknown; return YES; } return scenario!=1; };

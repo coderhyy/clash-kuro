@@ -187,6 +187,8 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
 @property(nonatomic, readonly) BOOL off;
 @property(nonatomic, readonly) NSDictionary *terminationEvidence;
 @property(nonatomic, readonly) NSDictionary *stopContext;
+@property(nonatomic, copy) KuroRestartWorkCleanup recoveredNetwork;
+- (NSDictionary *)preparedNetworkBinding:(NSString **)error;
 - (BOOL)setOutputStdout:(int)output stderr:(int)errors error:(NSString **)error;
 #ifdef KURO_CORE_EXPERIMENT
 @property(nonatomic, readonly) KuroExperimentStopTrigger experimentStopTrigger;
@@ -239,6 +241,15 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
 - (int)experimentStderrDescriptor {return _stderrDescriptor;}
 - (void)setExperimentStderrDescriptor:(int)value {_stderrDescriptor=value;}
 #endif
+- (NSDictionary *)preparedNetworkBinding:(NSString **)error {
+  NSDictionary *record=_heldOwnerBytes?[NSJSONSerialization JSONObjectWithData:_heldOwnerBytes options:0 error:NULL]:nil;
+  if(!_journaled || _child<=0 || !KuroRestartRecord(record,error) || ![record[@"session"]isEqual:_identifier] || [record[@"pid"]intValue]!=_child || !record[@"launch"]) {
+    Fail(error,@"prepared network binding requires the held persisted Core owner");return nil;
+  }
+  NSMutableDictionary *binding=[record[@"launch"]mutableCopy];
+  binding[@"process"]=@{@"pid":record[@"pid"],@"startSeconds":record[@"startSeconds"],@"startMicros":record[@"startMicros"]};
+  return binding;
+}
 - (NSDictionary *)stopContext {return _stopContext;}
 - (NSDictionary *)terminationEvidence { return _terminationEvidence ?: @{@"request":@"none",@"observed":@NO}; }
 - (BOOL)setOutputStdout:(int)output stderr:(int)errors error:(NSString **)error {
@@ -368,7 +379,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
     return [self directoryProtected:failure] && [ReadProtected(self->_directory,path,self->_owner,failure)isEqual:bytes] && KuroRestartAbsent(record,reader,failure) && KuroRestartSupervisorAbsent(record,reader,failure) && KuroRestartGroupEmpty(record,groupReader,failure) && (!record[@"supervision"][@"installation"] || (validator && validator(record,failure)) || Fail(failure,@"installed recovery requires its explicit internal writer validator"));
   };
   // Sample twice before invoking even a receipt-only network cleanup.
-  if(!stillAbsent(error) || !stillAbsent(error) || !network(error) || !stillAbsent(error))return NO;
+  if(!stillAbsent(error) || !stillAbsent(error) || !(self.recoveredNetwork?self.recoveredNetwork(record,stillAbsent,error):network(error)) || !stillAbsent(error))return NO;
   NSString *cache=[work stringByAppendingPathComponent:@"cache.db"];
   NSDictionary *origin=record[@"work"][@"cacheOrigin"];
   if(Exists(cache) && origin && !record[@"work"][@"cache"]) {

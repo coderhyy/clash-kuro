@@ -140,6 +140,7 @@ typedef BOOL (^KuroServiceStopped)(NSDictionary *sessionEvidence, NSString **err
 @property(nonatomic, copy) KuroServicePreflight preflight;
 @property(nonatomic, copy) KuroSessionHook beforeStart;
 @property(nonatomic, copy) KuroSessionHook beforeResume;
+@property(nonatomic, copy) BOOL (^prepareNetwork)(NSString *session,NSDictionary *binding,NSString **error);
 @property(nonatomic, copy) KuroServiceStopped confirmStopped;
 @property(nonatomic, copy) KuroServiceProcessHook ready;
 @property(nonatomic, copy) KuroServiceProcessHook applyNetwork;
@@ -149,6 +150,7 @@ typedef BOOL (^KuroServiceStopped)(NSDictionary *sessionEvidence, NSString **err
 @property(nonatomic, copy) NSDictionary *(^readinessHosts)(void);
 @property(nonatomic, copy) KuroServiceRecovery verifyNetwork;
 @property(nonatomic, copy) KuroSessionHook recoverResidualNetwork;
+@property(nonatomic, copy) KuroRestartWorkCleanup recoverOwnedNetwork;
 @property(nonatomic, copy) NSDictionary *(^recoveredNetworkEvidence)(NSDictionary *record,NSString **error);
 @end
 @implementation KuroTunServiceHooks @end
@@ -474,12 +476,14 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
   @try {
     if((_session && _session.child>0) || (_session && Exists([_directory stringByAppendingPathComponent:@"owner.json"])))return Fail(error,@"in-memory Core owner requires its original stop/reconcile; no PID adoption");
     if(!SafeChain([self anchor],_directory,_owner,YES,error) || !_hooks.recoverResidualNetwork)return NO;
-    // Independently owned DNS/route-absence recovery must not depend on old PID
-    // absence or a final cache receipt. Overall off still requires all old gates.
+    // A route intent can precede Core writes; retire it only behind the existing writer-exit proof.
+    BOOL ownedRoutes=Exists([_directory stringByAppendingPathComponent:@"owner.json"]) && Exists([_directory stringByAppendingPathComponent:@"network.json"]);
+    if(ownedRoutes&&!_hooks.recoverOwnedNetwork)return Fail(error,@"recorded routes require writer-proven network recovery");
     NSString *networkFailure=nil;
-    if(!_hooks.recoverResidualNetwork(&networkFailure))return Fail(error,networkFailure?:@"residual network recovery not confirmed");
+    if(!ownedRoutes&&!_hooks.recoverResidualNetwork(&networkFailure))return Fail(error,networkFailure?:@"residual network recovery not confirmed");
     if(!Exists([_directory stringByAppendingPathComponent:@"owner.json"]) && ![self replayStoppedEvidenceForOwner:nil error:error])return NO;
     KuroOwnedSession *observed=[[KuroOwnedSession alloc] initWithDirectory:_directory owner:_owner];
+    observed.recoveredNetwork=_hooks.recoverOwnedNetwork;
 #ifdef KURO_TESTING
     observed.fixtureRestartReader=self.fixtureRestartReader;observed.fixtureRestartGroupReader=self.fixtureRestartGroupReader;
 #endif
@@ -712,7 +716,7 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
     if(!Keys(open,@[@"version",@"operation",@"config"]) || !KuroNumber(open[@"version"],2,2) || ![open[@"operation"] isEqual:@"open"] || ![open[@"config"] isKindOfClass:NSDictionary.class]) { failure=@"invalid closed version-2 open frame"; return NO; }
     NSData *canonical=[NSJSONSerialization dataWithJSONObject:open[@"config"] options:NSJSONWritingSortedKeys|NSJSONWritingWithoutEscapingSlashes error:NULL];
     stage=@"closed config validation"; _admitted=KuroValidateTunConfig(canonical,&failure); if(!_admitted)return NO; _configDigest=Hash(canonical);
-    if(!_hooks.authorize||!_hooks.preflight||!_hooks.beforeStart||!_hooks.beforeResume||!_hooks.confirmStopped||!_hooks.ready||!_hooks.applyNetwork||!_hooks.recoverNetwork||!_hooks.identityValid) { failure=@"complete authorization, process and network hooks are required"; return NO; }
+    if(!_hooks.authorize||!_hooks.preflight||!_hooks.beforeStart||!_hooks.beforeResume||!_hooks.prepareNetwork||!_hooks.confirmStopped||!_hooks.ready||!_hooks.applyNetwork||!_hooks.recoverNetwork||!_hooks.identityValid) { failure=@"complete authorization, process and network hooks are required"; return NO; }
     if(!_hooks.authorize(peer,_configDigest,&failure) || !_hooks.identityValid(peer) || !_hooks.preflight(_admitted,&failure)) { failure=failure ?: @"caller or process/network prerequisites are not proven"; return NO; }
     if(![self startupAllowed:&failure])return NO;
     stage=@"fixed Core approval"; NSString *core=[self approvedCore:&failure]; if(!core)return NO;
@@ -797,6 +801,8 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
         if(!strong->_hooks.beforeStart(problem)) {if(problem&&*problem)strong->_primaryFailure=*problem;return NO;}
         strong->_stopProofArmed=YES;
         if(!strong->_hooks.beforeResume(problem)) {if(problem&&*problem)strong->_primaryFailure=*problem;return NO;}
+        NSDictionary *binding=[strong->_session preparedNetworkBinding:problem];
+        if(!binding || !strong->_hooks.prepareNetwork(strong->_session.identifier,binding,problem)) {if(problem&&*problem)strong->_primaryFailure=*problem;return NO;}
         BOOL resumed=resume(problem);if(!resumed&&problem&&*problem)strong->_primaryFailure=*problem;return resumed;
       }
     } error:&spawnFailure];

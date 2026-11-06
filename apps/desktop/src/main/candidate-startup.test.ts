@@ -143,7 +143,7 @@ test.runIf(typeof process.getuid === 'function')('actual finite main recovers fr
 // build-macos-helper.mjs supplies its freshly compiled ordinary-UID test binary.
 // The signed native relay tests the actual peer policy; it is not Electron/root acceptance.
 test.runIf(process.platform === 'darwin' && Boolean(process.env.KURO_ADMISSION_FIXTURE)).each([
-  'fresh', 'residue', 'recovery-failed', 'auth-only', 'identity', 'invalid-config', 'finalizing',
+  'fresh', 'residue', 'recovery-failed', 'auth-only', 'identity', 'invalid-config', 'finalizing', 'start-failed',
 ] as const)('authenticated native admission %s: installed identity -> startup recovery -> finite V2 dispatch', async mode => {
   vi.resetModules(); vi.clearAllMocks(); vi.stubEnv('KURO_SMOKE', '')
   directory = realpathSync(mkdtempSync(join(tmpdir(), 'kuro-candidate-start-'))); chmodSync(directory, 0o700)
@@ -219,6 +219,13 @@ dns:
         })
         const rejected = JSON.parse(response); expect(rejected.ok).toBe(false); rejection = rejected.error
         expect(rejected.error).toMatch(mode === 'identity' ? /client|peer|identity|harden|signature/i : /unsupported|unknown|closed|field/i)
+      } else if (mode === 'start-failed') {
+        const started = await fixture.store!.run('setTun', { enabled: true })
+        expect(started.ok).toBe(false)
+        if (!started.ok) rejection = started.error
+        expect(rejection).toMatch(/route/i)
+        expect((await fixture.store!.run('recoverTun', {})).ok).toBe(true)
+        expect(fixture.store!.store.getState().tun).toEqual({ availability: 'ready', state: 'off' })
       } else {
         const started = await fixture.store!.run('setTun', { enabled: true }); activated = started.ok; expect(started).toEqual({ ok: true })
         expect(fixture.store!.store.getState().tun).toEqual({ availability: 'ready', state: 'on' })
@@ -235,13 +242,18 @@ dns:
       }
     }
     const stats = await command('stats')
-    expect(stats.starts).toBe(['fresh', 'residue', 'finalizing'].includes(mode) ? 1 : 0)
-    expect(stats.applications).toBe(stats.starts)
+    expect(stats.starts).toBe(['fresh', 'residue', 'finalizing', 'start-failed'].includes(mode) ? 1 : 0)
+    expect(stats.applications).toBe(mode === 'start-failed' ? 0 : stats.starts)
     expect(stats.opens).toBe(['recovery-failed', 'auth-only'].includes(mode) ? 0 : 1)
     expect(stats.authorizations).toBeGreaterThanOrEqual(mode === 'auth-only' ? 0 : 1)
     expect(stats.dnsJournalAbsent).toBe(mode !== 'recovery-failed')
     expect(stats.ownerAbsent).toBe(true); expect(stats.workAbsent).toBe(true)
-    if (stats.starts === 1) expect(stats.routeAdds).toBe(6)
+    expect(stats.routeWrites).toBe(0)
+    if (stats.starts === 1) {
+      expect(stats.networkPrepares).toBe(1)
+      expect(stats.observedRouteCount).toBe(mode === 'start-failed' ? 0 : 5)
+    }
+    if (mode === 'start-failed') { expect(stats.probes).toBe(0); expect(stats.dnsAdds).toBe(0) }
     if (mode === 'residue') expect(stats.dnsRemovals).toBe(2)
     process.stdout.write(`native-admission-evidence ${JSON.stringify({ mode, ...stats, rejection, recoveryRejection })}\n`)
     expect(ordinary).not.toHaveBeenCalled(); expect(proxy).not.toHaveBeenCalled(); expect(stale).not.toHaveBeenCalled()

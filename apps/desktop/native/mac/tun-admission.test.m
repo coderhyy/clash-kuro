@@ -65,7 +65,7 @@ static NSArray *AdmissionDecodedBaseline(NSString **error) {
 }
 @end
 static int AdmissionChainMain(NSString *mode) {
-  CHECK(geteuid()!=0);CHECK(([@[@"fresh",@"residue",@"recovery-failed",@"auth-only",@"identity",@"invalid-config",@"finalizing"]containsObject:mode]));alarm(30);
+  CHECK(geteuid()!=0);CHECK(([@[@"fresh",@"residue",@"recovery-failed",@"auth-only",@"identity",@"invalid-config",@"finalizing",@"start-failed"]containsObject:mode]));alarm(30);
   char temporary[]="/tmp/ka-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));NSString *base=@(canonical),*error=nil;
   NSDictionary *installation=InstallationBindingFixtureAt(base,base,![mode isEqual:@"auth-only"]);NSString *state=At(base,State),*back=[base stringByAppendingPathComponent:@"b"],*front=[base stringByAppendingPathComponent:@"f"];
   KuroFakeRouteStore *routes=[mode isEqual:@"fresh"]?[KuroAdmissionRouteStore new]:[KuroFakeRouteStore new];routes.directory=state;if(![mode isEqual:@"fresh"])routes.entries=[ProductionBaseline()mutableCopy];KuroFakeDNSStore *dns=[KuroFakeDNSStore new];dns.directory=state;
@@ -73,7 +73,7 @@ static int AdmissionChainMain(NSString *mode) {
   NSDictionary *baselineDNS=[dns.records copy];
   if([mode isEqual:@"residue"]||[mode isEqual:@"recovery-failed"]){KuroOwnedDNS *old=[[KuroOwnedDNS alloc]initWithDirectory:state owner:geteuid() backend:dns];CHECK([old installForSession:@"00112233-4455-6677-8899-AABBCCDDEEFF" error:&error]);dns.failRemove=[mode isEqual:@"recovery-failed"];}
   __block KuroProductionNetwork *network=nil;__block KuroCoreInterface association={0};__block NSArray *interfaces=ProductionInterfaces(NO);__block KuroRouteOwnerState owner=KuroRouteOwnerLive;
-  __block NSUInteger recoveries=0,authorizations=0,starts=0,applications=0,opens=0,recoverRefusals=0;__block BOOL finalizing=NO;
+  __block NSUInteger recoveries=0,authorizations=0,starts=0,applications=0,opens=0,recoverRefusals=0,networkPrepares=0,observedRouteCount=0,probes=0;__block BOOL finalizing=NO;
   NSObject *stats=[NSObject new];dispatch_semaphore_t finish=dispatch_semaphore_create(0);
   BOOL (^authorize)(int,NSString **)=^BOOL(int peer,NSString **failure){BOOL ok=AuthorizeClientAt(peer,base,geteuid(),failure)&&KuroSessionActivationAt(base,geteuid(),installation[@"helper"],failure);if(ok)@synchronized(stats){authorizations++;}return ok;};
   KuroTunServiceHooks *hooks=ServiceHooks();
@@ -88,17 +88,22 @@ static int AdmissionChainMain(NSString *mode) {
     environment.ownership=^KuroRouteOwnerState(KuroCoreInterface expected,NSString **ignored){(void)ignored;CHECK([KuroRouteAssociation(expected)isEqual:KuroRouteAssociation(association)]);return owner;};
     environment.probeDNS=^BOOL(KuroCoreInterface observed,NSString **problem){
       NSArray *current=[routes routes:problem];if(!current)return NO;
-      for(NSArray *target in @[@[@4,@"198.18.0.2",@32],@[@6,@"fdfe:dcba:9876::2",@128]]) {
-        NSDictionary *expected=@{@"family":target[0],@"destination":target[1],@"prefix":target[2],@"gateway":@"link",@"interfaceIndex":@(observed.interfaceIndex),@"interfaceName":@(observed.interfaceName)};NSUInteger count=0;
-        for(NSDictionary *entry in current)if(KuroRouteEqual(entry,expected))count++;
-        if(count!=1)return Fail(problem,@"fixture point-to-point internal DNS path is absent or ambiguous");
+      probes++;
+      for(NSString *endpoint in @[@"198.18.0.2",@"fdfe:dcba:9876::2"]) {
+        BOOL present=NO;for(NSDictionary *entry in current)for(NSDictionary *target in KuroCoreAutoRouteCandidate(observed))if(KuroCoreAutoRouteEqual(entry,target)&&KuroRouteContainsIP(entry,endpoint))present=YES;
+        if(!present)return Fail(problem,@"fixture Core auto-route internal DNS path is absent");
       }
       return YES;
-    }; // Isolated DNS responses require actual coordinator-installed exact host routes.
+    }; // No real DNS query: simulated responses require independently observed Core-created routes.
     network=[[KuroProductionNetwork alloc]initWithDirectory:state owner:geteuid() routes:routes dns:dns environment:environment];return [network preflightConfig:config error:failure];
   };
   hooks.physicalInterface=^NSString *{return network.runtimeInterfaceName;};hooks.readinessHosts=^NSDictionary *{return KuroProductionRuntimeFields()[@"hosts"];};
-  hooks.ready=^BOOL(pid_t child,NSString *session,NSString **failure){interfaces=ProductionInterfaces(YES);[routes.entries addObject:ProductionRoute(4,@"198.18.0.1",32,@"link",@"utun7",7,RTF_UP|RTF_HOST)];[routes.entries addObject:ProductionRoute(6,@"fdfe:dcba:9876::",126,@"link",@"utun7",7,RTF_UP)];return [network readyChild:child session:session error:failure];};
+  hooks.prepareNetwork=^BOOL(NSString *session,NSDictionary *binding,NSString **failure){BOOL ok=[network prepareSession:session binding:binding error:failure];if(ok)networkPrepares++;return ok;};
+  hooks.ready=^BOOL(pid_t child,NSString *session,NSString **failure){
+    interfaces=ProductionInterfaces(YES);NSMutableArray *coreRoutes=[ProductionCoreRoutes(RouteFixtureInterface())mutableCopy];
+    if([mode isEqual:@"start-failed"])[coreRoutes removeObjectAtIndex:0]; // Core partial startup, not a helper route write.
+    [routes.entries addObjectsFromArray:coreRoutes];BOOL ok=[network readyChild:child session:session error:failure];if(ok)observedRouteCount=5;return ok;
+  };
   hooks.applyNetwork=^BOOL(pid_t child,NSString *session,NSString **failure){BOOL ok=[network applyChild:child session:session error:failure];if(ok)@synchronized(stats){applications++;}return ok;};
   hooks.verifyNetwork=^BOOL(NSString *session,NSString **failure){return [network confirmSession:session error:failure];};
   hooks.recoverNetwork=^BOOL(NSString *session,NSString **failure){owner=KuroRouteOwnerExitedInterfaceGone;interfaces=ProductionInterfaces(NO);NSIndexSet *own=[routes.entries indexesOfObjectsPassingTest:^BOOL(NSDictionary *entry,NSUInteger index,BOOL *stop){(void)index;(void)stop;return [entry[@"interfaceName"]isEqual:@"utun7"];}];[routes.entries removeObjectsAtIndexes:own];return [network recoverSession:session error:failure];};
@@ -127,7 +132,7 @@ static int AdmissionChainMain(NSString *mode) {
   char *line=NULL;size_t capacity=0;
   while(getline(&line,&capacity,stdin)>0){NSString *command=[@(line)stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
     if([command isEqual:@"release"]){dispatch_semaphore_signal(finish);puts("{}");fflush(stdout);}
-    else if([command isEqual:@"stats"]){@synchronized(stats){NSDictionary *value=@{@"decodedBaselineRoutes":@([routes isKindOfClass:KuroAdmissionRouteStore.class]?[(KuroAdmissionRouteStore *)routes decodedBaselineRoutes]:0),@"recoveries":@(recoveries),@"authorizations":@(authorizations),@"starts":@(starts),@"applications":@(applications),@"opens":@(opens),@"recoverRefusals":@(recoverRefusals),@"finalizing":@(finalizing),@"status":service.statusSnapshot,@"routeAdds":@(routes.additions),@"routeRemovals":@(routes.deletions),@"dnsAdds":@(dns.additions),@"dnsRemovals":@(dns.removals),@"ownerAbsent":@((BOOL)!Exists([state stringByAppendingPathComponent:@"owner.json"])),@"workAbsent":@((BOOL)!Exists([state stringByAppendingPathComponent:@"session-work"])),@"dnsJournalAbsent":@((BOOL)!Exists([state stringByAppendingPathComponent:KuroDNSJournal]))};NSData *bytes=JSONData(value);fwrite(bytes.bytes,1,bytes.length,stdout);puts("");fflush(stdout);}}
+    else if([command isEqual:@"stats"]){@synchronized(stats){NSDictionary *value=@{@"decodedBaselineRoutes":@([routes isKindOfClass:KuroAdmissionRouteStore.class]?[(KuroAdmissionRouteStore *)routes decodedBaselineRoutes]:0),@"recoveries":@(recoveries),@"authorizations":@(authorizations),@"starts":@(starts),@"applications":@(applications),@"opens":@(opens),@"recoverRefusals":@(recoverRefusals),@"finalizing":@(finalizing),@"status":service.statusSnapshot,@"routeWrites":@0,@"observedRouteCount":@(observedRouteCount),@"networkPrepares":@(networkPrepares),@"probes":@(probes),@"dnsAdds":@(dns.additions),@"dnsRemovals":@(dns.removals),@"ownerAbsent":@((BOOL)!Exists([state stringByAppendingPathComponent:@"owner.json"])),@"workAbsent":@((BOOL)!Exists([state stringByAppendingPathComponent:@"session-work"])),@"dnsJournalAbsent":@((BOOL)!Exists([state stringByAppendingPathComponent:KuroDNSJournal]))};NSData *bytes=JSONData(value);fwrite(bytes.bytes,1,bytes.length,stdout);puts("");fflush(stdout);}}
     else CHECK([command isEqual:@"quit"]);if([command isEqual:@"quit"])break;
   }free(line);dispatch_semaphore_signal(finish);[service requestShutdown];@synchronized(stats){running=NO;}CHECK(dispatch_group_wait(peers,dispatch_time(DISPATCH_TIME_NOW,5*NSEC_PER_SEC))==0);close(listener);CHECK(!unlink(back.fileSystemRepresentation));close(relayInput[1]);int status=0;CHECK(waitpid(relay,&status,0)==relay&&WIFEXITED(status)&&!WEXITSTATUS(status));
   CHECK(!Exists([state stringByAppendingPathComponent:@"owner.json"])&&!Exists([state stringByAppendingPathComponent:@"session-work"]));

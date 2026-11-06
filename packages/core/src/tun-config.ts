@@ -230,7 +230,7 @@ export function buildTunRuntimeCandidate(value: unknown): string {
       fallback: [], 'fallback-filter': { geoip: false }, 'respect-rules': false,
       'fake-ip-range': '198.18.0.1/16', 'fake-ip-range6': '',
     },
-    // The helper owns routes/DNS and must preflight LAN/scoped DNS; Core must not mutate them implicitly.
-    tun: { enable: true, stack: 'mips', mtu: 1500, 'auto-route': false, 'auto-detect-interface': true, 'strict-route': false, 'dns-mode': 'disabled', 'dns-hijack': [], 'inet6-address': ['fdfe:dcba:9876::1/126'] },
+    // Core owns the fixed route plan; helper preflights LAN/scoped DNS and owns DNS restoration.
+    tun: { enable: true, stack: 'mips', mtu: 1500, 'auto-route': true, 'route-address': ['0.0.0.0/1', '128.0.0.0/1', '::/1', '8000::/1'], 'auto-detect-interface': true, 'strict-route': false, 'dns-mode': 'disabled', 'dns-hijack': [], 'inet6-address': ['fdfe:dcba:9876::1/126'] },
   })
 }

@@ -1,0 +1,467 @@
+[
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/active-dns-store.json",
+    "sha256": "7e6aa4065348a2dfd98ef83b0f304366203db2684606f837669e9527e893597c",
+    "size": 485
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/active-dns.json",
+    "sha256": "35fb55e98b22adad5ce5d8aaf1c075d024953277d97fb29b42e98d01cba09481",
+    "size": 1481
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/active-interfaces.json",
+    "sha256": "0b1f5b4a2ee7457baf5bc3c80fa53568376887450454af9e3c30553c11f9de78",
+    "size": 5341
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/active-proxy.json",
+    "sha256": "d44a23ab899513ae4a228a8403bfd6558ec3ab095fdb699372ecb7844f904059",
+    "size": 201
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/active-routes4.json",
+    "sha256": "45078a8adf11227020abbe90e3f2cf889e031b656c72e0359a55bd08526acb3a",
+    "size": 3388
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/active-routes6.json",
+    "sha256": "77fdef51afce95c6960d881b043769f2ea8639b521efd3fd7d5c80143ed2ba96",
+    "size": 8741
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/active-state.json",
+    "sha256": "31c69ab30d5f8ba4cfee98675a62967d2a9edb555b92c395228d58926ba0eb60",
+    "size": 7653
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/app-ready-status.json",
+    "sha256": "48a8b425812be661d0bd59b9799ea157407c4a6a15313be32351abe66645c590",
+    "size": 72
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/baseline-command-spec.json",
+    "sha256": "ef91fef19e8a6adc33f0fe2e58387b2d25edc6bea4d0eddfb8adce0d9c37f420",
+    "size": 4506
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/baseline-default4.json",
+    "sha256": "40b77a2423480ff84336c9dd91e74d6dc9d2fbb661f51d5ca09803ab8142250e",
+    "size": 463
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/baseline-default6.json",
+    "sha256": "efeb2cfb825a61ad0dde7dcee595017279bb3a7d636859686f5bc4667adf45b9",
+    "size": 197
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/baseline-disabled.json",
+    "sha256": "dbe42c4fdce22c2a46bcc7ac46cd324fecdb83669b6e7955329b77abff5885bb",
+    "size": 913
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/baseline-dns-keys.json",
+    "sha256": "f2829ae81e1d6c92e6e5d89b3f479556691b018470d6d2118c8dae725a639b6b",
+    "size": 328
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/baseline-dns-store.json",
+    "sha256": "5784aa24a4d4711b07098e0c73c96cfe7ac2c2ead2f7ec7ebf190a70cf37d542",
+    "size": 714
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/baseline-dns.json",
+    "sha256": "16b2a84b663b83653a214b545d3c369a6283ebb2f284bb141aa5c637f11c2bfc",
+    "size": 1551
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/baseline-interfaces.json",
+    "sha256": "91fb31652e5645868d9e6877a0fc230ff92b34262efa24f864b17cc2234c9eba",
+    "size": 5398
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/baseline-job.json",
+    "sha256": "ebe86c5096e3ff0464cf71ae4d865fb79071ead383eab1d4508071f33f17cb03",
+    "size": 220
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/baseline-nwi.json",
+    "sha256": "8a9b376f06925edb7652406afb4a547e1561c11bfd2de3a3d1110137cea6eb27",
+    "size": 484
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/baseline-proxy.json",
+    "sha256": "542d32fee8a0efa422435354dea9a3b8c27c852c5422b0b37a3843df535ae07e",
+    "size": 273
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/baseline-receipts.json",
+    "sha256": "27554a0c4a66c88d9e465a3f56395d60f45f48263999b5993001f6c34a03c3a2",
+    "size": 1610
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/baseline-routes4.json",
+    "sha256": "dafe77b5d7516d305ed9176125332b989a8c19e84fa07f38f913c45d2a9385f5",
+    "size": 3407
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/baseline-routes6.json",
+    "sha256": "95d2206c5df3d1af18fb64969e8d61facbd62d6513328a678af0f93fdac79695",
+    "size": 9859
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/baseline-service-0-getdnsservers.json",
+    "sha256": "8d0474aa5b5bf257ca2564b0e11ad83274c25c731ac0990e11b3c8a82532c56e",
+    "size": 215
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/baseline-service-0-getproxybypassdomains.json",
+    "sha256": "c0dc8f94db01fc0b004bd7014b251f4fa5c0070c65d76fa98e1f3a53cc79de19",
+    "size": 193
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/baseline-service-0-getsecurewebproxy.json",
+    "sha256": "f6466b3bc8de7ea3662964dde888d55d2f187188c8182ffbaa52b70b70cc53f0",
+    "size": 238
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/baseline-service-0-getsocksfirewallproxy.json",
+    "sha256": "9fe7235045f27d2ecf5facf3f98c90d01f447fcbebf629dc6db45213d5ac4f22",
+    "size": 242
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/baseline-service-0-getwebproxy.json",
+    "sha256": "ed30a136afcd42a571694da1dc3378436417af95c49c7f0356957e9589aa328d",
+    "size": 232
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/baseline-service-1-getdnsservers.json",
+    "sha256": "e2b8d5f3a1ca04a81a3d2d1f3f02700799055e19b5ea05465674697676bb317f",
+    "size": 189
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/baseline-service-1-getproxybypassdomains.json",
+    "sha256": "f925153bbb85d85c4f841e652631a426379b921a9ab651b55767acd460a53d44",
+    "size": 200
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/baseline-service-1-getsecurewebproxy.json",
+    "sha256": "9d079b9986d20743cf5bd2c112e8998e3a6036904f98d426d4271aace7bc5623",
+    "size": 213
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/baseline-service-1-getsocksfirewallproxy.json",
+    "sha256": "99f6d106f0592f47bcac8c194bd0caf1838179d5050e706be98219267c31c9ef",
+    "size": 217
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/baseline-service-1-getwebproxy.json",
+    "sha256": "e68e557f234232ff751f36d5fa97eb52eacfe24b87e20d0276cccaf01ccd8eb8",
+    "size": 207
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/baseline-service-2-getdnsservers.json",
+    "sha256": "d81773c5f677b15cdb4d01d7e032a71d6687bc2b08f50e79fbc9a43f49fd9a66",
+    "size": 199
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/baseline-service-2-getproxybypassdomains.json",
+    "sha256": "3849d68aee2b733eda9c5f464833ec21c008ec58ef0b40dd979f57a7c5044ea8",
+    "size": 185
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/baseline-service-2-getsecurewebproxy.json",
+    "sha256": "8eaa0cc73e204afad3aac4b9f269e1a3c41276ef496a44ac377c8c7456b3fd43",
+    "size": 230
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/baseline-service-2-getsocksfirewallproxy.json",
+    "sha256": "18bda6d4c81f182008ec38293bd63fcada3c2ac02613728d44450a8bc59c5ee3",
+    "size": 222
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/baseline-service-2-getwebproxy.json",
+    "sha256": "60938e1d58fd12c52bad4118ff2a8367c63954fa503a87b4d0dbee7cb153e828",
+    "size": 224
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/baseline-services.json",
+    "sha256": "047f66c03c81666efa90e2906afb604b35f3238ca69fe0a9094071b8c6fc269f",
+    "size": 241
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/bootout.json",
+    "sha256": "598605456dc9651f85e4cd82c15f23bea4aafc89571f4844f0b7b586f2092f39",
+    "size": 47
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/candidate.json",
+    "sha256": "f5c981b6787bd2269ca18970ee56b0c2d543e2d3ab0b2b24c4e60f5186d8ac4d",
+    "size": 4586
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/capture-active.py",
+    "sha256": "de52afa96c0ed98644b49793cc4d53704499ab49d43d55c177865a0bc999f9c0",
+    "size": 811
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/cleanup-dns-comparison.json",
+    "sha256": "3b0c67355942fd80f7abb46055b6f091095fc54de63b58346ee43b7c9d26fae9",
+    "size": 29
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/cleanup-dns-store-comparison.json",
+    "sha256": "3b0c67355942fd80f7abb46055b6f091095fc54de63b58346ee43b7c9d26fae9",
+    "size": 29
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/cleanup-dns-store.json",
+    "sha256": "7e6aa4065348a2dfd98ef83b0f304366203db2684606f837669e9527e893597c",
+    "size": 485
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/cleanup-dns.json",
+    "sha256": "35fb55e98b22adad5ce5d8aaf1c075d024953277d97fb29b42e98d01cba09481",
+    "size": 1481
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/cleanup-production-preflight.json",
+    "sha256": "8b87d6ab1e6178530fead9dfdfa93eed7c675bf37f5dacfb4a30a708bffccc5f",
+    "size": 77275
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/cleanup-proxy-comparison.json",
+    "sha256": "3b0c67355942fd80f7abb46055b6f091095fc54de63b58346ee43b7c9d26fae9",
+    "size": 29
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/cleanup-proxy.json",
+    "sha256": "d44a23ab899513ae4a228a8403bfd6558ec3ab095fdb699372ecb7844f904059",
+    "size": 201
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/cleanup-routes4-comparison.json",
+    "sha256": "5df4767b8801d3a8c1012358fa3ccd7d3f430df721900d1b45f9ed0b90bc1195",
+    "size": 30
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/cleanup-routes4.json",
+    "sha256": "60e0fa6bb92e76c4621682cad92d4d01e98c44c4b9c11f175623530864e2cae1",
+    "size": 3388
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/cleanup-routes6-comparison.json",
+    "sha256": "5df4767b8801d3a8c1012358fa3ccd7d3f430df721900d1b45f9ed0b90bc1195",
+    "size": 30
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/cleanup-routes6.json",
+    "sha256": "6c96219bda99eaf145c5f73f4647ca252e7175741453e74947384ce4034a6051",
+    "size": 8741
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/diagnostics.json",
+    "sha256": "1ed9463b657fa76f03263257f28cd726c9a180e0af4afe87b65d08a002c13dd7",
+    "size": 38141
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/expected-absent-paths.json",
+    "sha256": "ecc967aaca8787f5c1ccc8a864c3fb9264a3e4b1fcc3c338e38acd06b664eca2",
+    "size": 695
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/final-job.json",
+    "sha256": "569f3d4eaff8b437d092bc73b37616bdb3090c5117d170b2e31298daee5664d0",
+    "size": 125
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/final-processes.json",
+    "sha256": "b185c0bbc5ca1bb79fccc6c713f6726edf29e0111eb6f3e2820b94d441d6d450",
+    "size": 162920
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/held-cleanup-before.json",
+    "sha256": "50b083826de898468200d95efd8e4aaa5f24e952ee6cdda2f37b7793556a83d8",
+    "size": 167449
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/held-cleanup.py",
+    "sha256": "a421a0b138327778203b9e7996f2d7f048afbc5765f145e3e5c139c2b3676717",
+    "size": 3146
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/inspect-state.py",
+    "sha256": "3d818300d301ef23c82b6d3d0019aac27fdddc4c286043ea69c24f32fb029041",
+    "size": 947
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/install.py",
+    "sha256": "41b272bdd38bc5e0ac9bb2d7919922906dfca452cc2f4bb0baa6c6e895621faa",
+    "size": 2312
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/installation.json",
+    "sha256": "c8be33fddf3a3038c4c939e3e71a365b700e6f4ab0a7d9882cf66d9117107a8b",
+    "size": 202
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/installed-app.json",
+    "sha256": "efe606766a98838a3c97fb34da2fb7109086645f8649bbda6d1a00bb29bc90a3",
+    "size": 516
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/installed-readback.json",
+    "sha256": "3d43e5a7dc965e796c790cb2c504ff3aae702267995cab210d9bd0c6c26efab9",
+    "size": 91932
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/installed-receipt.plist",
+    "sha256": "32cfa120b58cb7fa19819803eb966d01bb381cc3fa3b59fcceca3ca574fd9908",
+    "size": 488
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/job-after.json",
+    "sha256": "569f3d4eaff8b437d092bc73b37616bdb3090c5117d170b2e31298daee5664d0",
+    "size": 125
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/job-before-load.json",
+    "sha256": "569f3d4eaff8b437d092bc73b37616bdb3090c5117d170b2e31298daee5664d0",
+    "size": 125
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/job-loaded.json",
+    "sha256": "9d52c9adcd82aaf1fd2b4c955e4db5dc648f8a9329df561532a4819dd7e232a0",
+    "size": 1189
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/kickstart.json",
+    "sha256": "598605456dc9651f85e4cd82c15f23bea4aafc89571f4844f0b7b586f2092f39",
+    "size": 47
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/load-helper.py",
+    "sha256": "2a0e3f787952d1d3b2415d26294f97269558c75b54607b5ce573705d7c9af6d5",
+    "size": 1079
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/load.json",
+    "sha256": "598605456dc9651f85e4cd82c15f23bea4aafc89571f4844f0b7b586f2092f39",
+    "size": 47
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/observe-test-flow.py",
+    "sha256": "11b0767d5d7e6a6d9c929e720b8f5f3ade5d52f5f71d6487e48dea5380690641",
+    "size": 2443
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/paths-after.json",
+    "sha256": "ecc967aaca8787f5c1ccc8a864c3fb9264a3e4b1fcc3c338e38acd06b664eca2",
+    "size": 695
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/paths-before.json",
+    "sha256": "ecc967aaca8787f5c1ccc8a864c3fb9264a3e4b1fcc3c338e38acd06b664eca2",
+    "size": 695
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/pre-execution-hashes.json",
+    "sha256": "67cbd9d536d8af52b9c5a41066cbca6849474658e8aa97e42cae0ad45b36925f",
+    "size": 1736
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/preflight.py",
+    "sha256": "6dfda99c10b54958926c852d72d738dc99f3cbea780e7fdd6b352b0feaf04afb",
+    "size": 2746
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/preinstall-dns-store.json",
+    "sha256": "7e6aa4065348a2dfd98ef83b0f304366203db2684606f837669e9527e893597c",
+    "size": 485
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/preinstall-dns.json",
+    "sha256": "35fb55e98b22adad5ce5d8aaf1c075d024953277d97fb29b42e98d01cba09481",
+    "size": 1481
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/preinstall-processes.json",
+    "sha256": "0886dca2512151be8eefd811dbd5e0c5965f00aa35cae89e4afb34761f37dff0",
+    "size": 162497
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/preinstall-production-preflight-stable.json",
+    "sha256": "0b6fd994595acc121e51e59d9ede28192f1bba2c8f8cbc084181e2c33ed57d9a",
+    "size": 79511
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/preinstall-proxy.json",
+    "sha256": "d44a23ab899513ae4a228a8403bfd6558ec3ab095fdb699372ecb7844f904059",
+    "size": 201
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/processes-before.json",
+    "sha256": "2b30d86bd0e5bdcc2fd911007fd40c3115ab5927091b40d701cf7071df0ee347",
+    "size": 164012
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/production-preflight.json",
+    "sha256": "707d29f7f87f88625798be9acb760def13dbc54a7ab01f537905e99f33e6228b",
+    "size": 79744
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/read-diagnostics.py",
+    "sha256": "9adaa5948d2975107ae4f08bd34f0839c22f1edc7681144ccecc048668f66222",
+    "size": 549
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/receipt-after.json",
+    "sha256": "e34e0b695dea0ee384ee71e7ede3b3f9c14c815470a9ad3ac6a0c8df5808a46a",
+    "size": 101
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/receipt-before-forget.json",
+    "sha256": "fa9750d7c0847f33aa6b7aece152d0d93aa8f960f1675b9ece3c9e8ae9240bfd",
+    "size": 576
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/receipt-cleanup.py",
+    "sha256": "0f35fc6d657d1e8ff9b147edc0543c459c02af50f9a44edc5733211ef205073a",
+    "size": 1633
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/receipt-forget.json",
+    "sha256": "0c5347ff1659ad3be2b5f5af3840902b302f22a68cc7b737acf3e1599d7652bf",
+    "size": 95
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/router-path.json",
+    "sha256": "826376b07631d304f017bdaf3b76d0349144e6026101fe473403cc69d2caf8ee",
+    "size": 438
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/timeout-state.json",
+    "sha256": "31c69ab30d5f8ba4cfee98675a62967d2a9edb555b92c395228d58926ba0eb60",
+    "size": 7653
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/uninstall-result.json",
+    "sha256": "ef94c6eb5afe9f00a3e734a8edb604eb4c363d9d7f662c6f7c1cc9ceb7f2fd93",
+    "size": 199
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/verify-app.mjs",
+    "sha256": "0e3bef7da14f864e6e5e7038f41674c7bd7779c257eb57affffc78715fe12fa7",
+    "size": 1176
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/verify-installed-result.json",
+    "sha256": "1e273e5bd75723a141fe7a9564bb071c9f7653afea1ee8a8fb1cb29716f3aec9",
+    "size": 95
+  },
+  {
+    "path": "/private/tmp/kuro-e2addf7-window-340bbra4/verify-installed.py",
+    "sha256": "9e8336155a73cd82c63cf661db04a9e7c44c8241a89322a3318e494286df3175",
+    "size": 1346
+  }
+]

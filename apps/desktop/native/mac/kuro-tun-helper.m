@@ -352,6 +352,7 @@ static KuroTunService *ProductionService(void) {
     network=[[KuroProductionNetwork alloc] initWithDirectory:State owner:0];
     return [network preflightConfig:config error:error];
   };
+  hooks.prepareNetwork=^BOOL(NSString *session,NSDictionary *binding,NSString **error) { return [network prepareSession:session binding:binding error:error]; };
   hooks.physicalInterface=^NSString *{ return network.runtimeInterfaceName; };
   hooks.readinessHosts=^NSDictionary *{ return KuroProductionRuntimeFields()[@"hosts"]; };
   hooks.ready=^BOOL(pid_t child,NSString *session,NSString **error) { return [network readyChild:child session:session error:error]; };
@@ -366,9 +367,13 @@ static KuroTunService *ProductionService(void) {
     KuroProductionNetwork *recovery=[[KuroProductionNetwork alloc] initWithDirectory:State owner:0];
     return [recovery recoverSession:nil error:error];
   };
+  hooks.recoverOwnedNetwork=^BOOL(NSDictionary *record,KuroSessionHook stillAbsent,NSString **error) {
+    KuroProductionNetwork *recovery=[[KuroProductionNetwork alloc]initWithDirectory:State owner:0];
+    return [recovery recoverRecordedOwner:record writerAbsent:stillAbsent error:error]!=nil;
+  };
   hooks.recoveredNetworkEvidence=^NSDictionary *(NSDictionary *record,NSString **error) {
     KuroProductionNetwork *recovery=[[KuroProductionNetwork alloc]initWithDirectory:State owner:0];
-    return [recovery recoverRecordedSession:record[@"session"] error:error];
+    return [recovery recoverRecordedOwner:record error:error];
   };
   return [[KuroTunService alloc] initWithHooks:hooks];
 }

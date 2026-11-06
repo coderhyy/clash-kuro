@@ -123,6 +123,7 @@ static KuroTunServiceHooks *ServiceHooks(void) {
   KuroTunServiceHooks *hooks=[KuroTunServiceHooks new];
   hooks.authorize=^BOOL(int peer,NSString *digest,NSString **error) { (void)peer;(void)error;return Match(digest,@"\\A[0-9a-f]{64}\\z"); };
   hooks.preflight=^BOOL(NSDictionary *config,NSString **error) { (void)error;return config!=nil; };
+  hooks.prepareNetwork=^BOOL(NSString *session,NSDictionary *binding,NSString **error) { (void)error;CHECK(session.length&&binding[@"process"]&&binding[@"runtimeSHA256"]);return YES; };
   hooks.beforeStart=^BOOL(NSString **error) { (void)error;return YES; };
   hooks.beforeResume=^BOOL(NSString **error) { (void)error;return YES; };
   hooks.confirmStopped=^BOOL(NSDictionary *proof,NSString **error) { return KuroCompletedStopEvidence(proof)||Fail(error,@"fixture requires exact completed owner evidence"); };
@@ -438,7 +439,7 @@ static void PartialDNSServiceTests(void) {
     if(scenario==4)dns.failRemove=YES;
     __block NSUInteger calls=0;KuroTunServiceHooks *hooks=ServiceHooks();hooks.recoverResidualNetwork=^BOOL(NSString **failure){calls++;KuroProductionNetwork *fresh=[[KuroProductionNetwork alloc]initWithDirectory:directory owner:geteuid() routes:routes dns:dns environment:RecoveryFixtureEnvironment()];return [fresh recoverSession:nil error:failure];};
     KuroTunService *service=[[KuroTunService alloc]initFixtureDirectory:directory core:[directory stringByAppendingPathComponent:@"unused"] hooks:hooks];BOOL ok=[service recoverNetworkOnly:&error];
-    CHECK(ok==(scenario==3));CHECK(calls>0&&dns.removals==1&&!routes.deletions);
+    CHECK(ok==(scenario==3));CHECK(calls>0&&dns.removals==1&&routes.entries.count==0);
     if(scenario==4){CHECK([error hasPrefix:@"DNS: remove failed"]&&[service.statusSnapshot[@"error"]isEqual:error]&&Exists([directory stringByAppendingPathComponent:KuroDNSJournal]));}
     else CHECK([dns.records isEqual:baseline]&&!Exists([directory stringByAppendingPathComponent:KuroDNSJournal]));
     if(scenario==3)CHECK([service.statusSnapshot[@"state"]isEqual:@"off"]&&!Exists(work)&&!Exists(ownerPath)&&calls==2);
@@ -813,7 +814,8 @@ static void RecoveredStopCheckpointTests(void) {
     KuroFakeRouteStore *routes=[KuroFakeRouteStore new];routes.directory=state;routes.entries=[ProductionBaseline()mutableCopy];KuroFakeDNSStore *dns=[KuroFakeDNSStore new];dns.directory=state;
     KuroTunServiceHooks *hooks=ServiceHooks();
     hooks.recoverResidualNetwork=^BOOL(NSString **failure){KuroProductionNetwork *network=[[KuroProductionNetwork alloc]initWithDirectory:state owner:geteuid() routes:routes dns:dns environment:RecoveryFixtureEnvironment()];return [network recoverSession:nil error:failure];};
-    hooks.recoveredNetworkEvidence=^NSDictionary *(NSDictionary *record,NSString **failure){KuroProductionNetwork *network=[[KuroProductionNetwork alloc]initWithDirectory:state owner:geteuid() routes:routes dns:dns environment:RecoveryFixtureEnvironment()];return [network recoverRecordedSession:record[@"session"]error:failure];};
+    hooks.recoveredNetworkEvidence=^NSDictionary *(NSDictionary *record,NSString **failure){KuroProductionNetwork *network=[[KuroProductionNetwork alloc]initWithDirectory:state owner:geteuid() routes:routes dns:dns environment:RecoveryFixtureEnvironment()];return [network recoverRecordedOwner:record error:failure];};
+    hooks.recoverOwnedNetwork=^BOOL(NSDictionary *record,KuroSessionHook stillAbsent,NSString **failure){KuroProductionNetwork *network=[[KuroProductionNetwork alloc]initWithDirectory:state owner:geteuid() routes:routes dns:dns environment:RecoveryFixtureEnvironment()];return [network recoverRecordedOwner:record writerAbsent:stillAbsent error:failure]!=nil;};
     KuroTunService *(^fresh)(void)=^KuroTunService *{KuroTunService *service=[[KuroTunService alloc]initFixtureDirectory:state core:core hooks:hooks];service.fixtureInstallationPrefix=prefix;service.fixtureRestartReader=RestartSupervisorReader;service.fixtureRestartGroupReader=RestartGroupReader;return service;};
     if(scenario==6)Put(stopped,Bytes(@"{}"),0600);
     if(scenario==8)dns.failSnapshot=YES;
@@ -886,7 +888,25 @@ static void RecoveredStopCheckpointTests(void) {
   puts("PASS 23 recovered-stop cases: actual temporary install/upgrade/uninstall, proof durability/raw-byte mismatch, backend readback/live/unknown refusals; no held proof fabricated, no Core/system/network");
 }
 
+static void LiveRouteIntentRecoveryTests(void) {
+  char temporary[]="/tmp/kuro-live-intent-XXXXXX";CHECK(mkdtemp(temporary));char canonical[PATH_MAX];CHECK(realpath(temporary,canonical));NSString *directory=@(canonical),*error=nil;
+  NSMutableDictionary *record=RestartRecord();struct proc_bsdinfo current={0};CHECK(proc_pidinfo(getpid(),PROC_PIDTBSDINFO,0,&current,sizeof(current))==sizeof(current));
+  record[@"pid"]=@(getpid());record[@"startSeconds"]=@(current.pbi_start_tvsec);record[@"startMicros"]=@(current.pbi_start_tvusec);
+  NSData *ownerBytes=JSONData(record);Put([directory stringByAppendingPathComponent:@"owner.json"],ownerBytes,0600);
+  NSMutableDictionary *binding=[RouteFixtureBinding()mutableCopy];binding[@"process"]=@{@"pid":record[@"pid"],@"startSeconds":record[@"startSeconds"],@"startMicros":record[@"startMicros"]};
+  KuroFakeRouteStore *routes=[KuroFakeRouteStore new];KuroOwnedRoutes *actor=[[KuroOwnedRoutes alloc]initWithDirectory:directory owner:geteuid() backend:routes];
+  CHECK([actor prepareForSession:record[@"session"] binding:binding baselineRoutes:@[] baselineDNS:@{} physicalInterface:@"en0" error:&error]);
+  NSData *intent=[NSData dataWithContentsOfFile:[directory stringByAppendingPathComponent:KuroRouteJournal]];__block NSUInteger early=0,owned=0;
+  KuroTunServiceHooks *hooks=ServiceHooks();hooks.recoverResidualNetwork=^BOOL(NSString **failure){(void)failure;early++;return YES;};
+  hooks.recoverOwnedNetwork=^BOOL(NSDictionary *old,KuroSessionHook absent,NSString **failure){(void)old;(void)absent;(void)failure;owned++;return YES;};
+  KuroTunService *service=[[KuroTunService alloc]initFixtureDirectory:directory core:Executable() hooks:hooks];
+  CHECK(![service recoverNetworkOnly:&error]&&[error containsString:@"old Core identity is still present"]&&early==0&&owned==0);
+  CHECK([[NSData dataWithContentsOfFile:[directory stringByAppendingPathComponent:KuroRouteJournal]]isEqual:intent]&&[[NSData dataWithContentsOfFile:[directory stringByAppendingPathComponent:@"owner.json"]]isEqual:ownerBytes]);
+  CHECK([[NSFileManager defaultManager]removeItemAtPath:directory error:NULL]);
+  puts("live pre-write Core: absent routes cannot retire prepared intent; both recovery callbacks remain uncalled");
+}
 static void ServiceTests(void) {
+  LiveRouteIntentRecoveryTests();
   FreshAdmissionTests();
   RecoveredStopCheckpointTests();
   HeldStopCheckpointTests();
@@ -910,7 +930,7 @@ static void ServiceTests(void) {
   close(probe); if(!bound)CHECK(!unlink(probePath.fileSystemRepresentation)); CHECK(!rmdir(probeDirectory));
   if(bound)fprintf(stderr,"service fixture requires temporary AF_UNIX bind: %s (errno %d); ordinary-user sandbox permission is required, no Core or network is executed\n",strerror(bindError),bindError);
   CHECK(!bound);
-  for(NSUInteger scenario=0;scenario<27;scenario++) {
+  for(NSUInteger scenario=0;scenario<29;scenario++) {
     char temporary[]="/tmp/kuro-service-XXXXXX"; CHECK(mkdtemp(temporary)); char canonical[PATH_MAX]; CHECK(realpath(temporary,canonical));
     NSString *directory=[NSString stringWithUTF8String:canonical];
     NSString *name=scenario==6?@"core-exit":scenario==7?@"core-chunked":scenario==8?@"core-unknown-work":scenario==17?@"core-duplicate-header":scenario==18?@"core-bad-version":scenario==20?@"core-config-changed":scenario==22?@"core-must-not-run":@"core";
@@ -927,6 +947,8 @@ static void ServiceTests(void) {
       hooks.confirmStopped=^BOOL(NSDictionary *proof,NSString **error) { CHECK(KuroCompletedStopEvidence(proof));return Fail(error,@"injected stop checkpoint failure"); };
       hooks.recoverResidualNetwork=^BOOL(NSString **error) { (void)error;return YES; };
     }
+    if(scenario==27)hooks.prepareNetwork=nil;
+    if(scenario==28)hooks.prepareNetwork=^BOOL(NSString *session,NSDictionary *binding,NSString **error){CHECK(session.length&&binding[@"process"]);return Fail(error,@"network intent durability denied");};
     if(scenario==23)hooks.beforeResume=nil;
     if(scenario==24)hooks.beforeResume=^BOOL(NSString **error) { return Fail(error,@"durability gate denied"); };
     if(scenario==3)hooks.ready=nil;
@@ -1042,6 +1064,8 @@ static void ServiceTests(void) {
       CHECK(recovered==(scenario==22?1:0));
       if(scenario==22)CHECK([failure containsString:@"resume refused"]&&[failure containsString:@"stop or identity loss before Core resume"]);
     }
+    if(scenario==27)CHECK(applied==0&&recovered==0);
+    if(scenario==28)CHECK(applied==0&&recovered==1&&[failure containsString:@"network intent durability denied"]&&!Exists([directory stringByAppendingPathComponent:@"owner.json"])&&!Exists([directory stringByAppendingPathComponent:@"session-work"]));
     CHECK(![service writeMode:@"rule" error:NULL]);
     if(scenario==0) {
       CHECK(healthChecks>0);
