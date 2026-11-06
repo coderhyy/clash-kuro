@@ -86,11 +86,19 @@ static int AdmissionChainMain(NSString *mode) {
     environment.interfaces=^NSArray *(NSString **ignored){(void)ignored;return interfaces;};
     environment.observeChild=^BOOL(pid_t child,KuroCoreInterface *observed,NSString **problem){struct proc_bsdinfo value={0};if(proc_pidinfo(child,PROC_PIDTBSDINFO,0,&value,sizeof(value))!=sizeof(value)||value.pbi_ppid!=(uint32_t)getpid())return Fail(problem,@"fixture Core must be our exact live direct child");association=(KuroCoreInterface){.process={.pid=child,.startSeconds=value.pbi_start_tvsec,.startMicros=value.pbi_start_tvusec},.descriptor=3,.controlID=42,.controlUnit=8,.socketHandle=100,.pcbHandle=200,.interfaceIndex=7};strlcpy(association.interfaceName,"utun7",sizeof(association.interfaceName));*observed=association;return YES;};
     environment.ownership=^KuroRouteOwnerState(KuroCoreInterface expected,NSString **ignored){(void)ignored;CHECK([KuroRouteAssociation(expected)isEqual:KuroRouteAssociation(association)]);return owner;};
-    environment.probeDNS=^BOOL(KuroCoreInterface ignored,NSString **problem){(void)ignored;(void)problem;return YES;}; // Kernel interface and DNS probe are the substituted system backend.
+    environment.probeDNS=^BOOL(KuroCoreInterface observed,NSString **problem){
+      NSArray *current=[routes routes:problem];if(!current)return NO;
+      for(NSArray *target in @[@[@4,@"198.18.0.2",@32],@[@6,@"fdfe:dcba:9876::2",@128]]) {
+        NSDictionary *expected=@{@"family":target[0],@"destination":target[1],@"prefix":target[2],@"gateway":@"link",@"interfaceIndex":@(observed.interfaceIndex),@"interfaceName":@(observed.interfaceName)};NSUInteger count=0;
+        for(NSDictionary *entry in current)if(KuroRouteEqual(entry,expected))count++;
+        if(count!=1)return Fail(problem,@"fixture point-to-point internal DNS path is absent or ambiguous");
+      }
+      return YES;
+    }; // Isolated DNS responses require actual coordinator-installed exact host routes.
     network=[[KuroProductionNetwork alloc]initWithDirectory:state owner:geteuid() routes:routes dns:dns environment:environment];return [network preflightConfig:config error:failure];
   };
   hooks.physicalInterface=^NSString *{return network.runtimeInterfaceName;};hooks.readinessHosts=^NSDictionary *{return KuroProductionRuntimeFields()[@"hosts"];};
-  hooks.ready=^BOOL(pid_t child,NSString *session,NSString **failure){interfaces=ProductionInterfaces(YES);[routes.entries addObject:ProductionRoute(4,@"198.18.0.0",30,@"link",@"utun7",7,RTF_UP)];[routes.entries addObject:ProductionRoute(6,@"fdfe:dcba:9876::",126,@"link",@"utun7",7,RTF_UP)];return [network readyChild:child session:session error:failure];};
+  hooks.ready=^BOOL(pid_t child,NSString *session,NSString **failure){interfaces=ProductionInterfaces(YES);[routes.entries addObject:ProductionRoute(4,@"198.18.0.1",32,@"link",@"utun7",7,RTF_UP|RTF_HOST)];[routes.entries addObject:ProductionRoute(6,@"fdfe:dcba:9876::",126,@"link",@"utun7",7,RTF_UP)];return [network readyChild:child session:session error:failure];};
   hooks.applyNetwork=^BOOL(pid_t child,NSString *session,NSString **failure){BOOL ok=[network applyChild:child session:session error:failure];if(ok)@synchronized(stats){applications++;}return ok;};
   hooks.verifyNetwork=^BOOL(NSString *session,NSString **failure){return [network confirmSession:session error:failure];};
   hooks.recoverNetwork=^BOOL(NSString *session,NSString **failure){owner=KuroRouteOwnerExitedInterfaceGone;interfaces=ProductionInterfaces(NO);NSIndexSet *own=[routes.entries indexesOfObjectsPassingTest:^BOOL(NSDictionary *entry,NSUInteger index,BOOL *stop){(void)index;(void)stop;return [entry[@"interfaceName"]isEqual:@"utun7"];}];[routes.entries removeObjectsAtIndexes:own];return [network recoverSession:session error:failure];};

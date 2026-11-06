@@ -1,0 +1,36 @@
+
+ RUN  v5.0.5 /Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop
+
+ ❯ src/main/candidate-startup.test.ts (11 tests | 1 failed | 10 skipped) 1337ms
+   × authenticated native admission fresh: installed identity -> startup recovery -> finite V2 dispatch 1336ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/main/candidate-startup.test.ts > authenticated native admission fresh: installed identity -> startup recovery -> finite V2 dispatch
+AssertionError: expected { ok: false, …(1) } to deeply equal { ok: true }
+
+- Expected
++ Received
+
+  {
+-   "ok": true,
++   "error": "fixture point-to-point internal DNS path is absent or ambiguous",
++   "ok": false,
+  }
+
+ ❯ src/main/candidate-startup.test.ts:223:120
+    221|         expect(rejected.error).toMatch(mode === 'identity' ? /client|p…
+    222|       } else {
+    223|         const started = await fixture.store!.run('setTun', { enabled: …
+       |                                                                                                                        ^
+    224|         expect(fixture.store!.store.getState().tun).toEqual({ availabi…
+    225|         expect(open).toHaveBeenCalledOnce()
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 10 skipped (11)
+   Start at  13:05:30
+   Duration  1.44s (tests 97%, transform 2%, import 1%)
+

@@ -257,12 +257,16 @@ static NSArray<NSDictionary *> *KuroRouteDecodeDump(NSData *dump, NSString **err
 }
 @end
 
+static NSArray<NSDictionary *> *KuroInternalDNSRouteCandidate(KuroCoreInterface association);
+static NSArray<NSDictionary *> *KuroSessionRouteCandidate(KuroCoreInterface association);
+
 @interface KuroOwnedRoutes : NSObject {
-  NSString *_directory; uid_t _owner; id<KuroRouteStore> _backend; pthread_t _thread; BOOL _routesOff;
+  NSString *_directory; uid_t _owner; id<KuroRouteStore> _backend; pthread_t _thread; BOOL _routesOff; NSData *_hostPreparationReceipt;
 }
 @property(nonatomic,readonly) BOOL routesOff;
 - (instancetype)initWithDirectory:(NSString *)directory owner:(uid_t)owner backend:(id<KuroRouteStore>)backend;
 - (BOOL)installForSession:(NSString *)session interface:(KuroCoreInterface)association routes:(NSArray<NSDictionary *> *)routes ownership:(KuroRouteOwnership)ownership error:(NSString **)error;
+- (BOOL)continueSessionRoutesForSession:(NSString *)session interface:(KuroCoreInterface)association ownership:(KuroRouteOwnership)ownership error:(NSString **)error;
 - (BOOL)recoverForInterface:(KuroCoreInterface)association ownership:(KuroRouteOwnership)ownership error:(NSString **)error;
 - (BOOL)confirmInstalledSession:(NSString *)session interface:(KuroCoreInterface)association ownership:(KuroRouteOwnership)ownership error:(NSString **)error;
 - (BOOL)recoverRecordedAbsence:(NSString **)error;
@@ -309,14 +313,17 @@ static NSArray<NSDictionary *> *KuroRouteDecodeDump(NSData *dump, NSString **err
 }
 - (BOOL)confirmInstalledSession:(NSString *)session interface:(KuroCoreInterface)association ownership:(KuroRouteOwnership)ownership error:(NSString **)error {
   if (![self prepared:error] || !ownership || !KuroRouteAssociation(association)) return Fail(error,@"route readiness requires trusted current owner");
-  NSDictionary *record=[self recordForInterface:association bytes:NULL error:error];
+  NSData *bytes=nil; NSDictionary *record=[self recordForInterface:association bytes:&bytes error:error];
   if (!record || ![record[@"session"]isEqual:session] || [record[@"applied"]unsignedIntegerValue]!=[record[@"routes"]count] || ownership(association,error)!=KuroRouteOwnerLive) return Fail(error,@"route readiness lacks complete durable receipts/live owner");
   NSArray *observed=[_backend routes:error]; if (!observed) return NO;
   for (NSDictionary *target in record[@"routes"]) { NSUInteger count=0;
     for (NSDictionary *route in observed) if (KuroRouteKey(route,target)) { if (!KuroRouteEqual(route,target)) return Fail(error,@"installed route changed before DNS activation"); count++; }
     if (count!=1) return Fail(error,@"installed route readback is absent/ambiguous");
   }
-  return ownership(association,error)==KuroRouteOwnerLive || Fail(error,@"owner changed during readiness check");
+  if (ownership(association,error)!=KuroRouteOwnerLive) return Fail(error,@"owner changed during readiness check");
+  if (![[self journalBytes:error]isEqual:bytes]) return Fail(error,@"route receipt changed during readiness check");
+  // A previous publish may have succeeded while its directory sync failed.
+  return [self syncDirectory:error];
 }
 - (BOOL)plan:(NSArray *)routes interface:(KuroCoreInterface)association error:(NSString **)error {
   if (!KuroRouteAssociation(association) || ![routes isKindOfClass:NSArray.class] || !routes.count || routes.count>KuroRouteLimit) return Fail(error,@"route plan or interface association unavailable");
@@ -329,7 +336,7 @@ static NSArray<NSDictionary *> *KuroRouteDecodeDump(NSData *dump, NSString **err
   return YES;
 }
 - (BOOL)installForSession:(NSString *)session interface:(KuroCoreInterface)association routes:(NSArray<NSDictionary *> *)routes ownership:(KuroRouteOwnership)ownership error:(NSString **)error {
-  _routesOff=NO; NSUUID *uuid=[session isKindOfClass:NSString.class]?[[NSUUID alloc]initWithUUIDString:session]:nil;
+  _routesOff=NO; _hostPreparationReceipt=nil; NSUUID *uuid=[session isKindOfClass:NSString.class]?[[NSUUID alloc]initWithUUIDString:session]:nil;
   if (![self prepared:error] || !uuid || ![uuid.UUIDString isEqual:session] || !ownership || ![self plan:routes interface:association error:error]) return Fail(error,@"route install requires canonical session, live owner and a closed plan");
   if (ownership(association,error)!=KuroRouteOwnerLive) return Fail(error,@"live held Core/interface authority is required before route writes");
   // Freeze caller input before any adapter callback can mutate it.
@@ -348,10 +355,43 @@ static NSArray<NSDictionary *> *KuroRouteDecodeDump(NSData *dump, NSString **err
     if (![self persist:record replacing:previous error:error]) return NO;
     previous=JSONData(record);
   }
+  if ([routes isEqual:KuroInternalDNSRouteCandidate(association)]) _hostPreparationReceipt=previous;
+  return YES;
+}
+- (BOOL)continueSessionRoutesForSession:(NSString *)session interface:(KuroCoreInterface)association ownership:(KuroRouteOwnership)ownership error:(NSString **)error {
+  _routesOff=NO;
+  if (![self prepared:error] || !ownership || !_hostPreparationReceipt || !KuroRouteAssociation(association)) return Fail(error,@"route continuation requires this actor's completed internal DNS preparation");
+  NSData *previous=nil; NSDictionary *prior=[self recordForInterface:association bytes:&previous error:error];
+  NSArray *hosts=KuroInternalDNSRouteCandidate(association),*combined=KuroSessionRouteCandidate(association);
+  if (!prior || ![previous isEqual:_hostPreparationReceipt] || ![prior[@"session"]isEqual:session] || ![prior[@"routes"]isEqual:hosts] || ![prior[@"applied"]isEqual:@2]) return Fail(error,@"route continuation does not match the exact completed host prefix");
+  if (![self confirmInstalledSession:session interface:association ownership:ownership error:error]) return NO;
+  NSArray *observed=[_backend routes:error]; if (!observed) return NO;
+  for (NSDictionary *host in hosts) { NSUInteger matches=0;
+    for (NSDictionary *route in observed) if (KuroRouteKey(route,host)) { if (!KuroRouteEqual(route,host)) return Fail(error,@"internal DNS host changed before continuation"); matches++; }
+    if (matches!=1) return Fail(error,@"internal DNS host is absent/ambiguous before continuation");
+  }
+  for (NSDictionary *route in observed) for (NSUInteger i=hosts.count;i<combined.count;i++) if (KuroRouteKey(route,combined[i])) return Fail(error,@"split route conflicts before continuation; host receipt retained");
+  if (ownership(association,error)!=KuroRouteOwnerLive) return Fail(error,@"held owner changed before route continuation");
+  NSMutableDictionary *record=[prior mutableCopy]; record[@"routes"]=combined;
+  // Consume same-actor authority before publishing. Any failure requires cleanup,
+  // never resuming an append from a newly read journal or a replacement actor.
+  _hostPreparationReceipt=nil;
+  if (![self persist:record replacing:previous error:error]) return NO;
+  previous=JSONData(record);
+  for (NSUInteger i=hosts.count;i<combined.count;i++) {
+    NSDictionary *target=combined[i];
+    if (ownership(association,error)!=KuroRouteOwnerLive || ![_backend addRoute:target error:error]) return NO;
+    NSArray *current=[_backend routes:error]; if (!current) return NO; NSUInteger matches=0;
+    for (NSDictionary *route in current) if (KuroRouteKey(route,target)) { if (!KuroRouteEqual(route,target)) return Fail(error,@"continued route differs from admitted plan; journal retained"); matches++; }
+    if (matches!=1 || ownership(association,error)!=KuroRouteOwnerLive) return Fail(error,@"continued route or live owner was not independently confirmed");
+    record[@"applied"]=@(i+1);
+    if (![self persist:record replacing:previous error:error]) return NO;
+    previous=JSONData(record);
+  }
   return YES;
 }
 - (BOOL)recoverRecordedAbsence:(NSString **)error {
-  _routesOff=NO; if (![self prepared:error]) return NO;
+  _routesOff=NO; _hostPreparationReceipt=nil; if (![self prepared:error]) return NO;
   NSString *path=[_directory stringByAppendingPathComponent:KuroRouteJournal];
   NSArray *observed=[_backend routes:error]; if (!observed) return NO;
   if (!Exists(path)) {
@@ -380,7 +420,7 @@ static NSArray<NSDictionary *> *KuroRouteDecodeDump(NSData *dump, NSString **err
   _routesOff=YES; return YES;
 }
 - (BOOL)recoverForInterface:(KuroCoreInterface)association ownership:(KuroRouteOwnership)ownership error:(NSString **)error {
-  _routesOff=NO; if (![self prepared:error] || !ownership || !KuroRouteAssociation(association)) return Fail(error,@"current authoritative interface context is required for route recovery");
+  _routesOff=NO; _hostPreparationReceipt=nil; if (![self prepared:error] || !ownership || !KuroRouteAssociation(association)) return Fail(error,@"current authoritative interface context is required for route recovery");
   NSString *path=[_directory stringByAppendingPathComponent:KuroRouteJournal];
   NSArray *observed=[_backend routes:error]; if (!observed) return NO;
   if (!Exists(path)) {
@@ -422,4 +462,17 @@ static NSArray<NSDictionary *> *__attribute__((unused)) KuroSplitRouteCandidate(
   for (NSArray *pair in @[@[@4,@"0.0.0.0"],@[@4,@"128.0.0.0"],@[@6,@"::"],@[@6,@"8000::"]])
     [routes addObject:@{@"family":pair[0],@"destination":pair[1],@"prefix":@1,@"gateway":@"link",@"interfaceIndex":@(association.interfaceIndex),@"interfaceName":@(association.interfaceName)}];
   return routes;
+}
+
+// The only preparatory writes are these two internal DNS hosts, never broad traffic.
+static NSArray<NSDictionary *> *__attribute__((unused)) KuroInternalDNSRouteCandidate(KuroCoreInterface association) {
+  if (!KuroRouteAssociation(association)) return nil;
+  return @[
+    @{@"family":@4,@"destination":@"198.18.0.2",@"prefix":@32,@"gateway":@"link",@"interfaceIndex":@(association.interfaceIndex),@"interfaceName":@(association.interfaceName)},
+    @{@"family":@6,@"destination":@"fdfe:dcba:9876::2",@"prefix":@128,@"gateway":@"link",@"interfaceIndex":@(association.interfaceIndex),@"interfaceName":@(association.interfaceName)}
+  ];
+}
+static NSArray<NSDictionary *> *__attribute__((unused)) KuroSessionRouteCandidate(KuroCoreInterface association) {
+  NSArray *hosts=KuroInternalDNSRouteCandidate(association);
+  return hosts?[hosts arrayByAddingObjectsFromArray:KuroSplitRouteCandidate(association)]:nil;
 }

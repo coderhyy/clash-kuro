@@ -197,7 +197,8 @@ static BOOL KuroPreservedEndpoint(NSString *text, NSArray *routes, NSString *phy
   id<KuroRouteStore> _routeBackend; id<KuroDNSStore> _dnsBackend; KuroNetworkEnvironment *_environment;
   KuroOwnedRoutes *_routes; KuroOwnedDNS *_dns;
   NSArray *_baselineRoutes; NSDictionary *_baselineDNS; NSString *_physical, *_session;
-  KuroCoreInterface _association; BOOL _prepared, _networkOff;
+  KuroCoreInterface _association; BOOL _prepared, _networkOff, _internalDNSReady;
+  NSArray *_installedRoutes;
   NSDictionary *_stoppedEvidence;
 }
 @property(nonatomic,readonly) NSString *runtimeInterfaceName;
@@ -233,7 +234,7 @@ static BOOL KuroPreservedEndpoint(NSString *text, NSArray *routes, NSString *phy
   _networkOff=NO;
   if (_session) return Fail(error,@"network preflight cannot replace active session");
   if (![self adapters:error]) return NO;
-  _prepared=NO; _physical=nil;
+  _prepared=NO; _physical=nil; _installedRoutes=nil; _internalDNSReady=NO;
   if (!KuroValidateTunConfig(JSONData(config),error)) return NO;
   if (Exists([_directory stringByAppendingPathComponent:KuroRouteJournal]) || Exists([_directory stringByAppendingPathComponent:KuroDNSJournal])) return Fail(error,@"retained network receipt requires recovery before a new start");
   NSArray *routes=KuroStableRoutes([_routeBackend routes:error]),*interfaces=_environment.interfaces(error); if (!routes || !interfaces) return Fail(error,@"complete route/interface baseline unavailable");
@@ -277,14 +278,23 @@ static BOOL KuroPreservedEndpoint(NSString *text, NSArray *routes, NSString *phy
   for (NSString *address in endpoints) if (!KuroPreservedEndpoint(address,routes,physical,YES,!v6,error)) return NO;
   _baselineRoutes=routes; _baselineDNS=dns; _physical=[physical copy]; _prepared=YES; return YES;
 }
+// The phase is only an internal expectation. Every use rechecks protected
+// exact plan, complete receipt, live owner and actual route readback.
+- (BOOL)confirmedRoutePlan:(NSArray *)plan error:(NSString **)error {
+  NSDictionary *record=[_routes recordForInterface:_association bytes:NULL error:error];
+  if (!plan || ![record[@"session"]isEqual:_session] || ![record[@"routes"]isEqual:plan] ||
+    [record[@"applied"]unsignedIntegerValue]!=plan.count) return Fail(error,@"network phase lacks its exact complete route receipt");
+  return [_routes confirmInstalledSession:_session interface:_association ownership:_environment.ownership error:error];
+}
 - (BOOL)unchangedBaseline:(NSString **)error { return [self unchangedBaselineInstalled:NO error:error]; }
 - (BOOL)unchangedBaselineInstalled:(BOOL)installed error:(NSString **)error {
+  if (_installedRoutes && ![self confirmedRoutePlan:_installedRoutes error:error]) return NO;
   NSArray *current=KuroStableRoutes([_routeBackend routes:error]); if (!current) return NO;
   NSArray *interfaces=_environment.interfaces(error); if (!interfaces) return NO;
   NSMutableArray *remaining=[current mutableCopy];
   for (NSDictionary *before in _baselineRoutes) { NSUInteger index=[remaining indexOfObject:before]; if (index==NSNotFound) return Fail(error,@"route baseline changed during Core startup; preserve all existing routing"); [remaining removeObjectAtIndex:index]; }
   for (NSDictionary *extra in remaining) {
-    BOOL recorded=NO; if (installed) for (NSDictionary *target in KuroSplitRouteCandidate(_association)) if (KuroRouteEqual(extra,target)) recorded=YES;
+    BOOL recorded=NO; for (NSDictionary *target in _installedRoutes) if (KuroRouteEqual(extra,target)) recorded=YES;
     if (recorded) continue;
     if (KuroHeldMulticastCompanion(extra,_association,interfaces)) continue;
     BOOL own=[extra[@"interfaceName"]isEqual:@(_association.interfaceName)] && [extra[@"interfaceIndex"]isEqual:@(_association.interfaceIndex)];
@@ -321,24 +331,34 @@ static BOOL KuroPreservedEndpoint(NSString *text, NSArray *routes, NSString *phy
     if (_environment.observeChild(child,&candidate,&failure) && candidate.process.pid==child && KuroRouteAssociation(candidate) && KuroCoreAddressesReady(candidate,_environment.interfaces(&failure),&failure)) {
       _association=candidate;
       if (![self unchangedBaseline:error]) return NO;
-      if (_environment.ownership(_association,error)!=KuroRouteOwnerLive || !_environment.probeDNS(_association,error) || _environment.ownership(_association,error)!=KuroRouteOwnerLive) return NO;
-      return YES;
+      if (_environment.ownership(_association,error)!=KuroRouteOwnerLive) return NO;
+      NSArray *internal=KuroInternalDNSRouteCandidate(_association);
+      if (![_routes installForSession:session interface:_association routes:internal ownership:_environment.ownership error:error] || ![self confirmedRoutePlan:internal error:error]) return NO;
+      _installedRoutes=internal;
+      if (![self unchangedBaseline:error] || !_environment.probeDNS(_association,error) || _environment.ownership(_association,error)!=KuroRouteOwnerLive) return NO;
+      _internalDNSReady=YES; return YES;
     }
     usleep(10000);
   } while (KuroMonotonicMilliseconds()<deadline);
   return Fail(error,failure ?: @"fixed dual-stack Core/utun readiness deadline expired");
 }
 - (BOOL)applyChild:(pid_t)child session:(NSString *)session error:(NSString **)error {
-  if (![self adapters:error] || !_prepared || ![_session isEqual:session] || child!=_association.process.pid || ![self unchangedBaseline:error]) return Fail(error,@"same ready held Core and unchanged baseline required before network writes");
+  if (![self adapters:error] || !_prepared || !_internalDNSReady || ![_session isEqual:session] || child!=_association.process.pid || ![self confirmedRoutePlan:KuroInternalDNSRouteCandidate(_association) error:error] || ![self unchangedBaseline:error]) return Fail(error,@"same internally DNS-ready held Core and unchanged host-route phase required before network activation");
   if (_environment.ownership(_association,error)!=KuroRouteOwnerLive || !KuroCoreAddressesReady(_association,_environment.interfaces(error),error) || !_environment.probeDNS(_association,error)) return NO;
-  if (![_routes installForSession:session interface:_association routes:KuroSplitRouteCandidate(_association) ownership:_environment.ownership error:error]) return NO;
-  KuroCoreInterface association=_association; KuroNetworkEnvironment *environment=_environment;
-  if (![_dns installForSession:session routes:_routes interface:_association ownership:_environment.ownership dnsReady:^BOOL(NSString **failure) { return KuroCoreAddressesReady(association,environment.interfaces(failure),failure) && environment.probeDNS(association,failure); } error:error]) return NO;
+  if (![_routes continueSessionRoutesForSession:session interface:_association ownership:_environment.ownership error:error] || ![self confirmedRoutePlan:KuroSessionRouteCandidate(_association) error:error]) return NO;
+  _installedRoutes=KuroSessionRouteCandidate(_association);
+  if (![self unchangedBaseline:error]) return NO;
+  // DNS insertion and readback keep the same full six-route gate; a complete
+  // host-only receipt can never authorize resolver takeover.
+  if (![_dns installPreparedSession:session admission:^BOOL(NSString **failure) {
+    return [self confirmedRoutePlan:KuroSessionRouteCandidate(self->_association) error:failure] &&
+      KuroCoreAddressesReady(self->_association,self->_environment.interfaces(failure),failure) && self->_environment.probeDNS(self->_association,failure);
+  } error:error]) return NO;
   return [self confirmSession:session error:error];
 }
 - (BOOL)confirmSession:(NSString *)session error:(NSString **)error {
   if (![self adapters:error] || !_prepared || ![_session isEqual:session] || !KuroRouteAssociation(_association)) return Fail(error,@"active held session is required for network confirmation");
-  if (![_routes confirmInstalledSession:session interface:_association ownership:_environment.ownership error:error] || ![self unchangedBaselineInstalled:YES error:error] ||
+  if (!_internalDNSReady || ![_installedRoutes isEqual:KuroSessionRouteCandidate(_association)] || ![self confirmedRoutePlan:KuroSessionRouteCandidate(_association) error:error] || ![self unchangedBaselineInstalled:YES error:error] ||
     !KuroCoreAddressesReady(_association,_environment.interfaces(error),error) || !_environment.probeDNS(_association,error)) return NO;
   return _environment.ownership(_association,error)==KuroRouteOwnerLive || Fail(error,@"held Core owner changed during active network confirmation");
 }
@@ -386,7 +406,7 @@ static BOOL KuroPreservedEndpoint(NSString *text, NSArray *routes, NSString *phy
     _stoppedEvidence=@{@"format":@1,@"session":session,@"routesOff":@YES,@"dnsOff":@YES,
       @"routeJournalSHA256":previous[@"routeJournalSHA256"]?:journals[KuroRouteJournal],@"dnsJournalSHA256":previous[@"dnsJournalSHA256"]?:journals[KuroDNSJournal]};
   }
-  if (_networkOff) { _session=nil; memset(&_association,0,sizeof(_association)); _prepared=NO; _physical=nil; _baselineRoutes=nil; _baselineDNS=nil; }
+  if (_networkOff) { _installedRoutes=nil; _internalDNSReady=NO; _session=nil; memset(&_association,0,sizeof(_association)); _prepared=NO; _physical=nil; _baselineRoutes=nil; _baselineDNS=nil; }
   return _networkOff || Fail(error,@"network recovery lacks independent route/DNS absence proofs");
 }
 // Fresh evidence describes actual current backend absence, not a held session's

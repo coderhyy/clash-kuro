@@ -241,7 +241,7 @@ dns:
     expect(stats.authorizations).toBeGreaterThanOrEqual(mode === 'auth-only' ? 0 : 1)
     expect(stats.dnsJournalAbsent).toBe(mode !== 'recovery-failed')
     expect(stats.ownerAbsent).toBe(true); expect(stats.workAbsent).toBe(true)
-    if (stats.starts === 1) expect(stats.routeAdds).toBe(4)
+    if (stats.starts === 1) expect(stats.routeAdds).toBe(6)
     if (mode === 'residue') expect(stats.dnsRemovals).toBe(2)
     process.stdout.write(`native-admission-evidence ${JSON.stringify({ mode, ...stats, rejection, recoveryRejection })}\n`)
     expect(ordinary).not.toHaveBeenCalled(); expect(proxy).not.toHaveBeenCalled(); expect(stale).not.toHaveBeenCalled()

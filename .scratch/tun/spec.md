@@ -12,6 +12,14 @@ Status: ready-for-agent（产品边界已批准；安全实现与真实验收未
 
 IPv4-only宿主仍建立固定双族utun：固定Core受控环境设置其支持的SKIP_SYSTEM_IPV6_CHECK=true，随后真实接口双族地址门禁保持。地址配置的内核多播伴生路由只可按held接口、精确scope/prefix/flags、实时独立地址核对识别，不凭形状增加清理权。[11902现场](evidence/7c351-route-rejection-20261106/11902-real-result.md)、[源码与边界](evidence/utun-multicast-20261106/RESULT.md)。下方早期“未启动/门禁关闭”记录保留其研究时点，不代表当前入口始终拒绝。
 
+### 内部 DNS 路径准备（2026-11-06 实机失败后的技术修正，集成中）
+
+`dd3f0d4` 实际探针在 send/1ms 返回 Darwin EHOSTUNREACH(65)，未进入响应等待。Darwin IPv4 点对点地址不能由 /30 推定存在到 `.2` 的 connected route。固定 `dns-mode: disabled` 保持：它禁止 Core 自行写系统 DNS，不妨碍固定 Core 的内部 `.2/::2:53` 处理；不更换 Profile/DNS 供应商或放宽响应检查。
+
+启动顺序改为：真实 held Core/双族接口与原基线检查 → 同一 `network.json` 持久记录并精确读回 `198.18.0.2/32`、`fdfe:dcba:9876::2/128` 两条固定内部 host route → 原 A/AAAA 静态记录探针 → 精确同会话账本续写为 host2＋原 split4 → 六条完整持久证明 → 自有系统 DNS。不能先安装四条广域路由来绕过 DNS 就绪；不能用未记账路由、删建账本或任意 append。
+
+两阶段均沿用 live held owner、逐条读回、写入/目录同步与 compare-delete。部分失败只按已有 receipt 恢复；Core/接口消失后只确认缺席，不凭旧 PID/index 删除。旧四条 v1 journal 仍可按原规则恢复，但不可作为新准备阶段的续写前缀。实机正常启动和流量尚未通过；设计/隔离回归不替代验收。
+
 ## 目标与边界
 
 为 Clash Kuro 增加应用可控制、可观测且能够停止和恢复的 TUN 能力。首版只交付 **macOS**，Windows TUN 后续再排，不因实现可并行而纳入首版。Linux、自动更新只记录依赖。首版已选择管理员授权安装传统 LaunchDaemon + 小型 helper，不依赖付费开发者会员；SMAppService、Developer ID 和公证延期，不作为本路线前置条件。具体受保护产物身份、调用者鉴别和权限安全仍必须实现验证。
