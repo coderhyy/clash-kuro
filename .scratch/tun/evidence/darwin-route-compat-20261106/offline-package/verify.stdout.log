@@ -1,0 +1,2 @@
+macOS App runtime/entitlements, seal, ASAR bytes and fuses verified (no launch; not privileged caller attestation)
+{"status":"no offline blocker","sourceCommit":"10fc6a8e5a598bb812da70a6a691714d42ec51d8","packageSHA256":"fce8938f150cd0b24b4875fb7ffe27289e70c3f9d8b24181acb1dcd4fe937c33","releaseLength":103,"inventoryEntries":611}

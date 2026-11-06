@@ -1,0 +1,12 @@
+{
+  "patchSHA256": "0767f08aba1a871677b938eb0d802613d4c5d80446d0bddc4113e7b9642a6f4f",
+  "independentReview": "19 source/evidence hashes match; no blocking findings",
+  "native": "full+102 upgrade interruptions+7 actual admission chains passed; KURO_SKIP_CORE_SYNTAX=1",
+  "typescript": "typecheck passed; client/main57 and state171 passed; seven native cases explicitly ran via build, not counted as generic skipped success",
+  "logs": {
+    "/private/tmp/kuro-admission-integrated.log": "6d324609d124b988a2266edfa1a527e3622449bb16f135288311aa02732674da",
+    "/private/tmp/kuro-admission-typecheck.log": "2954bf422d2dd3f1a5d572d6e057e7d021fdb8f8c8ac7d16cefb9764425390e6",
+    "/private/tmp/kuro-admission-ts.log": "473e650e9d3647f57a82e5cdd7cb4f48a46c2000b3abc42a8e644510474ad09e",
+    "/private/tmp/kuro-admission-state.log": "fd7b4c124476ae484edca93d7266eed51dd361dc027ad8b941e5f5fe211e9e16"
+  }
+}

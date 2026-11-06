@@ -1,0 +1,113 @@
+{
+  "status": "PASS: no offline package blocker",
+  "sourceCommit": "49f7dd6e610e18b2a4c59c85b92f2c29045b95d4",
+  "operation": "fresh",
+  "candidateMode": "finite-session",
+  "target": "darwin-arm64",
+  "packageFilename": "kuro-tun-finite-session-0.1.0-arm64-49f7dd6e610e.pkg",
+  "packageSHA256": "2f14fcde80dcfc3e8fe61cf403001ce5d655549cf7dd5514f207c23aecaa825a",
+  "packageMetadataSHA256": "b79cdd464fe8f97d6cbd08b1a2734c03220e3a2ac00f1adb630993e968c5a222",
+  "packageBytes": 171771195,
+  "packageAndSidecarUnchangedAfterChecks": true,
+  "helperSHA256": "1c4f67df8ca9794a99a3667dec3a19e6a4d563a18b1fc8c80992b95780f2d46e",
+  "coreSHA256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+  "coreArchiveSHA256": "060b64b0f2c9a310831db0fe4adb2878de67bfa606c311813c1f13966aa504b6",
+  "coreVersion": "v1.19.33",
+  "client": {
+    "format": 2,
+    "cdhash": "b0236c3c1f57b54765bb1476f68acabdfa3e3036",
+    "executableSHA256": "7205941e9c36afb7441a10c0ce2bee9315ca831c0c0472a863b6c4054ea85d65",
+    "infoSHA256": "a67204e9a97b2728a33a03117971eeed3a9fcad1e43ac8ade130f15395067efb",
+    "asarSHA256": "07a64aac97c883171c8d8ca13c3f28951319a6955fda279d16c3a3c46e05982f"
+  },
+  "inventorySHA256": "19034c49c7c595e89bdefec8c255a4493ee87e733e192f4f32a22c9dd782fe63",
+  "inventoryEntries": 611,
+  "release": "v1.19.33-0.1.0-arm64-109d3f9abea15bba-c19034c49c7c595e89bdefec8c255a4493ee87e733e192f4f32a22c9dd782fe63",
+  "releaseLength": 103,
+  "programPathBytes": 163,
+  "nativeBuild": {
+    "sourceCommit": "49f7dd6e610e18b2a4c59c85b92f2c29045b95d4",
+    "sourceClean": true,
+    "sha256": "1c4f67df8ca9794a99a3667dec3a19e6a4d563a18b1fc8c80992b95780f2d46e",
+    "installerProtocol": 2,
+    "flags": [
+      "-arch",
+      "arm64",
+      "-fobjc-arc",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-O2",
+      "-framework",
+      "Foundation",
+      "-framework",
+      "Security",
+      "-framework",
+      "SystemConfiguration",
+      "-lbsm"
+    ],
+    "tests": true,
+    "coreSyntaxSkipped": false
+  },
+  "appBuildAdmission": {
+    "sourceCommit": "49f7dd6e610e18b2a4c59c85b92f2c29045b95d4",
+    "sourceClean": true,
+    "fromSource": true,
+    "exactAppBuildRecord": true,
+    "actualSealedCandidateMode": "finite-session",
+    "actualSealedAuthObservationOnly": false
+  },
+  "bomEntries": 1253,
+  "bomIntendedUID": 0,
+  "bomIntendedGID": 0,
+  "fixedBundleCount": 9,
+  "relocatable": false,
+  "packageSignature": "unsigned (expected local candidate)",
+  "disabledPlist": {
+    "ProgramArguments": [
+      "/Library/PrivilegedHelperTools/dev.kuro.tun/versions/v1.19.33-0.1.0-arm64-109d3f9abea15bba-c19034c49c7c595e89bdefec8c255a4493ee87e733e192f4f32a22c9dd782fe63/helper",
+      "--serve"
+    ],
+    "KeepAlive": false,
+    "Label": "dev.kuro.tun",
+    "Disabled": true,
+    "RunAtLoad": false,
+    "AbandonProcessGroup": false
+  },
+  "bomCriticalModes": {
+    "./Library/PrivilegedHelperTools/dev.kuro.tun-uninstall": "100755",
+    "./Library/PrivilegedHelperTools/dev.kuro.tun/installer": "100755",
+    "./Library/Application Support/Clash Kuro/Privileged/Inbox": "40700",
+    "./Library/Application Support/Clash Kuro/Privileged/Inbox/helper": "100755",
+    "./Library/Application Support/Clash Kuro/Privileged/Inbox/mihomo": "100755",
+    "./Library/Application Support/Clash Kuro/Privileged/Inbox/manifest.json": "100600"
+  },
+  "checks": {
+    "actualExpandedAppSealEntitlementsFusesAsarIntegrity": true,
+    "actualAppPinAndInventoryExact": true,
+    "scriptsAndPayloadSidecarsExact": true,
+    "preflightInstallerRecoverySameHelperBytes": true,
+    "actualArm64HelperAndCoreSignaturesVerified": true,
+    "lockedCoreArchivePinExact": true,
+    "nativeAndAppBuildSidecarsExact": true,
+    "fixedPayloadPathsAndDisabledService": true,
+    "noDiagnosticsOrLaunchDaemonPayload": true,
+    "nativeClosedFieldsEmbedded": true,
+    "actualAsarCandidateIsolationAndFixedEndpointsPresent": true
+  },
+  "executed": {
+    "installerScripts": false,
+    "App": false,
+    "helper": false,
+    "Core": false,
+    "systemInstall": false,
+    "systemNetworkWrites": false
+  },
+  "limitations": [
+    "Offline expansion/static signatures/build admission only; intended BOM ownership is not installed filesystem protection.",
+    "Same-commit local build record and committed source bytes checked; no independently reproduced native build claimed.",
+    "Unsigned package and ad-hoc code signatures are expected for this local candidate; no publisher identity/notarization claimed.",
+    "No runtime caller authentication, first TUN, data plane, crash recovery, upgrade or uninstall acceptance is established by this review.",
+    "This package predates subsequent stopped-proof proposal work; no unintegrated temporary patch is included."
+  ]
+}

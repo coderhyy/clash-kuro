@@ -1,0 +1,7 @@
+{
+  "exit": 0,
+  "tests": "49/49",
+  "log": "/private/tmp/kuro-socket-integrated-tests.log",
+  "sha256": "6fbc3bcfbe4f6af59a5ec3d2ff2349052787262c2431628bbf76e9c910f970e8",
+  "independentReview": "14 source/evidence hashes matched; no blocking findings"
+}

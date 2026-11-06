@@ -1,0 +1,322 @@
+{
+  "directory": "/private/tmp/kuro-432-window-35jf6tax",
+  "files": [
+    {
+      "name": "actual-app-recovered-status.json",
+      "sha256": "48a8b425812be661d0bd59b9799ea157407c4a6a15313be32351abe66645c590"
+    },
+    {
+      "name": "after-open-processes.json",
+      "sha256": "421526ec1890530c08910931cbb0ef5d16efa535382cd5d98fb7d66f258e9926"
+    },
+    {
+      "name": "baseline-default4.json",
+      "sha256": "40b77a2423480ff84336c9dd91e74d6dc9d2fbb661f51d5ca09803ab8142250e"
+    },
+    {
+      "name": "baseline-default6.json",
+      "sha256": "efeb2cfb825a61ad0dde7dcee595017279bb3a7d636859686f5bc4667adf45b9"
+    },
+    {
+      "name": "baseline-disabled.json",
+      "sha256": "dbe42c4fdce22c2a46bcc7ac46cd324fecdb83669b6e7955329b77abff5885bb"
+    },
+    {
+      "name": "baseline-dns-keys.json",
+      "sha256": "f2829ae81e1d6c92e6e5d89b3f479556691b018470d6d2118c8dae725a639b6b"
+    },
+    {
+      "name": "baseline-dns-store.json",
+      "sha256": "5784aa24a4d4711b07098e0c73c96cfe7ac2c2ead2f7ec7ebf190a70cf37d542"
+    },
+    {
+      "name": "baseline-dns.json",
+      "sha256": "16b2a84b663b83653a214b545d3c369a6283ebb2f284bb141aa5c637f11c2bfc"
+    },
+    {
+      "name": "baseline-interfaces.json",
+      "sha256": "3ca715c02cec767be4ae11553ece930d276b0b9cc6c98434100b30899cdbf123"
+    },
+    {
+      "name": "baseline-job.json",
+      "sha256": "ebe86c5096e3ff0464cf71ae4d865fb79071ead383eab1d4508071f33f17cb03"
+    },
+    {
+      "name": "baseline-nwi.json",
+      "sha256": "8a9b376f06925edb7652406afb4a547e1561c11bfd2de3a3d1110137cea6eb27"
+    },
+    {
+      "name": "baseline-proxy.json",
+      "sha256": "542d32fee8a0efa422435354dea9a3b8c27c852c5422b0b37a3843df535ae07e"
+    },
+    {
+      "name": "baseline-receipts.json",
+      "sha256": "27554a0c4a66c88d9e465a3f56395d60f45f48263999b5993001f6c34a03c3a2"
+    },
+    {
+      "name": "baseline-routes4.json",
+      "sha256": "e57eb89ee43a8150456149fc69219f3ada81a9c0a963e62cff2663acdd51c140"
+    },
+    {
+      "name": "baseline-routes6.json",
+      "sha256": "df232e70f023df2fe2a69ba66925a8b8ed2a6cccf5aacbadb08778cf00b8a59c"
+    },
+    {
+      "name": "baseline-service-0-getdnsservers.json",
+      "sha256": "8d0474aa5b5bf257ca2564b0e11ad83274c25c731ac0990e11b3c8a82532c56e"
+    },
+    {
+      "name": "baseline-service-0-getproxybypassdomains.json",
+      "sha256": "c0dc8f94db01fc0b004bd7014b251f4fa5c0070c65d76fa98e1f3a53cc79de19"
+    },
+    {
+      "name": "baseline-service-0-getsecurewebproxy.json",
+      "sha256": "f6466b3bc8de7ea3662964dde888d55d2f187188c8182ffbaa52b70b70cc53f0"
+    },
+    {
+      "name": "baseline-service-0-getsocksfirewallproxy.json",
+      "sha256": "9fe7235045f27d2ecf5facf3f98c90d01f447fcbebf629dc6db45213d5ac4f22"
+    },
+    {
+      "name": "baseline-service-0-getwebproxy.json",
+      "sha256": "ed30a136afcd42a571694da1dc3378436417af95c49c7f0356957e9589aa328d"
+    },
+    {
+      "name": "baseline-service-1-getdnsservers.json",
+      "sha256": "e2b8d5f3a1ca04a81a3d2d1f3f02700799055e19b5ea05465674697676bb317f"
+    },
+    {
+      "name": "baseline-service-1-getproxybypassdomains.json",
+      "sha256": "f925153bbb85d85c4f841e652631a426379b921a9ab651b55767acd460a53d44"
+    },
+    {
+      "name": "baseline-service-1-getsecurewebproxy.json",
+      "sha256": "9d079b9986d20743cf5bd2c112e8998e3a6036904f98d426d4271aace7bc5623"
+    },
+    {
+      "name": "baseline-service-1-getsocksfirewallproxy.json",
+      "sha256": "99f6d106f0592f47bcac8c194bd0caf1838179d5050e706be98219267c31c9ef"
+    },
+    {
+      "name": "baseline-service-1-getwebproxy.json",
+      "sha256": "e68e557f234232ff751f36d5fa97eb52eacfe24b87e20d0276cccaf01ccd8eb8"
+    },
+    {
+      "name": "baseline-service-2-getdnsservers.json",
+      "sha256": "d81773c5f677b15cdb4d01d7e032a71d6687bc2b08f50e79fbc9a43f49fd9a66"
+    },
+    {
+      "name": "baseline-service-2-getproxybypassdomains.json",
+      "sha256": "3849d68aee2b733eda9c5f464833ec21c008ec58ef0b40dd979f57a7c5044ea8"
+    },
+    {
+      "name": "baseline-service-2-getsecurewebproxy.json",
+      "sha256": "8eaa0cc73e204afad3aac4b9f269e1a3c41276ef496a44ac377c8c7456b3fd43"
+    },
+    {
+      "name": "baseline-service-2-getsocksfirewallproxy.json",
+      "sha256": "18bda6d4c81f182008ec38293bd63fcada3c2ac02613728d44450a8bc59c5ee3"
+    },
+    {
+      "name": "baseline-service-2-getwebproxy.json",
+      "sha256": "60938e1d58fd12c52bad4118ff2a8367c63954fa503a87b4d0dbee7cb153e828"
+    },
+    {
+      "name": "baseline-services.json",
+      "sha256": "047f66c03c81666efa90e2906afb604b35f3238ca69fe0a9094071b8c6fc269f"
+    },
+    {
+      "name": "bootout.json",
+      "sha256": "598605456dc9651f85e4cd82c15f23bea4aafc89571f4844f0b7b586f2092f39"
+    },
+    {
+      "name": "candidate.json",
+      "sha256": "96a277ce491428ca0e48d2ab6f2b363cab65071e38f5c87d3654d90357b20b53"
+    },
+    {
+      "name": "cleanup-dns-comparison.json",
+      "sha256": "3b0c67355942fd80f7abb46055b6f091095fc54de63b58346ee43b7c9d26fae9"
+    },
+    {
+      "name": "cleanup-dns-store-comparison.json",
+      "sha256": "3b0c67355942fd80f7abb46055b6f091095fc54de63b58346ee43b7c9d26fae9"
+    },
+    {
+      "name": "cleanup-dns-store.json",
+      "sha256": "7e6aa4065348a2dfd98ef83b0f304366203db2684606f837669e9527e893597c"
+    },
+    {
+      "name": "cleanup-dns.json",
+      "sha256": "35fb55e98b22adad5ce5d8aaf1c075d024953277d97fb29b42e98d01cba09481"
+    },
+    {
+      "name": "cleanup-proxy-comparison.json",
+      "sha256": "3b0c67355942fd80f7abb46055b6f091095fc54de63b58346ee43b7c9d26fae9"
+    },
+    {
+      "name": "cleanup-proxy.json",
+      "sha256": "d44a23ab899513ae4a228a8403bfd6558ec3ab095fdb699372ecb7844f904059"
+    },
+    {
+      "name": "cleanup-routes4-comparison.json",
+      "sha256": "5df4767b8801d3a8c1012358fa3ccd7d3f430df721900d1b45f9ed0b90bc1195"
+    },
+    {
+      "name": "cleanup-routes4.json",
+      "sha256": "23c533ce94efcdb2205f2393cbc53a5b4a646dc72055006a037cfc76e9f5fd8f"
+    },
+    {
+      "name": "cleanup-routes6-comparison.json",
+      "sha256": "5df4767b8801d3a8c1012358fa3ccd7d3f430df721900d1b45f9ed0b90bc1195"
+    },
+    {
+      "name": "cleanup-routes6.json",
+      "sha256": "186762bd7fd3fc048f21f9d2986aab0d039543547054b15b39e1959aac0b1e65"
+    },
+    {
+      "name": "diagnostics.json",
+      "sha256": "0e1ae8c72bd3e59ff20df8bde8277ce9a8e79d354cbfa7294f8484a279c8ee54"
+    },
+    {
+      "name": "final-job.json",
+      "sha256": "569f3d4eaff8b437d092bc73b37616bdb3090c5117d170b2e31298daee5664d0"
+    },
+    {
+      "name": "final-processes.json",
+      "sha256": "e6eb175fdf155db84752d1f0fded5624fb49639e09bd94cebf19e2a778d8af01"
+    },
+    {
+      "name": "fresh-cleanup.py",
+      "sha256": "af52c8d4bc972a3f8cf164e38e6e0bd75042853d55dffb916f0912e1ee51d92a"
+    },
+    {
+      "name": "held-cleanup-before.json",
+      "sha256": "71630667f561e48889ea826c9aa8781e65ce37bb6fe53dacfe401490c5ccbd38"
+    },
+    {
+      "name": "held-cleanup.py",
+      "sha256": "87da1f0e17269e87b59b875b350c074eb4c86d664a86c55dfb12fceb057e8b84"
+    },
+    {
+      "name": "held-uninstall-before.json",
+      "sha256": "682568989dcddbd468c4955e6ba1ddd4794d8731ccf11f1b791a20f0892284b3"
+    },
+    {
+      "name": "held-uninstall.py",
+      "sha256": "0b70e30e9899190f12eb2fd542f4023d73f1f2770dad26fd9f80393bc8a501dd"
+    },
+    {
+      "name": "inspect-state.py",
+      "sha256": "aa0bd97df04b34d2c14f99681f03287145c32bb58784bf85fdd9b75f543d987b"
+    },
+    {
+      "name": "install.log",
+      "rootOnly": true,
+      "sha256": null
+    },
+    {
+      "name": "installed-app.json",
+      "sha256": "80c8b7a5430298060a88355288cc71f8c4132f7f9247742d09afa72e90d8697f"
+    },
+    {
+      "name": "installed-readback.json",
+      "sha256": "82fd77ac3d302a1a276b5c5b1a8a1d393be7cce2fe217e24f75f4b8be61da8a9"
+    },
+    {
+      "name": "job-absent-recheck.json",
+      "sha256": "569f3d4eaff8b437d092bc73b37616bdb3090c5117d170b2e31298daee5664d0"
+    },
+    {
+      "name": "job-after.json",
+      "sha256": "4e0dee0e77dd0c552e5825bf5b83b6472190726370efb7a54f92c8fa178ee9ea"
+    },
+    {
+      "name": "job-loaded.txt",
+      "sha256": "62e06da4e13b062e14851a3d204922f87cd054c83ebdbd901a7b32ffc952a10b"
+    },
+    {
+      "name": "kickstart.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "load.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "paths-after.json",
+      "sha256": "ecc967aaca8787f5c1ccc8a864c3fb9264a3e4b1fcc3c338e38acd06b664eca2"
+    },
+    {
+      "name": "paths-before.json",
+      "sha256": "b0de69d206664d4b37fdd3a540a6043adf7c89168886345c8064b7789436d614"
+    },
+    {
+      "name": "processes-before.json",
+      "sha256": "58ab3c9f9a73acba05223e72de50df6b923c8de88f8dfb643db3c1b7162d40fe"
+    },
+    {
+      "name": "production-preflight.json",
+      "sha256": "f9fa29e6e806146ad6bc5f2e6f5fd30fa1f3d472f71ffaed8cd8a60a6f7c7fbb"
+    },
+    {
+      "name": "production-preflight.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "read-diagnostics.py",
+      "sha256": "1168860392ff6f7daf7148b071b5f316ed9b913c7f046a1005bec59bf60e8487"
+    },
+    {
+      "name": "receipt-after.json",
+      "sha256": "e34e0b695dea0ee384ee71e7ede3b3f9c14c815470a9ad3ac6a0c8df5808a46a"
+    },
+    {
+      "name": "receipt-before-forget.json",
+      "sha256": "5ce7cfd0295fc6eadfc71ee3b3a5fc17fcbb9b2b6477d06de6115c048e8078b1"
+    },
+    {
+      "name": "receipt-cleanup.py",
+      "sha256": "c729e444297f68ceb7bdd9239d91053d0303ca102d67ecd6842990db0b429e4d"
+    },
+    {
+      "name": "receipt-forget.json",
+      "sha256": "0c5347ff1659ad3be2b5f5af3840902b302f22a68cc7b737acf3e1599d7652bf"
+    },
+    {
+      "name": "start-timeout-ui.txt",
+      "sha256": "5073ba2f43914b4532a9ae31982ce05ea82f128977bec9433532d862d3aad034"
+    },
+    {
+      "name": "timeout-dns-store.json",
+      "sha256": "7e6aa4065348a2dfd98ef83b0f304366203db2684606f837669e9527e893597c"
+    },
+    {
+      "name": "timeout-dns.json",
+      "sha256": "35fb55e98b22adad5ce5d8aaf1c075d024953277d97fb29b42e98d01cba09481"
+    },
+    {
+      "name": "timeout-proxy.json",
+      "sha256": "d44a23ab899513ae4a228a8403bfd6558ec3ab095fdb699372ecb7844f904059"
+    },
+    {
+      "name": "timeout-routes4.json",
+      "sha256": "2ef4721b1969b6345c0bda759449de96ab7f6b153060deda6c105e15fae32bc1"
+    },
+    {
+      "name": "timeout-routes6.json",
+      "sha256": "57f6c4d9ac1802aed312c0281f23b98381d476373fbbb1102af44b6adf1453a0"
+    },
+    {
+      "name": "timeout-state.json",
+      "sha256": "5842145c60257bc3565b7796adee19c7ddc393f85bb03e4d0f4ba1d79a32dc68"
+    },
+    {
+      "name": "uninstall-result.json",
+      "sha256": "ef94c6eb5afe9f00a3e734a8edb604eb4c363d9d7f662c6f7c1cc9ceb7f2fd93"
+    },
+    {
+      "name": "verify-installed.py",
+      "sha256": "d9ff95dc0031d29352f535c39d61a66c7ee03a141f12e13215a17c4f39591ed8"
+    }
+  ]
+}

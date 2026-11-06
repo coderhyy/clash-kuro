@@ -1,0 +1,5 @@
+time="2026-11-05T14:07:20.711275000+08:00" level=info msg="Start initial configuration in progress"
+time="2026-11-05T14:07:20.711446000+08:00" level=info msg="Geodata Loader mode: memconservative"
+time="2026-11-05T14:07:20.711454000+08:00" level=info msg="Geosite Matcher implementation: succinct"
+time="2026-11-05T14:07:20.711519000+08:00" level=info msg="Initial configuration complete, total time: 0ms"
+time="2026-11-05T14:07:20.725427000+08:00" level=warning msg="Mihomo shutting down"

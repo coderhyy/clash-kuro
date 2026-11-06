@@ -1,0 +1,9 @@
+fixture cache rejection fixture-cache-replaced: /private/tmp/kuro-core-evidence-g7EigU
+fixture cache rejection fixture-cache-mode-changed: /private/tmp/kuro-core-evidence-h2vH1i
+fixture diagnostics fixture-early-exit: /private/tmp/kuro-core-evidence-ttCImx
+fixture diagnostics fixture-output: /private/tmp/kuro-core-evidence-Skbo11
+fixture diagnostics fixture-timeout: /private/tmp/kuro-core-evidence-t2v1xq
+fixture diagnostics log-save-failure: /private/tmp/kuro-core-evidence-3S684y
+fixture log-save-failure: Core exit37 preserved, owner/work retained; test-only directory restored to0700 without retry
+fixture abnormal-exit retained evidence: /private/tmp/kuro-core-FgdzMh
+core experiment: 212 fixture assertions passed; no real Core, Core -t, install or network mutation

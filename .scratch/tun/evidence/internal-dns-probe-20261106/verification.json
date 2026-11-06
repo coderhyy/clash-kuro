@@ -1,0 +1,58 @@
+[
+  {
+    "name": "focused-compile",
+    "argv": [
+      "/usr/bin/clang",
+      "-fobjc-arc",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-Wno-unused-function",
+      "-O2",
+      "-framework",
+      "Foundation",
+      "-framework",
+      "Security",
+      "-framework",
+      "SystemConfiguration",
+      "-lbsm",
+      "/private/tmp/kuro-dns-probe-diagnostics-candidate/focused.m",
+      "-o",
+      "/private/tmp/kuro-dns-probe-diagnostics-candidate/focused"
+    ],
+    "exit": 0,
+    "seconds": 2.94927841599565
+  },
+  {
+    "name": "production-compile",
+    "argv": [
+      "/usr/bin/clang",
+      "-fobjc-arc",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-Wno-unused-function",
+      "-O2",
+      "-framework",
+      "Foundation",
+      "-framework",
+      "Security",
+      "-framework",
+      "SystemConfiguration",
+      "-lbsm",
+      "/private/tmp/kuro-dns-probe-diagnostics-candidate/native/kuro-tun-helper.m",
+      "-o",
+      "/private/tmp/kuro-dns-probe-diagnostics-candidate/production"
+    ],
+    "exit": 0,
+    "seconds": 1.3573117079213262
+  },
+  {
+    "name": "focused",
+    "argv": [
+      "/private/tmp/kuro-dns-probe-diagnostics-candidate/focused"
+    ],
+    "exit": 0,
+    "seconds": 2.4138197919819504
+  }
+]

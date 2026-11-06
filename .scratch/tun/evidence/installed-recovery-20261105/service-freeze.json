@@ -1,0 +1,98 @@
+{
+  "baseCommit": "3728bc7e90c1f1ed8d0d7e6bfe7b5addd5809dc8",
+  "files": [
+    {
+      "path": "apps/desktop/native/mac/tun-service.m",
+      "baselineSHA256": "eef5fabc0ce9d6eeb8737b03b3dca940c08a10a9fc4ec9457c534958d6762dc0",
+      "candidateSHA256": "12fca9e1ed603bec2a5a6ebbb2d75f8e5a4fa2d25b25937e08231929253cff6a"
+    },
+    {
+      "path": "apps/desktop/native/mac/tun-service.test.m",
+      "baselineSHA256": "a2383b6c0a669e7809ed67d18dae5d8ffb2c4d74d169ed6065fa7477fdfe01f2",
+      "candidateSHA256": "88dd79610ad0fa4a1c06ecc31c4a1a8716f3f62eb29daca6a2cdd10dc6da317b"
+    }
+  ],
+  "patchSHA256": "9af32b79232246b4acff67cf42e91c7e55c872ba0a6764acab0bbe3bb11ca109",
+  "requiredSessionSHA256": "df738412e8dc9a1949618df79d4f43642748ed0768137a1005f7232cec8b5016",
+  "requiredSessionSource": "/private/tmp/kuro-restart-cache-checkpoint-candidate/native/tun-session.m",
+  "verification": [
+    {
+      "name": "production-final-compile",
+      "command": [
+        "/usr/bin/clang",
+        "-arch",
+        "arm64",
+        "-fobjc-arc",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-O2",
+        "-framework",
+        "Foundation",
+        "-framework",
+        "Security",
+        "-framework",
+        "SystemConfiguration",
+        "-lbsm",
+        "/private/tmp/kuro-installation-binding-candidate/native/kuro-tun-helper.m",
+        "-o",
+        "/private/tmp/kuro-installation-binding-candidate/helper-final-compile-only"
+      ],
+      "environment": {
+        "KURO_SKIP_CORE_SYNTAX": "1"
+      },
+      "exit": 0,
+      "wallSeconds": 1.3932169590843841
+    },
+    {
+      "name": "focused-final-compile",
+      "command": [
+        "/usr/bin/clang",
+        "-arch",
+        "arm64",
+        "-fobjc-arc",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-O2",
+        "-framework",
+        "Foundation",
+        "-framework",
+        "Security",
+        "-framework",
+        "SystemConfiguration",
+        "-lbsm",
+        "-Wno-unused-function",
+        "/private/tmp/kuro-installation-binding-candidate/focused.m",
+        "-o",
+        "/private/tmp/kuro-installation-binding-candidate/focused-final"
+      ],
+      "environment": {
+        "KURO_SKIP_CORE_SYNTAX": "1"
+      },
+      "exit": 0,
+      "wallSeconds": 2.4585964999860153
+    },
+    {
+      "name": "focused-final-run",
+      "command": [
+        "/private/tmp/kuro-installation-binding-candidate/focused-final"
+      ],
+      "environment": {
+        "KURO_SKIP_CORE_SYNTAX": "1"
+      },
+      "exit": 0,
+      "wallSeconds": 1.9023995839525014
+    }
+  ],
+  "limits": [
+    "Uses trusted root/admin-approved fixed installation and fixed finite helper/Core contract; not hostile-root security.",
+    "Same-install-only recovery; release/manifest/receipt/Core/helper drift rejects.",
+    "Loaded-job source sampling is provenance, not standalone writer-exit proof; installation/hash/config/work binding and repeated independent PID/helper/group refusal gates jointly apply.",
+    "Origin-only recovery has explicit durable validated-restart-v1 checkpoint; does not create childReaped/completed-stop/uninstall proof.",
+    "Legacy records keep old recovery behavior; origin-only without complete installation still refused.",
+    "Positive model is actual temporary file layout/install code and production validator; root ownership, real launchctl and real Core are not exercised.",
+    "No shared tree/Git changes, actual Core/syntax/installation/system network operations.",
+    "No full native suite rerun; parent must combine session patch and run full fixture suite with KURO_SKIP_CORE_SYNTAX=1."
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "Plugins/IPMonitor/dns-configuration.c": {
+    "commit": "585b7f2fca293f4642d21d15c5daf187f63c4796",
+    "blob": "69698aa683d05c416c1a8e2d321902e8afd3ecc5",
+    "url": "https://github.com/apple-oss-distributions/configd/blob/585b7f2fca293f4642d21d15c5daf187f63c4796/Plugins/IPMonitor/dns-configuration.c"
+  },
+  "dnsinfo/dnsinfo.h": {
+    "commit": "585b7f2fca293f4642d21d15c5daf187f63c4796",
+    "blob": "d5a0e70e2f3126401e9b24ebfe038cc781db5019",
+    "url": "https://github.com/apple-oss-distributions/configd/blob/585b7f2fca293f4642d21d15c5daf187f63c4796/dnsinfo/dnsinfo.h"
+  },
+  "dnsinfo/dnsinfo_private.h": {
+    "commit": "585b7f2fca293f4642d21d15c5daf187f63c4796",
+    "blob": "b1dfdab2240619d6db174dbe9576e1f9298db4af",
+    "url": "https://github.com/apple-oss-distributions/configd/blob/585b7f2fca293f4642d21d15c5daf187f63c4796/dnsinfo/dnsinfo_private.h"
+  },
+  "dnsinfo/dnsinfo_create.c": {
+    "commit": "585b7f2fca293f4642d21d15c5daf187f63c4796",
+    "blob": "fa551fd2ec842df4932309fef6656b970200d03e",
+    "url": "https://github.com/apple-oss-distributions/configd/blob/585b7f2fca293f4642d21d15c5daf187f63c4796/dnsinfo/dnsinfo_create.c"
+  }
+}

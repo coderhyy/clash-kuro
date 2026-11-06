@@ -1,5 +1,5 @@
 import type { LogEntry, ProxyGroup, Proxy, Traffic } from '@kuro/api'
-import type { LaunchAtLoginStatus, Mode, Profile, ProfileSource, Settings } from '@kuro/core'
+import type { LaunchAtLoginStatus, Mode, Profile, ProfileSource, Settings, TunStatus } from '@kuro/core'
 
 export type CoreStatus = 'stopped' | 'starting' | 'running' | 'error'
 export type Language = 'zh-CN' | 'en'
@@ -26,6 +26,8 @@ export interface StateSnapshot {
   proxyGroups: ProxyGroup[]
   proxies: Record<string, Proxy>
   systemProxy: SystemProxyStatus
+  /** Observed capability/network status; never a persisted enable preference. */
+  tun: TunStatus
   /** Newer release on GitHub, if any (ADR-0010). */
   update: { version: string; url: string } | null
   /** Read from the OS, not settings.json (CONTEXT.md: 开机自启). */
@@ -39,6 +41,8 @@ export interface Commands {
   setMode(input: { mode: Mode }): void
   selectProxy(input: { group: string; proxy: string }): void
   setSystemProxy(input: { enabled: boolean }): void
+  setTun(input: { enabled: boolean }): void
+  recoverTun(input: Record<string, never>): void
   setLaunchAtLogin(input: { enabled: boolean }): void
   setLanguage(input: { language: LanguagePreference }): void
   importProfile(input: { name: string; source: ProfileSource }): { profileId: string }

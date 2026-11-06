@@ -1,0 +1,56 @@
+{
+  "readOnly": true,
+  "capturedAt": "2026-11-05",
+  "rawEvidence": "/private/tmp/kuro-tun-readonly-baseline-q_9r369g",
+  "commands": {
+    "proxy": {
+      "exit": 0,
+      "sha256": "59fe92c7142016ecf87343cf2526e0d6060235f84f9169e299caf5aae8c34360"
+    },
+    "dns": {
+      "exit": 0,
+      "sha256": "b62cafb37cbf911e84f09be436c2c409cf58f0c52f7a30be019d3a13fbbfccea"
+    },
+    "routes4": {
+      "exit": 0,
+      "sha256": "c3406ff2ac95ee58b6198aa0f86773a55ca069598997e76ba3543116830f2370"
+    },
+    "routes6": {
+      "exit": 0,
+      "sha256": "c5c34479fcf11adfdac9b9d0b87ab93a8dee6d7fb53a39374d62357155fd1922"
+    },
+    "default4": {
+      "exit": 0,
+      "sha256": "9e949a67f8ed460ab70b3383ee663d1d02df4086bcd11058cfeeaaac658f6fde"
+    },
+    "default6": {
+      "exit": 0,
+      "sha256": "bd12e5961528eae1f9cfb36378b2d7627c0dc6d5316c52ec2e6dafce75f44a4f"
+    },
+    "interfaces": {
+      "exit": 0,
+      "sha256": "8c178fcaef8b19ac828cdf74b6f37b3dc85852b5c8af5171b321f2822397523a"
+    },
+    "job": {
+      "exit": 113,
+      "sha256": "e09166c3bbf8c5e0d6b7585d424281aa6ea153e325956bfb51f44d4a1e75271a"
+    }
+  },
+  "findings": {
+    "systemProxyEnabled": false,
+    "ipv4Default": "en0 via 192.168.0.1",
+    "existingTunConflict": "Existing utun owns 198.18.0.1 and split public IPv4 routes including128.0/1; production fixed pool overlaps. Do not change third-party routes.",
+    "ipv6": "Scoped utun defaults observed; no unscoped physical IPv6 default proven. IPv4-only upstream is supported; full external IPv6 acceptance requires suitable connectivity.",
+    "dnsSuppliers": [
+      "114.114.114.114"
+    ],
+    "productionJob": "absent113"
+  },
+  "profile": {
+    "path": "profile.yaml",
+    "sha256": "b526b172f24cfd64e0836acc2f718de5729cea5a38370ab595e6789ff6f4db46",
+    "offlineAdmission": "createTunSessionConfig passed",
+    "scope": "MATCH,DIRECT; normal utun/control/route/DNS lifecycle only; preserves current DNS supplier; no remote proxy or full split-DNS/IPv6 reachability claim",
+    "precondition": "Recheck DNS baseline after user handles conflict; if supplier changed, refreeze profile before network authorization"
+  }
+}

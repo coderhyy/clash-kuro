@@ -1,0 +1,26 @@
+{
+  "format": 1,
+  "label": "dev.kuro.tun",
+  "release": "v1.19.33-0.1.0-arm64-866e71918bbfe5c2",
+  "target": "darwin-arm64",
+  "protocol": 1,
+  "activationAllowed": false,
+  "core": {
+    "file": "mihomo",
+    "version": "v1.19.33",
+    "sha256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+    "archiveSha256": "060b64b0f2c9a310831db0fe4adb2878de67bfa606c311813c1f13966aa504b6"
+  },
+  "helper": {
+    "file": "helper",
+    "version": "0.1.0",
+    "sha256": "5a754926a197d6c0b437fb9a56cc1dde85fb7c1d4aeefa2f86ea5119d1526a0a"
+  },
+  "client": {
+    "format": 2,
+    "cdhash": "dec6d36f1109ea4970c5c79cbff493cdaee24477",
+    "executableSHA256": "b227d91e80f33cb0d84c8c6edf416b897f6771360d19fd8431e3268757813f99",
+    "infoSHA256": "c6ee4596dcdaebb3c624421de67937d7b62ad1be281a0ad96996186d2aba3ab8",
+    "asarSHA256": "97749c5d4d67382480b9e2e7da76f728274aa6a3f7bad5fe34b2db2a46aa5a20"
+  }
+}

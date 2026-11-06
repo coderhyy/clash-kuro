@@ -1,0 +1,19 @@
+{
+  "sourceCommit": "c138652131a6bf9035225b0ff93b74b9c360b21d",
+  "package": "/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/kuro-tun-finite-session-0.1.0-arm64-c138652131a6.pkg",
+  "packageSHA256": "f3b7fbdbb3fc7f49da44b9006418fc9cbc24cb6a1ebcd503f9adf0fed2c9f8d8",
+  "ci": {
+    "run": 42148141090,
+    "macos": "success",
+    "windows": "success"
+  },
+  "offlinePackageReview": "passed",
+  "installedOrLaunched": false,
+  "files": {
+    "candidate-c138.json": "04fb97db51a53f247f8823698a6b487aac0953b34fdcda78fabffcd33a8b5013",
+    "clean-native.log": "f611c8c5134634c0571c095b6b123088749b7677f6999fd56ae084d9de448707",
+    "clean-app.log": "b76310ad1936b888d3433e99fa28e9967c85c2bd16f7e022bad7a3043657fa21",
+    "offline-package/RESULT.md": "e457b827152b7230e3084c39e755d94b6e7f4231e14104dc134db5be2cf01ee0",
+    "offline-package/verification.json": "62a7d3a38fcbee3c43b902e448b7df5972accdb1f577c02b14d4074a3be2b3db"
+  }
+}

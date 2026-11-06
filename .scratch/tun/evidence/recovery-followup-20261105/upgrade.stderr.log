@@ -1,0 +1,13 @@
+/private/tmp/kuro-upgrade-E2yCMy/old-helper: replacing existing signature
+/private/tmp/kuro-upgrade-E2yCMy/old-source/fixture.app: replacing existing signature
+/private/tmp/kuro-upgrade-E2yCMy/new-source/fixture.app: replacing existing signature
+/private/tmp/kuro-upgrade-E2yCMy/third-source/fixture.app: replacing existing signature
+upgrade recovery fixture: completed upgrade off proof absent
+upgrade recovery fixture: unknown or changed upgrade object: /private/tmp/kuro-upgrade-E2yCMy/stage1/Library/Application Support/Clash Kuro/Privileged/Upgrade/Payload/Client.app/unknown
+upgrade recovery fixture: changed upgrade bytes: /private/tmp/kuro-upgrade-E2yCMy/stage2/Library/Application Support/Clash Kuro/Privileged/Upgrade/Payload/Client.app/Contents/Resources/app.asar
+upgrade recovery fixture: unsafe upgrade permissions: /private/tmp/kuro-upgrade-E2yCMy/stage3/Library/Application Support/Clash Kuro/Privileged/Upgrade/Payload/Client.app/Contents/Resources/app.asar
+upgrade recovery fixture: unsafe upgrade permissions: /private/tmp/kuro-upgrade-E2yCMy/stage4/Library/Application Support/Clash Kuro/Privileged/Upgrade/Payload/Client.app/Contents/Resources/app.asar
+upgrade recovery fixture: changed upgrade bytes: /private/tmp/kuro-upgrade-E2yCMy/truncated-helper/Library/Application Support/Clash Kuro/Privileged/Upgrade/Payload/Inbox/helper
+truncated staged helper: recovery refused; entire original installation, approval and truncated payload preserved
+upgrade recovery fixture: changed upgrade bytes: /private/tmp/kuro-upgrade-E2yCMy/truncated-mihomo/Library/Application Support/Clash Kuro/Privileged/Upgrade/Payload/Inbox/mihomo
+truncated staged mihomo: recovery refused; entire original installation, approval and truncated payload preserved

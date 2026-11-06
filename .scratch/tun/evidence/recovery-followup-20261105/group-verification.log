@@ -1,0 +1,6 @@
+native restart owner: strict/legacy receipts, present/reused/denied/incomplete PID observations, changing observation and retained DNS preserve ownership; ESRCH never proves descendants exited
+native restart work: exact runtime/socket cleanup, mismatch/unknown/symlink/unsafe reread rejection and partial cleanup retry passed (temporary sockets only)
+native production cache: closed durable receipt, legacy refusal, changed/symlink/writable/unknown preservation, exact removal, old-group nonempty/unknown rejection and partial cleanup retry passed; no Core/network
+PASS: real read-only current-group rejection; deterministic old-group/final-cache fixtures; no Core/network/signals
+production strict compile-only: PASS (not executed)
+read-only absent group: bytes=0 errno=0

@@ -1,0 +1,65 @@
+time="2026-11-06T15:06:57.292666000+08:00" level=info msg="Start initial configuration in progress"
+time="2026-11-06T15:06:57.293747000+08:00" level=info msg="Geodata Loader mode: memconservative"
+time="2026-11-06T15:06:57.293760000+08:00" level=info msg="Geosite Matcher implementation: succinct"
+time="2026-11-06T15:06:57.293898000+08:00" level=info msg="Initial configuration complete, total time: 1ms"
+configuration file /tmp/kuro-native-syntax-5xI7t9/config.json test is successful
+native Core environment: actual held ordinary env child receives fixed PATH/LANG/IPv6-check switch, no inherited extra environment (apart from Foundation runtime encoding key), hostile inherited false is ignored; no Core/network execution
+native restart cache checkpoint: 19 real temporary-file chains; explicit fixed approval validator, stable origin snapshot and durable marked owner, changed bytes/inode/mode/symlink/unknown and replaced/reappeared work-directory refusals, all installed records require validator including cache-absent/final-cache/owner-only; nil retry and fsync/publish/partial cleanup retries; no Core/stop proof
+native session durability: socket rename, absent owner recovery and held-owner unlink reject repeated sync failure; only successful sync permits acceptance/off, unknown replacement preserved; no Core/network
+native cache origin: 11 ordinary-user held-child cases; exclusive0600, sync/publication failures, pre-resume replacement, same-inode writes, changed mode/inode and unknown-owner preservation; no Core/network
+native restart owner: strict/legacy receipts, present/reused/denied/incomplete PID observations, changing observation and retained DNS preserve ownership; ESRCH never proves descendants exited
+native supervisor absence: 11 temporary owner cases; live/reused/unknown helper and reappearance before/during/after cleanup rejected; legacy unchanged; no PID signal or fresh stop proof
+native owner/session: EOF, lease, heartbeat, replay, peer exit, cleanup retry, stop, preparation refusal passed
+PASS native JSON candidate accepted by fixed Core -t (syntax only; no TUN activation)
+native TUN config: closed schema, references, DNS, duplicate keys, limits and JSON candidate passed
+native peer identity: kernel audit identity observed, passed FD cannot survive original peer exit
+DNS metadata: immutable raw Global default snapshot, known A/AAAA flags, typed metadata/alias binding; unsupported scope/service/unknown/incomplete metadata retained and refused
+Darwin route parser: four sanitized recorded wire shapes + nonlocal/nonhost/conflicting-zone/noncontiguous/truncation rejects PASS
+native Core auto-route observer: fixed upstream five routes, closed pre-CONT baseline/binding, 20 observation/adoption/material-flags/durable-retry cases PASS; snapshot only
+native route absence: 15 prepared/observed/legacy/no-journal/foreign/duplicate/read-failure/two-snapshot/unlink-sync retry cases PASS; no route deletion method exists
+PASS 22 Core auto-route coordinator cases: protected pre-CONT intent/binding/baseline, independently observed five upstream routes, original dual-stack probe, DNS-only helper writes, partial startup/prepare-sync recovery and full-owner restart joins; simulated Core/kernel, no system calls
+PASS internal DNS probe diagnostics: real control flow with injected socket/fcntl/bind/connect/send/poll/recv/response failures, exact errno survives close, short/timeout uses no stale errno, EINTR and both-family success; no real network operations
+PASS 18 IPv4-upstream admission cases: dual-stack template preserved, physical/LAN/scopedDNS paths and endpoint ambiguity remain guarded
+PASS 4 production DNS metadata cases: effective interface admission, preserved scoped path, exact journal/baseline and mutation refusal, UUID-only recovery
+PASS 3 unexpected-route diagnostic cases: exact closed entry and stage retained, original startup/active and wrong-interface refusal unchanged; fake backend only
+PASS 15 held multicast cases: exact three XNU companion routes, independent unique current link-local, interface/zone/flags/prefix/gateway/active changes reject, baseline pinned and Core teardown simulated before absence-only retirement; snapshot-only route store
+native DNS partial recovery: 5 fresh-object exact deletion, pre-remove value/journal changes, extra UUID and failed-unlink-sync retry cases passed
+native DNS ownership: 30 journal + 5 route-admission scenarios passed; no Darwin store or system network operation executed
+native Core/interface association: 21 injected snapshots and real self-identity rejectio/private/tmp/kuro-client-pin-xCQ9Jt/Library/Application Support/Clash Kuro/Client/Clash Kuro.app: replacing existing signature
+/private/tmp/kuro-act-NE46Uc/source/fixture.app: replacing existing signature
+/private/tmp/kuro-auth-policy-T5pHW2/Library/Application Support/Clash Kuro/Client/Clash Kuro.app: replacing existing signature
+/private/tmp/kuro-fresh-admit-CsTo2x/source/fixture.app: replacing existing signature
+/private/tmp/kuro-fresh-admit-iCy2KM/source/fixture.app: replacing existing signature
+/private/tmp/kuro-fresh-admit-ueBHQW/source/fixture.app: replacing existing signature
+/private/tmp/kuro-fresh-admit-KBur4s/source/fixture.app: replacing existing signature
+/private/tmp/krp-dtJAyR/source/fixture.app: replacing existing signature
+/private/tmp/krp-dtJAyR/next/fixture.app: replacing existing signature
+FAIL line 853: ok==expected
+n passed; no Core spawn, utun creation or network mutation
+native client pin: real ad-hoc runtime seal, internal Framework links, escape/writable/tamper rejection, install record and exact removal passed (temporary ordinary-user fixture)
+native stopped uninstall: 11 held harmless child fixtures cover complete proof, missing/false/mismatched/changed/active preservation, sticky history, durable revocation and partial cleanup retry; network proofs mocked
+native finite activation: explicit boolean/client/inventory, completed protected install, fixed helper identity, receipt binding and temporary auth-observer refusal passed; no service/Core/network
+native installer ACL: production /private/tmp accepted (NULL ACL absence fallback); no system mutation
+native socket host: old ancestor uid=0 gid=1 mode=0775; new fixed ancestors pass strict ACL/metadata/search policy (read only)
+native socket migration: legacy metadata/path rejection, public 0700 ancestor/run refusal, fixed/prefixed/overlong addresses and two protected ordinary-user endpoint connections passed; no system service
+native fresh install: 7 inventory rejection checks + 19 receipt, partial-copy, unknown/changed identity, active lock and exact auth socket recovery cases passed; no system install
+native auth: shared production policy accepts real signed live fixture, rejects impostor/pin/resource changes and every non-observation operation; no root/Core/network
+live pre-write Core: absent routes cannot retire prepared intent; both recovery callbacks remain uncalled
+fresh admission: actual temporary install/Status + dispatch capability gate + real recovery; finite ready/off, auth-only denied, unknown route retained, checkpoint blocked/off preserved; no Core/root/network writes
+recovered checkpoint 0: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 1: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 2: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 3: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 4: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 5: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 6: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 7: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 8: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 9: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 10: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 11: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 12: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 13: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 14: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 15: exact production binding/readback + fresh retry/consumer gate passed
+Command failed: /var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-helper-build-4bCgr6/tests

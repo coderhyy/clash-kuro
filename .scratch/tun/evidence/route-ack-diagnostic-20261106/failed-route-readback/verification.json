@@ -1,0 +1,38 @@
+{
+  "runs": [
+    {
+      "label": "compile",
+      "args": [
+        "/usr/bin/clang",
+        "-arch",
+        "arm64",
+        "-fobjc-arc",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-Wno-unused-function",
+        "-O2",
+        "-framework",
+        "Foundation",
+        "-framework",
+        "Security",
+        "-framework",
+        "SystemConfiguration",
+        "-lbsm",
+        "/private/tmp/kuro-failed-route-readback-candidate/focused.m",
+        "-o",
+        "/private/tmp/kuro-failed-route-readback-candidate/focused"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 3.3542199169751257
+    },
+    {
+      "label": "focused",
+      "args": [
+        "/private/tmp/kuro-failed-route-readback-candidate/focused"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 0.41723841603379697
+    }
+  ]
+}

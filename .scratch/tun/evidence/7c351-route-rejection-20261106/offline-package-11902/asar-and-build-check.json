@@ -1,0 +1,31 @@
+{
+  "status": "passed",
+  "originalBuildBundleInventoryIdentical": true,
+  "appBundledCoreSHA256": "c561f5d96ec33c2997a37196f1daa00e12a95fa34f210a5f5eee13723807fcf7",
+  "appBundledCoreNote": "Electron build re-signs bundled ordinary Core; exact match to original signed App inventory. Privileged Inbox Core separately equals locked decompressed archive.",
+  "appRecordExact": true,
+  "nativeRecordExact": true,
+  "compiledOutFiles": {
+    "out/main/index.js": "4d3539a24fd1c1ca5c08993f913166902e50a31cf3a72d68c175f0440ba6adc8",
+    "out/preload/index.js": "71cdef6cfc4dabdad71bc47e6641e8a68b4e061ac26a58f8d6be8483406758ed",
+    "out/renderer/assets/index-Bbuu9jxH.js": "cef8e38233f0bcef7924a615502adda6699890904e4e776b018cc63e04f5b264",
+    "out/renderer/assets/index-Cf94k4JI.css": "5acb0c756cdebe1367465836ba9d4c9fb533bd3fe2dce0336e6b5a095d99168b",
+    "out/renderer/index.html": "360559ec153c557532656910369be205e70109062ec6da039bbc77197118fa80"
+  },
+  "entryMarkers": [
+    "const openTimeoutMs = options.timeoutMs ?? 15e3;",
+    "responseTimeoutMs = timeoutMs",
+    "Clash Kuro TUN Candidate",
+    "kuroCandidateMode",
+    "kuroAuthObservationOnly",
+    "/Library/PrivilegedHelperTools/dev.kuro.tun-run/auth.sock",
+    "/Library/PrivilegedHelperTools/dev.kuro.tun-run/control.sock",
+    "Recovery failed: "
+  ],
+  "sealed": {
+    "kuroSourceCommit": "11902bc18b6e552385829b3070591da4078fae0d",
+    "kuroCandidateMode": "finite-session",
+    "kuroAuthObservationOnly": false
+  },
+  "executedAppOrCore": false
+}

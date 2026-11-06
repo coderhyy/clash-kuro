@@ -1,0 +1,10 @@
+{
+  "command": [
+    "/private/tmp/kuro-upgrade-retirement-sync-candidate/tests",
+    "--upgrade-tests"
+  ],
+  "exitCode": 0,
+  "wallSeconds": 44.787,
+  "KURO_SKIP_CORE_SYNTAX": "1",
+  "realCoreExecuted": false
+}

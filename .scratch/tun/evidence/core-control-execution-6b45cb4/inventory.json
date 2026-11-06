@@ -1,0 +1,29 @@
+{
+  "format": 1,
+  "files": [
+    {
+      "path": "core-experiment",
+      "size": 367328,
+      "mode": 493,
+      "sha256": "e708019cbdd786533c87a414ba17973d5c23168d4313b4e91782744475f0fa81"
+    },
+    {
+      "path": "core.lock.json",
+      "size": 2098,
+      "mode": 384,
+      "sha256": "c6c89198092dc59a3fe43a79a5a3961ec828bcc0720a01b2abe3f08ffb703536"
+    },
+    {
+      "path": "experiment.json",
+      "size": 404,
+      "mode": 384,
+      "sha256": "d9a94cce9f307aeccf4547c841afed2d5a8388b0c8d93be04c9f46b395be7758"
+    },
+    {
+      "path": "mihomo",
+      "size": 56810034,
+      "mode": 493,
+      "sha256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9"
+    }
+  ]
+}

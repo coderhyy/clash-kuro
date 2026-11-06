@@ -1,0 +1,10 @@
+{
+  "command": [
+    "node_modules/.bin/tsc",
+    "-p",
+    "apps/desktop/tsconfig.node.json",
+    "--noEmit"
+  ],
+  "exitCode": 0,
+  "elapsedSeconds": 0.142
+}

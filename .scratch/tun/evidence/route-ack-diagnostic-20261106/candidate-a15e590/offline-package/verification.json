@@ -1,0 +1,163 @@
+{
+  "status": "no offline blocker",
+  "sourceCommit": "a15e590ec5d787025017021a275cb8bdedbedf48",
+  "packageSHA256": "029d3f8029d76654a5c9291b4f1975881da5290f8474d6b2b2313e75d23e4a65",
+  "helperSHA256": "fd51aecfbec431192dddc92a514acd211ef8648d5f39a9f4f0dc93c19422bc5c",
+  "coreSHA256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+  "coreArchiveSHA256": "060b64b0f2c9a310831db0fe4adb2878de67bfa606c311813c1f13966aa504b6",
+  "release": "v1.19.33-0.1.0-arm64-e8d8b80d488d260a-ca71327dbd2fe79d9b09ca16f95f9068e60da8f5a09edc16cf7734b5111b202d5",
+  "releaseLength": 103,
+  "programPathBytes": 163,
+  "client": {
+    "format": 2,
+    "cdhash": "57dcfa34fa7f254cda484cf2dec90f9cda4da522",
+    "executableSHA256": "ffb7dff1661514fdf277a6634a296c99dee6aa533f9af0ea5f23e4a495d47818",
+    "infoSHA256": "67408738c235b94191f0b8259209f3da9f1ba26b767905ebaf6cf74fcbb55ccc",
+    "asarSHA256": "73da92f0237c30bce523f7f4dd04573fa6e3ef2607d850f08e820221d0cce619"
+  },
+  "inventorySHA256": "a71327dbd2fe79d9b09ca16f95f9068e60da8f5a09edc16cf7734b5111b202d5",
+  "inventoryEntries": 611,
+  "sealedSource": "a15e590ec5d787025017021a275cb8bdedbedf48",
+  "sealedMode": "finite-session",
+  "installerProtocol": 2,
+  "disabledPlist": {
+    "ProgramArguments": [
+      "/Library/PrivilegedHelperTools/dev.kuro.tun/versions/v1.19.33-0.1.0-arm64-e8d8b80d488d260a-ca71327dbd2fe79d9b09ca16f95f9068e60da8f5a09edc16cf7734b5111b202d5/helper",
+      "--serve"
+    ],
+    "KeepAlive": false,
+    "Label": "dev.kuro.tun",
+    "Disabled": true,
+    "RunAtLoad": false,
+    "AbandonProcessGroup": false
+  },
+  "nativeBuild": {
+    "sourceCommit": "a15e590ec5d787025017021a275cb8bdedbedf48",
+    "sourceClean": true,
+    "sha256": "fd51aecfbec431192dddc92a514acd211ef8648d5f39a9f4f0dc93c19422bc5c",
+    "installerProtocol": 2,
+    "flags": [
+      "-arch",
+      "arm64",
+      "-fobjc-arc",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-O2",
+      "-framework",
+      "Foundation",
+      "-framework",
+      "Security",
+      "-framework",
+      "SystemConfiguration",
+      "-lbsm"
+    ],
+    "tests": true,
+    "coreSyntaxSkipped": false
+  },
+  "diagnostics": "not included in payload; native retained-path literal present; source uninstall only removes exact recorded install targets, leaving sibling TunDiagnostics",
+  "limitations": [
+    "Offline extraction, static identity/build admission only; not installed or launched",
+    "BOM ownership is intended root metadata, not a real installed filesystem proof",
+    "No claim of real TUN, writer-exit, network recovery, upgrade or uninstall acceptance"
+  ],
+  "packageBytes": 171845120,
+  "packageMetadataSHA256": "c8a4d3ce0762bcd061cdc144e8156cd21c7277cba90fecbaf218c4feee95053a",
+  "actualPackageSHA256": "029d3f8029d76654a5c9291b4f1975881da5290f8474d6b2b2313e75d23e4a65",
+  "bomEntries": 1253,
+  "bomAllIntendedUID": 0,
+  "bomAllIntendedGID": 0,
+  "fixedBundleCount": 9,
+  "relocatable": false,
+  "packageSignature": "unsigned (expected local candidate)",
+  "machoArchitecture": "arm64 helper and Core",
+  "archivePinMatchesCommittedCoreLock": true,
+  "sourceCommitFilesMatch": {
+    "apps/desktop/native/mac/kuro-tun-helper.m": "09a75020a7b13bcd1a04aee96b3b572b54579f67bde17791f564b45fab9edac6",
+    "apps/desktop/native/mac/tun-auth.m": "a48acef810e70fb9d831ff5b4784a99d410bff2cfa03c117fa1a9fd69b1787f8",
+    "apps/desktop/native/mac/tun-client.m": "580b35e9a467b7e99146f6f361e20a9d70a45d51f9dd08ebf014a8e3cdb587f3",
+    "apps/desktop/native/mac/tun-config.m": "5c9e456e985ce20279629d977c9b1a9f12fa87dede13e7b322b0e90931ed7bb1",
+    "apps/desktop/native/mac/tun-core-control.m": "6efa42c86a68266b726cecd1c28d1f8c1c8e2bc6008cec6e662fe50991ee41f8",
+    "apps/desktop/native/mac/tun-install.m": "3171958e1473e36b425d13486ad93a38fa1383a8cecef09215ea3ed5381306ea",
+    "apps/desktop/native/mac/tun-interface.m": "e2db8d3d0ab9eaf5c10e1e871171d76fecd3d693ab0fb067fd66871ac1a89eeb",
+    "apps/desktop/native/mac/tun-network.m": "59afd8ae680798717f4045cc3a3b6cb67010147fd4639529492dfbb8c3b38eed",
+    "apps/desktop/native/mac/tun-output.m": "9da5e9b329546699a56e3740ee3e569172b24276b45011602bdb11abae66716d",
+    "apps/desktop/native/mac/tun-peer.m": "8057bb853a8cf3f9a1ce8b12eedc029f1dfa44c41fe909c51018245e4628b022",
+    "apps/desktop/native/mac/tun-production-network.m": "783622c89abaf41dd508c759788f07613bbee5da36583ba6fa85d39120b9fff3",
+    "apps/desktop/native/mac/tun-routes.m": "4b7ee3f0d8d8567558389a5b732130c0f2a6b84bbafe0aa61b2bda3d958888e2",
+    "apps/desktop/native/mac/tun-service.m": "ee6f4fa6bffd6ce8d33bd78f4b528361a5184cf177c70ea5bb202b0112fa0540",
+    "apps/desktop/native/mac/tun-session.m": "3e20ad97dbb899a20672ad899b69e66202b8a67fc2c811d5fab4b122fd04a2ab",
+    "apps/desktop/scripts/build-macos-helper.mjs": "6f3ba875024b6bb071f7f22c71d1528c806cf422ffe0d6f444eec2cf87fe5664",
+    "apps/desktop/scripts/macos-client-pin.mjs": "3a397f8a8dd855eddcfbdd4f6f2ee885a687727d1c0dfa91a91d2867698959c6",
+    "apps/desktop/scripts/package-macos-helper.mjs": "f2122f02b0d19be49fc53b9717154a8e4b424fa665a08ffca1187534b25b5f41",
+    "apps/desktop/src/main/index.ts": "7a8716ad5ce179a9829683618f54173d0ed5bcf2f151c4a5896d02fa872b9841",
+    "apps/desktop/src/main/runtime-verification.ts": "32ef9976b43437741fddfe300fe267f738c4ebe3475a68e6ff2cce41909e1673"
+  },
+  "nativeEmbeddedClosedFieldsPresent": [
+    "phase=%@; owned-interface=%s/%u; observed=%@",
+    "[route evidence unavailable or oversized]",
+    "SKIP_SYSTEM_IPV6_CHECK=true",
+    "installation",
+    "freshReceiptSHA256",
+    "runtimeSHA256",
+    "cacheOrigin",
+    "cacheCheckpoint",
+    "validated-restart-v1",
+    "recorded work directory was replaced or reappeared; preserve all objects",
+    "origin-only cache requires an explicit installed writer validator; preserve work",
+    "supervision installation manifest/receipt/helper/Core binding failed",
+    "old writer is not bound to this exact protected fixed-Core installation/runtime/cache origin",
+    "/Library/Application Support/Clash Kuro/TunDiagnostics"
+  ],
+  "scriptsExecuted": false,
+  "diagnosticsPayloadEntries": 0,
+  "sourceTrackedFilesMatched": 201,
+  "sourceCurrentClean": true,
+  "privilegedCoreEqualsCachedLockedArchive": true,
+  "helperLockMatchesActualHelper": true,
+  "appBundleEqualsOriginalBuildInventory": true,
+  "compiledOutMatchesExtractedASAR": true,
+  "offlineReviewerRanCore": false,
+  "offlineReviewerInstalledOrLaunched": false,
+  "ci": {
+    "status": "CI pending primary verification; offline reviewer did not query CI"
+  },
+  "diagnosticSourcesMatchReviewedCandidates": {
+    "sourceCommit": "a15e590ec5d787025017021a275cb8bdedbedf48",
+    "checks": {
+      "tun-routes.m": {
+        "sha256": "4b7ee3f0d8d8567558389a5b732130c0f2a6b84bbafe0aa61b2bda3d958888e2",
+        "matchesReviewedCandidate": "kuro-route-ack-diagnostics-candidate"
+      },
+      "tun-routes.test.m": {
+        "sha256": "db1b8e07a5e6b25159290ac560121d7956fa991d2bb932f06650d7c5da571e5e",
+        "matchesReviewedCandidate": "kuro-route-ack-diagnostics-candidate"
+      },
+      "tun-production-network.m": {
+        "sha256": "783622c89abaf41dd508c759788f07613bbee5da36583ba6fa85d39120b9fff3",
+        "matchesReviewedCandidate": "kuro-staged-dns-coordinator-candidate"
+      },
+      "tun-production-network.test.m": {
+        "sha256": "fdf4ce56bc6548228fcf1bb6a41006ce938d34bbc9673c10c78a006e758aac7c",
+        "matchesReviewedCandidate": "kuro-staged-dns-coordinator-candidate"
+      }
+    },
+    "nativeDiagnosticLiterals": [
+      "route acknowledgement absent or rejected; ownership must be reconciled",
+      "routeExchange=%@",
+      "syscallErrno",
+      "matchingAck",
+      "shortHeaderPrefixHex",
+      "packet-limit",
+      "route continuation requires this actor's completed internal DNS preparation",
+      "network phase lacks its exact complete route receipt",
+      "SKIP_SYSTEM_IPV6_CHECK=true"
+    ],
+    "reviewedPatches": [
+      "30d2f831e82d5833c09f8f3273e616ae1904b6b695f27eae2e7aa6665ec139fd",
+      "3afcd439d385874e8879ab6a4ff0125eb52e302f591a2a14bf3aa655308ab3b8"
+    ],
+    "standardLogContains24WireLoopAndStagedAndSevenChains": true,
+    "scope": "static source/build identity and existing build evidence only; reviewer executed no PF_ROUTE, Core, install, App or product helper"
+  }
+}

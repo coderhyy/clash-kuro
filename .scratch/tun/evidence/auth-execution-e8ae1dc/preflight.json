@@ -1,0 +1,25 @@
+{
+  "timestamp": "2026-11-04T20:42:17.026012",
+  "packageSHA256": "98562290ab91af7372cf1d7d2c8d2145e6e1f0453adb6c1203710c3d319a6177",
+  "paths": {
+    "/Library/PrivilegedHelperTools/dev.kuro.tun": false,
+    "/Library/PrivilegedHelperTools/dev.kuro.tun-uninstall": false,
+    "/Library/PrivilegedHelperTools/dev.kuro.tun-uninstall.json": false,
+    "/Library/PrivilegedHelperTools/dev.kuro.tun-fresh-install.json": false,
+    "/Library/Application Support/Clash Kuro/Privileged": false,
+    "/Library/Application Support/Clash Kuro/Client/Clash Kuro.app": false,
+    "/Library/PrivilegedHelperTools/dev.kuro.tun-run": false,
+    "/private/var/run/dev.kuro.tun": false,
+    "/Library/LaunchDaemons/dev.kuro.tun.plist": false
+  },
+  "receipt": {
+    "status": 1,
+    "stdout": "",
+    "stderr": "No receipt for 'dev.kuro.tun.disabled' found at '/'.\n"
+  },
+  "job": {
+    "status": 113,
+    "stdout": "",
+    "stderr": "Bad request.\nCould not find service \"dev.kuro.tun\" in domain for system\n"
+  }
+}

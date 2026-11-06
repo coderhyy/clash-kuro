@@ -1,0 +1,21 @@
+FIXTURE ONLY; dummy compile-time Core/archive pins; no real Core, Core -t, install or network mutation
+2026-11-05T02:57:34.344262+00:00
+EXPERIMENT COMPILE argv ["/usr/bin/clang", "-DKURO_CORE_EXPERIMENT=1", "-DKURO_EXPERIMENT_CORE_SHA256=\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"", "-DKURO_EXPERIMENT_ARCHIVE_SHA256=\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"", "-fobjc-arc", "-Wall", "-Wextra", "-Werror", "-Wno-unused-function", "-O2", "-framework", "Foundation", "-framework", "Security", "-framework", "SystemConfiguration", "-lbsm", "apps/desktop/native/mac/core-experiment.m", "-o", "/private/tmp/kuro-core-build-test/core-experiment"]
+exit 0
+stdout:
+
+stderr:
+
+SELFTEST KURO_SKIP_CORE_SYNTAX=1 argv ["/private/tmp/kuro-core-build-test/core-experiment", "--self-test"]
+exit 0
+stdout:
+fixture diagnostics fixture-early-exit: /private/tmp/kuro-core-evidence-uOF0Hm
+fixture diagnostics fixture-output: /private/tmp/kuro-core-evidence-296gCC
+fixture diagnostics fixture-timeout: /private/tmp/kuro-core-evidence-VdFsOq
+fixture diagnostics log-save-failure: /private/tmp/kuro-core-evidence-Gd0h31
+fixture log-save-failure: Core exit37 preserved, owner/work retained; test-only directory restored to0700 without retry
+fixture abnormal-exit retained evidence: /private/tmp/kuro-core-0AgHHh
+core experiment: 171 fixture assertions passed; no real Core, Core -t, install or network mutation
+
+stderr:
+

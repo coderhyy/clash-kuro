@@ -1,0 +1,25 @@
+{
+  "patchSHA256": "b086a902f63fbe9f501dd4f9fca79863ceb17864f65236c8efff31acc2dcb55a",
+  "sources": [
+    {
+      "path": "apps/desktop/native/mac/tun-production-network.m",
+      "baseSHA256": "837f537e638555af4446b410c089744b0d3d5c443e6b5b96b4fea99bbb2ec6d6",
+      "candidateSHA256": "fae0ea0191b18a3caa45b4bd79655670939a84c1ba4b8f3e29d5cd07ccc5d139"
+    },
+    {
+      "path": "apps/desktop/native/mac/tun-production-network.test.m",
+      "baseSHA256": "3b4a0dbf54b7ff342dee5f758b6b9eb65e26faf3be601259b6dfd0964df6b20b",
+      "candidateSHA256": "b144bd394eb1f2c818a0654ee594792a1f3fbb254f8c3747a18a91340d58b980"
+    }
+  ],
+  "evidence": {
+    "production-compile.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "focused-compile.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "focused.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "production-compile.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "focused-compile.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "focused.stdout.log": "4f466ea9490f63dfcaa2167a3532a0d37edbe3b91bebe6dfa8bc4e57897a768e",
+    "verification.json": "2a55063517f967e5fd5db03e9570759e588a9321e98976a86a3fa1a4252fd725",
+    "RESULT.md": "eca7231a10001d9a4962a2de4c8cbad72a117fafe7b7a76ca6c921e32becd5ac"
+  }
+}

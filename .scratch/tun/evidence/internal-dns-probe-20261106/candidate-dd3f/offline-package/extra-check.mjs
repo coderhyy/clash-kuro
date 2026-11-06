@@ -1,0 +1,28 @@
+import assert from 'node:assert/strict';
+import {readFile,readdir,lstat,writeFile} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
+import {createRequire} from 'node:module';
+import {join} from 'node:path';
+import {clientInventory} from '/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/scripts/macos-client-pin.mjs';
+const r='/private/tmp/kuro-offline-package-dd3f0d4fc277',src='/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop';
+const req=createRequire(join(src,'package.json')),builder=createRequire(req.resolve('electron-builder')),packager=createRequire(builder.resolve('app-builder-lib')),asar=packager('@electron/asar');
+const extracted=join(r,'expanded/Payload/Library/Application Support/Clash Kuro'),app=join(extracted,'Client/Clash Kuro.app'),original=join(src,'dist/electron-finite-session-candidate-dd3f0d4fc277/mac-arm64/Clash Kuro.app'),archive=join(app,'Contents/Resources/app.asar');
+const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
+assert.deepEqual(await clientInventory(app),await clientInventory(original));
+const checks={};
+async function visit(path){for(const entry of await readdir(join(src,path))){const f=join(path,entry),info=await lstat(join(src,f));assert.ok(!info.isSymbolicLink());if(info.isDirectory())await visit(f);else {const actual=asar.extractFile(archive,f);assert.deepEqual(actual,await readFile(join(src,f)),f);checks[f]=sha(actual);}}}
+await visit('out');
+const main=asar.extractFile(archive,'out/main/index.js').toString('utf8');
+const markers=['const openTimeoutMs = options.timeoutMs ?? 15e3;', 'responseTimeoutMs = timeoutMs', 'Clash Kuro TUN Candidate','kuroCandidateMode','kuroAuthObservationOnly','/Library/PrivilegedHelperTools/dev.kuro.tun-run/auth.sock','/Library/PrivilegedHelperTools/dev.kuro.tun-run/control.sock','Recovery failed: '];
+for(const marker of markers)assert.ok(main.includes(marker),marker);
+const meta=JSON.parse(await readFile(join(r,'package.json'))),appRecord=JSON.parse(await readFile(join(src,'dist/electron-finite-session-candidate-dd3f0d4fc277/build.json'))),native=JSON.parse(await readFile(join(src,'resources/mac/arm64/kuro-tun-helper.build.json')));
+assert.deepEqual(appRecord,meta.appBuild);assert.deepEqual(native,meta.buildParameters.nativeBuild);
+assert.equal(sha(await readFile(join(src,'resources/mac/arm64/kuro-tun-helper'))),meta.helperSHA256);
+assert.equal(sha(await readFile(join(src,'resources/core/darwin-arm64/mihomo'))),meta.coreSHA256);
+const appCoreSHA256=sha(await readFile(join(app,'Contents/Resources/core/mihomo')));
+assert.equal(appCoreSHA256,sha(await readFile(join(original,'Contents/Resources/core/mihomo'))));
+assert.deepEqual(await readFile(join(app,'Contents/Resources/core/core.lock.json')),await readFile(join(src,'core.lock.json')));
+const sealed=JSON.parse(asar.extractFile(archive,'package.json'));
+const result={status:'passed',originalBuildBundleInventoryIdentical:true,appBundledCoreSHA256:appCoreSHA256,appBundledCoreNote:'Electron build re-signs bundled ordinary Core; exact match to original signed App inventory. Privileged Inbox Core separately equals locked decompressed archive.',appRecordExact:true,nativeRecordExact:true,compiledOutFiles:checks,entryMarkers:markers,sealed:{kuroSourceCommit:sealed.kuroSourceCommit,kuroCandidateMode:sealed.kuroCandidateMode,kuroAuthObservationOnly:sealed.kuroAuthObservationOnly},executedAppOrCore:false};
+await writeFile(join(r,'asar-and-build-check.json'),JSON.stringify(result,null,2)+'\n');
+console.log(JSON.stringify({status:'passed',compiledOutFiles:Object.keys(checks).length}));

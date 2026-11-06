@@ -1,0 +1,18 @@
+Ordinary-user fixture verification. Fake compile pins are self-test-only; no real Core or -t is executed.
+CWD /Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro
+COMPILE argv ["/usr/bin/clang", "-DKURO_CORE_EXPERIMENT=1", "-DKURO_EXPERIMENT_CORE_SHA256=\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"", "-DKURO_EXPERIMENT_ARCHIVE_SHA256=\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"", "-fobjc-arc", "-Wall", "-Wextra", "-Werror", "-Wno-unused-function", "-O2", "-framework", "Foundation", "-framework", "Security", "-framework", "SystemConfiguration", "-lbsm", "apps/desktop/native/mac/core-experiment.m", "-o", "/private/tmp/kuro-core-build-test/core-experiment"]
+COMPILE exit 0
+STDOUT
+STDERR
+
+RUN env KURO_SKIP_CORE_SYNTAX=1 argv ["/private/tmp/kuro-core-build-test/core-experiment", "--self-test"]
+RUN exit 0
+STDOUT
+fixture abnormal-exit retained evidence: /private/tmp/kuro-core-r5EcKZ
+core experiment: 38 fixture assertions passed; no real Core, Core -t, install or network mutation
+STDERR
+
+Retained fixture owner receipt (no real Core): {"executableSHA256": "828c2f6e421399af66ad38052079dcaf479676b558210fc8c74de9ecaec4e37b", "format": 2, "launch": {"configSHA256": "d117cd9ecc4408cca4af191144be9d264b78ed984cde7021956e7e29e33bdf1c", "coreSHA256": "828c2f6e421399af66ad38052079dcaf479676b558210fc8c74de9ecaec4e37b", "template": "core-control-experiment-v1"}, "parent": 3995, "phase": "prepared", "pid": 3996, "processGroup": 3995, "session": "5495FA5C-C00D-4FBB-A980-52D1FB7967BD", "startMicros": 955490, "startSeconds": 1793843837, "work": {"configSHA256": "d117cd9ecc4408cca4af191144be9d264b78ed984cde7021956e7e29e33bdf1c", "socket": {"device": 16777230, "inode": 171979774}}}
+fixture Core read-only proc_pidinfo(pid=3996, PROC_PIDTBSDINFO): count=0, errno=3 (No such process); absence=True
+fixture worker read-only proc_pidinfo(pid=3995, PROC_PIDTBSDINFO): count=0, errno=3 (No such process); absence=True
+Retained owner.json/config.json/private socket remain intentionally for failure review; no cleanup-by-persistent-PID is performed.

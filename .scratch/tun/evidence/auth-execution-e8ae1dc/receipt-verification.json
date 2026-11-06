@@ -1,0 +1,15 @@
+{
+  "receiptInfo": {
+    "install-location": "",
+    "install-time": 1793796179,
+    "pkg-version": "0.1.0",
+    "pkgid": "dev.kuro.tun.disabled",
+    "receipt-plist-version": 1.0,
+    "volume": "/"
+  },
+  "resolvedInstallRoot": "/",
+  "expectedCount": 1254,
+  "actualCount": 1254,
+  "missing": [],
+  "extra": []
+}

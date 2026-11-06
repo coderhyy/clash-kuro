@@ -1,0 +1,20 @@
+$ turbo typecheck
+
+   • turbo 2.11.10
+   • Packages in scope: @kuro/api, @kuro/core, @kuro/desktop, @kuro/state
+   • Running typecheck in 4 packages
+   • Remote caching disabled, using shared worktree cache
+
+@kuro/core:typecheck: cache miss, executing 563f3a301b13ef17
+@kuro/core:typecheck: $ tsc -p tsconfig.json
+@kuro/api:typecheck: cache miss, executing 7cb3311e9152bc59
+@kuro/api:typecheck: $ tsc -p tsconfig.json
+@kuro/state:typecheck: cache miss, executing b6bff7236fb8d2a1
+@kuro/state:typecheck: $ tsc -p tsconfig.json
+@kuro/desktop:typecheck: cache miss, executing 0c55209d93a02fda
+@kuro/desktop:typecheck: $ tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit
+
+ Tasks:    4 successful, 4 total
+Cached:    0 cached, 4 total
+  Time:    544ms 
+

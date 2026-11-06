@@ -1,0 +1,28 @@
+{
+  "sourceCommit": "dd3f0d4fc27796abfd1bcc633e842018a867d9c5",
+  "checks": {
+    "tun-routes.m": {
+      "sha256": "013fdcef254ac5c2b4f407af70b88d2247965b1d56d99229cfe2f43ffc8e368b",
+      "matchesReviewedCandidate": "kuro-route-observed-flags-candidate"
+    },
+    "tun-production-network.m": {
+      "sha256": "fae0ea0191b18a3caa45b4bd79655670939a84c1ba4b8f3e29d5cd07ccc5d139",
+      "matchesReviewedCandidate": "kuro-dns-probe-diagnostics-candidate"
+    },
+    "tun-production-network.test.m": {
+      "sha256": "b144bd394eb1f2c818a0654ee594792a1f3fbb254f8c3747a18a91340d58b980",
+      "matchesReviewedCandidate": "kuro-dns-probe-diagnostics-candidate"
+    }
+  },
+  "nativeDiagnosticLiterals": [
+    "fixed internal IPv%@ DNS static-host probe was not confirmed; stage=%@; elapsedMs=%llu; errno=%d; poll=%d; revents=0x%x; sent=%lld/%lu; received=%lld; header=%@; reason=%@",
+    "setsockopt-bound-interface",
+    "fcntl-getfl",
+    "response-validation",
+    "fixed-answer-record-or-address",
+    "oversized-datagram",
+    "short-header"
+  ],
+  "reviewedPatchSHA256": "b086a902f63fbe9f501dd4f9fca79863ceb17864f65236c8efff31acc2dcb55a",
+  "scope": "exact source and static build identity; no real probe, no new network/admission/recovery authority"
+}

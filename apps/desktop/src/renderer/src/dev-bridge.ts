@@ -11,7 +11,7 @@ import { t } from '../../shared/i18n'
 // shortcut: development commands simulate state only; real I/O belongs to the main process.
 export class DevBridge extends FakeBridge {
   constructor() {
-    super(fakeSnapshot({ resolvedLanguage: navigator.language.startsWith('zh') ? 'zh-CN' : 'en' }))
+    super(fakeSnapshot({ resolvedLanguage: navigator.language.startsWith('zh') ? 'zh-CN' : 'en', tun: { availability: 'not-installed', state: 'off' } }))
     // Demo stream so the live panel has something to show without a Core.
     setInterval(() => {
       if (this.snapshot.core.status !== 'running') return
@@ -61,6 +61,8 @@ export class DevBridge extends FakeBridge {
         systemProxy: enabled ? { enabled: true } : { enabled: false }
       }
     },
+    setTun: () => { throw new Error(t('tunDemoUnavailable')) },
+    recoverTun: () => { throw new Error(t('tunDemoUnavailable')) },
     setLaunchAtLogin: ({ enabled }) => {
       this.snapshot = {
         ...this.snapshot,

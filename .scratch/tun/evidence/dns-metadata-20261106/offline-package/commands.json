@@ -1,0 +1,36 @@
+[
+  {
+    "command": [
+      "/usr/sbin/pkgutil",
+      "--expand-full",
+      "/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/kuro-tun-finite-session-0.1.0-arm64-432d134b8ecd.pkg",
+      "/private/tmp/kuro-offline-package-432d134b8ecd/expanded"
+    ],
+    "exit": 0,
+    "seconds": 1.53555874992162
+  },
+  {
+    "command": [
+      "node",
+      "/private/tmp/kuro-offline-package-432d134b8ecd/verify.mjs"
+    ],
+    "exit": 0,
+    "seconds": 1.3094800839899108
+  },
+  {
+    "command": [
+      "python3",
+      "/private/tmp/kuro-offline-package-432d134b8ecd/postcheck.py"
+    ],
+    "exit": 0,
+    "seconds": 0.6407217910746112
+  },
+  {
+    "command": [
+      "node",
+      "/private/tmp/kuro-offline-package-432d134b8ecd/extra-check.mjs"
+    ],
+    "exit": 0,
+    "seconds": 0.6683196669910103
+  }
+]

@@ -1,0 +1,12 @@
+{
+  "installed": {
+    "format": 1,
+    "helperSHA256": "cfe03d38d1cb2ea6d90fc64bcc04d09f4cc45e8e99690789e271354b0f643416",
+    "neverStarted": true,
+    "release": "v1.19.33-0.1.0-arm64-dac57e1bef75e44f-c74a08bb54976755de092666c08a5ce37cf53b9a6da53900bcf9264b549ff5ff4"
+  },
+  "freshReceiptExactPackage": true,
+  "clientMatches": true,
+  "coreMatches": true,
+  "noSessionStarted": true
+}

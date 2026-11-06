@@ -1,0 +1,763 @@
+[
+  {
+    "label": "normal UI/IPC and in-memory Backup",
+    "directory": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-0rVus0",
+    "args": [],
+    "code": 0,
+    "signal": null,
+    "timedOut": false,
+    "stdout": "",
+    "stderr": "",
+    "tcpReachable": false,
+    "pipeResponse": "",
+    "report": {
+      "version": 1,
+      "ok": true,
+      "runtime": {
+        "node": "24.22.1",
+        "acorn": "8.18.0",
+        "ada": "4.0.0",
+        "amaro": "1.1.11",
+        "ares": "1.34.9",
+        "brotli": "1.2.0",
+        "cldr": "48.0",
+        "icu": "78.2",
+        "llhttp": "9.4.3",
+        "merve": "1.2.2",
+        "modules": "150",
+        "napi": "10",
+        "nbytes": "0.1.4",
+        "ncrypto": "0.0.1",
+        "nghttp2": "1.70.0",
+        "nghttp3": "",
+        "ngtcp2": "",
+        "openssl": "0.0.0",
+        "simdjson": "4.6.11",
+        "simdutf": "7.7.0",
+        "sqlite": "3.53.4",
+        "tz": "2026e",
+        "undici": "7.30.1",
+        "unicode": "17.0",
+        "uv": "1.52.1",
+        "uvwasi": "0.0.23",
+        "v8": "15.6.75.19-electron.0",
+        "zlib": "1.3.2.1-motley",
+        "zstd": "1.6.0",
+        "electron": "45.1.0",
+        "chrome": "156.0.8078.49"
+      },
+      "userData": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-0rVus0/userData",
+      "sessionData": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-0rVus0/sessionData",
+      "directory": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-0rVus0",
+      "ui": {
+        "body": "Clash Kuro\n\nConnect lightly. Switch freely.\n\nProfile\n0\nNo Profiles yet\n\nImport a remote URL or local YAML file to get connected.\n\nImport Profile\nActive Profile\nNo Active Profile\nConnections\n\nManage Profiles and outbound connections.\n\nSettings\nCore mihomo\n\nStopped\n127.0.0.1:7890\n\nStart Core\nMode\nRule\nGlobal\nDirect\n\nRoute connections using the Profile rules.\n\nSystem Proxy\n\nPoint the system HTTP / HTTPS proxy to Clash Kuro.\n\nOff\nTUN\n\nTUN and System Proxy are mutually exclusive. TUN stays off when you reopen the app; enable it manually after the startup check.\n\nNo kill switch. Traffic may go directly if TUN routes disappear. Explicit DIRECT rules also allow direct traffic.\n\nTUN blocked\n\nIsolated runtime verification; real TUN disabled\n\nCheck and recover TUN\nProxy Group\n0\n\nStart Core to select a Proxy.\n\nNo Proxy Groups\n\nActivate a valid Profile and start Core to see Proxy Groups here.\n\nLive\n0 B/s\n0 B/s\n\nTraffic and logs appear while Core is running.\n\nNo logs yet",
+        "rootChildren": 1,
+        "cssLoaded": true,
+        "isolated": true,
+        "language": {
+          "ok": true
+        },
+        "override": {
+          "ok": true
+        },
+        "core": {
+          "ok": false,
+          "error": "No Active Profile"
+        },
+        "tun": {
+          "ok": false,
+          "error": "Isolated runtime verification; real TUN disabled"
+        },
+        "login": {
+          "ok": false,
+          "error": "Launch at Login is unsupported"
+        },
+        "snapshot": {
+          "settings": {
+            "mode": "rule",
+            "mixedPort": 7890,
+            "allowLan": false,
+            "logLevel": "info"
+          },
+          "profiles": [],
+          "activeProfileId": null,
+          "language": "en",
+          "resolvedLanguage": "en",
+          "version": 6,
+          "core": {
+            "status": "stopped",
+            "error": null
+          },
+          "proxyGroups": [],
+          "proxies": {},
+          "systemProxy": {
+            "enabled": false
+          },
+          "tun": {
+            "availability": "blocked",
+            "state": "off",
+            "error": "Isolated runtime verification; real TUN disabled"
+          },
+          "update": null,
+          "launchAtLogin": "unsupported",
+          "override": "# isolated runtime verification"
+        },
+        "exported": {
+          "ok": true
+        },
+        "imported": {
+          "ok": true
+        },
+        "href": "file:///Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/electron-runtime-candidate/mac-arm64/Clash%20Kuro.app/Contents/Resources/app.asar/out/renderer/index.html",
+        "devtools": "undefined"
+      },
+      "denied": [
+        "Core start",
+        "System Proxy",
+        "network fetch"
+      ],
+      "files": [
+        "settings.json",
+        "override.yaml",
+        "backups/pre-import-2026-11-04T10-08-26-687Z.json"
+      ],
+      "realPlatformCreated": false,
+      "realCoreStarted": false,
+      "realNetworkUsed": false
+    }
+  },
+  {
+    "label": "RunAsNode ignored",
+    "directory": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-EcJ1cN",
+    "args": [],
+    "code": 0,
+    "signal": null,
+    "timedOut": false,
+    "stdout": "",
+    "stderr": "",
+    "tcpReachable": false,
+    "pipeResponse": "",
+    "report": {
+      "version": 1,
+      "ok": true,
+      "runtime": {
+        "node": "24.22.1",
+        "acorn": "8.18.0",
+        "ada": "4.0.0",
+        "amaro": "1.1.11",
+        "ares": "1.34.9",
+        "brotli": "1.2.0",
+        "cldr": "48.0",
+        "icu": "78.2",
+        "llhttp": "9.4.3",
+        "merve": "1.2.2",
+        "modules": "150",
+        "napi": "10",
+        "nbytes": "0.1.4",
+        "ncrypto": "0.0.1",
+        "nghttp2": "1.70.0",
+        "nghttp3": "",
+        "ngtcp2": "",
+        "openssl": "0.0.0",
+        "simdjson": "4.6.11",
+        "simdutf": "7.7.0",
+        "sqlite": "3.53.4",
+        "tz": "2026e",
+        "undici": "7.30.1",
+        "unicode": "17.0",
+        "uv": "1.52.1",
+        "uvwasi": "0.0.23",
+        "v8": "15.6.75.19-electron.0",
+        "zlib": "1.3.2.1-motley",
+        "zstd": "1.6.0",
+        "electron": "45.1.0",
+        "chrome": "156.0.8078.49"
+      },
+      "userData": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-EcJ1cN/userData",
+      "sessionData": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-EcJ1cN/sessionData",
+      "directory": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-EcJ1cN",
+      "ui": {
+        "body": "Clash Kuro\n\nConnect lightly. Switch freely.\n\nProfile\n0\nNo Profiles yet\n\nImport a remote URL or local YAML file to get connected.\n\nImport Profile\nActive Profile\nNo Active Profile\nConnections\n\nManage Profiles and outbound connections.\n\nSettings\nCore mihomo\n\nStopped\n127.0.0.1:7890\n\nStart Core\nMode\nRule\nGlobal\nDirect\n\nRoute connections using the Profile rules.\n\nSystem Proxy\n\nPoint the system HTTP / HTTPS proxy to Clash Kuro.\n\nOff\nTUN\n\nTUN and System Proxy are mutually exclusive. TUN stays off when you reopen the app; enable it manually after the startup check.\n\nNo kill switch. Traffic may go directly if TUN routes disappear. Explicit DIRECT rules also allow direct traffic.\n\nTUN blocked\n\nIsolated runtime verification; real TUN disabled\n\nCheck and recover TUN\nProxy Group\n0\n\nStart Core to select a Proxy.\n\nNo Proxy Groups\n\nActivate a valid Profile and start Core to see Proxy Groups here.\n\nLive\n0 B/s\n0 B/s\n\nTraffic and logs appear while Core is running.\n\nNo logs yet",
+        "rootChildren": 1,
+        "cssLoaded": true,
+        "isolated": true,
+        "language": {
+          "ok": true
+        },
+        "override": {
+          "ok": true
+        },
+        "core": {
+          "ok": false,
+          "error": "No Active Profile"
+        },
+        "tun": {
+          "ok": false,
+          "error": "Isolated runtime verification; real TUN disabled"
+        },
+        "login": {
+          "ok": false,
+          "error": "Launch at Login is unsupported"
+        },
+        "snapshot": {
+          "settings": {
+            "mode": "rule",
+            "mixedPort": 7890,
+            "allowLan": false,
+            "logLevel": "info"
+          },
+          "profiles": [],
+          "activeProfileId": null,
+          "language": "en",
+          "resolvedLanguage": "en",
+          "version": 6,
+          "core": {
+            "status": "stopped",
+            "error": null
+          },
+          "proxyGroups": [],
+          "proxies": {},
+          "systemProxy": {
+            "enabled": false
+          },
+          "tun": {
+            "availability": "blocked",
+            "state": "off",
+            "error": "Isolated runtime verification; real TUN disabled"
+          },
+          "update": null,
+          "launchAtLogin": "unsupported",
+          "override": "# isolated runtime verification"
+        },
+        "exported": {
+          "ok": true
+        },
+        "imported": {
+          "ok": true
+        },
+        "href": "file:///Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/electron-runtime-candidate/mac-arm64/Clash%20Kuro.app/Contents/Resources/app.asar/out/renderer/index.html",
+        "devtools": "undefined"
+      },
+      "denied": [
+        "Core start",
+        "System Proxy",
+        "network fetch"
+      ],
+      "files": [
+        "settings.json",
+        "override.yaml",
+        "backups/pre-import-2026-11-04T10-08-27-086Z.json"
+      ],
+      "realPlatformCreated": false,
+      "realCoreStarted": false,
+      "realNetworkUsed": false
+    }
+  },
+  {
+    "label": "NODE_OPTIONS require ignored",
+    "directory": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-v21qLF",
+    "args": [],
+    "code": 0,
+    "signal": null,
+    "timedOut": false,
+    "stdout": "",
+    "stderr": "",
+    "tcpReachable": false,
+    "pipeResponse": "",
+    "report": {
+      "version": 1,
+      "ok": true,
+      "runtime": {
+        "node": "24.22.1",
+        "acorn": "8.18.0",
+        "ada": "4.0.0",
+        "amaro": "1.1.11",
+        "ares": "1.34.9",
+        "brotli": "1.2.0",
+        "cldr": "48.0",
+        "icu": "78.2",
+        "llhttp": "9.4.3",
+        "merve": "1.2.2",
+        "modules": "150",
+        "napi": "10",
+        "nbytes": "0.1.4",
+        "ncrypto": "0.0.1",
+        "nghttp2": "1.70.0",
+        "nghttp3": "",
+        "ngtcp2": "",
+        "openssl": "0.0.0",
+        "simdjson": "4.6.11",
+        "simdutf": "7.7.0",
+        "sqlite": "3.53.4",
+        "tz": "2026e",
+        "undici": "7.30.1",
+        "unicode": "17.0",
+        "uv": "1.52.1",
+        "uvwasi": "0.0.23",
+        "v8": "15.6.75.19-electron.0",
+        "zlib": "1.3.2.1-motley",
+        "zstd": "1.6.0",
+        "electron": "45.1.0",
+        "chrome": "156.0.8078.49"
+      },
+      "userData": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-v21qLF/userData",
+      "sessionData": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-v21qLF/sessionData",
+      "directory": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-v21qLF",
+      "ui": {
+        "body": "Clash Kuro\n\nConnect lightly. Switch freely.\n\nProfile\n0\nNo Profiles yet\n\nImport a remote URL or local YAML file to get connected.\n\nImport Profile\nActive Profile\nNo Active Profile\nConnections\n\nManage Profiles and outbound connections.\n\nSettings\nCore mihomo\n\nStopped\n127.0.0.1:7890\n\nStart Core\nMode\nRule\nGlobal\nDirect\n\nRoute connections using the Profile rules.\n\nSystem Proxy\n\nPoint the system HTTP / HTTPS proxy to Clash Kuro.\n\nOff\nTUN\n\nTUN and System Proxy are mutually exclusive. TUN stays off when you reopen the app; enable it manually after the startup check.\n\nNo kill switch. Traffic may go directly if TUN routes disappear. Explicit DIRECT rules also allow direct traffic.\n\nTUN blocked\n\nIsolated runtime verification; real TUN disabled\n\nCheck and recover TUN\nProxy Group\n0\n\nStart Core to select a Proxy.\n\nNo Proxy Groups\n\nActivate a valid Profile and start Core to see Proxy Groups here.\n\nLive\n0 B/s\n0 B/s\n\nTraffic and logs appear while Core is running.\n\nNo logs yet",
+        "rootChildren": 1,
+        "cssLoaded": true,
+        "isolated": true,
+        "language": {
+          "ok": true
+        },
+        "override": {
+          "ok": true
+        },
+        "core": {
+          "ok": false,
+          "error": "No Active Profile"
+        },
+        "tun": {
+          "ok": false,
+          "error": "Isolated runtime verification; real TUN disabled"
+        },
+        "login": {
+          "ok": false,
+          "error": "Launch at Login is unsupported"
+        },
+        "snapshot": {
+          "settings": {
+            "mode": "rule",
+            "mixedPort": 7890,
+            "allowLan": false,
+            "logLevel": "info"
+          },
+          "profiles": [],
+          "activeProfileId": null,
+          "language": "en",
+          "resolvedLanguage": "en",
+          "version": 6,
+          "core": {
+            "status": "stopped",
+            "error": null
+          },
+          "proxyGroups": [],
+          "proxies": {},
+          "systemProxy": {
+            "enabled": false
+          },
+          "tun": {
+            "availability": "blocked",
+            "state": "off",
+            "error": "Isolated runtime verification; real TUN disabled"
+          },
+          "update": null,
+          "launchAtLogin": "unsupported",
+          "override": "# isolated runtime verification"
+        },
+        "exported": {
+          "ok": true
+        },
+        "imported": {
+          "ok": true
+        },
+        "href": "file:///Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/electron-runtime-candidate/mac-arm64/Clash%20Kuro.app/Contents/Resources/app.asar/out/renderer/index.html",
+        "devtools": "undefined"
+      },
+      "denied": [
+        "Core start",
+        "System Proxy",
+        "network fetch"
+      ],
+      "files": [
+        "settings.json",
+        "override.yaml",
+        "backups/pre-import-2026-11-04T10-08-27-779Z.json"
+      ],
+      "realPlatformCreated": false,
+      "realCoreStarted": false,
+      "realNetworkUsed": false
+    }
+  },
+  {
+    "label": "packaged renderer URL ignored",
+    "directory": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-6xuU6f",
+    "args": [],
+    "code": 0,
+    "signal": null,
+    "timedOut": false,
+    "stdout": "",
+    "stderr": "",
+    "tcpReachable": false,
+    "pipeResponse": "",
+    "report": {
+      "version": 1,
+      "ok": true,
+      "runtime": {
+        "node": "24.22.1",
+        "acorn": "8.18.0",
+        "ada": "4.0.0",
+        "amaro": "1.1.11",
+        "ares": "1.34.9",
+        "brotli": "1.2.0",
+        "cldr": "48.0",
+        "icu": "78.2",
+        "llhttp": "9.4.3",
+        "merve": "1.2.2",
+        "modules": "150",
+        "napi": "10",
+        "nbytes": "0.1.4",
+        "ncrypto": "0.0.1",
+        "nghttp2": "1.70.0",
+        "nghttp3": "",
+        "ngtcp2": "",
+        "openssl": "0.0.0",
+        "simdjson": "4.6.11",
+        "simdutf": "7.7.0",
+        "sqlite": "3.53.4",
+        "tz": "2026e",
+        "undici": "7.30.1",
+        "unicode": "17.0",
+        "uv": "1.52.1",
+        "uvwasi": "0.0.23",
+        "v8": "15.6.75.19-electron.0",
+        "zlib": "1.3.2.1-motley",
+        "zstd": "1.6.0",
+        "electron": "45.1.0",
+        "chrome": "156.0.8078.49"
+      },
+      "userData": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-6xuU6f/userData",
+      "sessionData": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-6xuU6f/sessionData",
+      "directory": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-6xuU6f",
+      "ui": {
+        "body": "Clash Kuro\n\nConnect lightly. Switch freely.\n\nProfile\n0\nNo Profiles yet\n\nImport a remote URL or local YAML file to get connected.\n\nImport Profile\nActive Profile\nNo Active Profile\nConnections\n\nManage Profiles and outbound connections.\n\nSettings\nCore mihomo\n\nStopped\n127.0.0.1:7890\n\nStart Core\nMode\nRule\nGlobal\nDirect\n\nRoute connections using the Profile rules.\n\nSystem Proxy\n\nPoint the system HTTP / HTTPS proxy to Clash Kuro.\n\nOff\nTUN\n\nTUN and System Proxy are mutually exclusive. TUN stays off when you reopen the app; enable it manually after the startup check.\n\nNo kill switch. Traffic may go directly if TUN routes disappear. Explicit DIRECT rules also allow direct traffic.\n\nTUN blocked\n\nIsolated runtime verification; real TUN disabled\n\nCheck and recover TUN\nProxy Group\n0\n\nStart Core to select a Proxy.\n\nNo Proxy Groups\n\nActivate a valid Profile and start Core to see Proxy Groups here.\n\nLive\n0 B/s\n0 B/s\n\nTraffic and logs appear while Core is running.\n\nNo logs yet",
+        "rootChildren": 1,
+        "cssLoaded": true,
+        "isolated": true,
+        "language": {
+          "ok": true
+        },
+        "override": {
+          "ok": true
+        },
+        "core": {
+          "ok": false,
+          "error": "No Active Profile"
+        },
+        "tun": {
+          "ok": false,
+          "error": "Isolated runtime verification; real TUN disabled"
+        },
+        "login": {
+          "ok": false,
+          "error": "Launch at Login is unsupported"
+        },
+        "snapshot": {
+          "settings": {
+            "mode": "rule",
+            "mixedPort": 7890,
+            "allowLan": false,
+            "logLevel": "info"
+          },
+          "profiles": [],
+          "activeProfileId": null,
+          "language": "en",
+          "resolvedLanguage": "en",
+          "version": 6,
+          "core": {
+            "status": "stopped",
+            "error": null
+          },
+          "proxyGroups": [],
+          "proxies": {},
+          "systemProxy": {
+            "enabled": false
+          },
+          "tun": {
+            "availability": "blocked",
+            "state": "off",
+            "error": "Isolated runtime verification; real TUN disabled"
+          },
+          "update": null,
+          "launchAtLogin": "unsupported",
+          "override": "# isolated runtime verification"
+        },
+        "exported": {
+          "ok": true
+        },
+        "imported": {
+          "ok": true
+        },
+        "href": "file:///Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/electron-runtime-candidate/mac-arm64/Clash%20Kuro.app/Contents/Resources/app.asar/out/renderer/index.html",
+        "devtools": "undefined"
+      },
+      "denied": [
+        "Core start",
+        "System Proxy",
+        "network fetch"
+      ],
+      "files": [
+        "settings.json",
+        "override.yaml",
+        "backups/pre-import-2026-11-04T10-08-28-124Z.json"
+      ],
+      "realPlatformCreated": false,
+      "realCoreStarted": false,
+      "realNetworkUsed": false
+    }
+  },
+  {
+    "label": "DYLD constructor rejected",
+    "directory": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-SGcJ2l",
+    "args": [],
+    "code": 0,
+    "signal": null,
+    "timedOut": false,
+    "stdout": "",
+    "stderr": "",
+    "tcpReachable": false,
+    "pipeResponse": "",
+    "report": {
+      "version": 1,
+      "ok": true,
+      "runtime": {
+        "node": "24.22.1",
+        "acorn": "8.18.0",
+        "ada": "4.0.0",
+        "amaro": "1.1.11",
+        "ares": "1.34.9",
+        "brotli": "1.2.0",
+        "cldr": "48.0",
+        "icu": "78.2",
+        "llhttp": "9.4.3",
+        "merve": "1.2.2",
+        "modules": "150",
+        "napi": "10",
+        "nbytes": "0.1.4",
+        "ncrypto": "0.0.1",
+        "nghttp2": "1.70.0",
+        "nghttp3": "",
+        "ngtcp2": "",
+        "openssl": "0.0.0",
+        "simdjson": "4.6.11",
+        "simdutf": "7.7.0",
+        "sqlite": "3.53.4",
+        "tz": "2026e",
+        "undici": "7.30.1",
+        "unicode": "17.0",
+        "uv": "1.52.1",
+        "uvwasi": "0.0.23",
+        "v8": "15.6.75.19-electron.0",
+        "zlib": "1.3.2.1-motley",
+        "zstd": "1.6.0",
+        "electron": "45.1.0",
+        "chrome": "156.0.8078.49"
+      },
+      "userData": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-SGcJ2l/userData",
+      "sessionData": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-SGcJ2l/sessionData",
+      "directory": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-SGcJ2l",
+      "ui": {
+        "body": "Clash Kuro\n\nConnect lightly. Switch freely.\n\nProfile\n0\nNo Profiles yet\n\nImport a remote URL or local YAML file to get connected.\n\nImport Profile\nActive Profile\nNo Active Profile\nConnections\n\nManage Profiles and outbound connections.\n\nSettings\nCore mihomo\n\nStopped\n127.0.0.1:7890\n\nStart Core\nMode\nRule\nGlobal\nDirect\n\nRoute connections using the Profile rules.\n\nSystem Proxy\n\nPoint the system HTTP / HTTPS proxy to Clash Kuro.\n\nOff\nTUN\n\nTUN and System Proxy are mutually exclusive. TUN stays off when you reopen the app; enable it manually after the startup check.\n\nNo kill switch. Traffic may go directly if TUN routes disappear. Explicit DIRECT rules also allow direct traffic.\n\nTUN blocked\n\nIsolated runtime verification; real TUN disabled\n\nCheck and recover TUN\nProxy Group\n0\n\nStart Core to select a Proxy.\n\nNo Proxy Groups\n\nActivate a valid Profile and start Core to see Proxy Groups here.\n\nLive\n0 B/s\n0 B/s\n\nTraffic and logs appear while Core is running.\n\nNo logs yet",
+        "rootChildren": 1,
+        "cssLoaded": true,
+        "isolated": true,
+        "language": {
+          "ok": true
+        },
+        "override": {
+          "ok": true
+        },
+        "core": {
+          "ok": false,
+          "error": "No Active Profile"
+        },
+        "tun": {
+          "ok": false,
+          "error": "Isolated runtime verification; real TUN disabled"
+        },
+        "login": {
+          "ok": false,
+          "error": "Launch at Login is unsupported"
+        },
+        "snapshot": {
+          "settings": {
+            "mode": "rule",
+            "mixedPort": 7890,
+            "allowLan": false,
+            "logLevel": "info"
+          },
+          "profiles": [],
+          "activeProfileId": null,
+          "language": "en",
+          "resolvedLanguage": "en",
+          "version": 6,
+          "core": {
+            "status": "stopped",
+            "error": null
+          },
+          "proxyGroups": [],
+          "proxies": {},
+          "systemProxy": {
+            "enabled": false
+          },
+          "tun": {
+            "availability": "blocked",
+            "state": "off",
+            "error": "Isolated runtime verification; real TUN disabled"
+          },
+          "update": null,
+          "launchAtLogin": "unsupported",
+          "override": "# isolated runtime verification"
+        },
+        "exported": {
+          "ok": true
+        },
+        "imported": {
+          "ok": true
+        },
+        "href": "file:///Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/electron-runtime-candidate/mac-arm64/Clash%20Kuro.app/Contents/Resources/app.asar/out/renderer/index.html",
+        "devtools": "undefined"
+      },
+      "denied": [
+        "Core start",
+        "System Proxy",
+        "network fetch"
+      ],
+      "files": [
+        "settings.json",
+        "override.yaml",
+        "backups/pre-import-2026-11-04T10-08-28-565Z.json"
+      ],
+      "realPlatformCreated": false,
+      "realCoreStarted": false,
+      "realNetworkUsed": false
+    }
+  },
+  {
+    "label": "--remote-debugging-port",
+    "directory": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-0pbrez",
+    "args": [
+      "--remote-debugging-port=65525"
+    ],
+    "code": 64,
+    "signal": null,
+    "timedOut": false,
+    "stdout": "",
+    "stderr": "Unsupported packaged launch argument: --remote-debugging-port\n",
+    "tcpReachable": false,
+    "pipeResponse": ""
+  },
+  {
+    "label": "--remote-debugging-pipe",
+    "directory": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-lyQxVp",
+    "args": [
+      "--remote-debugging-pipe"
+    ],
+    "code": 64,
+    "signal": null,
+    "timedOut": false,
+    "stdout": "",
+    "stderr": "Unsupported packaged launch argument: --remote-debugging-pipe\n",
+    "tcpReachable": false,
+    "pipeResponse": ""
+  },
+  {
+    "label": "--inspect",
+    "directory": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-uff7Rn",
+    "args": [
+      "--inspect=0"
+    ],
+    "code": 64,
+    "signal": null,
+    "timedOut": false,
+    "stdout": "",
+    "stderr": "Unsupported packaged launch argument: --inspect\n",
+    "tcpReachable": false,
+    "pipeResponse": ""
+  },
+  {
+    "label": "--inspect-brk",
+    "directory": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-BmpsVY",
+    "args": [
+      "--inspect-brk=0"
+    ],
+    "code": 64,
+    "signal": null,
+    "timedOut": false,
+    "stdout": "",
+    "stderr": "Unsupported packaged launch argument: --inspect-brk\n",
+    "tcpReachable": false,
+    "pipeResponse": ""
+  },
+  {
+    "label": "--js-flags",
+    "directory": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-s0CjyU",
+    "args": [
+      "--js-flags=--expose-gc"
+    ],
+    "code": 64,
+    "signal": null,
+    "timedOut": false,
+    "stdout": "",
+    "stderr": "Unsupported packaged launch argument: --js-flags\n",
+    "tcpReachable": false,
+    "pipeResponse": ""
+  },
+  {
+    "label": "--renderer-cmd-prefix",
+    "directory": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-enkyQW",
+    "args": [
+      "--renderer-cmd-prefix=/usr/bin/false"
+    ],
+    "code": 64,
+    "signal": null,
+    "timedOut": false,
+    "stdout": "",
+    "stderr": "Unsupported packaged launch argument: --renderer-cmd-prefix\n",
+    "tcpReachable": false,
+    "pipeResponse": ""
+  },
+  {
+    "label": "--gpu-launcher",
+    "directory": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-wVNzWv",
+    "args": [
+      "--gpu-launcher=/usr/bin/false"
+    ],
+    "code": 64,
+    "signal": null,
+    "timedOut": false,
+    "stdout": "",
+    "stderr": "Unsupported packaged launch argument: --gpu-launcher\n",
+    "tcpReachable": false,
+    "pipeResponse": ""
+  },
+  {
+    "label": "--no-sandbox",
+    "directory": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-kc4Rq4",
+    "args": [
+      "--no-sandbox"
+    ],
+    "code": 64,
+    "signal": null,
+    "timedOut": false,
+    "stdout": "",
+    "stderr": "Unsupported packaged launch argument: --no-sandbox\n",
+    "tcpReachable": false,
+    "pipeResponse": ""
+  },
+  {
+    "label": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-runtime-evidence-Xh7YAK/external-marker.cjs",
+    "directory": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-3WTqkj",
+    "args": [
+      "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-runtime-evidence-Xh7YAK/external-marker.cjs"
+    ],
+    "code": 64,
+    "signal": null,
+    "timedOut": false,
+    "stdout": "",
+    "stderr": "Unsupported packaged launch argument: /private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-runtime-evidence-Xh7YAK/external-marker.cjs\n",
+    "tcpReachable": false,
+    "pipeResponse": ""
+  }
+]

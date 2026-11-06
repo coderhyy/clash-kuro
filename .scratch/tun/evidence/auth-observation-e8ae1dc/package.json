@@ -1,0 +1,59 @@
+{
+  "format": 1,
+  "target": "darwin-arm64",
+  "version": "0.1.0",
+  "release": "v1.19.33-0.1.0-arm64-ba360907bb7f91f6",
+  "sourceCommit": "e8ae1dc394ce59d447051d2a3fff4fdcd51a6492",
+  "authEndpoint": "/Library/PrivilegedHelperTools/dev.kuro.tun-run/auth.sock",
+  "experiment": "authenticate-only",
+  "observationSeconds": 300,
+  "emergencyExitSeconds": 310,
+  "productionActivation": false,
+  "buildParameters": {
+    "electronBuilder": "mac --dir --arm64",
+    "identity": "-",
+    "hardenedRuntime": true,
+    "sourceCommitInSealedASAR": true,
+    "nativeBuild": {
+      "sourceCommit": "e8ae1dc394ce59d447051d2a3fff4fdcd51a6492",
+      "sourceClean": true,
+      "sha256": "f995f1fd8416d5cb99af1655b1814dc206405bfc24dabe2d7d1f534c13265623",
+      "flags": [
+        "-arch",
+        "arm64",
+        "-fobjc-arc",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-O2",
+        "-framework",
+        "Foundation",
+        "-framework",
+        "Security",
+        "-framework",
+        "SystemConfiguration",
+        "-lbsm"
+      ],
+      "tests": true,
+      "coreSyntaxSkipped": true
+    }
+  },
+  "disabled": true,
+  "startAvailable": false,
+  "clientAttestationComplete": false,
+  "rootCoreConfigurationValidated": false,
+  "packageSHA256": "98562290ab91af7372cf1d7d2c8d2145e6e1f0453adb6c1203710c3d319a6177",
+  "helperSHA256": "f995f1fd8416d5cb99af1655b1814dc206405bfc24dabe2d7d1f534c13265623",
+  "coreSHA256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+  "client": {
+    "format": 2,
+    "cdhash": "53d5e6e21a40f09f2c4bc013af9ec88c0cb737f7",
+    "executableSHA256": "5f4ad8c0852b5ff700909bbf12e2c74eca04427043ecbe080e3a71d078ca80f6",
+    "infoSHA256": "881d4dbc253a497f9a1fbf726535ebf6f8f934913dfc87ca12da90575806a56e",
+    "asarSHA256": "97a6d66d4e0f71fdd2120609d127d23ba77b7caf74b23bdaf3e1c47a5025e3f9"
+  },
+  "clientInventorySHA256": "abedd874c3a77ffee6176e17c7c4d99f3eb19c7e2ac5c6ec3be6cadea9ac5c0b",
+  "clientInstallPath": "/Library/Application Support/Clash Kuro/Client/Clash Kuro.app",
+  "clientRemoval": "Fresh-install receipt permits exact removal of this installed App and helper only; modified or unknown content is preserved.",
+  "limitation": "Fresh disabled install only; existing/partial installations refused. Production start and network hooks remain gated pending integrated admission and real-system acceptance. No publisher identity or full root-install acceptance claimed."
+}

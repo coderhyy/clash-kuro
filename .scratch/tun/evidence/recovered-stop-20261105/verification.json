@@ -1,0 +1,140 @@
+[
+  {
+    "name": "production-compile",
+    "command": [
+      "/usr/bin/clang",
+      "-arch",
+      "arm64",
+      "-fobjc-arc",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-O2",
+      "-framework",
+      "Foundation",
+      "-framework",
+      "Security",
+      "-framework",
+      "SystemConfiguration",
+      "-lbsm",
+      "/private/tmp/kuro-recovered-stop-candidate/native/kuro-tun-helper.m",
+      "-o",
+      "/private/tmp/kuro-recovered-stop-candidate/production-compile"
+    ],
+    "wallSeconds": 1.38,
+    "exit": 0,
+    "env": {
+      "KURO_SKIP_CORE_SYNTAX": "1",
+      "KURO_REQUIRE_CORE": "unset"
+    },
+    "stdout": "/private/tmp/kuro-recovered-stop-candidate/production-compile.stdout.log",
+    "stderr": "/private/tmp/kuro-recovered-stop-candidate/production-compile.stderr.log"
+  },
+  {
+    "name": "focused-compile",
+    "command": [
+      "/usr/bin/clang",
+      "-arch",
+      "arm64",
+      "-fobjc-arc",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-O2",
+      "-framework",
+      "Foundation",
+      "-framework",
+      "Security",
+      "-framework",
+      "SystemConfiguration",
+      "-lbsm",
+      "-Wno-unused-function",
+      "/private/tmp/kuro-recovered-stop-candidate/focused.m",
+      "-o",
+      "/private/tmp/kuro-recovered-stop-candidate/focused"
+    ],
+    "wallSeconds": 2.64,
+    "exit": 0,
+    "env": {
+      "KURO_SKIP_CORE_SYNTAX": "1",
+      "KURO_REQUIRE_CORE": "unset"
+    },
+    "stdout": "/private/tmp/kuro-recovered-stop-candidate/focused-compile.stdout.log",
+    "stderr": "/private/tmp/kuro-recovered-stop-candidate/focused-compile.stderr.log"
+  },
+  {
+    "name": "focused",
+    "command": [
+      "/private/tmp/kuro-recovered-stop-candidate/focused"
+    ],
+    "wallSeconds": 3.805,
+    "exit": 0,
+    "env": {
+      "KURO_SKIP_CORE_SYNTAX": "1",
+      "KURO_REQUIRE_CORE": "unset"
+    },
+    "stdout": "/private/tmp/kuro-recovered-stop-candidate/focused.stdout.log",
+    "stderr": "/private/tmp/kuro-recovered-stop-candidate/focused.stderr.log"
+  },
+  {
+    "name": "test-compile",
+    "command": [
+      "/usr/bin/clang",
+      "-arch",
+      "arm64",
+      "-fobjc-arc",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-O2",
+      "-framework",
+      "Foundation",
+      "-framework",
+      "Security",
+      "-framework",
+      "SystemConfiguration",
+      "-lbsm",
+      "-Wno-unused-function",
+      "/private/tmp/kuro-recovered-stop-candidate/native/kuro-tun-helper.test.m",
+      "-o",
+      "/private/tmp/kuro-recovered-stop-candidate/full-tests"
+    ],
+    "wallSeconds": 2.949,
+    "exit": 0,
+    "env": {
+      "KURO_SKIP_CORE_SYNTAX": "1",
+      "KURO_REQUIRE_CORE": "unset"
+    },
+    "stdout": "/private/tmp/kuro-recovered-stop-candidate/test-compile.stdout.log",
+    "stderr": "/private/tmp/kuro-recovered-stop-candidate/test-compile.stderr.log"
+  },
+  {
+    "name": "full-fixtures",
+    "command": [
+      "/private/tmp/kuro-recovered-stop-candidate/full-tests"
+    ],
+    "wallSeconds": 19.315,
+    "exit": 0,
+    "env": {
+      "KURO_SKIP_CORE_SYNTAX": "1",
+      "KURO_REQUIRE_CORE": "unset"
+    },
+    "stdout": "/private/tmp/kuro-recovered-stop-candidate/full-fixtures.stdout.log",
+    "stderr": "/private/tmp/kuro-recovered-stop-candidate/full-fixtures.stderr.log"
+  },
+  {
+    "name": "upgrade-fixtures",
+    "command": [
+      "/private/tmp/kuro-recovered-stop-candidate/full-tests",
+      "--upgrade-tests"
+    ],
+    "wallSeconds": 23.39,
+    "exit": 0,
+    "env": {
+      "KURO_SKIP_CORE_SYNTAX": "1",
+      "KURO_REQUIRE_CORE": "unset"
+    },
+    "stdout": "/private/tmp/kuro-recovered-stop-candidate/upgrade-fixtures.stdout.log",
+    "stderr": "/private/tmp/kuro-recovered-stop-candidate/upgrade-fixtures.stderr.log"
+  }
+]

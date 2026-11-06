@@ -1,0 +1,133 @@
+{
+  "noCoreOrSystemNetwork": true,
+  "runs": [
+    {
+      "label": "compile",
+      "args": [
+        "/usr/bin/clang",
+        "-arch",
+        "arm64",
+        "-fobjc-arc",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-Wno-unused-function",
+        "-O2",
+        "-framework",
+        "Foundation",
+        "-framework",
+        "Security",
+        "-framework",
+        "SystemConfiguration",
+        "-lbsm",
+        "/private/tmp/kuro-internal-dns-host-routes-candidate/focused.m",
+        "-o",
+        "/private/tmp/kuro-internal-dns-host-routes-candidate/focused"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 3.144
+    },
+    {
+      "label": "focused",
+      "args": [
+        "/private/tmp/kuro-internal-dns-host-routes-candidate/focused"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 0.364
+    },
+    {
+      "label": "production-compile",
+      "args": [
+        "/usr/bin/clang",
+        "-arch",
+        "arm64",
+        "-fobjc-arc",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-Wno-unused-function",
+        "-O2",
+        "-framework",
+        "Foundation",
+        "-framework",
+        "Security",
+        "-framework",
+        "SystemConfiguration",
+        "-lbsm",
+        "/private/tmp/kuro-internal-dns-host-routes-candidate/native/kuro-tun-helper.m",
+        "-o",
+        "/private/tmp/kuro-internal-dns-host-routes-candidate/production-compile-only"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 1.413
+    },
+    {
+      "label": "durability-red-compile",
+      "args": [
+        "/usr/bin/clang",
+        "-arch",
+        "arm64",
+        "-fobjc-arc",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-Wno-unused-function",
+        "-O2",
+        "-framework",
+        "Foundation",
+        "-framework",
+        "Security",
+        "-framework",
+        "SystemConfiguration",
+        "-lbsm",
+        "/private/tmp/kuro-internal-dns-host-routes-candidate/durability-red.m",
+        "-o",
+        "/private/tmp/kuro-internal-dns-host-routes-candidate/durability-red"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 2.964
+    },
+    {
+      "label": "durability-red",
+      "args": [
+        "/private/tmp/kuro-internal-dns-host-routes-candidate/durability-red"
+      ],
+      "exit": 1,
+      "elapsedSeconds": 0.311
+    },
+    {
+      "label": "durability-green-compile",
+      "args": [
+        "/usr/bin/clang",
+        "-arch",
+        "arm64",
+        "-fobjc-arc",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-Wno-unused-function",
+        "-O2",
+        "-framework",
+        "Foundation",
+        "-framework",
+        "Security",
+        "-framework",
+        "SystemConfiguration",
+        "-lbsm",
+        "/private/tmp/kuro-internal-dns-host-routes-candidate/durability-green.m",
+        "-o",
+        "/private/tmp/kuro-internal-dns-host-routes-candidate/durability-green"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 3.075
+    },
+    {
+      "label": "durability-green",
+      "args": [
+        "/private/tmp/kuro-internal-dns-host-routes-candidate/durability-green"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 0.284
+    }
+  ]
+}

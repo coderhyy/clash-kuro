@@ -1,0 +1,14 @@
+mode: rule
+ipv6: true
+proxies: []
+proxy-groups: []
+rules:
+  - MATCH,DIRECT
+dns:
+  enable: true
+  ipv6: true
+  enhanced-mode: redir-host
+  nameserver: [114.114.114.114]
+  default-nameserver: [114.114.114.114]
+  proxy-server-nameserver: [114.114.114.114]
+  nameserver-policy: {}

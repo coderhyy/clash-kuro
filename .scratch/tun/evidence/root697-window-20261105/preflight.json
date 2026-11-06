@@ -1,0 +1,22 @@
+{
+  "source": "69728e6abeb27f45f1bbea5b47b5e638d5f0ae9e",
+  "hashes": {
+    "artifact.json": "eec5d7c6866a2e1eaa71ae44982bf23633d0613d630ab4fd1e5573b1c38b9c98",
+    "SHA256SUMS": "7168eec44544402a55e7ab59e782df0ed4fe672d5bef16f8f586c86fffde460e",
+    "approval.json": "3b29916ebe575c4679159b8241e89974e37779fd27aba330b62f8a9e8852902d",
+    "lifecycle-a": "3e3a2451cc553280bb91b4bb34a05eb7c79df9d90aa0768e04aabd7642054ea0",
+    "core-driver.py": "f7e17b2e8ac74ec3c377e1ef62c7dee3ab63bed435e9320ee0269ddbafad07e2",
+    "experiment-a.py": "4b1c05025816da23ffe702eaaaa7598c12d4663c0c8836c608f059479ee64953",
+    "cleanup.py": "216d1167c8a58b2b6d7ca2df8644af2c3883b37788d1b59560ff7253bdf9eb09",
+    "archive-root858.py": "2323babe884bde24150d24cbef301ca65dfeb0c10718227455adecb7e50b77c4",
+    "normal/mihomo": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+    "kill/mihomo": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9"
+  },
+  "dependencies": {
+    "/private/tmp/kuro-lifecycle-core-review-85834ab/core-driver.py": "88e2c6b830b51c48498c6c44d32a2a17eeb5700b006854b2b5d4ac9b4836668f",
+    "/private/tmp/kuro-lifecycle-core-review-85834ab/experiment-a.py": "4b1c05025816da23ffe702eaaaa7598c12d4663c0c8836c608f059479ee64953",
+    "/private/tmp/kuro-root858-cleanup-candidate/cleanup-root858.py": "768d0938c0d0e321f8152c0328c8a629d0e30379ad57aa3052f1094ccfe482dc",
+    "/private/tmp/kuro-root858-normal-retire-candidate/retire-normal-root858.py": "29c5fc0ae37902f77a89ed1f03ff2fcaeabe4dbad541d096d24ab6432a61fd27"
+  },
+  "offlineReview": true
+}

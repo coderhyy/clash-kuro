@@ -1,0 +1,10 @@
+{
+  "version": "45.1.0",
+  "source": "apps/desktop/node_modules/electron/checksums.json",
+  "sourceSHA256": "dad6c0b409dded41ea61bc005afbf18432abcbf625bd17c07027bcbad22f2249",
+  "archive": "/Users/hyy/Library/Caches/electron/aaf6f0d50457ca990261d018944055084f99ff44386590983c0cfac6a979c69d/electron-v45.1.0-darwin-arm64.zip",
+  "archiveSHA256": "002b71efcf90e247317d3da486f2d4e51860e9c2889d49f33e229ab2268b0f3b",
+  "seed": "/Users/hyy/Library/Caches/electron/SHASUMS256.txt-45.1.0",
+  "seedSHA256": "50650902b2c5a7f9ed8976c280cffd2fcd4af84fc3c8f5cd30be7bae3db243bc",
+  "validationSkipped": false
+}

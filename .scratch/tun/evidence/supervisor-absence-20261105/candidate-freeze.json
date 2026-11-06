@@ -1,0 +1,117 @@
+{
+  "baseCommit": "69728e6abeb27f45f1bbea5b47b5e638d5f0ae9e",
+  "files": [
+    {
+      "path": "apps/desktop/native/mac/tun-session.m",
+      "baselineSHA256": "522e3b4f3fb3fe5642d52f802fe1e3ba3ad306c881a8c48f44b32f29e6729db7",
+      "candidateSHA256": "26024c108aec4c991fc146a88206203f8c4858149c89d11b864a321057d7811d"
+    },
+    {
+      "path": "apps/desktop/native/mac/tun-session.test.m",
+      "baselineSHA256": "ca8d38d898cb98f428d144d2f2729139a1de140ab18c3b19c8f75de33dc6cc92",
+      "candidateSHA256": "a05c1498c95ec1ed58ec3514b0b2f361c28344fb647f0fbf9b4649de17b99bfb"
+    }
+  ],
+  "patchSHA256": "2df6d422d597191fe9eca6b2cd3b92d349abfe14185d146569283b5faa9e286e",
+  "focusedCompile": [
+    "/usr/bin/clang",
+    "-arch",
+    "arm64",
+    "-fobjc-arc",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-Wno-unused-function",
+    "-O2",
+    "-framework",
+    "Foundation",
+    "-framework",
+    "Security",
+    "-framework",
+    "SystemConfiguration",
+    "-lbsm",
+    "/private/tmp/kuro-supervisor-absence-candidate/focused.m",
+    "-o",
+    "/private/tmp/kuro-supervisor-absence-candidate/focused"
+  ],
+  "focusedRun": [
+    "env",
+    "KURO_SKIP_CORE_SYNTAX=1",
+    "/private/tmp/kuro-supervisor-absence-candidate/focused"
+  ],
+  "focusedResult": {
+    "exit": 0,
+    "wallSeconds": 1.0893404580419883,
+    "scope": "ordinary-UID temporary owner files and injected libproc observations; no Core or system operations"
+  },
+  "checks": [
+    {
+      "name": "production-compile",
+      "command": [
+        "/usr/bin/clang",
+        "-arch",
+        "arm64",
+        "-fobjc-arc",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-O2",
+        "-framework",
+        "Foundation",
+        "-framework",
+        "Security",
+        "-framework",
+        "SystemConfiguration",
+        "-lbsm",
+        "/private/tmp/kuro-supervisor-absence-candidate/native/kuro-tun-helper.m",
+        "-o",
+        "/private/tmp/kuro-supervisor-absence-candidate/helper-compile-only"
+      ],
+      "exit": 0,
+      "wallSeconds": 1.2646123329177499
+    },
+    {
+      "name": "red-compile",
+      "command": [
+        "/usr/bin/clang",
+        "-arch",
+        "arm64",
+        "-fobjc-arc",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-O2",
+        "-framework",
+        "Foundation",
+        "-framework",
+        "Security",
+        "-framework",
+        "SystemConfiguration",
+        "-lbsm",
+        "-Wno-unused-function",
+        "/private/tmp/kuro-supervisor-absence-candidate/red.m",
+        "-o",
+        "/private/tmp/kuro-supervisor-absence-candidate/red"
+      ],
+      "exit": 0,
+      "wallSeconds": 2.4507260830141604
+    },
+    {
+      "name": "red-run",
+      "command": [
+        "/private/tmp/kuro-supervisor-absence-candidate/red"
+      ],
+      "exit": 1,
+      "wallSeconds": 0.2596619580872357
+    }
+  ],
+  "boundaries": [
+    "Reject-only helper observation when supervision exists; no schema changes.",
+    "Legacy records invoke no helper reader.",
+    "Existing repeated observations and work cleanup callback recheck exact owner plus Core/helper absence and full group.",
+    "No signals or PID adoption; no origin-only cache cleanup or fresh completed stop evidence.",
+    "Service independent residual DNS partial recovery unchanged and may run before this owner/work gate.",
+    "Injected libproc cases prove branch behavior only, not actual root/launchd writer disappearance.",
+    "No full native suite rerun in this focused candidate; parent integration remains required."
+  ]
+}

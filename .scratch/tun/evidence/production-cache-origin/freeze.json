@@ -1,0 +1,25 @@
+{
+  "base": {
+    "tun-session.m": "b3f7c8ddc29720fbdb956fb7e3d977be45c77bb257928a02c83e35590bf4f2cf",
+    "tun-session.test.m": "3bc36677963e5dfd8b813b0d7c13b44d647d69630b844f3df7ac8eac62a37591",
+    "tun-service.m": "346f49504581c468b0aa82d035400375573f868bbbfda73e5bbc197b7aaffda3",
+    "tun-service.test.m": "1b9a4cbb928674b41a59bbb52defbe229d6adbf6c62b7345f92954fce2c3bf1d"
+  },
+  "candidate": {
+    "tun-session.m": "afadc00e5b2fbd3b43f3c399cbecdcbce347cedb12aa4ac7d5e0d8781e6531c6",
+    "tun-session.test.m": "1e864f3a768b71e4caf1f4be602cace0eb3ddddadd80b99c8a112472a31a8cfa",
+    "tun-service.m": "3437487c51c32e455441a381814096c56514daee0d21370dd303e9f19588146b",
+    "tun-service.test.m": "a473eab2600e0c6dbd442eb819f8e581135785c309c3aa4558cb2aa093a74df4"
+  },
+  "patchSHA256": "69d60542ccddf2ca1a68276b7459cf07a93b1a31e804b674d512d135bbd41acf",
+  "test": {
+    "exitCode": 0,
+    "coreSyntax": "explicit skip KURO_SKIP_CORE_SYNTAX=1",
+    "newHeldCases": 11,
+    "newProductionStartupFailureCases": 4,
+    "restartCacheCases": 10,
+    "strictTestAndProductionCompile": true,
+    "systemChanges": false,
+    "realCoreExecution": false
+  }
+}

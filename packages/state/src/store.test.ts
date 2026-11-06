@@ -218,6 +218,28 @@ test('failed runtime validation retains old config, Active Profile, and running 
   expect(app.store.getState().profiles[0]?.lastError).toBe('invalid YAML')
 })
 
+test('Profile reload waits for Platform stop and never restarts Core after stop is rejected', async () => {
+  const { app, platform } = await setup()
+  let entered!: () => void
+  let rejectStop!: (error: Error) => void
+  const waiting = new Promise<void>((resolve) => { entered = resolve })
+  const stopped = new Promise<void>((_resolve, reject) => { rejectStop = reject })
+  const stop = vi.spyOn(platform, 'stopCore').mockImplementation(() => { entered(); return stopped })
+  const start = vi.spyOn(platform, 'startCore')
+  const reload = app.run('setActiveProfile', { profileId: 'p1' })
+  await waiting
+  try {
+    expect(stop).toHaveBeenCalledOnce()
+    expect(start).not.toHaveBeenCalled()
+    expect(platform.coreRunning).toBe(true)
+  } finally {
+    rejectStop(new Error('cleanup state unknown'))
+  }
+  expect(await reload).toEqual({ ok: false, error: 'cleanup state unknown' })
+  expect(start).not.toHaveBeenCalled()
+  expect(platform.coreRunning).toBe(true)
+})
+
 test('activates a Profile while stopped, then starts Core with generated Runtime Config', async () => {
   const { app, platform } = await setup(false)
   expect((await app.run('setActiveProfile', { profileId: 'p1' })).ok).toBe(true)
@@ -670,7 +692,11 @@ test.each([null, '', 'rules: []\n'])('export/import round trip restores exact da
   platform.files.set('settings.json', JSON.stringify(saved))
   if (override !== null) platform.files.set('override.yaml', override)
   const exported = await app.exportBackup()
+  const stop = vi.spyOn(platform, 'stopCore')
+  const start = vi.spyOn(platform, 'startCore')
   await app.importBackup(exported)
+  expect(stop).toHaveBeenCalledOnce()
+  expect(start).not.toHaveBeenCalled()
   const reopened = await createAppStore(deps)
   const roundTrip = JSON.parse(await reopened.exportBackup())
   expect(roundTrip.settings).toEqual(saved)
@@ -717,15 +743,25 @@ test('a failed automatic backup leaves current data and the running Core untouch
   expect((await app.run('openWindow', {})).ok).toBe(true)
 })
 
-test('import does not stop Core or replace data if System Proxy cannot be cleared', async () => {
+test.each(['clearSystemProxy', 'stopCore'] as const)('import does not stop Core or replace data if %s rejects', async (failedMethod) => {
   const { app, platform } = await setup()
   await app.run('setSystemProxy', { enabled: true })
-  const data = await app.exportBackup()
+  platform.files.set('override.yaml', 'rules: [old]\n')
+  const data = JSON.parse(await app.exportBackup()) as Backup
+  data.settings.settings.mixedPort = 9000
+  data.settings.profiles = [{ ...data.settings.profiles[0]!, id: 'p2' }]
+  data.settings.activeProfileId = 'p2'
+  data.profiles = { p2: 'replacement original\n' }
+  data.override = 'rules: [new]\n'
   const before = new Map(platform.files)
-  vi.spyOn(platform, 'clearSystemProxy').mockRejectedValue(new Error('cannot clear proxy'))
-  await expect(app.importBackup(data)).rejects.toThrow('cannot clear proxy')
+  const stop = vi.spyOn(platform, 'stopCore')
+  const start = vi.spyOn(platform, 'startCore')
+  vi.spyOn(platform, failedMethod).mockRejectedValue(new Error(`${failedMethod} rejected`))
+  await expect(app.importBackup(JSON.stringify(data))).rejects.toThrow(`${failedMethod} rejected`)
+  expect(stop).toHaveBeenCalledOnce()
+  expect(start).not.toHaveBeenCalled()
   for (const [name, content] of before) expect(platform.files.get(name)).toBe(content)
-  expect([...platform.files.keys()].filter((name) => name.startsWith('backups/'))).toHaveLength(1)
+  expect([...platform.files.keys()].filter((name) => !before.has(name))).toEqual([expect.stringMatching(/^backups\/pre-import-/)])
   expect(platform.coreRunning).toBe(true)
 })
 
@@ -840,6 +876,63 @@ test('restart requirement survives stop, repeated notifications and resume-style
   const restarted = await createAppStore(deps)
   expect(restarted.store.getState().core).toEqual({ status: 'stopped', error: null })
   expect((await restarted.run('startCore', {})).ok).toBe(true)
+})
+
+test.each(['before import', 'backup', 'stop'] as const)('Backup import refuses target writes after native stop during %s', async (stage) => {
+  const { app, platform } = await setup()
+  await app.run('setSystemProxy', { enabled: true })
+  platform.files.set('override.yaml', 'rules: [old]\n')
+  const incoming = JSON.parse(await app.exportBackup()) as Backup
+  incoming.settings.settings.mixedPort = 9000
+  incoming.settings.profiles = [{ ...incoming.settings.profiles[0]!, id: 'p2' }]
+  incoming.settings.activeProfileId = 'p2'
+  incoming.profiles = { p2: 'replacement original\n' }
+  incoming.override = 'rules: [new]\n'
+  const before = new Map(platform.files)
+  const proxy = platform.systemProxy
+  const start = vi.spyOn(platform, 'startCore')
+  const stop = vi.spyOn(platform, 'stopCore')
+  const set = vi.spyOn(platform, 'setSystemProxy')
+  const clear = vi.spyOn(platform, 'clearSystemProxy')
+  let snapshot = app.store.getState()
+  const notify = () => {
+    platform.coreRunning = false
+    app.notifyCoreStopped('Native owner exited during import')
+    snapshot = app.store.getState()
+  }
+  let entered!: () => void
+  let release!: () => void
+  const waiting = new Promise<void>((resolve) => { entered = resolve })
+  const blocked = new Promise<void>((resolve) => { release = resolve })
+  if (stage === 'before import') notify()
+  if (stage === 'backup') {
+    const write = platform.writeFileAtomic.bind(platform)
+    vi.spyOn(platform, 'writeFileAtomic').mockImplementation(async (name, data) => {
+      await write(name, data)
+      if (name.startsWith('backups/pre-import-')) notify()
+    })
+  }
+  if (stage === 'stop') stop.mockImplementation(async () => { entered(); await blocked })
+
+  const rejected = expect(app.importBackup(JSON.stringify(incoming))).rejects.toThrow('Native owner exited during import')
+  if (stage === 'stop') {
+    await waiting
+    notify()
+    release()
+  }
+  await rejected
+
+  for (const [name, content] of before) expect(platform.files.get(name)).toBe(content)
+  expect([...platform.files.keys()].filter((name) => !before.has(name))).toEqual(
+    stage === 'before import' ? [] : [expect.stringMatching(/^backups\/pre-import-/)]
+  )
+  expect(app.store.getState()).toBe(snapshot)
+  expect(snapshot.core).toMatchObject({ status: 'stopped', restartRequired: true })
+  expect(snapshot.systemProxy).toEqual({ enabled: false, unknown: true })
+  expect(platform.systemProxy).toBe(proxy)
+  expect(platform.coreRunning).toBe(false)
+  expect(stop).toHaveBeenCalledTimes(stage === 'stop' ? 1 : 0)
+  for (const operation of [start, set, clear]) expect(operation).not.toHaveBeenCalled()
 })
 
 test('notification interrupts a blocked command and denies already queued starts', async () => {

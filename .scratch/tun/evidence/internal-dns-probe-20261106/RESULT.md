@@ -1,0 +1,11 @@
+# Internal fixed DNS probe diagnostics only
+
+Two files only: tun-production-network.m and its test. Production KuroProbeInternalDNS remains a fixed real-syscall wrapper. The private eight-operation function-pointer seam exists solely to exercise the same control flow without socket/network calls; it is not config/RPC. No route, DNS mode, address, socket options, protocol, admission or recovery change.
+
+Failures identify IPv4/IPv6 and socket / fcntl-getfl / fcntl-cloexec / fcntl-nonblock / setsockopt-bound-interface / connect / send / poll / recv / response-validation. Report includes family-local elapsedMs, failing errno, poll return and revents, sent/expected and received sizes. Failure errno is captured immediately before further operations/close. Short send/zero read/timeout/invalid-response have errno=0, not unrelated prior errno. Poll EINTR retry and original 400ms monotonic deadline stay unchanged. Success still requires both original KuroReadinessAnswer results.
+
+Response diagnostic is a fixed reason enum and at most the first 12 DNS header bytes (24 hex characters). It never dumps question names, answer data, arbitrary DNS packets, configuration, or credentials. Fixed own .invalid query and endpoints remain unchanged. The reason enum is diagnostic; the original full strict validator remains the authority.
+
+Strict focused and production compilation passed. ProductionNetworkTests passed, including the injected probe loop (22 cases: both families pass; each syscall/fcntl failure; short send; timeout; poll HUP; receive error/empty; short/oversized/rcode/ID/answer/question mismatch; second-family connect failure; EINTR then success), plus all existing coordinator tests. Fixture close deliberately sets EBADF on every path to prove errno retention; successful admission is unaffected, as before. All probe syscalls are injected and writable route/DNS stores fake; no Core, system network, install or service action occurred. Compile argv/exit/wall and exact stdout/stderr are in verification.json and corresponding logs.
+
+This improves next-window diagnosis only. It does not establish the cause of 10fc's 19ms failure or claim an actual DNS response. The independently identified missing IPv4 P2P endpoint route remains a hypothesis pending exact failing-stage/errno evidence; no route was added here.

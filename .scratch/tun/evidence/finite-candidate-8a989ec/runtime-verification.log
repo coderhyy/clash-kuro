@@ -1,0 +1,11 @@
+macOS App runtime/entitlements, seal, ASAR bytes and fuses verified (no launch; not privileged caller attestation)
+{
+  "ok": true,
+  "bundle": "/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/electron-finite-session-candidate-8a989ec9d40b/mac-arm64/Clash Kuro.app",
+  "evidence": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-runtime-evidence-NO9xnT",
+  "executableSHA256": "80fef3f5470fc7a756eced64760555c9fcce1983988348ba9dafc314c79fd60f",
+  "infoSHA256": "4c14efc842289d0f859b80c0d34999d6af648c05b896d3db620464fa85af2667",
+  "asarSHA256": "fe4d56609a5eabf622a19133f16de5dfa18b56992b38ea5be72a9ea674f90be9",
+  "tests": 14,
+  "limitation": "Actual isolated Electron only; no real Core/helper/network capability verified. TCP polling is sampled, not kernel tracing."
+}
