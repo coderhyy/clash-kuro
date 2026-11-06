@@ -2,14 +2,15 @@
 
 Status: ready-for-agent（持续正常窗口；11902精确路由拒绝已定位并清理，最小修复已集成）
 Type: validation
-Blocked by: 首次正常启停：新候选CI/包核验与实际正常启停；正式交付：异常恢复与升级验收
+Blocked by: 首次正常启停：第三方App/Core重新运行、DNS基线变化需确认；实际正常启停；正式交付：异常恢复与升级验收
 Owner: 主会话集成与最终验证；验收 agent 准备记录
 
 ## 当前状态（2026-11-06，11902实机证据与路由修复）
 
 - 11902实际App鉴权ready及双族utun创建通过，拒绝的是本会话utun6的 `ff00::%25/8`，flags `0x01800101`。Core正常终止、网络恢复、停止证明及准确卸载通过；job/receipt/安装与进程缺席。[实际结果](../evidence/7c351-route-rejection-20261106/11902-real-result.md)。
 - 固定XNU与旧接口基线支持该路由属于系统IPv6多播伴生项。最小识别仅接受held接口/索引、精确三种形状/flags及新鲜唯一link-local网关；不增加删除权。独立修复四条split路由的精确PRCLONING读回，ADD/DELETE请求不变；两处RED/GREEN与独审通过。[证据](../evidence/utun-multicast-20261106/implementation.md)。
-- 集成构建/新候选冻结进行中；尚无成功on状态或TUN流量证据。MATCH,DIRECT不能证明代理节点转发，外网IPv6仍未验证。持续正常窗口授权有效，异常恢复/升级不混入本次范围。
+- `10fc6a8`原生整套、硬化App和实际展开包独审通过；包SHA `fce8938f…937c33`，CI42162815779双平台首轮成功。安装前只读检查发现Clash Verge/App Core重开、DNS改为114.114.114.114，稳定路由未变；停在安装前，未改第三方设置或Profile。[候选与差异](../evidence/darwin-route-compat-20261106/RESULT.md)。
+- 尚无成功on状态或TUN流量证据；MATCH,DIRECT不能证明代理节点转发，外网IPv6未验证。持续正常窗口授权有效，异常恢复/升级不混入本次范围。
 
 ## 历史准备状态（保留原时间和产物边界）
 
