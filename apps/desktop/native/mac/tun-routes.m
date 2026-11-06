@@ -96,7 +96,8 @@ static NSString *KuroRouteAddress(NSData *address, int family, BOOL mask) {
   NSUInteger offset = family == 4 ? offsetof(struct sockaddr_in,sin_addr) : offsetof(struct sockaddr_in6,sin6_addr), length = family == 4 ? 4 : 16;
   NSUInteger full=family==4?sizeof(struct sockaddr_in):sizeof(struct sockaddr_in6);
   if ((!mask && address.length!=full) || address.length>full) return nil;
-  if (mask && address.length>=2) { unsigned char af=((const unsigned char *)address.bytes)[1]; if (af && af!=(family==4?AF_INET:AF_INET6)) return nil; }
+  // Kernel netmasks are radix byte masks, not sockaddr address families.
+  // Darwin may fill sa_family/port bytes with 0xff; destination selects family.
   if (!mask && family==6) {
     struct sockaddr_in6 raw={0}; memcpy(&raw,address.bytes,address.length);
     if (raw.sin6_scope_id || raw.sin6_flowinfo || raw.sin6_port) return nil;
@@ -142,7 +143,19 @@ static NSArray<NSDictionary *> *KuroRouteDecodeDump(NSData *dump, NSString **err
     if (![destination isKindOfClass:NSData.class] || destination.length < 2) { Fail(error,@"route has no destination"); return nil; }
     int af=((const unsigned char *)destination.bytes)[1], family=af==AF_INET?4:af==AF_INET6?6:0;
     if (!family) continue; // Non-IP routes do not share the admitted IPv4/IPv6 keys.
-    NSString *address=KuroRouteObservedAddress(destination,family,header.rtm_index); int prefix=(header.rtm_flags & RTF_HOST)?(family==4?32:128):0;
+    unsigned int destinationScope=header.rtm_index;
+    // A local IPv6 host address keeps its source-interface zone when its route
+    // egress is lo0. Preserve that read-only zone; gateways and nonlocal routes
+    // still require the route interface. Explicit and KAME zones must agree.
+    if (family==6 && destination.length==sizeof(struct sockaddr_in6) &&
+        (header.rtm_flags&(RTF_LOCAL|RTF_HOST))==(RTF_LOCAL|RTF_HOST)) {
+      struct sockaddr_in6 local={0}; memcpy(&local,destination.bytes,sizeof(local));
+      unsigned char *bytes=local.sin6_addr.s6_addr;
+      BOOL scoped=IN6_IS_ADDR_LINKLOCAL(&local.sin6_addr) || (bytes[0]==0xff && (bytes[1]&0x0f)<=2);
+      unsigned int embedded=scoped?((unsigned int)bytes[2]<<8)|bytes[3]:0;
+      if (scoped && (local.sin6_scope_id || embedded)) destinationScope=local.sin6_scope_id?:embedded;
+    }
+    NSString *address=KuroRouteObservedAddress(destination,family,destinationScope); int prefix=(header.rtm_flags & RTF_HOST)?(family==4?32:128):0;
     id rawMask=addresses[RTAX_NETMASK];
     if ([rawMask isKindOfClass:NSData.class]) {
       NSString *maskText=KuroRouteAddress(rawMask,family,YES); NSData *mask=KuroRouteIP(maskText,family); if (!mask) { Fail(error,@"invalid route mask"); return nil; }

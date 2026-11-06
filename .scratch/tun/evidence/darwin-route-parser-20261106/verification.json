@@ -1,0 +1,85 @@
+{
+  "commands": [
+    {
+      "name": "baseline-compile",
+      "argv": [
+        "/usr/bin/clang",
+        "-fobjc-arc",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-Wno-unused-function",
+        "-O2",
+        "-framework",
+        "Foundation",
+        "-framework",
+        "Security",
+        "-framework",
+        "SystemConfiguration",
+        "-lbsm",
+        "/private/tmp/kuro-darwin-route-parser-candidate/baseline-focused.m",
+        "-o",
+        "/private/tmp/kuro-darwin-route-parser-candidate/baseline-focused"
+      ],
+      "exit": 0,
+      "seconds": 2.713709832984023
+    },
+    {
+      "name": "baseline-red",
+      "argv": [
+        "/private/tmp/kuro-darwin-route-parser-candidate/baseline-focused"
+      ],
+      "exit": 1,
+      "seconds": 0.273021167027764
+    },
+    {
+      "name": "production-compile",
+      "argv": [
+        "/usr/bin/clang",
+        "-fobjc-arc",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-Wno-unused-function",
+        "-O2",
+        "-framework",
+        "Foundation",
+        "-framework",
+        "Security",
+        "-framework",
+        "SystemConfiguration",
+        "-lbsm",
+        "/private/tmp/kuro-darwin-route-parser-candidate/native/kuro-tun-helper.m",
+        "-o",
+        "/private/tmp/kuro-darwin-route-parser-candidate/production-helper"
+      ],
+      "exit": 0,
+      "seconds": 1.3330384580185637
+    }
+  ],
+  "positiveFocusedArgv": [
+    "/usr/bin/clang",
+    "-fobjc-arc",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-Wno-unused-function",
+    "-O2",
+    "-framework",
+    "Foundation",
+    "-framework",
+    "Security",
+    "-framework",
+    "SystemConfiguration",
+    "-lbsm",
+    "/private/tmp/kuro-darwin-route-parser-candidate/focused.m",
+    "-o",
+    "/private/tmp/kuro-darwin-route-parser-candidate/focused"
+  ],
+  "positiveRunArgv": [
+    "/private/tmp/kuro-darwin-route-parser-candidate/focused"
+  ],
+  "positiveExit": 0,
+  "rawSHA256": "31dc246df7bd48d66d3852f4356e192206339c53fdaee86b3c08fc05dbb7ed03",
+  "systemCalls": "none executed; ordinary UID offline decoder and temporary journal fixture tests only"
+}

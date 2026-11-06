@@ -39,7 +39,47 @@ static NSDictionary *ObservedRoute(NSDictionary *entry) {
 @implementation KuroRouteDurabilityFixture
 - (BOOL)syncDirectory:(NSString **)error {self.syncCalls++;return self.refuseSync?Fail(error,@"injected route sync failure"):[super syncDirectory:error];}
 @end
+// Fixed, sanitized Darwin RTM_GET wire shapes shared with admission tests.
+// Masks retain radix bytes; local host scope belongs to en0 even via lo0.
+static NSArray<NSData *> *DarwinRouteFixturePackets(void) {
+  NSArray *encoded=@[
+    @"lAAFBAEAAAABCQAAJwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAADAAAAAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAgAAfwAAAAAAAAAAAAAAEAIAAH8AAAEAAAAAAAAAAAX/////AAAAEAIAAH8AAAEAAAAAAAAAAA==",
+    @"mAAFBAIAAAABCQAAJwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANwFAAAAAAAAR4rpagAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAgAAwKgBAAAAAAAAAAAAFBICAAYAAAAAAAAAAAAAAAAAAAAH////////ABACAADAqAEKAAAAAAAAAAA=",
+    @"wAAFBAIAAAABAAEBJwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcHgAAAAAAAP6AAAIAAAAAAAAAAAAAAAAAAAAAHB4AAAAAAAD+gAACAAAAAAAAAAAAAAABAAAAABD///////////////////8cHgAAAAAAAP6AAAIAAAAAAAAAAAAAAAEAAAAA",
+    @"qAAFBAEAAAAFBCABIwAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAcHgAAAAAAAP6AAAIAAAAAAAAAAAAAEjQAAAAAFBICAAYABgACAAAAAAAAAAAAAAAcHgAAAAAAAP6AAAIAAAAAAAAAAAAAEjQAAAAA"
+  ];
+  NSMutableArray *packets=[NSMutableArray array];
+  for(NSString *wire in encoded)[packets addObject:[[NSData alloc]initWithBase64EncodedString:wire options:0]];
+  return packets;
+}
+// Pure decoding only; no sysctl/PF_ROUTE or interface lookup.
+static void RouteKernelDumpTests(void) {
+  NSArray *fixtures=DarwinRouteFixturePackets();
+  NSArray *destinations=@[@"127.0.0.0",@"192.168.1.0",@"fe80::%2",@"fe80::1234%2"],*prefixes=@[@8,@24,@64,@128];
+  NSString *error=nil;
+  for(NSUInteger i=0;i<fixtures.count;i++) {
+    NSArray *decoded=KuroRouteDecodeDump(fixtures[i],&error);CHECK(decoded.count==1);
+    CHECK([decoded[0][@"destination"]isEqual:destinations[i]] && [decoded[0][@"prefix"]isEqual:prefixes[i]]);
+  }
+  NSMutableData *local=[fixtures[3]mutableCopy];
+  struct rt_msghdr *header=local.mutableBytes;CHECK(header->rtm_index==1);
+  CHECK([KuroRouteDecodeDump(local,&error).firstObject[@"interfaceIndex"]isEqual:@1]);
+  header->rtm_flags&=~RTF_LOCAL;CHECK(!KuroRouteDecodeDump(local,&error));header->rtm_flags|=RTF_LOCAL;
+  header->rtm_flags&=~RTF_HOST;CHECK(!KuroRouteDecodeDump(local,&error));header->rtm_flags|=RTF_HOST;
+  struct sockaddr_in6 *destination=(void *)((char *)local.mutableBytes+sizeof(*header));
+  destination->sin6_scope_id=3;CHECK(!KuroRouteDecodeDump(local,&error));
+  destination->sin6_scope_id=2;CHECK(KuroRouteDecodeDump(local,&error).count==1);
+  destination->sin6_scope_id=0;destination->sin6_addr.s6_addr[2]=destination->sin6_addr.s6_addr[3]=0;
+  CHECK(KuroRouteDecodeDump(local,&error).count==1); // Unscoped local keeps route scope.
+  NSMutableData *mask=[fixtures[1]mutableCopy];
+  unsigned char *bytes=mask.mutableBytes;bytes[128+4]=0xfe; // ff fe ff 00 is non-contiguous.
+  CHECK(!KuroRouteDecodeDump(mask,&error));
+  CHECK(!KuroRouteDecodeDump([mask subdataWithRange:NSMakeRange(0,mask.length-1)],&error));
+  puts("Darwin route parser: four sanitized recorded wire shapes + nonlocal/nonhost/conflicting-zone/noncontiguous/truncation rejects PASS");
+}
+
 static void RouteTests(void) {
+  RouteKernelDumpTests();
   CHECK(geteuid()!=0);
   KuroCoreInterface association=RouteFixtureInterface();
   NSArray *plan=KuroSplitRouteCandidate(association); CHECK(plan.count==4);

@@ -1,0 +1,27 @@
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/main/candidate-startup.test.ts > authenticated native admission fresh: installed identity -> startup recovery -> finite V2 dispatch
+AssertionError: expected { availability: 'blocked', …(2) } to deeply equal { availability: 'ready', state: 'off' }
+
+- Expected
++ Received
+
+  {
+-   "availability": "ready",
+-   "state": "off",
++   "availability": "blocked",
++   "error": "routes: invalid route mask",
++   "state": "unknown",
+  }
+
+ ❯ src/main/candidate-startup.test.ts:211:21
+    209|       expect(recoveryRejection).toMatch(mode === 'auth-only' ? /instal…
+    210|     } else {
+    211|       expect(state).toEqual({ availability: 'ready', state: 'off' })
+       |                     ^
+    212|       if (mode === 'identity' || mode === 'invalid-config') {
+    213|         const admitted = (await import('@kuro/core')).createTunSession…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

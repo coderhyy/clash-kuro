@@ -1,0 +1,19 @@
+{
+  "files": {
+    "darwin-route-parser.patch": "7c591b87534cd721c2f4ab7ce66acb56f8fa821f724b148bf4cc761dca4f0d24",
+    "native/tun-routes.m": "8751a49b894364961bed091c5ad439a5ad77460fcd9e0ccea05948d20a50b9f4",
+    "native/tun-routes.test.m": "541a97bd6f43b972f779d4bc8bb432c51183af901f23b91ae0096b1d6e04c08b",
+    "baseline/tun-routes.m": "5ee78a705ddbdf19b1afa120c97586e495054e8ce6d2bdddc7ef4e30122f2156",
+    "baseline/tun-routes.test.m": "b421a9e4a14603523ad161222c9522e3c698238853744fd05ac3d73ddc2d3797",
+    "focused.stdout.log": "dacb6bae8554af3c656b3b87a2a03ffa5d02feebb4a124569511a7ec5af4cbdd",
+    "focused.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "baseline-red.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "baseline-red.stderr.log": "0b9245064ae0aeed9e19bdd683b120f17dcc40fbbb106d4d618010b717ac87e2",
+    "production-compile.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "production-compile.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "verification.json": "f87d831af59ebe79707ab0aaf69a166ba29eb13c34dd4607277e3c895ee31033",
+    "RESULT.md": "76de27a061162464e7de585839d5b6e5f0bfdb3e854075584b4fcbf59f611885"
+  },
+  "fixtureInterface": "static NSArray<NSData *> *DarwinRouteFixturePackets(void)",
+  "scope": "only route source/test; source frozen, shared not modified"
+}

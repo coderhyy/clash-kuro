@@ -1,6 +1,6 @@
 # macOS TUN 集成验收
 
-Status: ready-for-agent（eb4真实fresh恢复失败且已清理；路由解析兼容修复中）
+Status: ready-for-agent（eb4真实fresh恢复失败且已清理；路由修复及生产组合已整合，待CI/新候选）
 Type: validation
 Blocked by: 首次正常启停：真实kernel路由编码兼容修复、回归/独审及新候选窗口；正式交付：真实异常恢复与升级验收
 Owner: 主会话集成与最终验证；验收 agent 准备记录
@@ -8,6 +8,7 @@ Owner: 主会话集成与最终验证；验收 agent 准备记录
 ## 当前状态（2026-11-05，eb4beec）
 
 - **2026-11-06 最新真实结果**：eb4 fresh安装及实际App身份核验通过，但自动恢复被 `routes: invalid route mask` 阻止；未启动Core/TUN。准确卸载、job/receipt/进程缺席，网络与新基线一致。窗口结束；[现场证据与下一修复](../evidence/eb4-tun-window-20261106/RESULT.md)。以下eb4准备记录仅为历史，不再重试旧包。
+- 后续离线修复：Darwin压缩mask与LOCAL/HOST IPv6 zone兼容已集成；原decoder在实际恢复链blocked，新decoder7/7组合通过，标准原生与固定Core-t通过。[整合记录](../evidence/darwin-route-parser-20261106/INTEGRATED.md)。
 
 - **当前候选**：源码 `eb4beec05283c60dd99715bf2b702a58c0fb9d44`，包 `kuro-tun-finite-session-0.1.0-arm64-eb4beec05283.pkg`，SHA256 `78cc71471ca1674e19caf4630798878330b452fb5b6ef2894fbdbda0fbc717d7`。[CI 42057942407](https://github.com/coderhyy/clash-kuro/actions/runs/42057942407) 双平台成功；标准原生测试含真实固定 Core `-t`、7条准入组合链通过。App 未运行；**独立离线包审查通过**，实际展开文件与本次构建及源码字节核对一致；[证据](../evidence/production-admission-20261105/offline-package-eb4/RESULT.md)。
 - **实现与门禁**：初始 `blocked/off` 必须经实际 App 鉴权恢复并独立读回 `ready/off`；held 停止证明、同安装 format3 恢复证明和普通 Core socket 就绪权限修复已集成。metadata 的 `disabled=true` / `serviceAutoStart=false` 表示安装时不自动启动服务；finite `startAvailable=true` / `productionActivation=true` 表示候选具备有限启动能力，实际运行仍需通过鉴权、恢复及网络读回门禁。
