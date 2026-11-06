@@ -1,11 +1,13 @@
 # macOS TUN 集成验收
 
-Status: ready-for-agent（27a 实测确认合法 RTF_GLOBAL 差异；窄修复/真实样本回归通过，待新候选正常流量验收）
+Status: ready-for-agent（22b 实机启动身份确认失败；原会话已停止，第三方重新运行使精确卸载暂停；诊断实现继续）
 Type: validation
-Blocked by: 首次正常启停：明确实际 auto-route 读回差异并验证；正式交付：异常恢复与升级验收
+Blocked by: 首次正常启停：定位 route confirmation 的具体失败分支，恢复无冲突基线并完成上轮卸载；正式交付：异常恢复与升级验收
 Owner: 主会话集成与最终验证；验收 agent 准备记录
 
 ## 当前交付状态（auto-route 决定后）
+
+- 当前：22b 的双平台 CI、实际包独审、fresh→ready 通过；真实 start 报 `route confirmation lacks this actor's prepared live Core`。原会话 SIGTERM/exit0 和持久停止证明已保存；卸载前发现第三方 App/Core、新接管路由及 DNS 变化，脚本在删除前停止，安装/job/receipt 保留。正在分开 journal/prepared/live-owner 诊断，不猜测放宽。见[本轮记录](../evidence/core-auto-route-global-20261106/RESULT.md)。
 
 - 最新：27a 实机已取证，lower IPv4 `/1` 仅多合法 `RTF_GLOBAL`，准确网关/接口/范围一致；窄修复及真实样本回归见[记录](../evidence/core-auto-route-global-20261106/RESULT.md)。失败恢复和精确卸载完成；新候选正常流量仍待验证。USB/无关接口变化保留为后续兼容性验收，不定义为最终产品全量基线锁定。
 

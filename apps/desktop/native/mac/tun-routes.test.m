@@ -207,6 +207,46 @@ static void RouteGlobalFlagTests(void) {
   puts("native route GLOBAL: exact real IPv4 tuple observed durably; zero-address IPv4/IPv6 only, upper halves/private /30 and material flag/gateway/interface changes rejected PASS");
 }
 
+static void RouteConfirmationDiagnosticTests(void) {
+  char temporary[]="/tmp/kuro-route-confirm-diag-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));NSString *base=@(canonical),*session=@"00112233-4455-6677-8899-AABBCCDDEEFF";KuroCoreInterface association=RouteFixtureInterface();
+  for(NSUInteger scenario=0;scenario<7;scenario++) {
+    NSString *directory=[base stringByAppendingPathComponent:[NSString stringWithFormat:@"case%lu",(unsigned long)scenario]],*error=nil;FixtureDirectory(directory);
+    KuroFakeRouteStore *store=[KuroFakeRouteStore new];store.entries=[RouteFixtureBaseline()mutableCopy];KuroOwnedRoutes *routes=[[KuroOwnedRoutes alloc]initWithDirectory:directory owner:geteuid() backend:store];
+    CHECK([routes prepareForSession:session binding:RouteFixtureBinding() baselineRoutes:RouteFixtureBaseline() baselineDNS:@{} physicalInterface:@"en0" error:&error]);RouteFixtureCoreAppears(store);
+    KuroRouteOwnership live=^KuroRouteOwnerState(KuroCoreInterface value,NSString **failure){(void)value;(void)failure;return KuroRouteOwnerLive;};
+    CHECK([routes observeForSession:session interface:association ownership:live error:&error]);
+    NSString *journal=[directory stringByAppendingPathComponent:KuroRouteJournal];NSData *original=[NSData dataWithContentsOfFile:journal];
+    if(scenario==1)Put(journal,Bytes(@"[\"private-journal-token-not-for-diagnostics\"]"),0600);
+    if(scenario==3)routes=[[KuroOwnedRoutes alloc]initWithDirectory:directory owner:geteuid() backend:store];
+    __block NSUInteger ownershipCalls=0;NSUInteger snapshots=store.snapshots;
+    KuroRouteOwnership ownership=^KuroRouteOwnerState(KuroCoreInterface value,NSString **failure){
+      (void)value;ownershipCalls++;
+      if(scenario==4){Fail(failure,@"Core FD/socket/interface observation changed during verification");return KuroRouteOwnerUnknown;}
+      if(scenario==5)return KuroRouteOwnerUnknown;
+      if(scenario==6){Fail(failure,[@"界"stringByPaddingToLength:5000 withString:@"界"startingAtIndex:0]);return KuroRouteOwnerUnknown;}
+      return KuroRouteOwnerLive;
+    };
+    error=@"stale caller error must not replace current reason";
+    BOOL ok=[routes confirmObservedSession:scenario==2?@"11112233-4455-6677-8899-AABBCCDDEEFF":session interface:association ownership:ownership error:&error];
+    CHECK(ok==(scenario==0));
+    if(scenario==0)CHECK(ownershipCalls==2&&store.snapshots==snapshots+1);
+    else {
+      CHECK([error hasPrefix:@"route confirmation lacks this actor's prepared live Core; stage="]&&[error lengthOfBytesUsingEncoding:NSUTF8StringEncoding]<4096);
+      CHECK(![error containsString:@"private-journal-token-not-for-diagnostics"]&&![error containsString:@"stale caller"]);
+      CHECK(ownershipCalls==(scenario>=4?1:0)&&store.snapshots==snapshots);
+      if(scenario==1)CHECK([error containsString:@"stage=record; reason=route observation is not a mapping"]);
+      if(scenario==2||scenario==3)CHECK([error containsString:@"stage=prepared-binding;"]);
+      if(scenario==4)CHECK([error containsString:@"stage=ownership; reason=Core FD/socket/interface observation changed during verification"]);
+      if(scenario==5)CHECK([error containsString:@"stage=ownership; reason=live Core ownership was not confirmed"]);
+      if(scenario==6)CHECK([error containsString:@"stage=ownership;"]&&error.length<1200);
+    }
+    NSData *expected=scenario==1?Bytes(@"[\"private-journal-token-not-for-diagnostics\"]"):original;CHECK([[NSData dataWithContentsOfFile:journal]isEqual:expected]);
+    CHECK(!routes.routesOff); // Diagnostics never authorize cleanup or change a rejected confirmation.
+  }
+  CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);
+  puts("native route confirmation diagnostic: 7 real journal/prepared-binding/ownership/bounded/fallback/normal cases PASS; original gates/call order/readback/no mutation retained");
+}
+
 static void RouteMismatchDiagnosticTests(void) {
   char temporary[]="/tmp/kuro-route-mismatch-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));
   NSString *base=@(canonical),*session=@"00112233-4455-6677-8899-AABBCCDDEEFF";KuroCoreInterface association=RouteFixtureInterface();
@@ -260,4 +300,4 @@ static void RouteAbsenceTests(void) {
   CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);
   puts("native route absence: 15 prepared/observed/legacy/no-journal/foreign/duplicate/read-failure/two-snapshot/unlink-sync retry cases PASS; no route deletion method exists");
 }
-static void RouteTests(void) {RouteKernelDumpTests();RouteGlobalFlagTests();RouteObservationTests();RouteReadinessTests();RouteMismatchDiagnosticTests();RouteAbsenceTests();}
+static void RouteTests(void) {RouteKernelDumpTests();RouteGlobalFlagTests();RouteObservationTests();RouteReadinessTests();RouteConfirmationDiagnosticTests();RouteMismatchDiagnosticTests();RouteAbsenceTests();}

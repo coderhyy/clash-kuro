@@ -225,6 +225,10 @@ static NSString *KuroRouteMismatchDiagnostic(NSDictionary *target,NSDictionary *
   NSString *summary=encoded&&encoded.length<=2048?[[NSString alloc]initWithData:encoded encoding:NSUTF8StringEncoding]:@"{\"diagnosticUnavailable\":true}";
   return [@"Core auto-route differs from its fixed gateway/interface/flags; routeObservation=" stringByAppendingString:summary];
 }
+static BOOL KuroRouteConfirmationFailure(NSString **error,NSString *stage,NSString *reason) {
+  NSString *bounded=[reason substringToIndex:MIN(reason.length,(NSUInteger)1024)];
+  return Fail(error,[NSString stringWithFormat:@"route confirmation lacks this actor's prepared live Core; stage=%@; reason=%@",stage,bounded]);
+}
 static BOOL KuroRouteBaseline(NSArray *routes) {
   if(![routes isKindOfClass:NSArray.class] || routes.count>4096)return NO;
   for(NSDictionary *entry in routes)if(!Keys(entry,@[@"family",@"destination",@"prefix",@"gateway",@"interfaceIndex",@"interfaceName",@"flags"]) ||
@@ -336,7 +340,7 @@ typedef NS_ENUM(NSUInteger,KuroRouteObservationState) {
 }
 - (NSDictionary *)recordForInterface:(KuroCoreInterface)association bytes:(NSData **)bytes error:(NSString **)error {
   if(![self prepared:error])return nil;
-  NSDictionary *record=[self validatedRecord:bytes error:error];
+  NSDictionary *record=[self validatedRecord:bytes error:error];if(!record)return nil;
   if(![record[@"phase"]isEqual:@"observed"]||![record[@"interface"]isEqual:KuroRouteAssociation(association)]){Fail(error,@"no observed route receipt for this association");return nil;}return record;
 }
 - (NSArray *)snapshot:(NSString **)error {
@@ -401,8 +405,10 @@ typedef NS_ENUM(NSUInteger,KuroRouteObservationState) {
 }
 - (BOOL)confirmObservedSession:(NSString *)session interface:(KuroCoreInterface)association ownership:(KuroRouteOwnership)ownership error:(NSString **)error {
   if(![self prepared:error]||!KuroRouteAssociation(association)||!ownership)return Fail(error,@"route confirmation requires a held live association");
-  NSData *bytes=nil;NSDictionary *record=[self recordForInterface:association bytes:&bytes error:error];
-  if(!record||![self matchingPreparation:record session:session association:association]||ownership(association,error)!=KuroRouteOwnerLive)return Fail(error,@"route confirmation lacks this actor's prepared live Core");
+  NSData *bytes=nil;NSString *failure=nil;NSDictionary *record=[self recordForInterface:association bytes:&bytes error:&failure];
+  if(!record)return KuroRouteConfirmationFailure(error,@"record",failure?:@"observed route record is unavailable");
+  if(![self matchingPreparation:record session:session association:association])return KuroRouteConfirmationFailure(error,@"prepared-binding",@"observed record does not match this actor's prepared session and Core binding");
+  failure=nil;if(ownership(association,&failure)!=KuroRouteOwnerLive)return KuroRouteConfirmationFailure(error,@"ownership",failure?:@"live Core ownership was not confirmed");
   if(![self exactSnapshot:record[@"routes"] error:error]||ownership(association,error)!=KuroRouteOwnerLive)return NO;
   if(![[self journalBytes:error]isEqual:bytes])return Fail(error,@"route observation changed during confirmation");
   return [self syncDirectory:error];
