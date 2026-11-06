@@ -92,6 +92,32 @@ static NSArray *KuroStableRoutes(NSArray *routes) {
   }
   return result;
 }
+// XNU in6.c adds only these scoped multicast parents while configuring an
+// IPv6 address. Recognize the observed link-local case, never a write/delete
+// target: the held interface and an independent current address must agree.
+static BOOL KuroHeldMulticastCompanion(NSDictionary *route, KuroCoreInterface association, NSArray *interfaces) {
+  unsigned int index=association.interfaceIndex;
+  if (![route[@"family"]isEqual:@6] || ![route[@"interfaceName"]isEqual:@(association.interfaceName)] ||
+    ![route[@"interfaceIndex"]isEqual:@(index)] || [route[@"flags"]unsignedIntValue]!=(RTF_UP|RTF_CLONING|RTF_MULTICAST|RTF_IFSCOPE)) return NO;
+  NSString *destination=route[@"destination"]; int prefix=[route[@"prefix"]intValue];
+  BOOL known=(prefix==8 && [destination isEqual:[NSString stringWithFormat:@"ff00::%%%u",index]]) ||
+    (prefix==32 && ([destination isEqual:[NSString stringWithFormat:@"ff01::%%%u",index]] || [destination isEqual:[NSString stringWithFormat:@"ff02::%%%u",index]]));
+  if (!known || ![interfaces isKindOfClass:NSArray.class]) return NO;
+  NSString *gateway=nil; NSUInteger matches=0;
+  for (NSDictionary *entry in interfaces) {
+    if (![entry[@"name"]isEqual:@(association.interfaceName)] && ![entry[@"index"]isEqual:@(index)]) continue;
+    if (![entry[@"name"]isEqual:@(association.interfaceName)] || ![entry[@"index"]isEqual:@(index)] ||
+      ([entry[@"flags"]unsignedIntValue]&(IFF_UP|IFF_RUNNING|IFF_POINTOPOINT))!=(IFF_UP|IFF_RUNNING|IFF_POINTOPOINT)) return NO;
+    if (![entry[@"family"]isEqual:@6]) continue;
+    struct in6_addr address={0};
+    if (inet_pton(AF_INET6,[entry[@"address"]UTF8String],&address)!=1) return NO;
+    if (!IN6_IS_ADDR_LINKLOCAL(&address)) continue;
+    if (![entry[@"prefix"]isEqual:@64]) return NO;
+    char text[INET6_ADDRSTRLEN]={0}; if (!inet_ntop(AF_INET6,&address,text,sizeof(text))) return NO;
+    gateway=[NSString stringWithFormat:@"%s%%%u",text,index]; matches++;
+  }
+  return matches==1 && [route[@"gateway"]isEqual:gateway];
+}
 static NSString *KuroCanonicalEndpoint(NSString *text) {
   if (![text isKindOfClass:NSString.class]) return nil;
   unsigned char bytes[16]; char canonical[INET6_ADDRSTRLEN];
@@ -220,11 +246,13 @@ static BOOL KuroPreservedEndpoint(NSString *text, NSArray *routes, NSString *phy
 - (BOOL)unchangedBaseline:(NSString **)error { return [self unchangedBaselineInstalled:NO error:error]; }
 - (BOOL)unchangedBaselineInstalled:(BOOL)installed error:(NSString **)error {
   NSArray *current=KuroStableRoutes([_routeBackend routes:error]); if (!current) return NO;
+  NSArray *interfaces=_environment.interfaces(error); if (!interfaces) return NO;
   NSMutableArray *remaining=[current mutableCopy];
   for (NSDictionary *before in _baselineRoutes) { NSUInteger index=[remaining indexOfObject:before]; if (index==NSNotFound) return Fail(error,@"route baseline changed during Core startup; preserve all existing routing"); [remaining removeObjectAtIndex:index]; }
   for (NSDictionary *extra in remaining) {
     BOOL recorded=NO; if (installed) for (NSDictionary *target in KuroSplitRouteCandidate(_association)) if (KuroRouteEqual(extra,target)) recorded=YES;
     if (recorded) continue;
+    if (KuroHeldMulticastCompanion(extra,_association,interfaces)) continue;
     BOOL own=[extra[@"interfaceName"]isEqual:@(_association.interfaceName)] && [extra[@"interfaceIndex"]isEqual:@(_association.interfaceIndex)];
     NSString *destination=extra[@"destination"]; int prefix=[extra[@"prefix"]intValue];
     BOOL expected=([extra[@"family"]isEqual:@4] && (([destination isEqual:@"198.18.0.0"] && prefix==30) || ([destination isEqual:@"198.18.0.1"] && prefix==32))) ||
@@ -244,7 +272,7 @@ static BOOL KuroPreservedEndpoint(NSString *text, NSArray *routes, NSString *phy
     NSString *failure=nil; if (![[_dnsBackend valueForDNSKey:key error:&failure]isEqual:KuroDNSValue()] || failure) return Fail(error,@"owned DNS direct readback is uncertain");
   }
   if (![dns isEqual:_baselineDNS]) return Fail(error,@"DNS baseline changed; preserving existing resolvers and stopping this session");
-  NSArray *interfaces=_environment.interfaces(error); BOOL physical=NO;
+  BOOL physical=NO;
   for (NSDictionary *entry in interfaces) if ([entry[@"family"]isEqual:@0] && [entry[@"name"]isEqual:_physical] && [entry[@"linkType"]isEqual:@(IFT_ETHER)] &&
     ([entry[@"flags"]unsignedIntValue]&(IFF_UP|IFF_RUNNING|IFF_LOOPBACK|IFF_POINTOPOINT))==(IFF_UP|IFF_RUNNING)) {
       for (NSDictionary *route in _baselineRoutes) if ([route[@"prefix"]isEqual:@0] && [route[@"interfaceName"]isEqual:_physical] && [entry[@"index"]isEqual:route[@"interfaceIndex"]]) physical=YES;

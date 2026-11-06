@@ -105,7 +105,52 @@ static void UnexpectedRouteEvidenceTests(void) {
   CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);puts("PASS 3 unexpected-route diagnostic cases: exact closed entry and stage retained, original startup/active and wrong-interface refusal unchanged; fake backend only");
 }
 
+static NSArray *ProductionMulticastCompanions(KuroCoreInterface association) {
+  NSString *gateway=[NSString stringWithFormat:@"fe80::1234%%%u",association.interfaceIndex]; NSMutableArray *routes=[NSMutableArray array];
+  for (NSArray *value in @[@[@"ff00::",@8],@[@"ff01::",@32],@[@"ff02::",@32]]) [routes addObject:ProductionRoute(6,[NSString stringWithFormat:@"%@%%%u",value[0],association.interfaceIndex],[value[1]intValue],gateway,@(association.interfaceName),association.interfaceIndex,RTF_UP|RTF_CLONING|RTF_MULTICAST|RTF_IFSCOPE)];
+  return routes;
+}
+static void HeldMulticastCompanionTests(void) {
+  char temporary[]="/tmp/kuro-multicast-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));NSString *base=@(canonical),*session=@"00112233-4455-6677-8899-AABBCCDDEEFF";KuroCoreInterface association=RouteFixtureInterface();
+  for(NSUInteger scenario=0;scenario<15;scenario++) {
+    NSString *directory=[base stringByAppendingPathComponent:[NSString stringWithFormat:@"case%lu",(unsigned long)scenario]],*error=nil;FixtureDirectory(directory);
+    KuroFakeRouteStore *routes=[KuroFakeRouteStore new];routes.directory=directory;routes.entries=[ProductionBaseline()mutableCopy];KuroFakeDNSStore *dns=[KuroFakeDNSStore new];dns.directory=directory;
+    __block NSArray *interfaces=ProductionInterfaces(NO);__block NSUInteger probes=0;KuroNetworkEnvironment *environment=[KuroNetworkEnvironment new];
+    environment.interfaces=^NSArray *(NSString **failure){(void)failure;return interfaces;};environment.observeChild=^BOOL(pid_t child,KuroCoreInterface *result,NSString **failure){(void)failure;CHECK(child==association.process.pid);*result=association;return YES;};
+    environment.ownership=^KuroRouteOwnerState(KuroCoreInterface expected,NSString **failure){(void)expected;(void)failure;return KuroRouteOwnerLive;};environment.probeDNS=^BOOL(KuroCoreInterface expected,NSString **failure){(void)expected;(void)failure;probes++;return YES;};
+    KuroProductionNetwork *network=[[KuroProductionNetwork alloc]initWithDirectory:directory owner:geteuid() routes:routes dns:dns environment:environment];CHECK([network preflightConfig:ProductionConfig() error:&error]);
+    NSDictionary *linklocal=@{@"family":@6,@"name":@"utun7",@"index":@7,@"flags":@(IFF_UP|IFF_RUNNING|IFF_POINTOPOINT),@"address":@"fe80::1234",@"prefix":@64};
+    interfaces=[ProductionInterfaces(YES)arrayByAddingObject:linklocal];
+    if(scenario==5)interfaces=ProductionInterfaces(YES);
+    if(scenario==6)interfaces=[interfaces arrayByAddingObject:linklocal];
+    if(scenario==11||scenario==12){NSMutableDictionary *changed=[linklocal mutableCopy];changed[scenario==11?@"index":@"prefix"]=scenario==11?@8:@128;interfaces=[ProductionInterfaces(YES)arrayByAddingObject:changed];}
+    [routes.entries addObject:ProductionRoute(4,@"198.18.0.0",30,@"link",@"utun7",7,RTF_UP)];[routes.entries addObject:ProductionRoute(6,@"fdfe:dcba:9876::",126,@"link",@"utun7",7,RTF_UP)];
+    NSMutableArray *companions=[ProductionMulticastCompanions(association)mutableCopy];NSMutableDictionary *changed=[companions[0]mutableCopy];
+    if(scenario==1)changed[@"flags"]=@([changed[@"flags"]unsignedIntValue]|RTF_STATIC);
+    if(scenario==2)changed[@"destination"]=@"ff00::%8";
+    if(scenario==3)changed[@"gateway"]=@"fe80::4321%7";
+    if(scenario==4){changed[@"interfaceName"]=@"utun8";changed[@"interfaceIndex"]=@8;}
+    if(scenario==7)changed[@"prefix"]=@16;
+    if(scenario==8)changed[@"destination"]=@"ff03::%7";
+    if(scenario==13)changed[@"gateway"]=@"fdfe:dcba:9876::1%7";
+    companions[0]=changed;[routes.entries addObjectsFromArray:companions];
+    if(scenario==10){NSMutableDictionary *baseline=[routes.entries[0]mutableCopy];baseline[@"gateway"]=@"192.168.1.2";routes.entries[0]=baseline;}
+    BOOL accepted=[network readyChild:association.process.pid session:session error:&error];CHECK(accepted==(scenario==0||scenario==9||scenario==14));
+    if(!accepted){CHECK(!routes.additions&&!dns.additions&&!probes);CHECK([error containsString:@"unexpected route"]||[error containsString:@"baseline changed"]||[error containsString:@"utun index/flags"]);continue;}
+    CHECK([network applyChild:association.process.pid session:session error:&error]);CHECK([network confirmSession:session error:&error]);
+    NSDictionary *journal=ReadJSON(directory,[directory stringByAppendingPathComponent:KuroRouteJournal],geteuid(),&error);CHECK(journal&&routes.additions==4&&dns.additions==1);
+    CHECK(![[[NSString alloc]initWithData:JSONData(journal) encoding:NSUTF8StringEncoding]containsString:@"ff00"]);
+    if(scenario==9){NSMutableDictionary *newAddress=[linklocal mutableCopy];newAddress[@"address"]=@"fe80::4321";interfaces=[ProductionInterfaces(YES)arrayByAddingObject:newAddress];}
+    if(scenario==14)interfaces=ProductionInterfaces(YES);
+    if(scenario==9||scenario==14)CHECK(![network confirmSession:session error:&error]&&[error containsString:@"unexpected route"]);
+    CHECK([network recoverSession:session error:&error]&&network.networkOff&&routes.deletions==4&&dns.removals==1);
+    for(NSDictionary *companion in companions)CHECK([routes.entries containsObject:companion]);
+  }
+  CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);puts("PASS 15 held multicast cases: exact three XNU companion routes, independent unique current link-local, interface/zone/flags/prefix/gateway/active changes reject, baseline pinned and only four journalled split routes deleted; fake writable stores only");
+}
+
 static void ProductionNetworkTests(void) {
+  HeldMulticastCompanionTests();
   UnexpectedRouteEvidenceTests();
   ProductionDNSMetadataTests();
   RecoveredNetworkReadbackTests();

@@ -1,15 +1,15 @@
 # macOS 特权 helper
 
-Status: ready-for-agent（持续正常窗口；432真实Core启动后双栈就绪拒绝，已恢复并精确卸载）
+Status: ready-for-agent（持续正常窗口；11902精确路由拒绝已定位并清理，最小修复已集成）
 Type: task
-Blocked by: 首次正常启停：固定Core IPv4-only上游环境兼容及启动错误预算修复、回归/独审/CI、新候选；正式交付：异常恢复与升级验收
+Blocked by: 首次正常启停：新候选CI/包核验与实际正常启停；正式交付：异常恢复与升级验收
 Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
 
-## 当前状态（2026-11-06，432实机失败已清理）
+## 当前状态（2026-11-06，11902实机证据与路由修复）
 
-- 实际App鉴权恢复ready成功，真实root Core和IPv4 utun启动；固定双栈地址就绪失败，未达到TUN接管验收。生产清理SIGTERM/exit0、真实held停止证明通过；App/job/精确安装文件/socket/receipt已清理，证据和候选用户数据保留。[本轮结果](../evidence/432-tun-window-20261106/RESULT.md)。
-- 固定Core在IPv4-only宿主剥离IPv6地址、客户端2秒open掩盖原始错误，分别作最小修复；不放宽双栈/恢复门禁。持续正常窗口允许验证后重试，不包含故障注入或升级。
-- 清理前网络文本出现动态邻居项差异，原始证据完整保留；下一轮先只读核验，不修改第三方设置或静默换Profile。外网IPv6仍未验证。
+- 11902实际App鉴权ready及双族utun创建通过，拒绝的是本会话utun6的 `ff00::%25/8`，flags `0x01800101`。Core正常终止、网络恢复、停止证明及准确卸载通过；job/receipt/安装与进程缺席。[实际结果](../evidence/7c351-route-rejection-20261106/11902-real-result.md)。
+- 固定XNU与旧接口基线支持该路由属于系统IPv6多播伴生项。最小识别仅接受held接口/索引、精确三种形状/flags及新鲜唯一link-local网关；不增加删除权。独立修复四条split路由的精确PRCLONING读回，ADD/DELETE请求不变；两处RED/GREEN与独审通过。[证据](../evidence/utun-multicast-20261106/implementation.md)。
+- 集成构建/新候选冻结进行中；尚无成功on状态或TUN流量证据。MATCH,DIRECT不能证明代理节点转发，外网IPv6仍未验证。持续正常窗口授权有效，异常恢复/升级不混入本次范围。
 
 ## 历史准备状态（保留原时间和产物边界）
 

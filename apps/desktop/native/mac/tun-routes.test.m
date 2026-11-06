@@ -4,7 +4,10 @@ static KuroCoreInterface RouteFixtureInterface(void) {
   strlcpy(value.interfaceName,"utun7",sizeof(value.interfaceName)); return value;
 }
 static NSDictionary *ObservedRoute(NSDictionary *entry) {
-  NSMutableDictionary *value=[entry mutableCopy]; value[@"flags"]=@(KuroRouteFlags(entry)); return value;
+  NSMutableDictionary *value=[entry mutableCopy]; // Model the fixed Darwin callback, independently of the expected-readback function.
+  unsigned int flags=KuroRouteFlags(entry);
+  if (!(flags&(RTF_HOST|RTF_CLONING|RTF_MULTICAST))) flags|=RTF_PRCLONING;
+  value[@"flags"]=@(flags); return value;
 }
 @interface KuroFakeRouteStore : NSObject <KuroRouteStore>
 @property(nonatomic) NSMutableArray<NSDictionary *> *entries;
@@ -89,10 +92,31 @@ static void RouteTests(void) {
   for (NSDictionary *entry in plan) {
     CHECK(KuroRouteEntry(entry)); NSMutableData *packet=[KuroRouteMessage(entry,RTM_ADD,1,&error) mutableCopy];
     CHECK(packet && ((struct rt_msghdr *)packet.mutableBytes)->rtm_index==7);
-    ((struct rt_msghdr *)packet.mutableBytes)->rtm_type=RTM_GET; [dump appendData:packet];
+    struct rt_msghdr *header=packet.mutableBytes;
+    CHECK(!(header->rtm_flags&(RTF_PRCLONING|RTF_IFSCOPE)));
+    header->rtm_type=RTM_GET; header->rtm_flags|=RTF_PRCLONING; [dump appendData:packet];
   }
   NSArray *decoded=KuroRouteDecodeDump(dump,&error); CHECK(decoded.count==4);
   for (NSUInteger i=0;i<plan.count;i++) CHECK(KuroRouteEqual(decoded[i],plan[i]));
+  // The fixed IPv4/IPv6 non-host callbacks add exactly PRCLONING. Missing it,
+  // unexpected scope/cloning/ownership bits, and host-route PRCLONING are material.
+  for (NSDictionary *entry in plan) {
+    NSMutableDictionary *readback=[ObservedRoute(entry)mutableCopy];
+    CHECK(KuroRouteEqual(readback,entry));
+    unsigned int expected=[readback[@"flags"]unsignedIntValue];
+    readback[@"flags"]=@(expected|RTF_DONE|RTF_IFREF); CHECK(KuroRouteEqual(readback,entry));
+    readback[@"flags"]=@(expected&~RTF_PRCLONING); CHECK(!KuroRouteEqual(readback,entry));
+    for (NSNumber *flag in @[@(RTF_IFSCOPE),@(RTF_CLONING),@(RTF_HOST),@(RTF_MULTICAST),@(RTF_GATEWAY),@(RTF_REJECT),@(RTF_BLACKHOLE),@(RTF_WASCLONED),@(RTF_DYNAMIC)]) {
+      readback[@"flags"]=@(expected|flag.unsignedIntValue); CHECK(!KuroRouteEqual(readback,entry));
+    }
+    for (NSNumber *flag in @[@(RTF_UP),@(RTF_STATIC),@(RTF_PROTO2)]) {
+      readback[@"flags"]=@(expected&~flag.unsignedIntValue); CHECK(!KuroRouteEqual(readback,entry));
+    }
+    NSMutableDictionary *host=[entry mutableCopy];host[@"prefix"]=[entry[@"family"]isEqual:@4]?@32:@128;
+    CHECK(KuroRouteEntry(host));readback=[ObservedRoute(host)mutableCopy];
+    CHECK(KuroRouteEqual(readback,host)&&!([readback[@"flags"]unsignedIntValue]&RTF_PRCLONING));
+    readback[@"flags"]=@([readback[@"flags"]unsignedIntValue]|RTF_PRCLONING);CHECK(!KuroRouteEqual(readback,host));
+  }
   NSMutableData *bad=[dump mutableCopy]; ((struct rt_msghdr *)bad.mutableBytes)->rtm_msglen=1;
   CHECK(!KuroRouteDecodeDump(bad,&error)); CHECK(!KuroRouteDecodeDump([dump subdataWithRange:NSMakeRange(0,dump.length-1)],&error));
   // Corrupted gateway index must never compare as our link gateway.
@@ -184,5 +208,6 @@ static void RouteTests(void) {
   }
   puts("native route durability: 2 absence-only retirement/retry paths require successful directory sync, no route deletion");
   CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);
+  puts("native kernel flags: both IPv4/IPv6 /1 readbacks require PRCLONING, host routes do not; scope/material flag negatives preserved");
   puts("native routes: bounded wire fixtures and 12 ownership/recovery scenarios passed; no PF_ROUTE/sysctl/network operation executed");
 }

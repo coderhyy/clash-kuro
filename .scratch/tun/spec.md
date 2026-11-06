@@ -4,6 +4,14 @@ Status: ready-for-agent（产品边界已批准；安全实现与真实验收未
 
 2026-11-03 建立草案，2026-11-04 记录维护者批准的首版产品行为；已接受的产品与生命周期边界以 [ADR-0014](../../docs/adr/0014-macos-tun-lifecycle.md) 为准。安装路线以 [ADR-0015](../../docs/adr/0015-macos-traditional-privileged-helper.md) 为准。任务入口见 `issues/`；正常重开策略见 [ADR-0016](../../docs/adr/0016-macos-tun-manual-start.md)，双栈固定模板见 [ADR-0017](../../docs/adr/0017-macos-tun-dual-stack.md)；LAN/DNS/DIRECT 与无 kill switch 边界见 [ADR-0018](../../docs/adr/0018-macos-tun-network-boundaries.md)，具体参数可技术选定并验证，人工系统操作须等维护者明确说“开始”。
 
+## 当前实现与验收证据（2026-11-06）
+
+04/06/08持续正常窗口已由维护者批准，允许同范围有证据修复、冻结新包重试；系统管理员弹窗由维护者处理，前轮恢复清理必须确认。helper强杀、TUN-on退出App、升级和第三方设置更改不在此窗口。
+
+实际安装App鉴权恢复ready、固定root Core创建双族utun、失败后准确SIGTERM/exit0与持久停止证明、原生卸载/receipt清理已有现场记录。尚未通过完整TUN就绪、流量接管或正常on→off，不能把MATCH,DIRECT和本地双族地址扩大为代理节点或外网IPv6通过。
+
+IPv4-only宿主仍建立固定双族utun：固定Core受控环境设置其支持的SKIP_SYSTEM_IPV6_CHECK=true，随后真实接口双族地址门禁保持。地址配置的内核多播伴生路由只可按held接口、精确scope/prefix/flags、实时独立地址核对识别，不凭形状增加清理权。[11902现场](evidence/7c351-route-rejection-20261106/11902-real-result.md)、[源码与边界](evidence/utun-multicast-20261106/RESULT.md)。下方早期“未启动/门禁关闭”记录保留其研究时点，不代表当前入口始终拒绝。
+
 ## 目标与边界
 
 为 Clash Kuro 增加应用可控制、可观测且能够停止和恢复的 TUN 能力。首版只交付 **macOS**，Windows TUN 后续再排，不因实现可并行而纳入首版。Linux、自动更新只记录依赖。首版已选择管理员授权安装传统 LaunchDaemon + 小型 helper，不依赖付费开发者会员；SMAppService、Developer ID 和公证延期，不作为本路线前置条件。具体受保护产物身份、调用者鉴别和权限安全仍必须实现验证。

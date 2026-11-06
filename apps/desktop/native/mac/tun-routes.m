@@ -40,6 +40,12 @@ static int KuroRouteFlags(NSDictionary *entry) {
   return RTF_UP | RTF_STATIC | RTF_PROTO2 | ([entry[@"gateway"] isEqual:@"link"] ? 0 : RTF_GATEWAY) |
     ([entry[@"prefix"] intValue] == ([entry[@"family"] intValue] == 4 ? 32 : 128) ? RTF_HOST : 0);
 }
+// XNU in_addroute/in6_addroute add PRCLONING to non-host unicast routes.
+// Keep request flags separate: scope, cloning, and all other differences remain material.
+static int KuroRouteObservedFlags(NSDictionary *entry) {
+  int flags=KuroRouteFlags(entry);
+  return (flags & RTF_HOST) ? flags : flags | RTF_PRCLONING;
+}
 static BOOL KuroRouteKey(NSDictionary *left, NSDictionary *right) {
   return [left[@"family"] isEqual:right[@"family"]] && [left[@"destination"] isEqual:right[@"destination"]] && [left[@"prefix"] isEqual:right[@"prefix"]];
 }
@@ -47,7 +53,7 @@ static BOOL KuroRouteEqual(NSDictionary *observed, NSDictionary *entry) {
   if (!Keys(observed, @[@"family",@"destination",@"prefix",@"gateway",@"interfaceIndex",@"interfaceName",@"flags"])) return NO;
   NSMutableDictionary *value = [observed mutableCopy]; [value removeObjectForKey:@"flags"];
   // DONE/IFREF are kernel bookkeeping; every other flag is material.
-  return [value isEqual:entry] && ([observed[@"flags"] unsignedIntValue] & ~(RTF_DONE | RTF_IFREF)) == (unsigned int)KuroRouteFlags(entry);
+  return [value isEqual:entry] && ([observed[@"flags"] unsignedIntValue] & ~(RTF_DONE | RTF_IFREF)) == (unsigned int)KuroRouteObservedFlags(entry);
 }
 static NSDictionary *KuroRouteAssociation(KuroCoreInterface value) {
   if (value.process.pid <= 0 || !value.process.startSeconds || value.process.startMicros >= 1000000 || value.descriptor < 0 ||
