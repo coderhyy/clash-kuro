@@ -281,7 +281,44 @@ static void RouteExchangeTests(void) {
   puts("native route exchange: 24 actual wire-loop syscall/ACK/short-NEWADDR/timeout/packet-cap fixtures PASS; unchanged acceptance and 1000ms/256 bounds, no socket execution");
 }
 
+static void RouteFailedReadbackTests(void) {
+  NSDictionary *target=KuroInternalDNSRouteCandidate(RouteFixtureInterface())[0];
+  const KuroRouteExchangeIO io={.openSocket=RouteIOOpen,.control=RouteIOControl,.sendPacket=RouteIOSend,.waitPacket=RouteIOPoll,.receivePacket=RouteIOReceive,.closeSocket=RouteIOClose,.clock=RouteIOClock};
+  for(NSUInteger scenario=0;scenario<9;scenario++) {
+    NSString *error=nil;RouteIORequest=KuroRouteMessage(target,RTM_ADD,17,&error);
+    NSMutableData *ack=[RouteIORequest mutableCopy];((struct rt_msghdr *)ack.mutableBytes)->rtm_errno=EEXIST;
+    RouteIOFixture=@{@"events":@[@{@"packet":ack}]};RouteIOCursor=RouteIOCloses=RouteIOPolls=RouteIOReceives=RouteIOClockCalls=0;RouteIONow=0;
+    CHECK(!KuroRouteExchangeWithIO(target,RouteIORequest,RTM_ADD,17,&io,&error));NSString *original=error;
+    KuroFakeRouteStore *backend=[KuroFakeRouteStore new];
+    NSMutableDictionary *changed=[ObservedRoute(target)mutableCopy];changed[@"gateway"]=@"198.18.0.1";changed[@"interfaceIndex"]=@9;changed[@"interfaceName"]=@"utun9";changed[@"flags"]=@(RTF_UP|RTF_GATEWAY);
+    if(scenario==1||scenario==3||scenario==5)[backend.entries addObject:ObservedRoute(target)];
+    if(scenario==2||scenario==3)[backend.entries addObject:changed];
+    if(scenario==4||scenario==5)backend.failRead=YES;
+    if(scenario==6)for(NSUInteger i=0;i<10;i++)[backend.entries addObject:ObservedRoute(target)];
+    if(scenario==7)for(NSUInteger i=0;i<4;i++){NSMutableDictionary *large=[changed mutableCopy];large[@"gateway"]=[@"link:"stringByAppendingString:[@"ab"stringByPaddingToLength:510 withString:@"ab"startingAtIndex:0]];[backend.entries addObject:large];}
+    // An unrelated route must never be exposed by the failure-only targeted view.
+    NSMutableDictionary *foreign=[ObservedRoute(target)mutableCopy];foreign[@"destination"]=@"203.0.113.17";[backend.entries addObject:foreign];
+    RouteIOCursor=RouteIOCloses=RouteIOPolls=RouteIOReceives=RouteIOClockCalls=0;RouteIONow=0;error=nil;
+    if(scenario==8){((struct rt_msghdr *)ack.mutableBytes)->rtm_errno=0;CHECK(KuroRouteExchangeAndReadback(target,RouteIORequest,RTM_ADD,17,&io,backend,&error)&&!error&&!backend.snapshots);continue;}
+    CHECK(!KuroRouteExchangeAndReadback(target,RouteIORequest,RTM_ADD,17,&io,backend,&error));
+    CHECK(backend.snapshots==1&&!backend.additions&&!backend.deletions&&[error hasPrefix:[original stringByAppendingString:@"; failedRouteReadback="]]);
+    NSRange marker=[error rangeOfString:@"; failedRouteReadback="];NSDictionary *details=[NSJSONSerialization JSONObjectWithData:[[error substringFromIndex:NSMaxRange(marker)]dataUsingEncoding:NSUTF8StringEncoding] options:0 error:NULL];CHECK(details);
+    CHECK([error lengthOfBytesUsingEncoding:NSUTF8StringEncoding]<=4096 && ![error containsString:@"203.0.113.17"]);
+    if(scenario==0)CHECK([details[@"state"]isEqual:@"absent"]&&[details[@"matchCount"]isEqual:@0]&&![details[@"matches"]count]);
+    if(scenario==1)CHECK([details[@"state"]isEqual:@"present"]&&[details[@"matches"]isEqual:@[ObservedRoute(target)]]);
+    if(scenario==2)CHECK([details[@"state"]isEqual:@"present"]&&[details[@"matches"]isEqual:@[changed]]);
+    if(scenario==3)CHECK([details[@"matchCount"]isEqual:@2]&&[details[@"matches"]isEqual:(@[ObservedRoute(target),changed])]&&[details[@"truncated"]isEqual:@NO]);
+    if(scenario==4||scenario==5)CHECK([details[@"state"]isEqual:@"unavailable"]&&[details[@"error"]isEqual:@"injected unknown snapshot"]&&!details[@"matchCount"]&&!details[@"matches"]);
+    if(scenario==6)CHECK([details[@"matchCount"]isEqual:@10]&&[details[@"matches"]count]==4&&[details[@"truncated"]isEqual:@YES]);
+    if(scenario==7)CHECK([details[@"matchCount"]isEqual:@4]&&[details[@"matches"]count]<4&&[details[@"truncated"]isEqual:@YES]);
+    NSString *preserved=[error copy];[backend.entries removeAllObjects];CHECK([preserved isEqual:error]); // Later rollback cannot alter the self-contained observation.
+  }
+  RouteIOFixture=RouteIOEvent=nil;RouteIORequest=nil;
+  puts("native failed route readback: absent/present/changed/duplicate/snapshot-error/bounded-match evidence + success-no-snapshot PASS; original ACK/NO preserved, no route writes");
+}
+
 static void RouteTests(void) {
+  RouteFailedReadbackTests();
   RouteExchangeTests();
   RoutePreparationTests();
   RouteKernelDumpTests();

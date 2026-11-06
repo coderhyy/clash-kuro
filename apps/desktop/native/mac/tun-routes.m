@@ -246,6 +246,27 @@ static BOOL KuroRouteExchangeWithIO(NSDictionary *entry,NSData *request,int oper
   NSData *encoded=JSONData(details);NSString *text=encoded.length<=2048?[[NSString alloc]initWithData:encoded encoding:NSUTF8StringEncoding]:@"[bounded route diagnostic unavailable]";
   return Fail(error,[NSString stringWithFormat:@"%@; routeExchange=%@",reason,text]);
 }
+// Evidence only: a failed write remains failed even if its route is now present.
+static BOOL KuroRouteExchangeAndReadback(NSDictionary *entry,NSData *request,int operation,int sequence,const KuroRouteExchangeIO *io,id<KuroRouteStore> store,NSString **error) {
+  NSString *primary=nil;
+  if(KuroRouteExchangeWithIO(entry,request,operation,sequence,io,&primary))return YES;
+  NSString *snapshotFailure=nil;NSArray *observed=[store routes:&snapshotFailure];NSMutableDictionary *details;
+  if(!observed || snapshotFailure) {
+    NSString *reason=snapshotFailure?:@"route snapshot returned no result";
+    if([reason lengthOfBytesUsingEncoding:NSUTF8StringEncoding]>512)reason=@"route snapshot failed; error text exceeds diagnostic bound";
+    details=[@{@"state":@"unavailable",@"error":reason}mutableCopy];
+  } else {
+    NSMutableArray *matches=[NSMutableArray array];NSUInteger count=0;
+    for(NSDictionary *route in observed)if(KuroRouteKey(route,entry)){count++;if(matches.count<4)[matches addObject:route];}
+    details=[@{@"state":count?@"present":@"absent",@"matchCount":@(count),@"matches":matches,@"truncated":count>matches.count?@YES:@NO}mutableCopy];
+  }
+  NSData *encoded=JSONData(details);
+  while(encoded.length>1536 && [details[@"matches"]count]) {
+    [details[@"matches"]removeLastObject];details[@"truncated"]=@YES;encoded=JSONData(details);
+  }
+  NSString *text=encoded && encoded.length<=1536?[[NSString alloc]initWithData:encoded encoding:NSUTF8StringEncoding]:@"{\"state\":\"unavailable\",\"error\":\"readback evidence exceeds diagnostic bound\"}";
+  return Fail(error,[NSString stringWithFormat:@"%@; failedRouteReadback=%@",primary,text]);
+}
 @interface KuroDarwinRouteStore : NSObject <KuroRouteStore> { int _sequence; }
 @end
 @implementation KuroDarwinRouteStore
@@ -270,7 +291,7 @@ static BOOL KuroRouteExchangeWithIO(NSDictionary *entry,NSData *request,int oper
   char currentName[IF_NAMESIZE]={0}; unsigned int index=[entry[@"interfaceIndex"]unsignedIntValue];
   if (!if_indextoname(index,currentName) || ![entry[@"interfaceName"]isEqual:@(currentName)] || if_nametoindex(currentName)!=index) return Fail(error,@"route target interface no longer matches the admitted association");
   const KuroRouteExchangeIO io={.openSocket=socket,.control=KuroRouteControl,.sendPacket=send,.waitPacket=poll,.receivePacket=recv,.closeSocket=close,.clock=clock_gettime};
-  return KuroRouteExchangeWithIO(entry,request,operation,_sequence,&io,error);
+  return KuroRouteExchangeAndReadback(entry,request,operation,_sequence,&io,self,error);
 }
 - (BOOL)addRoute:(NSDictionary *)entry error:(NSString **)error {
   NSArray *before=[self routes:error]; if (!before) return NO;
