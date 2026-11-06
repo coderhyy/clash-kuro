@@ -38,26 +38,60 @@ static BOOL KuroReadinessAnswer(NSData *packet, NSData *question, BOOL ipv6) {
   NSData *expected=KuroRouteIP(ipv6?@"fdfe:dcba:9876::1":@"198.18.0.1",ipv6?6:4);
   return length==expected.length && packet.length==cursor+length && !memcmp(b+cursor,expected.bytes,length);
 }
-static BOOL KuroProbeInternalDNS(KuroCoreInterface association, NSString **error) {
+// Private syscall seam; production always supplies the real fixed operations.
+typedef struct {
+  int (*openSocket)(int,int,int); int (*control)(int,int,int);
+  int (*option)(int,int,int,const void *,socklen_t); int (*connectSocket)(int,const struct sockaddr *,socklen_t);
+  ssize_t (*sendPacket)(int,const void *,size_t,int); int (*waitPacket)(struct pollfd *,nfds_t,int);
+  ssize_t (*receivePacket)(int,void *,size_t,int); int (*closeSocket)(int);
+} KuroDNSProbeIO;
+static int KuroDNSProbeControl(int fd,int operation,int value) { return fcntl(fd,operation,value); }
+static NSString *KuroDNSProbeResponseReason(NSData *packet,NSData *question) {
+  if(packet.length<12)return @"short-header";
+  if(packet.length>512)return @"oversized-datagram";
+  const unsigned char *b=packet.bytes,*q=question.bytes;
+  if(memcmp(b,q,2))return @"transaction-id";
+  if(!(b[2]&0x80)||(b[2]&0x7a))return @"response-flags";
+  if(b[3]&0x0f)return @"response-rcode";
+  if(KuroDNSWord(b+4)!=1||KuroDNSWord(b+6)!=1||KuroDNSWord(b+8)||KuroDNSWord(b+10))return @"record-counts";
+  if(packet.length<question.length+12)return @"short-answer";
+  if(memcmp(b+12,q+12,question.length-12))return @"fixed-question-mismatch";
+  return @"fixed-answer-record-or-address";
+}
+static BOOL KuroProbeInternalDNSWithIO(KuroCoreInterface association,NSString **error,const KuroDNSProbeIO *io) {
   for (NSNumber *family in @[@4,@6]) {
+    uint64_t started=KuroMonotonicMilliseconds();
     BOOL ipv6=family.intValue==6; int af=ipv6?AF_INET6:AF_INET;
-    int fd=socket(af,SOCK_DGRAM,0); if (fd<0) return Fail(error,@"internal DNS probe socket unavailable");
-    unsigned int index=association.interfaceIndex; int flags=fcntl(fd,F_GETFL,0);
-    BOOL ok=flags>=0 && !fcntl(fd,F_SETFD,FD_CLOEXEC) && !fcntl(fd,F_SETFL,flags|O_NONBLOCK) &&
-      !setsockopt(fd,ipv6?IPPROTO_IPV6:IPPROTO_IP,ipv6?IPV6_BOUND_IF:IP_BOUND_IF,&index,sizeof(index));
-    struct sockaddr_storage storage={0}; socklen_t size;
-    if (ipv6) { struct sockaddr_in6 *address=(void *)&storage; address->sin6_len=sizeof(*address); address->sin6_family=af; address->sin6_port=htons(53); inet_pton(af,"fdfe:dcba:9876::2",&address->sin6_addr); size=sizeof(*address); }
-    else { struct sockaddr_in *address=(void *)&storage; address->sin_len=sizeof(*address); address->sin_family=af; address->sin_port=htons(53); inet_pton(af,"198.18.0.2",&address->sin_addr); size=sizeof(*address); }
+    NSString *stage=@"socket",*reason=@"",*header=@""; int savedErrno=0,polled=0;short revents=0;ssize_t sent=-1,count=-1;BOOL ok=NO;
+    int fd=io->openSocket(af,SOCK_DGRAM,0);if(fd<0)savedErrno=errno;
     NSData *question=KuroReadinessQuestion((uint16_t)arc4random_uniform(65536),ipv6);
-    ok=ok && !connect(fd,(struct sockaddr *)&storage,size) && send(fd,question.bytes,question.length,0)==(ssize_t)question.length;
-    if (ok) { struct pollfd ready={.fd=fd,.events=POLLIN}; int polled=0; uint64_t deadline=KuroMonotonicMilliseconds()+400;
-      do { uint64_t now=KuroMonotonicMilliseconds(); if (now>=deadline) break; polled=poll(&ready,1,(int)(deadline-now)); } while (polled<0 && errno==EINTR);
-      unsigned char bytes[513]; ssize_t count=polled>0 && (ready.revents&POLLIN)?recv(fd,bytes,sizeof(bytes),0):-1;
-      ok=count>0 && KuroReadinessAnswer([NSData dataWithBytes:bytes length:(NSUInteger)count],question,ipv6);
-    }
-    close(fd); if (!ok) return Fail(error,ipv6?@"fixed internal IPv6 DNS static-host probe was not confirmed":@"fixed internal IPv4 DNS static-host probe was not confirmed");
+    if(fd>=0)do {
+      stage=@"fcntl-getfl";int flags=io->control(fd,F_GETFL,0);if(flags<0){savedErrno=errno;break;}
+      stage=@"fcntl-cloexec";if(io->control(fd,F_SETFD,FD_CLOEXEC)){savedErrno=errno;break;}
+      stage=@"fcntl-nonblock";if(io->control(fd,F_SETFL,flags|O_NONBLOCK)){savedErrno=errno;break;}
+      unsigned int index=association.interfaceIndex;stage=@"setsockopt-bound-interface";
+      if(io->option(fd,ipv6?IPPROTO_IPV6:IPPROTO_IP,ipv6?IPV6_BOUND_IF:IP_BOUND_IF,&index,sizeof(index))){savedErrno=errno;break;}
+      struct sockaddr_storage storage={0};socklen_t size;
+      if(ipv6){struct sockaddr_in6 *address=(void *)&storage;address->sin6_len=sizeof(*address);address->sin6_family=af;address->sin6_port=htons(53);inet_pton(af,"fdfe:dcba:9876::2",&address->sin6_addr);size=sizeof(*address);}
+      else{struct sockaddr_in *address=(void *)&storage;address->sin_len=sizeof(*address);address->sin_family=af;address->sin_port=htons(53);inet_pton(af,"198.18.0.2",&address->sin_addr);size=sizeof(*address);}
+      stage=@"connect";if(io->connectSocket(fd,(struct sockaddr *)&storage,size)){savedErrno=errno;break;}
+      stage=@"send";sent=io->sendPacket(fd,question.bytes,question.length,0);if(sent!=(ssize_t)question.length){if(sent<0)savedErrno=errno;break;}
+      stage=@"poll";struct pollfd ready={.fd=fd,.events=POLLIN};uint64_t deadline=KuroMonotonicMilliseconds()+400;
+      do{uint64_t now=KuroMonotonicMilliseconds();if(now>=deadline)break;polled=io->waitPacket(&ready,1,(int)(deadline-now));if(polled<0)savedErrno=errno;else savedErrno=0;}while(polled<0&&savedErrno==EINTR);
+      revents=ready.revents;if(polled<=0||!(revents&POLLIN))break;
+      stage=@"recv";unsigned char bytes[513];count=io->receivePacket(fd,bytes,sizeof(bytes),0);if(count<=0){if(count<0)savedErrno=errno;break;}
+      NSData *packet=[NSData dataWithBytes:bytes length:(NSUInteger)count];stage=@"response-validation";
+      ok=KuroReadinessAnswer(packet,question,ipv6);
+      if(!ok){reason=KuroDNSProbeResponseReason(packet,question);NSMutableString *value=[NSMutableString string];for(NSUInteger i=0;i<MIN(packet.length,12);i++)[value appendFormat:@"%02x",bytes[i]];header=value;}
+    }while(NO);
+    if(fd>=0)io->closeSocket(fd); // Never overwrite the failing operation's errno.
+    if(!ok)return Fail(error,[NSString stringWithFormat:@"fixed internal IPv%@ DNS static-host probe was not confirmed; stage=%@; elapsedMs=%llu; errno=%d; poll=%d; revents=0x%x; sent=%lld/%lu; received=%lld; header=%@; reason=%@",family,stage,(unsigned long long)(KuroMonotonicMilliseconds()-started),savedErrno,polled,(unsigned short)revents,(long long)sent,(unsigned long)question.length,(long long)count,header,reason]);
   }
   return YES;
+}
+static BOOL KuroProbeInternalDNS(KuroCoreInterface association, NSString **error) {
+  const KuroDNSProbeIO io={socket,KuroDNSProbeControl,setsockopt,connect,send,poll,recv,close};
+  return KuroProbeInternalDNSWithIO(association,error,&io);
 }
 static KuroNetworkEnvironment *KuroProductionEnvironment(void) {
   KuroNetworkEnvironment *environment=[KuroNetworkEnvironment new];

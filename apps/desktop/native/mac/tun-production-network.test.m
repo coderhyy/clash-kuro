@@ -149,7 +149,33 @@ static void HeldMulticastCompanionTests(void) {
   CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);puts("PASS 15 held multicast cases: exact three XNU companion routes, independent unique current link-local, interface/zone/flags/prefix/gateway/active changes reject, baseline pinned and only four journalled split routes deleted; fake writable stores only");
 }
 
+static NSUInteger ProbeScenario,ProbeCloses,ProbeOpens,ProbeWaits;static int ProbeFamily;static NSData *ProbeQuestion;
+static int ProbeSocket(int family,int kind,int protocol){CHECK(kind==SOCK_DGRAM&&!protocol);ProbeFamily=family;ProbeOpens++;if(ProbeScenario==1){errno=EPERM;return -1;}return 123;}
+static int ProbeControl(int fd,int operation,int value){CHECK(fd==123);if((ProbeScenario==2&&operation==F_GETFL)||(ProbeScenario==3&&operation==F_SETFD)||(ProbeScenario==4&&operation==F_SETFL)){errno=EACCES;return -1;}CHECK(operation==F_GETFL||(operation==F_SETFD&&value==FD_CLOEXEC)||(operation==F_SETFL&&(value&O_NONBLOCK)));return 0;}
+static int ProbeOption(int fd,int level,int option,const void *value,socklen_t size){CHECK(fd==123&&size==sizeof(unsigned int)&&*(const unsigned int *)value==7);CHECK(level==(ProbeFamily==AF_INET?IPPROTO_IP:IPPROTO_IPV6)&&option==(ProbeFamily==AF_INET?IP_BOUND_IF:IPV6_BOUND_IF));if(ProbeScenario==5){errno=EINVAL;return -1;}return 0;}
+static int ProbeConnect(int fd,const struct sockaddr *address,socklen_t size){CHECK(fd==123);if(ProbeFamily==AF_INET){const struct sockaddr_in *v4=(const void *)address;CHECK(size==sizeof(*v4)&&v4->sin_port==htons(53)&&v4->sin_addr.s_addr==inet_addr("198.18.0.2"));}else{const struct sockaddr_in6 *v6=(const void *)address;struct in6_addr expected={0};CHECK(inet_pton(AF_INET6,"fdfe:dcba:9876::2",&expected)==1);CHECK(size==sizeof(*v6)&&v6->sin6_port==htons(53)&&!memcmp(&v6->sin6_addr,&expected,16));}if(ProbeScenario==6||(ProbeScenario==19&&ProbeFamily==AF_INET6)){errno=ENETUNREACH;return -1;}return 0;}
+static ssize_t ProbeSend(int fd,const void *bytes,size_t length,int flags){CHECK(fd==123&&!flags);ProbeQuestion=[NSData dataWithBytes:bytes length:length];if(ProbeScenario==7){errno=EAGAIN;return -1;}if(ProbeScenario==8){errno=EIO;return (ssize_t)length-1;}return (ssize_t)length;}
+static int ProbePoll(struct pollfd *ready,nfds_t count,int timeout){CHECK(count==1&&ready->fd==123&&ready->events==POLLIN&&timeout>0&&timeout<=400);ProbeWaits++;if(ProbeScenario==9){errno=EIO;return -1;}if(ProbeScenario==10){errno=EIO;return 0;}if(ProbeScenario==11){ready->revents=POLLHUP;return 1;}if(ProbeScenario==20&&ProbeWaits==1){errno=EINTR;return -1;}ready->revents=POLLIN;return 1;}
+static ssize_t ProbeReceive(int fd,void *bytes,size_t length,int flags){CHECK(fd==123&&length==513&&!flags);if(ProbeScenario==12){errno=ECONNREFUSED;return -1;}if(ProbeScenario==13){errno=EIO;return 0;}NSMutableData *answer=[ReadinessReply(ProbeQuestion,ProbeFamily==AF_INET6)mutableCopy];if(ProbeScenario==14)answer=[NSMutableData dataWithLength:5];if(ProbeScenario==15)answer=[NSMutableData dataWithLength:513];if(ProbeScenario==16)((unsigned char *)answer.mutableBytes)[3]=3;if(ProbeScenario==17)((unsigned char *)answer.mutableBytes)[0]^=1;if(ProbeScenario==18)((unsigned char *)answer.mutableBytes)[answer.length-1]^=1;if(ProbeScenario==21)((unsigned char *)answer.mutableBytes)[13]^=1;memcpy(bytes,answer.bytes,answer.length);return (ssize_t)answer.length;}
+static int ProbeClose(int fd){CHECK(fd==123);ProbeCloses++;errno=EBADF;return -1;}
+static void InternalDNSProbeDiagnosticTests(void){
+  const KuroDNSProbeIO io={ProbeSocket,ProbeControl,ProbeOption,ProbeConnect,ProbeSend,ProbePoll,ProbeReceive,ProbeClose};
+  NSArray *stages=@[@"",@"socket",@"fcntl-getfl",@"fcntl-cloexec",@"fcntl-nonblock",@"setsockopt-bound-interface",@"connect",@"send",@"send",@"poll",@"poll",@"poll",@"recv",@"recv",@"response-validation",@"response-validation",@"response-validation",@"response-validation",@"response-validation",@"connect",@"",@"response-validation"];
+  for(ProbeScenario=0;ProbeScenario<stages.count;ProbeScenario++){
+    ProbeCloses=ProbeOpens=ProbeWaits=0;ProbeQuestion=nil;NSString *error=nil;BOOL ok=KuroProbeInternalDNSWithIO(RouteFixtureInterface(),&error,&io);
+    CHECK(ok==(ProbeScenario==0||ProbeScenario==20));CHECK(ProbeCloses==(ProbeScenario==1?0:ProbeScenario==0||ProbeScenario==19||ProbeScenario==20?2:1));
+    if(ok){CHECK(!error&&ProbeOpens==2);continue;}CHECK([error containsString:[@"stage="stringByAppendingString:stages[ProbeScenario]]]);CHECK([error containsString:ProbeScenario==19?@"IPv6":@"IPv4"]);CHECK(error.length<400&&![error containsString:KuroReadinessDomain]);
+    int expected=ProbeScenario==1?EPERM:ProbeScenario>=2&&ProbeScenario<=4?EACCES:ProbeScenario==5?EINVAL:ProbeScenario==6||ProbeScenario==19?ENETUNREACH:ProbeScenario==7?EAGAIN:ProbeScenario==9?EIO:ProbeScenario==12?ECONNREFUSED:0;
+    CHECK(([error containsString:[NSString stringWithFormat:@"errno=%d;",expected]]));if(ProbeScenario==11)CHECK([error containsString:@"revents=0x10;"]);
+    if(ProbeScenario==14)CHECK([error containsString:@"reason=short-header"]);if(ProbeScenario==15)CHECK([error containsString:@"received=513;"]&&[error containsString:@"reason=oversized-datagram"]);
+    if(ProbeScenario==16)CHECK([error containsString:@"reason=response-rcode"]);if(ProbeScenario==17)CHECK([error containsString:@"reason=transaction-id"]);if(ProbeScenario==18)CHECK([error containsString:@"reason=fixed-answer-record-or-address"]);if(ProbeScenario==21)CHECK([error containsString:@"reason=fixed-question-mismatch"]);
+    NSRange start=[error rangeOfString:@"header="];NSRange end=[error rangeOfString:@"; reason="];CHECK(start.location!=NSNotFound&&end.location!=NSNotFound&&end.location-NSMaxRange(start)<=24);
+  }
+  ProbeQuestion=nil;puts("PASS internal DNS probe diagnostics: real control flow with injected socket/fcntl/bind/connect/send/poll/recv/response failures, exact errno survives close, short/timeout uses no stale errno, EINTR and both-family success; no real network operations");
+}
+
 static void ProductionNetworkTests(void) {
+  InternalDNSProbeDiagnosticTests();
   HeldMulticastCompanionTests();
   UnexpectedRouteEvidenceTests();
   ProductionDNSMetadataTests();

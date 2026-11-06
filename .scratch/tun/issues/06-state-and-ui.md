@@ -2,14 +2,14 @@
 
 Status: ready-for-agent（持续正常窗口；11902精确路由拒绝已定位并清理，最小修复已集成）
 Type: task
-Blocked by: 首次正常启停：第三方App/Core重新运行、DNS基线变化需确认；实际正常启停；正式交付：异常恢复与升级验收
+Blocked by: 首次正常启停：内部IPv4 DNS探针失败的准确诊断及修复；实际正常启停；正式交付：异常恢复与升级验收
 Owner: TUN 接入 agent；主会话统一 Core/State/桌面公共接口与源码分工
 
 ## 当前状态（2026-11-06，11902实机证据与路由修复）
 
 - 11902实际App鉴权ready及双族utun创建通过，拒绝的是本会话utun6的 `ff00::%25/8`，flags `0x01800101`。Core正常终止、网络恢复、停止证明及准确卸载通过；job/receipt/安装与进程缺席。[实际结果](../evidence/7c351-route-rejection-20261106/11902-real-result.md)。
 - 固定XNU与旧接口基线支持该路由属于系统IPv6多播伴生项。最小识别仅接受held接口/索引、精确三种形状/flags及新鲜唯一link-local网关；不增加删除权。独立修复四条split路由的精确PRCLONING读回，ADD/DELETE请求不变；两处RED/GREEN与独审通过。[证据](../evidence/utun-multicast-20261106/implementation.md)。
-- `10fc6a8`原生整套、硬化App和实际展开包独审通过；包SHA `fce8938f…937c33`，CI42162815779双平台首轮成功。安装前只读检查发现Clash Verge/App Core重开、DNS改为114.114.114.114，稳定路由未变；停在安装前，未改第三方设置或Profile。[候选与差异](../evidence/darwin-route-compat-20261106/RESULT.md)。
+- `10fc6a8`完整原生/App/包独审及CI双平台通过。用户退出第三方后DNS恢复192.168.0.1、路由/代理匹配，实际fresh安装→App ready→双族utun/多播检查通过；内部IPv4 DNS探针拒绝，未发公网流量。准确Core退出、网络恢复、持久停止证明、job/安装/receipt清理全部完成。[实机结果](../evidence/darwin-route-compat-20261106/REAL-WINDOW.md)。独立补具体探针阶段/errno诊断，不改模式或超时猜测修复。
 - 尚无成功on状态或TUN流量证据；MATCH,DIRECT不能证明代理节点转发，外网IPv6未验证。持续正常窗口授权有效，异常恢复/升级不混入本次范围。
 
 ## 历史准备状态（保留原时间和产物边界）
