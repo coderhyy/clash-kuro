@@ -1,11 +1,13 @@
 # TUN 接入生命周期
 
-Status: ready-for-agent（c7da1ba 实机已建 utun，路由读回拒绝；失败恢复/卸载通过，补齐实际路由诊断后重试）
+Status: ready-for-agent（27a 实测确认合法 RTF_GLOBAL 差异；窄修复/真实样本回归通过，待新候选正常流量验收）
 Type: task
 Blocked by: 首次正常启停：明确实际 auto-route 读回差异并验证；正式交付：异常恢复与升级验收
 Owner: TUN 接入 agent；主会话统一 Core/State/桌面公共接口与源码分工
 
 ## 当前交付状态（auto-route 决定后）
+
+- 最新：27a 实机已取证，lower IPv4 `/1` 仅多合法 `RTF_GLOBAL`，准确网关/接口/范围一致；窄修复及真实样本回归见[记录](../evidence/core-auto-route-global-20261106/RESULT.md)。失败恢复和精确卸载完成；新候选正常流量仍待验证。USB/无关接口变化保留为后续兼容性验收，不定义为最终产品全量基线锁定。
 
 - 最新真实结果：[c7da1ba 首轮实机](../evidence/core-auto-route-live-c7da1ba-20261106/RESULT.md)。实际 App fresh→ready 通过，Core 建立双栈 utun6；路由 gateway/interface/flags 核验拒绝，SIGTERM exit0 后完整恢复、持久停止证明和精确卸载通过。尚未进行测试流量，不计正常启停通过。下一步仅补实际失败路由与预期元组诊断，不放宽门禁。
 

@@ -41,7 +41,7 @@ static NSDictionary *ProductionOwner(NSString *session,KuroCoreInterface a) {
 }
 static NSArray *ProductionCoreRoutes(KuroCoreInterface a) {
   NSMutableArray *observed=[NSMutableArray array];
-  for(NSDictionary *entry in KuroCoreAutoRouteCandidate(a)){NSMutableDictionary *route=[entry mutableCopy];route[@"flags"]=@0x10803;[observed addObject:route];}
+  for(NSDictionary *entry in KuroCoreAutoRouteCandidate(a))[observed addObject:ObservedRoute(entry)];
   // Darwin P2P creates only the own IPv4 HOST route; the /30 via .1 above is
   // the separate fixed Core auto-route, never an invented connected route.
   [observed addObject:ProductionRoute(4,@"198.18.0.1",32,@"link",@(a.interfaceName),a.interfaceIndex,RTF_UP|RTF_HOST)];

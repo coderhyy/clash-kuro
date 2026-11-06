@@ -3,9 +3,11 @@ static KuroCoreInterface RouteFixtureInterface(void) {
   KuroCoreInterface value={.process={.pid=456,.startSeconds=123,.startMicros=456},.descriptor=9,.controlID=1,.controlUnit=8,.socketHandle=55,.pcbHandle=66,.interfaceIndex=7};
   strlcpy(value.interfaceName,"utun7",sizeof(value.interfaceName));return value;
 }
-// Models the upstream Darwin route request + fixed XNU non-host callback.
+// Models upstream request + XNU non-host callback and zero-address NECP tagging.
 static NSDictionary *ObservedRoute(NSDictionary *entry) {
-  NSMutableDictionary *route=[entry mutableCopy];route[@"flags"]=@(RTF_UP|RTF_STATIC|RTF_GATEWAY|RTF_PRCLONING);return route;
+  NSMutableDictionary *route=[entry mutableCopy];unsigned int flags=RTF_UP|RTF_STATIC|RTF_GATEWAY|RTF_PRCLONING;
+  if(([entry[@"family"]isEqual:@4]&&[entry[@"destination"]isEqual:@"0.0.0.0"])||([entry[@"family"]isEqual:@6]&&[entry[@"destination"]isEqual:@"::"]))flags|=RTF_GLOBAL;
+  route[@"flags"]=@(flags);return route;
 }
 @interface KuroFakeRouteStore:NSObject <KuroRouteStore>
 @property(nonatomic) NSMutableArray<NSDictionary *> *entries;
@@ -173,6 +175,38 @@ static void RouteReadinessTests(void) {
   CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);
   puts("native route readiness: 11 typed pending/late-complete/later-conflict/duplicate/read-error/identity/journal/durability/disappeared-route cases PASS; missing-only pending grants no observation");
 }
+static void RouteGlobalFlagTests(void) {
+  KuroCoreInterface association=RouteFixtureInterface();association.interfaceIndex=25;association.controlUnit=7;strlcpy(association.interfaceName,"utun6",sizeof(association.interfaceName));
+  NSArray *targets=KuroCoreAutoRouteCandidate(association);
+  NSDictionary *recorded=@{@"family":@4,@"destination":@"0.0.0.0",@"prefix":@1,@"gateway":@"198.18.0.1",@"interfaceIndex":@25,@"interfaceName":@"utun6",@"flags":@1073809411};
+  CHECK(KuroCoreAutoRouteEqual(recorded,targets[0]));
+  for(NSUInteger index=0;index<targets.count;index++) {
+    NSDictionary *target=targets[index];NSMutableDictionary *actual=[ObservedRoute(target)mutableCopy];
+    unsigned int base=RTF_UP|RTF_STATIC|RTF_GATEWAY|RTF_PRCLONING;
+    actual[@"flags"]=@(base);CHECK(KuroCoreAutoRouteEqual(actual,target));
+    actual[@"flags"]=@(base|RTF_GLOBAL);CHECK(KuroCoreAutoRouteEqual(actual,target)==(index==0||index==3));
+    if(index!=0&&index!=3)continue;
+    actual[@"flags"]=@(base|RTF_GLOBAL|RTF_DONE|RTF_IFREF);CHECK(KuroCoreAutoRouteEqual(actual,target));
+    for(NSNumber *bit in @[@(RTF_HOST),@(RTF_LLINFO),@(RTF_PROTO2),@(RTF_IFSCOPE),@(RTF_CLONING),@(RTF_MULTICAST),@(RTF_REJECT),@(RTF_BLACKHOLE),@(RTF_WASCLONED),@(RTF_LOCAL),@(RTF_ROUTER),@(RTF_DEAD)]) {actual[@"flags"]=@(base|RTF_GLOBAL|bit.unsignedIntValue);CHECK(!KuroCoreAutoRouteEqual(actual,target));}
+    for(NSNumber *bit in @[@(RTF_UP),@(RTF_STATIC),@(RTF_GATEWAY),@(RTF_PRCLONING)]) {actual[@"flags"]=@((base|RTF_GLOBAL)&~bit.unsignedIntValue);CHECK(!KuroCoreAutoRouteEqual(actual,target));}
+    actual[@"flags"]=@(base|RTF_GLOBAL);actual[@"gateway"]=@"192.0.2.99";CHECK(!KuroCoreAutoRouteEqual(actual,target));actual[@"gateway"]=target[@"gateway"];
+    actual[@"interfaceIndex"]=@24;CHECK(!KuroCoreAutoRouteEqual(actual,target));actual[@"interfaceIndex"]=@25;
+    actual[@"interfaceName"]=@"utun5";CHECK(!KuroCoreAutoRouteEqual(actual,target));
+  }
+  char temporary[]="/tmp/kuro-route-global-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));NSString *directory=@(canonical),*error=nil,*session=@"00112233-4455-6677-8899-AABBCCDDEEFF";
+  KuroFakeRouteStore *store=[KuroFakeRouteStore new];store.entries=[RouteFixtureBaseline()mutableCopy];
+  KuroOwnedRoutes *routes=[[KuroOwnedRoutes alloc]initWithDirectory:directory owner:geteuid() backend:store];
+  CHECK([routes prepareForSession:session binding:RouteFixtureBinding() baselineRoutes:RouteFixtureBaseline() baselineDNS:@{} physicalInterface:@"en0" error:&error]);
+  for(NSDictionary *target in targets)[store.entries addObject:ObservedRoute(target)];store.entries[1]=recorded;
+  KuroRouteOwnership ownership=^KuroRouteOwnerState(KuroCoreInterface value,NSString **failure){(void)failure;CHECK([KuroRouteAssociation(value)isEqual:KuroRouteAssociation(association)]);return KuroRouteOwnerLive;};
+  CHECK([routes observeReadinessForSession:session interface:association ownership:ownership error:&error]==KuroRouteObservationReady);
+  CHECK([routes confirmObservedSession:session interface:association ownership:ownership error:&error]);
+  CHECK([[[routes preparedRecord:&error]objectForKey:@"phase"]isEqual:@"observed"]);
+  store.entries=[RouteFixtureBaseline()mutableCopy];CHECK([routes recoverRecordedAbsence:&error]&&routes.routesOff);
+  CHECK([[NSFileManager defaultManager]removeItemAtPath:directory error:NULL]);
+  puts("native route GLOBAL: exact real IPv4 tuple observed durably; zero-address IPv4/IPv6 only, upper halves/private /30 and material flag/gateway/interface changes rejected PASS");
+}
+
 static void RouteMismatchDiagnosticTests(void) {
   char temporary[]="/tmp/kuro-route-mismatch-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));
   NSString *base=@(canonical),*session=@"00112233-4455-6677-8899-AABBCCDDEEFF";KuroCoreInterface association=RouteFixtureInterface();
@@ -226,4 +260,4 @@ static void RouteAbsenceTests(void) {
   CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);
   puts("native route absence: 15 prepared/observed/legacy/no-journal/foreign/duplicate/read-failure/two-snapshot/unlink-sync retry cases PASS; no route deletion method exists");
 }
-static void RouteTests(void) {RouteKernelDumpTests();RouteObservationTests();RouteReadinessTests();RouteMismatchDiagnosticTests();RouteAbsenceTests();}
+static void RouteTests(void) {RouteKernelDumpTests();RouteGlobalFlagTests();RouteObservationTests();RouteReadinessTests();RouteMismatchDiagnosticTests();RouteAbsenceTests();}

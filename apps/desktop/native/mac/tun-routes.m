@@ -194,18 +194,26 @@ static NSArray<NSDictionary *> *KuroCoreAutoRouteCandidate(KuroCoreInterface ass
 static BOOL KuroRouteKey(NSDictionary *left,NSDictionary *right) {
   return [left[@"family"]isEqual:right[@"family"]] && [left[@"destination"]isEqual:right[@"destination"]] && [left[@"prefix"]isEqual:right[@"prefix"]];
 }
+// Fixed XNU f6217f89 route.c:402-409,2477-2486: SA_DEFAULT checks
+// zero destination (not prefix); NECP tags non-host RTM_ADD with RTF_GLOBAL.
+// Of this fixed plan only the lower IPv4/IPv6 /1 entries qualify.
+static BOOL KuroCoreAutoRouteAllowsGlobal(NSDictionary *target) {
+  return [target[@"prefix"]isEqual:@1] && (([target[@"family"]isEqual:@4]&&[target[@"destination"]isEqual:@"0.0.0.0"]) ||
+    ([target[@"family"]isEqual:@6]&&[target[@"destination"]isEqual:@"::"]));
+}
 static BOOL KuroCoreAutoRouteEqual(NSDictionary *observed,NSDictionary *target) {
   if(!KuroLegacyRouteEntry(target) || !Keys(observed,@[@"family",@"destination",@"prefix",@"gateway",@"interfaceIndex",@"interfaceName",@"flags"]) || !KuroNumber(observed[@"flags"],0,UINT32_MAX))return NO;
   NSMutableDictionary *plan=[target mutableCopy];[plan removeObjectsForKeys:@[@"interfaceIndex",@"interfaceName"]];
   if(![KuroCoreAutoRoutePlan()containsObject:plan])return NO;
   NSMutableDictionary *value=[observed mutableCopy];[value removeObjectForKey:@"flags"];
-  return [value isEqual:target] && ([observed[@"flags"]unsignedIntValue]&~(RTF_DONE|RTF_IFREF))==(RTF_UP|RTF_STATIC|RTF_GATEWAY|RTF_PRCLONING);
+  unsigned int flags=[observed[@"flags"]unsignedIntValue]&~(RTF_DONE|RTF_IFREF),expected=RTF_UP|RTF_STATIC|RTF_GATEWAY|RTF_PRCLONING;
+  return [value isEqual:target] && (flags==expected || (KuroCoreAutoRouteAllowsGlobal(target)&&flags==(expected|RTF_GLOBAL)));
 }
 // Preserve the offending readback in the existing primary error before cleanup.
 // Only this fixed key's route is included, never the full baseline/dump.
 static NSString *KuroRouteMismatchDiagnostic(NSDictionary *target,NSDictionary *actual) {
   unsigned int flags=[actual[@"flags"]unsignedIntValue];
-  NSDictionary *expected=@{@"route":target,@"flags":@(RTF_UP|RTF_STATIC|RTF_GATEWAY|RTF_PRCLONING)};
+  NSDictionary *expected=@{@"route":target,@"flags":@(RTF_UP|RTF_STATIC|RTF_GATEWAY|RTF_PRCLONING),@"allowedAdditionalFlags":@(KuroCoreAutoRouteAllowsGlobal(target)?RTF_GLOBAL:0)};
   NSDictionary *diagnostic=@{@"expected":expected,@"actual":actual,@"normalizedFlags":@(flags&~(RTF_DONE|RTF_IFREF)),@"actualOmitted":@NO};
   NSData *encoded=JSONData(diagnostic);
   if(!encoded || encoded.length>2048) {
