@@ -201,6 +201,22 @@ static BOOL KuroCoreAutoRouteEqual(NSDictionary *observed,NSDictionary *target) 
   NSMutableDictionary *value=[observed mutableCopy];[value removeObjectForKey:@"flags"];
   return [value isEqual:target] && ([observed[@"flags"]unsignedIntValue]&~(RTF_DONE|RTF_IFREF))==(RTF_UP|RTF_STATIC|RTF_GATEWAY|RTF_PRCLONING);
 }
+// Preserve the offending readback in the existing primary error before cleanup.
+// Only this fixed key's route is included, never the full baseline/dump.
+static NSString *KuroRouteMismatchDiagnostic(NSDictionary *target,NSDictionary *actual) {
+  unsigned int flags=[actual[@"flags"]unsignedIntValue];
+  NSDictionary *expected=@{@"route":target,@"flags":@(RTF_UP|RTF_STATIC|RTF_GATEWAY|RTF_PRCLONING)};
+  NSDictionary *diagnostic=@{@"expected":expected,@"actual":actual,@"normalizedFlags":@(flags&~(RTF_DONE|RTF_IFREF)),@"actualOmitted":@NO};
+  NSData *encoded=JSONData(diagnostic);
+  if(!encoded || encoded.length>2048) {
+    NSData *actualBytes=JSONData(actual);
+    diagnostic=@{@"expected":expected,@"actualOmitted":@YES,@"actualSHA256":actualBytes?Hash(actualBytes):(id)NSNull.null,
+      @"actualBytes":@(actualBytes.length),@"actualFlags":@(flags),@"normalizedFlags":@(flags&~(RTF_DONE|RTF_IFREF)),@"actualInterfaceIndex":actual[@"interfaceIndex"]};
+    encoded=JSONData(diagnostic);
+  }
+  NSString *summary=encoded&&encoded.length<=2048?[[NSString alloc]initWithData:encoded encoding:NSUTF8StringEncoding]:@"{\"diagnosticUnavailable\":true}";
+  return [@"Core auto-route differs from its fixed gateway/interface/flags; routeObservation=" stringByAppendingString:summary];
+}
 static BOOL KuroRouteBaseline(NSArray *routes) {
   if(![routes isKindOfClass:NSArray.class] || routes.count>4096)return NO;
   for(NSDictionary *entry in routes)if(!Keys(entry,@[@"family",@"destination",@"prefix",@"gateway",@"interfaceIndex",@"interfaceName",@"flags"]) ||
@@ -341,7 +357,7 @@ typedef NS_ENUM(NSUInteger,KuroRouteObservationState) {
     NSUInteger count=0;
     for(NSDictionary *route in observed)if(KuroRouteKey(route,target)) {
       count++;
-      if(!KuroCoreAutoRouteEqual(route,target)){Fail(error,@"Core auto-route differs from its fixed gateway/interface/flags");return KuroRouteObservationInvalid;}
+      if(!KuroCoreAutoRouteEqual(route,target)){Fail(error,KuroRouteMismatchDiagnostic(target,route));return KuroRouteObservationInvalid;}
     }
     if(count>1){Fail(error,@"Core auto-route readback is ambiguous");return KuroRouteObservationInvalid;}
     if(!count)missing=YES;

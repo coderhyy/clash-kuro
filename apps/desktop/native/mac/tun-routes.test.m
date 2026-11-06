@@ -173,6 +173,33 @@ static void RouteReadinessTests(void) {
   CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);
   puts("native route readiness: 11 typed pending/late-complete/later-conflict/duplicate/read-error/identity/journal/durability/disappeared-route cases PASS; missing-only pending grants no observation");
 }
+static void RouteMismatchDiagnosticTests(void) {
+  char temporary[]="/tmp/kuro-route-mismatch-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));
+  NSString *base=@(canonical),*session=@"00112233-4455-6677-8899-AABBCCDDEEFF";KuroCoreInterface association=RouteFixtureInterface();
+  for(NSUInteger scenario=0;scenario<4;scenario++) {
+    NSString *directory=[base stringByAppendingPathComponent:[NSString stringWithFormat:@"case%lu",(unsigned long)scenario]],*error=nil;FixtureDirectory(directory);
+    KuroFakeRouteStore *store=[KuroFakeRouteStore new];store.entries=[RouteFixtureBaseline()mutableCopy];
+    KuroOwnedRoutes *routes=[[KuroOwnedRoutes alloc]initWithDirectory:directory owner:geteuid() backend:store];
+    CHECK([routes prepareForSession:session binding:RouteFixtureBinding() baselineRoutes:RouteFixtureBaseline() baselineDNS:@{} physicalInterface:@"en0" error:&error]);
+    RouteFixtureCoreAppears(store);NSDictionary *target=KuroCoreAutoRouteCandidate(association).lastObject;NSMutableDictionary *actual=[store.entries.lastObject mutableCopy];
+    if(scenario==0)actual[@"flags"]=@([actual[@"flags"]unsignedIntValue]|RTF_IFSCOPE);
+    if(scenario==1)actual[@"gateway"]=@"fdfe:dcba:9876::2";
+    if(scenario==2)actual[@"interfaceIndex"]=@99;
+    if(scenario==3)actual[@"gateway"]=[@"界"stringByPaddingToLength:1024 withString:@"界"startingAtIndex:0];
+    store.entries[store.entries.count-1]=actual;
+    CHECK([routes observeReadinessForSession:session interface:association ownership:^KuroRouteOwnerState(KuroCoreInterface value,NSString **failure){(void)value;(void)failure;return KuroRouteOwnerLive;} error:&error]==KuroRouteObservationInvalid);
+    CHECK(store.snapshots==1 && !routes.routesOff && [error lengthOfBytesUsingEncoding:NSUTF8StringEncoding]<4096);
+    NSString *marker=@"Core auto-route differs from its fixed gateway/interface/flags; routeObservation=";CHECK([error hasPrefix:marker]);
+    NSDictionary *diagnostic=KuroDecodeJSON(Bytes([error substringFromIndex:marker.length]),2048,NULL);
+    CHECK([diagnostic[@"expected"][@"route"]isEqual:target]&&[diagnostic[@"expected"][@"flags"]unsignedIntValue]==(RTF_UP|RTF_STATIC|RTF_GATEWAY|RTF_PRCLONING));
+    CHECK([diagnostic[@"normalizedFlags"]unsignedIntValue]==([actual[@"flags"]unsignedIntValue]&~(RTF_DONE|RTF_IFREF)));
+    if(scenario<3)CHECK([diagnostic[@"actual"]isEqual:actual]&&[diagnostic[@"actualOmitted"]isEqual:@NO]);
+    else CHECK([diagnostic[@"actualOmitted"]isEqual:@YES]&&!diagnostic[@"actual"]&&[diagnostic[@"actualSHA256"]isEqual:Hash(JSONData(actual))]);
+    NSString *saved=[error copy],*recoveryError=nil;store.entries=[RouteFixtureBaseline()mutableCopy];CHECK([routes recoverRecordedAbsence:&recoveryError]);CHECK([saved isEqual:error]);
+  }
+  CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);
+  puts("native route mismatch diagnostic: 4 actual snapshot gateway/interface/flags/bounded-omission cases PASS; unchanged refusal, one snapshot, primary error retained through absence cleanup");
+}
 static void RouteAbsenceTests(void) {
   char temporary[]="/tmp/kuro-route-absence-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));NSString *base=@(canonical),*session=@"00112233-4455-6677-8899-AABBCCDDEEFF";KuroCoreInterface association=RouteFixtureInterface();
   for(NSUInteger scenario=0;scenario<15;scenario++) {
@@ -199,4 +226,4 @@ static void RouteAbsenceTests(void) {
   CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);
   puts("native route absence: 15 prepared/observed/legacy/no-journal/foreign/duplicate/read-failure/two-snapshot/unlink-sync retry cases PASS; no route deletion method exists");
 }
-static void RouteTests(void) {RouteKernelDumpTests();RouteObservationTests();RouteReadinessTests();RouteAbsenceTests();}
+static void RouteTests(void) {RouteKernelDumpTests();RouteObservationTests();RouteReadinessTests();RouteMismatchDiagnosticTests();RouteAbsenceTests();}

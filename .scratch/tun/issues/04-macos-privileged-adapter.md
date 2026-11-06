@@ -1,11 +1,13 @@
 # macOS 特权 helper
 
-Status: ready-for-agent（Core auto-route 生产替换及八条组合回归已通过；独审/CI/新候选进行中；实机未通过）
+Status: ready-for-agent（c7da1ba 实机已建 utun，路由读回拒绝；失败恢复/卸载通过，补齐实际路由诊断后重试）
 Type: task
-Blocked by: 首次正常启停：auto-route 组合回归、独审/CI、候选冻结与现场基线；正式交付：异常恢复与升级验收
+Blocked by: 首次正常启停：明确实际 auto-route 读回差异并验证；正式交付：异常恢复与升级验收
 Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
 
 ## 当前交付状态（auto-route 决定后）
+
+- 最新真实结果：[c7da1ba 首轮实机](../evidence/core-auto-route-live-c7da1ba-20261106/RESULT.md)。实际 App fresh→ready 通过，Core 建立双栈 utun6；路由 gateway/interface/flags 核验拒绝，SIGTERM exit0 后完整恢复、持久停止证明和精确卸载通过。尚未进行测试流量，不计正常启停通过。下一步仅补实际失败路由与预期元组诊断，不放宽门禁。
 
 - 新增证据：[auto-route 组合结果](../evidence/core-auto-route-20261106/RESULT.md)。手工 writer 已删除；fresh/start/stop 与部分路由启动失败恢复八条生产链通过（模拟系统后端），固定 Core -t 通过；尚无新实机流量结论。
 - 负责范围沿用本票；04 移除手工 writer、保留鉴权/监督，06 接入固定配置与只读网络生命周期，08 负责生产组合回归、独审/CI 和同范围真实正常启停。
