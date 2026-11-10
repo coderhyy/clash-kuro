@@ -1,13 +1,13 @@
 # TUN 接入生命周期
 
-Status: ready-for-agent（29e1883 真实 DNS 样本已取得；一次原会话恢复与精确卸载通过，最小兼容修复集成中）
+Status: ready-for-agent（1252 实机在 socket FD 复核拒绝；自动恢复、持久停止证明和精确卸载通过；受控流量未执行）
 Type: task
-Blocked by: 首次正常启停：DNS 精确派生兼容与恢复修复的组合回归独审及新候选；正式交付：受控流量、异常恢复与升级验收
+Blocked by: 首次正常启停：Core socket FD 读取失败的准确归因与最小修复；正式交付：受控流量、异常恢复与升级验收
 Owner: TUN 接入 agent；主会话统一 Core/State/桌面公共接口与源码分工
 
 ## 当前交付状态（auto-route 决定后）
 
-- 当前：29e1883 实机取得本会话 Global DNS 派生字段差异；首次自动恢复未生成证明，后经用户批准仅一次原会话恢复，四项持久停止证明、原基线及准确卸载均通过。最小活动准入与短时恢复读回修复已集成，组合回归／独审中。受控流量尚未执行；出站 ENETUNREACH 未解释，不记正常验收通过。
+- 当前：`1252d09` 同提交完整 native／双平台 CI／实际包独审通过；实际启动在 DNS 写入后的 socket FD 复核拒绝。原会话自动退出、网络恢复、持久停止证明及精确卸载通过；未发受控流量。真实关闭 FD 机制已在无害 child 复现，现场 errno 仍未知。收敛为首次完整唯一发现、后续原目标 FD 双读及原 process/socket/interface 精确复核；不再把背景连接 FD 稳定性当作目标归属条件。IPv4 出站错误仍未解释。
 
 - 最新真实结果：`3445848` 双平台 CI 42799632296 与实际包独审通过；fresh→ready→start 在 DNS post-write-admission 报 `DNS baseline changed`，未发送受控流量。原会话 exit0、网络恢复、四项持久证明、job/安装/receipt 精确清理通过。正在补具体 DNS 差异诊断，不据推测忽略 Global；[记录](../evidence/core-auto-route-global-20261106/RESULT.md)。
 

@@ -8,6 +8,7 @@
 #include <net/if.h>
 #include <net/if_utun.h>
 #include <limits.h>
+#include <errno.h>
 
 typedef struct {
   pid_t pid;
@@ -52,18 +53,23 @@ static int KuroInterfaceFDOrder(const void *left, const void *right) {
   int a = ((const struct proc_fdinfo *)left)->proc_fd, b = ((const struct proc_fdinfo *)right)->proc_fd;
   return (a > b) - (a < b);
 }
-static NSData *KuroInterfaceSnapshot(KuroCoreIdentity identity, const KuroInterfaceReader *reader, KuroCoreInterface *candidate, NSString **error) {
-  const NSUInteger entry = sizeof(struct proc_fdinfo), maximum = KuroInterfaceFDLimit * entry;
-  int requested = reader->pidInfo(identity.pid, PROC_PIDLISTFDS, 0, NULL, 0);
-  if (requested <= 0 || (NSUInteger)requested > maximum || requested % entry) { Fail(error, @"Core FD enumeration size is unavailable or exceeds the diagnostic bound"); return nil; }
-  // Spare capacity detects a full/truncated result; no retry that hides churn.
-  NSUInteger capacity = MIN((NSUInteger)requested + 16 * entry, maximum + entry);
-  NSMutableData *listing = [NSMutableData dataWithLength:capacity];
-  int returned = reader->pidInfo(identity.pid, PROC_PIDLISTFDS, 0, listing.mutableBytes, (int)capacity);
-  if (returned <= 0 || (NSUInteger)returned >= capacity || (NSUInteger)returned > maximum || returned % entry) { Fail(error, @"Core FD enumeration is incomplete or changed beyond its bound"); return nil; }
-  NSUInteger count = (NSUInteger)returned / entry;
-  struct proc_fdinfo *descriptors = listing.mutableBytes;
-  qsort(descriptors, count, entry, KuroInterfaceFDOrder);
+static NSData *KuroInterfaceSnapshot(KuroCoreIdentity identity, const KuroInterfaceReader *reader, KuroCoreInterface *candidate, int targetDescriptor, unsigned int sample, NSString **error) {
+  // Known-target mode performs real socket reads, not another background FD census.
+  struct proc_fdinfo target={targetDescriptor,PROX_FDTYPE_SOCKET};
+  struct proc_fdinfo *descriptors=&target;NSUInteger count=1;NSMutableData *listing=nil;
+  if(targetDescriptor<0) {
+    const NSUInteger entry = sizeof(struct proc_fdinfo), maximum = KuroInterfaceFDLimit * entry;
+    int requested = reader->pidInfo(identity.pid, PROC_PIDLISTFDS, 0, NULL, 0);
+    if (requested <= 0 || (NSUInteger)requested > maximum || requested % entry) { Fail(error, @"Core FD enumeration size is unavailable or exceeds the diagnostic bound"); return nil; }
+    // Spare capacity detects a full/truncated result; no retry that hides churn.
+    NSUInteger capacity = MIN((NSUInteger)requested + 16 * entry, maximum + entry);
+    listing = [NSMutableData dataWithLength:capacity];
+    int returned = reader->pidInfo(identity.pid, PROC_PIDLISTFDS, 0, listing.mutableBytes, (int)capacity);
+    if (returned <= 0 || (NSUInteger)returned >= capacity || (NSUInteger)returned > maximum || returned % entry) { Fail(error, @"Core FD enumeration is incomplete or changed beyond its bound"); return nil; }
+    count = (NSUInteger)returned / entry;
+    descriptors = listing.mutableBytes;
+    qsort(descriptors, count, entry, KuroInterfaceFDOrder);
+  }
   KuroInterfaceFD matched = {0};
   NSUInteger matches = 0;
   for (NSUInteger index = 0; index < count; index++) {
@@ -74,7 +80,11 @@ static NSData *KuroInterfaceSnapshot(KuroCoreIdentity identity, const KuroInterf
     entryInfo->descriptor = descriptor.proc_fd; entryInfo->descriptorType = descriptor.proc_fdtype;
     if (descriptor.proc_fdtype != PROX_FDTYPE_SOCKET) continue;
     struct socket_fdinfo socket = {0};
-    if (reader->pidFDInfo(identity.pid, descriptor.proc_fd, PROC_PIDFDSOCKETINFO, &socket, sizeof(socket)) != sizeof(socket)) { Fail(error, @"Core socket read is denied, incomplete, or raced with a closed FD"); return nil; }
+    errno=0;
+    int socketBytes=reader->pidFDInfo(identity.pid,descriptor.proc_fd,PROC_PIDFDSOCKETINFO,&socket,sizeof(socket)),savedErrno=errno;
+    if(socketBytes!=sizeof(socket)) {
+      Fail(error,[NSString stringWithFormat:@"Core socket read is denied, incomplete, or raced with a closed FD; socketRead sample=%u fd=%d ordinal=%lu listed=%lu returned=%d expected=%lu errno=%d mode=%@",sample,descriptor.proc_fd,(unsigned long)index+1,(unsigned long)count,socketBytes,(unsigned long)sizeof(socket),savedErrno,targetDescriptor<0?@"discovery":@"target"]);return nil;
+    }
     struct socket_info *info = &socket.psi;
     entryInfo->socketHandle = info->soi_so; entryInfo->pcbHandle = info->soi_pcb;
     entryInfo->family = info->soi_family; entryInfo->type = info->soi_type;
@@ -110,27 +120,48 @@ static BOOL KuroInterfaceIndex(KuroCoreInterface *candidate, const KuroInterface
   candidate->interfaceIndex = index;
   return YES;
 }
-static BOOL KuroObserveCoreInterfaceWithReader(KuroCoreIdentity identity, KuroCoreInterface *result, const KuroInterfaceReader *reader, NSString **error) {
+static BOOL KuroInterfaceSameTarget(KuroCoreInterface a,KuroCoreInterface b) {
+  return a.process.pid==b.process.pid && a.process.startSeconds==b.process.startSeconds && a.process.startMicros==b.process.startMicros &&
+    a.descriptor==b.descriptor && a.controlID==b.controlID && a.controlUnit==b.controlUnit && a.socketHandle==b.socketHandle && a.pcbHandle==b.pcbHandle &&
+    a.interfaceIndex==b.interfaceIndex && !strcmp(a.interfaceName,b.interfaceName);
+}
+static BOOL KuroObserveCoreInterfaceExpectedWithReader(KuroCoreIdentity identity,const KuroCoreInterface *expected,KuroCoreInterface *result,const KuroInterfaceReader *reader,NSString **error) {
   if (result) memset(result, 0, sizeof(*result));
   if (!result || identity.pid <= 0 || !identity.startSeconds || identity.startMicros >= 1000000 || !reader ||
     !reader->pidInfo || !reader->pidFDInfo || !reader->nameToIndex || !reader->indexToName) return Fail(error, @"held Core child identity and complete read-only observer are required");
+  if(expected) {
+    char name[IF_NAMESIZE]={0};snprintf(name,sizeof(name),"utun%u",expected->controlUnit-1);
+    if(expected->process.pid!=identity.pid || expected->process.startSeconds!=identity.startSeconds || expected->process.startMicros!=identity.startMicros ||
+      expected->descriptor<0 || !expected->controlID || !expected->controlUnit || expected->controlUnit>INT_MAX || !expected->socketHandle || !expected->pcbHandle || !expected->interfaceIndex ||
+      !memchr(expected->interfaceName,'\0',sizeof(expected->interfaceName)) || strcmp(name,expected->interfaceName))return Fail(error,@"saved Core utun association is invalid");
+  }
   if (!KuroInterfaceIdentity(identity, reader, error)) return NO;
   KuroCoreInterface first = {0}, second = {0};
-  NSData *before = KuroInterfaceSnapshot(identity, reader, &first, error);
+  NSData *before = KuroInterfaceSnapshot(identity, reader, &first, expected?expected->descriptor:-1, 1, error);
   if (!before || !KuroInterfaceIndex(&first, reader, error)) return NO;
-  NSData *after = KuroInterfaceSnapshot(identity, reader, &second, error);
+  NSData *after = KuroInterfaceSnapshot(identity, reader, &second, expected?expected->descriptor:-1, 2, error);
   if (!after || !KuroInterfaceIndex(&second, reader, error)) return NO;
   if (![before isEqual:after]) return Fail(error, @"Core utun FD/control-socket identity changed during verification");
   if (first.interfaceIndex != second.interfaceIndex) return Fail(error, @"Core utun interface index changed during verification");
+  if(expected && !KuroInterfaceSameTarget(second,*expected))return Fail(error,@"Core utun target differs from the saved association");
   if (!KuroInterfaceIdentity(identity, reader, error)) return NO;
   *result = second;
   return YES;
+}
+static BOOL KuroObserveCoreInterfaceWithReader(KuroCoreIdentity identity,KuroCoreInterface *result,const KuroInterfaceReader *reader,NSString **error) {
+  return KuroObserveCoreInterfaceExpectedWithReader(identity,NULL,result,reader,error);
 }
 // Caller must hold the unreaped child in this session; a persisted PID/start
 // record alone is not authority. This samples association, never pins an utun.
 static BOOL __attribute__((unused)) KuroObserveCoreInterface(KuroCoreIdentity identity, KuroCoreInterface *result, NSString **error) {
   const KuroInterfaceReader reader = {proc_pidinfo, proc_pidfdinfo, if_nametoindex, if_indextoname};
   return KuroObserveCoreInterfaceWithReader(identity, result, &reader, error);
+}
+
+// Subsequent checks confirm the saved target, not process-wide utun exclusivity.
+static BOOL __attribute__((unused)) KuroObserveExpectedCoreInterface(KuroCoreInterface expected,KuroCoreInterface *result,NSString **error) {
+  const KuroInterfaceReader reader={proc_pidinfo,proc_pidfdinfo,if_nametoindex,if_indextoname};
+  return KuroObserveCoreInterfaceExpectedWithReader(expected.process,&expected,result,&reader,error);
 }
 
 // Only called by a future real start/recovery. Tests inject this snapshot.

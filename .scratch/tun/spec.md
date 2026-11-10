@@ -6,6 +6,21 @@ Status: ready-for-agent（产品边界已批准；安全实现与真实验收未
 
 ## 当前实现与验收证据（2026-11-06）
 
+2026-11-10 核验层收敛：初次完整枚举唯一 utun，后续双读原绑定 FD 及原 process/socket/interface 身份；不重复要求全部背景 socket 可稳定枚举。Global DNS 只接受真实样本约束的本会话精确派生记录，其他 DNS 保留原检查，停止后仍须完整原基线连续读回及持久退役。邻居缓存及已证明的内核伴生路由不是自有删除目标；物理出口、接管范围、未知路由和第三方变化的保护不变。USB/无关接口变化仍待兼容验证，不将当前验收窗口的完整基线冻结解释为产品身份定义。`1252d09` 已通过失败停止恢复及卸载，但在 socket FD 复核拒绝，未发受控流量；IPv4 ENETUNREACH 原因尚未确定。
+
+本次参考固定源码：[Verge 会话 stop proof](https://github.com/clash-verge-rev/clash-verge-rev/blob/304a65fc36dfba7dec25124c0294865897df8c00/src-tauri/src/core/service.rs#L1544-L1595)、[Party 实际 child 与 API readiness](https://github.com/mihomo-party-org/clash-party/blob/72af7d82cc217a64d6cd6c147ac70534c0eb8308/src/main/core/manager.ts#L696-L732)、[Nyanpasu 未知状态不等于停止](https://github.com/libnyanpasu/clash-nyanpasu/blob/93ce63265a0c47335f9198e512b7756355f6bff8/backend/nyanpasu-core/src/actor_v2/endpoint.rs#L383-L434)。这些调用约定支持身份与运行健康分层，不代替本实现安全证明或实机验收；没有审完各仓外部 supervisor，也不复制其 setuid、公共 DNS、按名称/PID 清退策略。
+
+| 核验对象 | 必须保留的条件 | 动态状态处理 |
+|---|---|---|
+| 安装／App／Core／会话 | 受保护安装、摘要、鉴权、held child 起始身份和会话绑定 | 不以健康探针成功替代身份 |
+| utun | 初次唯一发现；之后原 FD/socket/control/name/index 双读一致 | 背景 socket 增删或统计变化不参与后续目标归属判断 |
+| 路由 | 准确 held 接口、固定接管范围、未知对象不删 | Core 独占写入；已证实的邻居克隆、系统瞬态 flags 和自有伴生项独立识别，不要求旧手工路由形状 |
+| DNS | 本会话专属 service key 两路精确读回 | Global 是 configd 派生观测，仅接受真实样本约束的同 UUID 固定字段；不写 Global、不改公共 DNS |
+| 物理接口／第三方变化 | 原出口有效、地址池无冲突、保护第三方设置 | 本窗口冻结基线不等于永久身份；USB 等兼容另验，不泛化忽略变化 |
+| 停止／恢复 | 原 Core 退出、自有网络消失、原基线读回、持久停止证明 | unknown 不作 stopped；不凭旧 PID、组为空或一次实验扩大清理权 |
+
+[Nyanpasu 专属 DNS key](https://github.com/libnyanpasu/clash-nyanpasu/blob/93ce63265a0c47335f9198e512b7756355f6bff8/backend/nyanpasu-core/src/actor_v2/local_host.rs#L65-L82)支持归属分工，但不证明我们的派生 Global 已实机通过。其他项目默认 auto-detect-interface 也不能证明本机 en0 绑定导致 IPv4 ENETUNREACH；必须取得同会话受控请求及对应出口证据，不能把普通 App 直连成功或 IPv6 无出口当作解释。
+
 04/06/08持续正常窗口已由维护者批准，允许同范围有证据修复、冻结新包重试；系统管理员弹窗由维护者处理，前轮恢复清理必须确认。helper强杀、TUN-on退出App、升级和第三方设置更改不在此窗口。
 
 实际安装App鉴权恢复ready、固定root Core创建双族utun、失败后准确SIGTERM/exit0与持久停止证明、原生卸载/receipt清理已有现场记录。尚未通过完整TUN就绪、流量接管或正常on→off，不能把MATCH,DIRECT和本地双族地址扩大为代理节点或外网IPv6通过。

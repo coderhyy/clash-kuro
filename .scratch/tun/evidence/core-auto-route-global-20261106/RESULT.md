@@ -87,3 +87,18 @@ Core SIGTERM→exit0、双路EOF；首次自动恢复因合并的 route/DNS base
 受控流量未执行，先前 IPv4 出站 ENETUNREACH 尚未解释；固定 en0 绑定源码与 GLOBAL/NECP 线索不等同根因。原始证据留本地 `/private/tmp/kuro-29e1883-window-_9ow03kl` 与受保护诊断 `/Library/Application Support/Clash Kuro/TunDiagnostics/F89F129D-531B-471E-8B3E-72BAF00B933B`。本轮只证明该保留会话可显式恢复及准确卸载，不算正常流量/停止验收通过。
 
 最小修复范围：活动时只在原自有 UUID key 两路读回准确后，允许本会话严格五字段 Supplemental Global，原 Default 也限实测闭合形状，其他完整 DNS 记录不变。恢复只在准确 Core/interface/writer 缺席、自有 DNS 清理完成后对同一精确派生记录等待入口起算最多 200ms；路由或其他 DNS 变化立即拒绝。连续两次完整原 baseline 才可进入原 route absence 及持久退休流程；DNS 清理持久化失败保留 route journal。启动诊断保留有限字段差异，恢复错误区分 owner-binding/owner-exit/route-read/route-changed/dns-read/dns-changed/derived-timeout/dns-retirement。外层 2s 不变，不能保证单次同步 OS 调用硬耗时上限。
+
+
+### 2026-11-10：1252 DNS 修复候选（FD 复核拒绝，精确清理完成）
+
+源码 `1252d09edb63a0ccebd0de134207e208b5db4ca9`、包 SHA256 `f7703b9c7911bac74f831ebeadab7d765c69b6f39f4059adf781a9d6cd702da2` 经完整本地 native、双平台 CI 42811038198、实际包及窗口独审后运行。安装前 stableRoutes/DNS/interfaces 与原已恢复快照完全一致，有效 DNS 为批准路由器，系统代理关闭。fresh 安装及实际 App ready 通过；单次开启失败原因为 `temporary DNS write was not independently confirmed; journal retained; stage=post-write-admission; reason=Core socket read is denied, incomplete, or raced with a closed FD`。这证明临时 DNS key 写入和直接值读回已通过；后续 ownership 检查拒绝，不能据此确认整个派生 Global 兼容路径已实机通过。未执行受控流量。
+
+原会话 SIGTERM→exit0、双路 EOF、networkRecovery restored 与四项持久停止证明通过；owner/network/DNS journal/session-work 清退。App 退出后原基线 stableRoutes/DNS/interfaces 全等，准确 job bootout、原生 uninstall、安装路径/进程缺席及 receipt forget 通过。原始证据仅留本地 `/private/tmp/kuro-1252d09-window-j871vh71`，受保护诊断 `/Library/Application Support/Clash Kuro/TunDiagnostics/4E163013-3F02-43A9-BA45-56FB19212E0C`。
+
+当前唯一原错误位于逐 socket FD 的 proc_pidfdinfo 长度检查，尚未记录 errno/实际长度/失败 FD，无法区分权限拒绝、短读与枚举后关闭竞态。保持拒绝条件，下一步补真实无害 child FD 关闭复现及有限诊断，不直接跳过未知失败。背景 IPv4 DIRECT ENETUNREACH 再现，仍无受控流量关联或根因证明；无物理 IPv6 出口不能解释 IPv4 错误。正常启停、代理节点及完整双栈验收均未通过。
+
+核验层最小修复：首次 discover 保留原完整枚举、唯一 utun、两完整样本及 process/index 门；后续 ownership 只双读原会话目标 FD，复用原 socket/control 校验并比较原绑定，背景连接不再被当作该目标归属条件。没有 retry/sleep、新 schema、writer 或清理权限。target 权限/短读/替换、原 process/start/parent/index 变化仍拒，未知不作 exited。先前重采样候选经独审发现 partial-target 问题，已撤回且未进入生产。
+
+真实普通用户 direct-child/socketpair fixture 经 pipe 屏障在枚举后由准确 child 关闭 FD：原读返回792/errno0，关闭后真实 proc_pidfdinfo 返回0/EBADF9，准确 waitpid exit0。它证明此动态机制而非1252现场的缺失 errno；未知目标初次发现仍拒绝。同背景读失败的旧完整复核 RED／新目标复核 GREEN，目标替换、访问拒绝、短读及身份变化回归通过；替代三文件 patch `c2276506f94e28db7d1f949477d81b6cb2c8a48a27f6cddce92edd7c575ed2c7` 独审通过，完整 native/CI 由主会话继续核验。有限失败诊断新增 sample/fd/ordinal/returned/expected/errno/mode，不输出地址或 opaque handles。
+
+三项目固定源码对照及逐项核验边界已写现有 spec/ADR-0014。未发现需借鉴公共 DNS、setuid、按名称或旧PID清退的理由；路由仍由固定 Core 独占写入。受控流量和真实正常停止仍未验收，IPv4 ENETUNREACH 未解释。

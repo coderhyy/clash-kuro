@@ -103,7 +103,7 @@ static KuroNetworkEnvironment *KuroProductionEnvironment(void) {
   };
   environment.ownership=^KuroRouteOwnerState(KuroCoreInterface expected,NSString **error) {
     KuroCoreInterface current={0}; NSString *failure=nil;
-    if (KuroObserveCoreInterface(expected.process,&current,&failure) && [KuroRouteAssociation(current)isEqual:KuroRouteAssociation(expected)]) return KuroRouteOwnerLive;
+    if (KuroObserveExpectedCoreInterface(expected,&current,&failure) && [KuroRouteAssociation(current)isEqual:KuroRouteAssociation(expected)]) return KuroRouteOwnerLive;
     struct proc_bsdinfo info={0}; errno=0; int count=proc_pidinfo(expected.process.pid,PROC_PIDTBSDINFO,0,&info,sizeof(info)); int saved=errno;
     BOOL exited=count==sizeof(info)?info.pbi_start_tvsec!=expected.process.startSeconds || info.pbi_start_tvusec!=expected.process.startMicros || info.pbi_status==SZOMB:count==0 && saved==ESRCH;
     char name[IF_NAMESIZE]={0}; BOOL gone=if_nametoindex(expected.interfaceName)==0 && (!if_indextoname(expected.interfaceIndex,name) || strcmp(name,expected.interfaceName));
