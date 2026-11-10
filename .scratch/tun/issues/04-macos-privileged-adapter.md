@@ -1,11 +1,13 @@
 # macOS 特权 helper
 
-Status: ready-for-agent（3445848 双平台 CI 与独审通过；真实启动在 DNS 基线比较拒绝，恢复及精确清理完成，差异诊断进行中）
+Status: ready-for-agent（29e1883 真实 DNS 样本已取得；一次原会话恢复与精确卸载通过，最小兼容修复集成中）
 Type: task
-Blocked by: 首次正常启停：DNS 具体差异定位、相关回归独审与新候选；正式交付：受控流量、异常恢复与升级验收
+Blocked by: 首次正常启停：DNS 精确派生兼容与恢复修复的组合回归独审及新候选；正式交付：受控流量、异常恢复与升级验收
 Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
 
 ## 当前交付状态（auto-route 决定后）
+
+- 当前：29e1883 实机取得本会话 Global DNS 派生字段差异；首次自动恢复未生成证明，后经用户批准仅一次原会话恢复，四项持久停止证明、原基线及准确卸载均通过。最小活动准入与短时恢复读回修复已集成，组合回归／独审中。受控流量尚未执行；出站 ENETUNREACH 未解释，不记正常验收通过。
 
 - 最新真实结果：`3445848` 双平台 CI 42799632296 与实际包独审通过；fresh→ready→start 在 DNS post-write-admission 报 `DNS baseline changed`，未发送受控流量。原会话 exit0、网络恢复、四项持久证明、job/安装/receipt 精确清理通过。正在补具体 DNS 差异诊断，不据推测忽略 Global；[记录](../evidence/core-auto-route-global-20261106/RESULT.md)。
 

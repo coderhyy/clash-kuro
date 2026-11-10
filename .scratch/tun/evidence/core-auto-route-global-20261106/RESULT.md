@@ -76,3 +76,14 @@ A deterministic real-service fixture reproduced a false DNS assertion: controlle
 原始受限证据只留本地 `/private/tmp/kuro-3445848-window-w7uma0cq`；受保护诊断 `/Library/Application Support/Clash Kuro/TunDiagnostics/E709508E-12A7-4E97-902C-AA686464FA48`。本轮未捕获 DNS 变化的具体字段；当前门仅移除自有 service key 后整表比较，configd 派生 Global 变化是源码支持的候选原因，不是已确认现场原因。下一步仅补有界差异诊断，不放宽 Global 或其他归属检查。受控流量工具已离线独审；未执行的请求/observer 不计作实机通过。
 
 差异诊断修复：仅在原 DNS 全表不等分支追加最多 512 字符的固定 Global 字段摘要与相等布尔，复用已有快照，无新增系统读取、不改变准入或恢复。旧生产源码配相同新组合测试可编译并实际 RED；新源码两个 post-write-admission 拒绝场景及原四项 metadata 测试 GREEN。测试中的 Global 派生为注入后端，不能代替本机实测字段。原始 fixture/日志留本地 `/private/tmp/kuro-dns-baseline-diagnostic`。
+
+
+### 2026-11-10：29e1883 实际 DNS 样本与一次原会话恢复
+
+源码 `29e188362196af65242095b9aefab7b3a57c097c`、包 SHA256 `197e092863cb23fe5221ac6865f7e45b27d7d71edfc5d64c8738d98e5d10a179` 经双平台 CI 42803904766 和实际包独审后运行。实际 App ready 后启动仍拒绝；新增诊断确认只改一个 Global DNS 记录，无增删 key，变更字段为 cid/if/flags/servers/searchOrder，无未知字段。Default flags=2/interface14 变为本 session Supplemental、flags=16386、无接口索引；servers 精确为自有固定值，DomainName 缺席、SearchOrder=1。该真实样本支持收窄的 configd 派生形状处理，不能据此忽略任意 Global 或非 Global 变化。
+
+Core SIGTERM→exit0、双路EOF；首次自动恢复因合并的 route/DNS baseline 检查失败保留 owner/network/work，无 stopped proof。稍后只读完整 stableRoutes/DNS/interfaces 已回原基线；旧错误未区分当时 route 与 DNS，不能倒推只因 configd 延迟。用户随后单独批准一次原 App/helper 会话恢复：只点击一次恢复，持久 childReaped/cleanupComplete/routesOff/dnsOff 全通过，准确会话记录及 work 清退；正常退出 App 后原基线核验、job/安装路径/进程缺席及精确 receipt 清理全部通过。未重启 Core/TUN、未手改 DNS/route/第三方设置。
+
+受控流量未执行，先前 IPv4 出站 ENETUNREACH 尚未解释；固定 en0 绑定源码与 GLOBAL/NECP 线索不等同根因。原始证据留本地 `/private/tmp/kuro-29e1883-window-_9ow03kl` 与受保护诊断 `/Library/Application Support/Clash Kuro/TunDiagnostics/F89F129D-531B-471E-8B3E-72BAF00B933B`。本轮只证明该保留会话可显式恢复及准确卸载，不算正常流量/停止验收通过。
+
+最小修复范围：活动时只在原自有 UUID key 两路读回准确后，允许本会话严格五字段 Supplemental Global，原 Default 也限实测闭合形状，其他完整 DNS 记录不变。恢复只在准确 Core/interface/writer 缺席、自有 DNS 清理完成后对同一精确派生记录等待入口起算最多 200ms；路由或其他 DNS 变化立即拒绝。连续两次完整原 baseline 才可进入原 route absence 及持久退休流程；DNS 清理持久化失败保留 route journal。启动诊断保留有限字段差异，恢复错误区分 owner-binding/owner-exit/route-read/route-changed/dns-read/dns-changed/derived-timeout/dns-retirement。外层 2s 不变，不能保证单次同步 OS 调用硬耗时上限。
