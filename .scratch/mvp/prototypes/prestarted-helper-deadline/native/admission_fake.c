@@ -59,6 +59,8 @@ static DWORD evidence_thread;
 static int evidence_waited;
 static LONG final_io;
 static int fault(const wchar_t *name) {
+  if (!wcscmp(fixture_mode, L"clear-hung-log-after-write-hung") &&
+      (!wcscmp(name, L"clear-hung") || !wcscmp(name, L"log-after-write-hung"))) return 1;
   if (!wcscmp(fixture_mode, L"append-fail-reset-fail") &&
       (!wcscmp(name, L"append-fail") || !wcscmp(name, L"reset-fail"))) return 1;
   if (!wcscmp(fixture_mode, L"append-flush-fail") && !wcscmp(name, L"flush-fail")) return resident_load(&resident.serving);
