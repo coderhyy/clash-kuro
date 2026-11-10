@@ -57,7 +57,7 @@ static wchar_t fixture_mode[64], proxy_server[300] = L"127.0.0.1:7891";
 static DWORD proxy_flags = PROXY_TYPE_DIRECT;
 static DWORD evidence_thread;
 static int evidence_waited;
-static LONG final_io;
+static LONG final_io, drain_wait_count;
 static int fault(const wchar_t *name) {
   if (!wcscmp(fixture_mode, L"clear-hung-log-after-write-hung") &&
       (!wcscmp(name, L"clear-hung") || !wcscmp(name, L"log-after-write-hung"))) return 1;
@@ -187,6 +187,32 @@ static BOOL WINAPI fake_truncate(HANDLE file) {
   return SetEndOfFile(file);
 }
 static DWORD fake_wait(HANDLE file, DWORD milliseconds) {
+  if (!wcscmp(fixture_mode, L"diagnostics-stall") && file == resident.core_output_done) {
+    ULONGLONG before = GetTickCount64() - resident.start;
+    DWORD result = WaitForSingleObject(file, milliseconds);
+    DWORD last_error = GetLastError();
+    ULONGLONG after = GetTickCount64() - resident.start;
+    // Independent per-case evidence must not use the deliberately paused stderr pipe.
+    char json[512]; wchar_t path[MAX_PATH + 32];
+    LONG count = InterlockedIncrement(&drain_wait_count);
+    int bytes = _snprintf(json, sizeof json,
+      "{\"case\":\"diagnostics-stall\",\"count\":%ld,\"pid\":%lu,\"corePid\":%lu,\"triggerEpochMs\":%llu,"
+      "\"requestedMs\":%lu,\"beforeMs\":%llu,\"afterMs\":%llu,\"result\":%lu,\"error\":%lu}\n",
+      count, GetCurrentProcessId(), (DWORD)resident_load(&resident.core_pid),
+      (ULONGLONG)InterlockedCompareExchange64((LONG64 *)&resident.trigger_epoch, 0, 0),
+      milliseconds, before, after, result, result == WAIT_FAILED ? last_error : 0);
+    assert(g_log && bytes > 0 && (size_t)bytes < sizeof json);
+    int length = _snwprintf(path, sizeof path / sizeof *path, L"%ls.drain-wait.json", g_log);
+    assert(length > 0 && (size_t)length < sizeof path / sizeof *path);
+    HANDLE evidence = CreateFileW(path, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_NEW,
+      FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OPEN_REPARSE_POINT, NULL);
+    assert(evidence != INVALID_HANDLE_VALUE);
+    DWORD written = 0;
+    assert(WriteFile(evidence, json, bytes, &written, NULL) && written == (DWORD)bytes);
+    assert(CloseHandle(evidence));
+    SetLastError(last_error);
+    return result;
+  }
   if (fault(L"diagnostics-report-delay")) {
     // Model a blocked drain and a runnable reporter delayed beyond the final 100 ms slot.
     if (file == resident.core_output_done) return WaitForSingleObject(GetCurrentProcess(), milliseconds);

@@ -21,6 +21,25 @@ function shutdownReport(log) {
   assert.equal(reports[0].protocol, 3)
   return reports[0]
 }
+function assertDiagnosticDrainWait(evidence, pid, report) {
+  assert.deepEqual(Object.keys(evidence).sort(), ['case', 'count', 'pid', 'corePid', 'triggerEpochMs',
+    'requestedMs', 'beforeMs', 'afterMs', 'result', 'error'].sort())
+  assert.equal(evidence.case, 'diagnostics-stall')
+  assert.equal(evidence.count, 1)
+  assert.equal(evidence.pid, pid)
+  assert.equal(evidence.corePid, report.corePid)
+  assert.equal(evidence.triggerEpochMs, report.firstTriggerEpochMs)
+  for (const key of ['pid', 'corePid', 'triggerEpochMs', 'requestedMs', 'beforeMs', 'afterMs', 'result', 'error']) {
+    assert(Number.isSafeInteger(evidence[key]) && evidence[key] >= 0)
+  }
+  assert(evidence.requestedMs <= 2000)
+  assert(evidence.beforeMs + evidence.requestedMs >= 2000, 'The original drain budget must reach the 2000ms deadline')
+  assert(evidence.afterMs >= evidence.beforeMs && report.durationMs >= evidence.afterMs)
+  // A signaled drain may finish early; WAIT_TIMEOUT itself proves the requested wait elapsed.
+  // GetTickCount64 resolution does not provide a universal elapsed-time error bound.
+  assert(evidence.result === 0 || evidence.result === 258, 'Only WAIT_OBJECT_0 or WAIT_TIMEOUT proves a completed wait')
+  assert.equal(evidence.error, 0)
+}
 async function residentScenario(mode, dir, recoveryDirectory) {
   const recoveryEvidence = []
   const log = join(dir, 'helper.json'), journal = join(recoveryDirectory, 'recovery.bin')
@@ -148,7 +167,11 @@ async function residentScenario(mode, dir, recoveryDirectory) {
   assert(report.durationMs < 2350)
   if (timeout) assert(report.durationMs >= 1490)
   if (mode === 'late-set') assert(report.durationMs >= 300)
-  if (mode === 'diagnostics-stall') assert(report.durationMs >= 2000)
+  if (mode === 'diagnostics-stall') {
+    const path = `${log}.drain-wait.json`, info = statSync(path)
+    assert(info.isFile() && info.nlink === 1 && info.size > 0 && info.size < 512)
+    assertDiagnosticDrainWait(JSON.parse(readFileSync(path, 'utf8')), child.pid, report)
+  }
   if (failed) {
     const retained = readFileSync(journal)
     // A new owner must replay pending endpoints before Core creation; failed replay still denies writes.
