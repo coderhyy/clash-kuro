@@ -343,24 +343,43 @@ static void ServiceCachePreparationTests(void) {
   }
   puts("native service cache preparation: 4 actual startup-chain failures preserve work/unknown before resume (collision, cache fsync, owner publication, resume identity replacement); no Core/network");
 }
+static void ServiceFixtureReportDNSMismatch(KuroTunService *service,NSString *directory,NSUInteger scenario,uint64_t elapsed,BOOL result,NSString *failure,NSString *primary,NSDictionary *metadata) {
+  NSArray *secrets=[service valueForKey:@"diagnosticSecrets"];
+  NSString *safeFailure=KuroDiagnosticText(failure?:@"<nil>",secrets),*safePrimary=KuroDiagnosticText(primary?:@"<nil>",secrets);
+  NSDictionary *detail=@{@"scenario":@(scenario),@"elapsedMs":@(elapsed),@"result":@(result),@"failureEqualsPrimary":@([failure isEqual:primary]),@"metadataEqualsPrimary":@([metadata[@"error"]isEqual:primary]),@"metadataEqualsRedactedPrimary":@([metadata[@"error"]isEqual:safePrimary]),@"failure":safeFailure?:@"<unavailable>",@"primary":safePrimary?:@"<unavailable>",@"metadataError":metadata[@"error"]?:NSNull.null,@"stage":metadata[@"stage"]?:NSNull.null,@"termination":metadata[@"termination"]?:NSNull.null};
+  NSData *bytes=JSONData(detail);fprintf(stderr,"service DNS diagnostic mismatch (redacted, <=4096 bytes):\n");fwrite(bytes.bytes,1,MIN(bytes.length,(NSUInteger)4096),stderr);fputc('\n',stderr);
+  ServiceFixtureReportMismatch(directory,scenario,elapsed);
+}
 static void ServiceDiagnosticTests(void) {
   ServiceFixtureListenerTests();
-  for(NSUInteger scenario=0;scenario<11;scenario++) {
+  for(NSUInteger scenario=0;scenario<12;scenario++) {
+    NSUInteger dnsScenario=scenario==11?9:scenario;
     char temporary[]="/tmp/kuro-diag-service-XXXXXX";CHECK(mkdtemp(temporary));char canonical[PATH_MAX];CHECK(realpath(temporary,canonical));
     NSString *directory=@(canonical),*work=[directory stringByAppendingPathComponent:@"session-work"],*journal=[directory stringByAppendingPathComponent:@"owner.json"];
     NSString *name=scenario==1?@"core-diagnostic-exit37":scenario==2?@"core-diagnostic-overflow":scenario==3?@"core-diagnostic-timeout":@"core-diagnostic";
     NSString *core=[directory stringByAppendingPathComponent:name];Put(core,[NSData dataWithContentsOfFile:Executable()],0755);
     KuroTunServiceHooks *hooks=ServiceHooks();__block NSUInteger recovered=0;
     hooks.recoverNetwork=^BOOL(NSString *session,NSString **error){(void)session;(void)error;recovered++;return YES;};
-    __block NSString *dnsPrimary=nil;
+    __block NSString *dnsPrimary=nil,*fixtureSecret=nil;
     if(scenario>=8) {
       KuroFakeDNSStore *backend=[KuroFakeDNSStore new];backend.directory=directory;__block KuroOwnedDNS *owned=nil;
       hooks.applyNetwork=^BOOL(pid_t child,NSString *session,NSString **error){(void)child;owned=[[KuroOwnedDNS alloc]initWithDirectory:directory owner:geteuid() backend:backend];__weak KuroFakeDNSStore *weak=backend;
-        backend.onValueRead=^{KuroFakeDNSStore *value=weak;if(value.additions){if(scenario==8)value.failRead=YES;if(scenario==9)[value.records removeObjectForKey:KuroDNSKey(session)];}};
-        BOOL ok=[owned installPreparedSession:session admission:^BOOL(NSString **problem){return !(scenario==10&&backend.additions)||Fail(problem,@"exact post-write route admission failure");} error:error];if(error)dnsPrimary=[*error copy];return ok;};
+        backend.onValueRead=^{KuroFakeDNSStore *value=weak;if(value.additions){if(dnsScenario==8)value.failRead=YES;if(dnsScenario==9)[value.records removeObjectForKey:KuroDNSKey(session)];}};
+        BOOL ok=[owned installPreparedSession:session admission:^BOOL(NSString **problem){return !(dnsScenario==10&&backend.additions)||Fail(problem,@"exact post-write route admission failure");} error:error];if(error)dnsPrimary=[*error copy];return ok;};
       hooks.recoverNetwork=^BOOL(NSString *session,NSString **error){(void)session;recovered++;backend.onValueRead=nil;backend.failRead=NO;return [owned recoverDNS:error];};
     }
     KuroTunService *service=[[KuroTunService alloc]initFixtureDirectory:directory core:core hooks:hooks];
+    if(scenario>=8) {
+      // The summary intentionally redacts incomplete secret suffixes. A random
+      // UUID starting with 0 hides the mismatch diagnostic's final ordersMatch=0.
+      // Keep the original exact-cause cases deterministic, then exercise that
+      // legitimate redaction through the same real service in scenario11.
+      __weak KuroTunService *weak=service;
+      hooks.physicalInterface=^NSString *{
+        fixtureSecret=scenario==11?@"0-controlled-diagnostic-fixture-secret":@"!controlled-diagnostic-fixture-secret";
+        [weak setValue:fixtureSecret forKey:@"secret"];return @"en0";
+      };
+    }
     dispatch_semaphore_t done=dispatch_semaphore_create(0),retained=dispatch_semaphore_create(0);
     service.fixtureRetained=^{dispatch_semaphore_signal(retained);};
     if(scenario==4)service.fixtureBeforeDiagnosticFinish=^(NSString *path){CHECK(!chmod(path.fileSystemRepresentation,0755));};
@@ -377,7 +396,7 @@ static void ServiceDiagnosticTests(void) {
     NSDictionary *opened=ServiceRead(peers[1]);BOOL accepted=scenario==0||(scenario>=4&&scenario<=6);
     if([opened[@"ok"]boolValue]!=accepted)ServiceFixtureReportMismatch(directory,scenario,KuroMonotonicMilliseconds()-started);
     CHECK([opened[@"ok"]boolValue]==accepted);
-    NSString *secret=nil;
+    NSString *secret=fixtureSecret;
     if(accepted) {
       NSDictionary *runtime=ReadJSON(directory,[work stringByAppendingPathComponent:@"config.json"],geteuid(),NULL);secret=runtime[@"secret"];CHECK(secret.length>0);
       if(scenario==6) { // Invalid frame is a supervision failure, not an empty successful diagnostic.
@@ -419,7 +438,21 @@ static void ServiceDiagnosticTests(void) {
         if(accepted)CHECK([err containsString:@"fixture-stage=listener-ready"]&&[err containsString:@"fixture-stage=version-request"]);
         if(scenario==3)CHECK(![err containsString:@"fixture-stage=listener-ready"]);
       }
-      if(scenario>=8) {CHECK(!result&&[failure isEqual:dnsPrimary]&&[metadata[@"error"]isEqual:dnsPrimary]);CHECK([dnsPrimary containsString:scenario==8?@"stage=copy-value":scenario==9?@"stage=readback-value":@"stage=post-write-admission"]);CHECK([metadata[@"networkRecovery"][@"restored"]boolValue]&&!Exists([directory stringByAppendingPathComponent:KuroDNSJournal]));}
+      if(scenario>=8) {
+        NSString *expected=dnsPrimary;
+        if(scenario==11) {
+          CHECK([dnsPrimary hasSuffix:@"ordersMatch=0"]);
+          expected=[[dnsPrimary substringToIndex:dnsPrimary.length-1]stringByAppendingString:@"[REDACTED]"];
+          CHECK(![expected isEqual:dnsPrimary]);
+        }
+        if(result||![failure isEqual:dnsPrimary]||![metadata[@"error"]isEqual:expected])ServiceFixtureReportDNSMismatch(service,directory,scenario,KuroMonotonicMilliseconds()-started,result,failure,dnsPrimary,metadata);
+        if(scenario<11)CHECK(!result&&[failure isEqual:dnsPrimary]&&[metadata[@"error"]isEqual:dnsPrimary]); // Original exact assertions, unchanged.
+        else CHECK(!result&&[failure isEqual:dnsPrimary]&&[metadata[@"error"]isEqual:expected]);
+        CHECK([[service valueForKey:@"secret"]isEqual:fixtureSecret]);
+        CHECK([dnsPrimary containsString:dnsScenario==8?@"stage=copy-value":dnsScenario==9?@"stage=readback-value":@"stage=post-write-admission"]);
+        CHECK([metadata[@"stage"]isEqual:@"process and network readback"]);
+        CHECK([metadata[@"networkRecovery"][@"restored"]boolValue]&&!Exists([directory stringByAppendingPathComponent:KuroDNSJournal]));
+      }
       if(scenario==1||scenario==2)CHECK([metadata[@"termination"][@"exitCode"]isEqual:@37]);
       if(scenario==2)CHECK([metadata[@"capture"][@"stdout"][@"bytesRead"]unsignedLongLongValue]>65536&&[metadata[@"capture"][@"stderr"][@"truncated"]boolValue]);
       if(scenario==3)CHECK([metadata[@"stage"]isEqual:@"private Core version readiness"]&&[metadata[@"termination"][@"signal"]isEqual:@15]);
@@ -428,7 +461,7 @@ static void ServiceDiagnosticTests(void) {
     if(scenario==0)CHECK(result);else if(scenario<4)CHECK(!result&&failure.length>0);
     close(peers[1]);CHECK([[NSFileManager defaultManager]removeItemAtPath:directory error:NULL]);
   }
-  puts("native production diagnostics: 11 actual harmless service cases (including 3 DNS write/readback/admission failures retained through real held cleanup) cover redacted startup/normal, exit37, overflow drain, timeout, failed-save explicit recovery, unknown checkpoint preservation and pre-cleanup invalid-frame reason; no Core/network");
+  puts("native production diagnostics: 12 actual harmless service cases (including 3 exact DNS causes plus deterministic secret-suffix redaction retained through real held cleanup) cover redacted startup/normal, exit37, overflow drain, timeout, failed-save explicit recovery, unknown checkpoint preservation and pre-cleanup invalid-frame reason; no Core/network");
 }
 static void PartialDNSServiceTests(void) {
   for(NSUInteger scenario=0;scenario<5;scenario++) {
