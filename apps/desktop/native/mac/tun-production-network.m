@@ -206,6 +206,38 @@ static NSDictionary *KuroNetworkOwnerBinding(NSDictionary *owner) {
     @"process":@{@"pid":owner[@"pid"],@"startSeconds":owner[@"startSeconds"],@"startMicros":owner[@"startMicros"]}};
   return KuroRouteBinding(binding)?binding:nil;
 }
+// Failure-only summary of the existing snapshot. Never disclose resolver values,
+// arbitrary dictionary keys, domains, or service identifiers.
+static NSString *KuroDNSBaselineDifference(NSDictionary *before, NSDictionary *after, NSString *session) {
+  if (![after isKindOfClass:NSDictionary.class]) return @"dnsDiff snapshot=unavailable";
+  NSString *key=@"State:/Network/Global/DNS"; NSUInteger added=0,removed=0,changed=0;
+  for (id entry in after) { if (!before[entry]) added++; else if (![after[entry]isEqual:before[entry]]) changed++; }
+  for (id entry in before) if (!after[entry]) removed++;
+  NSDictionary *a=[before[key]isKindOfClass:NSDictionary.class]?before[key]:@{};
+  NSDictionary *b=[after[key]isKindOfClass:NSDictionary.class]?after[key]:@{};
+  BOOL (^equal)(id,id)=^BOOL(id x,id y){return x==y || [x isEqual:y];};
+  NSArray *fields=@[@"__CONFIGURATION_ID__",@"__ORDER__",@"__IF_INDEX__",@"InterfaceIndex",@"__FLAGS__",@"ServerAddresses",@"DomainName",@"SearchDomains",@"SearchOrder",@"SupplementalMatchDomains",@"SupplementalMatchOrders"];
+  NSArray *labels=@[@"cid",@"order",@"if",@"publicIf",@"flags",@"servers",@"domain",@"search",@"searchOrder",@"match",@"matchOrder"];
+  NSMutableArray *differences=[NSMutableArray array]; NSUInteger unknown=0;
+  for (NSUInteger i=0;i<fields.count;i++) if (!equal(a[fields[i]],b[fields[i]])) [differences addObject:labels[i]];
+  NSMutableSet *all=[NSMutableSet setWithArray:a.allKeys];[all addObjectsFromArray:b.allKeys];
+  for (id field in all) if (![fields containsObject:field]&&!equal(a[field],b[field])) unknown++;
+  NSString *(^metadata)(NSDictionary *)=^NSString *(NSDictionary *value){
+    id cid=value[@"__CONFIGURATION_ID__"]; NSString *kind=@"other";
+    if (!cid) kind=@"missing";
+    else if ([cid isKindOfClass:NSString.class]) { if ([cid hasPrefix:@"Default: "])kind=@"Default";else if ([cid hasPrefix:@"Supplemental: "])kind=@"Supplemental"; }
+    BOOL own=session&&[cid isEqual:[NSString stringWithFormat:@"Supplemental: dev.kuro.tun.%@ 0",session]];
+    NSMutableArray *numbers=[NSMutableArray array];
+    for (NSString *field in @[@"__ORDER__",@"__IF_INDEX__",@"InterfaceIndex",@"__FLAGS__"]) { id number=value[field];[numbers addObject:!number?@"-":KuroNumber(number,0,UINT32_MAX)?[number stringValue]:@"invalid"]; }
+    return [NSString stringWithFormat:@"%@/self%d:%@",kind,own,[numbers componentsJoinedByString:@","]];
+  };
+  NSDictionary *own=KuroDNSValue();
+  NSString *summary=[NSString stringWithFormat:@"dnsDiff keys=+%lu/-%lu/~%lu;global=%@;fields=%@;unknown=%lu;meta(order,if,publicIf,flags)=%@->%@;eq(base/own)servers=%d/%d,match=%d/%d,orders=%d/%d;domainAbsent=%d;searchOrder1=%d",
+    (unsigned long)added,(unsigned long)removed,(unsigned long)changed,!after[key]?@"removed":!before[key]?@"added":equal(a,b)?@"same":@"changed",[differences componentsJoinedByString:@","],(unsigned long)unknown,metadata(a),metadata(b),
+    equal(b[@"ServerAddresses"],a[@"ServerAddresses"]),equal(b[@"ServerAddresses"],own[@"ServerAddresses"]),equal(b[@"SupplementalMatchDomains"],a[@"SupplementalMatchDomains"]),equal(b[@"SupplementalMatchDomains"],own[@"SupplementalMatchDomains"]),equal(b[@"SupplementalMatchOrders"],a[@"SupplementalMatchOrders"]),equal(b[@"SupplementalMatchOrders"],own[@"SupplementalMatchOrders"]),b[@"DomainName"]==nil,equal(b[@"SearchOrder"],@1)];
+  // All emitted characters are fixed ASCII labels, bounded numbers and booleans.
+  return [summary substringToIndex:MIN(summary.length,(NSUInteger)512)];
+}
 @interface KuroProductionNetwork : NSObject {
   NSString *_directory; uid_t _owner; pthread_t _thread;
   id<KuroRouteStore> _routeBackend; id<KuroDNSStore> _dnsBackend; KuroNetworkEnvironment *_environment;
@@ -347,7 +379,7 @@ static NSDictionary *KuroNetworkOwnerBinding(NSDictionary *owner) {
     [dns removeObjectForKey:key];
     NSString *failure=nil; if (![[_dnsBackend valueForDNSKey:key error:&failure]isEqual:KuroDNSValue()] || failure) return Fail(error,@"owned DNS direct readback is uncertain");
   }
-  if (![dns isEqual:_baselineDNS]) return Fail(error,@"DNS baseline changed; preserving existing resolvers and stopping this session");
+  if (![dns isEqual:_baselineDNS]) return Fail(error,[NSString stringWithFormat:@"DNS baseline changed; preserving existing resolvers and stopping this session; %@",KuroDNSBaselineDifference(_baselineDNS,dns,_session)]);
   BOOL physical=NO;
   for (NSDictionary *entry in interfaces) if ([entry[@"family"]isEqual:@0] && [entry[@"name"]isEqual:_physical] && [entry[@"linkType"]isEqual:@(IFT_ETHER)] &&
     ([entry[@"flags"]unsignedIntValue]&(IFF_UP|IFF_RUNNING|IFF_LOOPBACK|IFF_POINTOPOINT))==(IFF_UP|IFF_RUNNING)) {

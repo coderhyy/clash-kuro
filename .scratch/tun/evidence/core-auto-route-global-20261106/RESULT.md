@@ -63,3 +63,16 @@ Source acf5beef14a3bda931cbe14f380adbb06296ee94 fixes the independently reproduc
 Attempt1: native-suite SIGALRM at80325ms, exact stalled case unknown due buffered output; Windows test-port query exceeded5000ms. Attempt2: native-service DNS diagnostic equality assertion failed at33180ms (not a timeout); Windows queries again exceeded5000ms and a migration evidence collector exceeded10000ms. These are separate failures, not a demonstrated shared cause. Original logs are local at /private/tmp/kuro-acf5bee-ci-failure.log and /private/tmp/kuro-acf5bee-ci-attempt2-failure.log.
 
 A deterministic real-service fixture reproduced a false DNS assertion: controller-secret prefix0 correctly redacts the final0 in ordersMatch=0, while raw failure retains the exact cause. The original CI omitted actual values, so this does not prove its unique root cause. Test-only correction stabilizes the three original exact-error scenarios and adds an exact suffix-redaction case. Production redaction/deadlines stay unchanged. Native test stdout is unbuffered to retain completed-test evidence on watchdog termination. Windows inventory logs add bounded suite/worker/ordinal/start/end/status/output-size evidence without output contents, keeping budgets, serial calls, failure propagation and cached rejection unchanged. No further network trial occurs before validation passes.
+
+
+### 2026-11-10：3445848 正常窗口（DNS 准入拒绝，精确清理完成）
+
+`78e4b89` macOS CI 通过，Windows CI 42797078504 的失败报告被可选日志路径阻塞。最小 failure-only stdout 顺序修复 `3445848df9cd55aa2bcc2b5c7223786ea09a9532` 保留成功路径、2200ms/exit42 与所有成功门；本地提取生产函数旧 RED／新 GREEN，新增实际 Windows 复合故障及双平台 CI 42799632296 通过。
+
+同提交实际 finite-session 包 SHA256 `dbe20abf655b018a812d872188a5f8cf0ac6ab3975c99d59b3b82970cbfd237e` 经独审后 fresh 安装。只读现场路由、DNS、接口与批准快照一致；有效 DNS 为批准的路由器，系统代理关闭，无第三方 App/Core 接管。实际 App ready 后单次开启，越过此前 held-utun 观察拒绝，最终失败为 `temporary DNS write was not independently confirmed; journal retained; stage=post-write-admission; reason=DNS baseline changed; preserving existing resolvers and stopping this session`。尚未发送受控流量，不计正常启停通过。
+
+原会话 SIGTERM→Core exit0、stdout/stderr EOF、networkRecovery restored 及 childReaped/cleanupComplete/routesOff/dnsOff 持久证明均通过。App 退出后原生精确卸载、job/进程/安装路径缺席及本次 receipt 清除通过。生产稳定路由、DNS、接口与当轮快照完全一致，系统代理和原始 DNS 读回一致；原始 netstat 文本有邻居缓存及到期时间差异，不称逐字节全路由一致，不删除这些对象。
+
+原始受限证据只留本地 `/private/tmp/kuro-3445848-window-w7uma0cq`；受保护诊断 `/Library/Application Support/Clash Kuro/TunDiagnostics/E709508E-12A7-4E97-902C-AA686464FA48`。本轮未捕获 DNS 变化的具体字段；当前门仅移除自有 service key 后整表比较，configd 派生 Global 变化是源码支持的候选原因，不是已确认现场原因。下一步仅补有界差异诊断，不放宽 Global 或其他归属检查。受控流量工具已离线独审；未执行的请求/observer 不计作实机通过。
+
+差异诊断修复：仅在原 DNS 全表不等分支追加最多 512 字符的固定 Global 字段摘要与相等布尔，复用已有快照，无新增系统读取、不改变准入或恢复。旧生产源码配相同新组合测试可编译并实际 RED；新源码两个 post-write-admission 拒绝场景及原四项 metadata 测试 GREEN。测试中的 Global 派生为注入后端，不能代替本机实测字段。原始 fixture/日志留本地 `/private/tmp/kuro-dns-baseline-diagnostic`。
