@@ -1,5 +1,27 @@
 # Exact Core auto-route RTF_GLOBAL observation
 
+## Current result (2026-11-10): 0102 failed start recovered and fully removed
+
+Source `0102e49c80819f166a747ddf703bad5b5fff314a`, package SHA256 `43ff2b7e6d5d1e77dc862011d852d76fcd9e6168881eef3ce93dcccf1a4fd815`. CI 42204832391 passed on macOS and Windows; actual package and exact window scripts passed independent review. The new source0102 production preflight passed and its complete stable-route, DNS and interface snapshots matched the explicitly approved current baseline. No third-party conflict was present. The prior22 installation had already been exactly removed before this fresh window.
+
+Actual installed App reached ready, then the fixed Core created a dual-stack utun with auto-route enabled. Start failed at process/network readback with `Core FD/socket/interface observation changed during verification`. This is a real combined-observation rejection. The saved diagnostic does not identify which FD, socket or interface field changed; no individual field is established as the measured cause. No controlled flow probe succeeded, and this is not a successful active-TUN/normal-stop acceptance result.
+
+Same-session recovery passed: requested SIGTERM, observed exit0, stdout/stderr EOF, and networkRecovery.restored=true. The durable held-stop proof records childReaped, cleanupComplete, routesOff and dnsOff all true. After actual App Quit, the exact job was booted out, native uninstall completed, all expected installation paths were absent, and only the newly recorded exact Installer receipt was forgotten. Independent job readback returned113 and the receipt was absent. Full production stable routes, DNS and interfaces matched the approved baseline; no third-party settings were changed. Protected diagnostic evidence remains local as designed.
+
+The next bounded change is a stable projection of the unique held utun. It must preserve complete process/FD/socket identity, interface uniqueness, and failure-on-unreadable checks. That implementation is being prepared by the windows agent; it is not validated by this failed window and must pass regression, independent review and a new same-version window. Do not remove the observation gate or infer a specific FD change from the generic diagnostic.
+
+Local-only evidence: `/private/tmp/kuro-0102e49-window-o1r06wsa`. The package/preflight/source pins, approved raw snapshot, actual failure diagnostic, held proof, and precise uninstall/receipt results remain there; no raw network/process/session data is copied into this repository.
+
+### Prior22 cleanup and native test evidence
+
+On2026-11-10 the previously paused22 cleanup completed: exact job, native installation and receipt were removed. Original baseline bytes were preserved. Independently reviewed differences were only Apple awdl/llw link-local address rotation; an exact new stop-only snapshot was approved for cleanup, without changing interface or third-party configuration. That stop-only approval was not reused as startup approval: the0102 window captured and separately approved its own full snapshot. Local-only cleanup/reference evidence remains at `/private/tmp/kuro-resume-readonly-20261110-dycka_1r`.
+
+The historical native run failed after8.156s at a socket-creation/bind assertion without recorded errno. It remains an unexplained assertion failure, not a measured timeout. A later ordinary-UID full native run outside the sandbox passed, and a separate UID501 socket check observed successful creation and bind of both endpoints with errno0. These passes do not establish the earlier failure's cause or erase its evidence; the raw logs remain local. CI42204832391 passed both platforms.
+
+The sections below retain earlier results and their original limits. In particular,22's cleanup-hold paragraph describes its state at that time; it is superseded by the completed2026-11-10 cleanup above. Controlled successful TUN traffic, external IPv6 and abnormal recovery remain unverified.
+
+## Historical27a GLOBAL observation
+
 Controlled normal-window source27a1e54f690282e029488024f7c3fd938a97e000 passed both-platform CI42194367408 and independent source/package review. Phone-disconnected baseline passed before fresh installation.
 
 Actual installed App authenticated to ready. Fixed Core created the TUN adapter, but readback rejected the lower IPv4 /1 route. Exact closed tuple matched destination/prefix/family/gateway and held utun identity; actual flags1073809411 (0x40010803) versus expected67587 (0x10803). Sole difference0x40000000=RTF_GLOBAL, defined by macOS SDK route.h. Fixed XNU route.c SA_DEFAULT checks zero destination without checking prefix, and adds GLOBAL to non-host RTM_ADD. This supports only lower IPv4/IPv6 /1 in the fixed plan, not the upper halves or internal /30.

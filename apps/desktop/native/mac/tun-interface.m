@@ -28,7 +28,8 @@ typedef struct {
   unsigned int (*nameToIndex)(const char *);
   char *(*indexToName)(unsigned int, char *);
 } KuroInterfaceReader;
-// Canonical stable fields only: traffic counters/buffers change during reads.
+// Canonical identity of the unique utun only. Other fully read sockets may
+// connect/disconnect, be replaced or change counters without changing this FD.
 typedef struct {
   int32_t descriptor;
   uint32_t descriptorType;
@@ -63,13 +64,13 @@ static NSData *KuroInterfaceSnapshot(KuroCoreIdentity identity, const KuroInterf
   NSUInteger count = (NSUInteger)returned / entry;
   struct proc_fdinfo *descriptors = listing.mutableBytes;
   qsort(descriptors, count, entry, KuroInterfaceFDOrder);
-  NSMutableData *snapshot = [NSMutableData dataWithLength:count * sizeof(KuroInterfaceFD)];
-  KuroInterfaceFD *entries = snapshot.mutableBytes;
+  KuroInterfaceFD matched = {0};
   NSUInteger matches = 0;
   for (NSUInteger index = 0; index < count; index++) {
     struct proc_fdinfo descriptor = descriptors[index];
     if (descriptor.proc_fd < 0 || !descriptor.proc_fdtype || (index && descriptor.proc_fd == descriptors[index - 1].proc_fd)) { Fail(error, @"Core FD enumeration contains invalid or duplicate descriptors"); return nil; }
-    KuroInterfaceFD *entryInfo = &entries[index];
+    KuroInterfaceFD current = {0};
+    KuroInterfaceFD *entryInfo = &current;
     entryInfo->descriptor = descriptor.proc_fd; entryInfo->descriptorType = descriptor.proc_fdtype;
     if (descriptor.proc_fdtype != PROX_FDTYPE_SOCKET) continue;
     struct socket_fdinfo socket = {0};
@@ -91,6 +92,7 @@ static NSData *KuroInterfaceSnapshot(KuroCoreIdentity identity, const KuroInterf
       entryInfo->connectionState != SOI_S_ISCONNECTED || !control->kcsi_id || !control->kcsi_unit || control->kcsi_unit > INT_MAX ||
       !info->soi_so || !info->soi_pcb) { Fail(error, @"Core utun socket has no complete connected control identity"); return nil; }
     if (++matches != 1) { Fail(error, @"Core has multiple utun socket descriptors; association is ambiguous"); return nil; }
+    matched = current;
     candidate->process = identity; candidate->descriptor = descriptor.proc_fd;
     candidate->controlID = control->kcsi_id; candidate->controlUnit = control->kcsi_unit;
     candidate->socketHandle = info->soi_so; candidate->pcbHandle = info->soi_pcb;
@@ -98,7 +100,7 @@ static NSData *KuroInterfaceSnapshot(KuroCoreIdentity identity, const KuroInterf
     if (length <= 0 || (NSUInteger)length >= sizeof(candidate->interfaceName)) { Fail(error, @"Core utun unit does not have a bounded interface name"); return nil; }
   }
   if (matches != 1) { Fail(error, @"Core has no observable connected utun kernel-control socket"); return nil; }
-  return [snapshot copy];
+  return [NSData dataWithBytes:&matched length:sizeof(matched)];
 }
 static BOOL KuroInterfaceIndex(KuroCoreInterface *candidate, const KuroInterfaceReader *reader, NSString **error) {
   unsigned int index = reader->nameToIndex(candidate->interfaceName);
@@ -118,7 +120,8 @@ static BOOL KuroObserveCoreInterfaceWithReader(KuroCoreIdentity identity, KuroCo
   if (!before || !KuroInterfaceIndex(&first, reader, error)) return NO;
   NSData *after = KuroInterfaceSnapshot(identity, reader, &second, error);
   if (!after || !KuroInterfaceIndex(&second, reader, error)) return NO;
-  if (![before isEqual:after] || first.interfaceIndex != second.interfaceIndex) return Fail(error, @"Core FD/socket/interface observation changed during verification");
+  if (![before isEqual:after]) return Fail(error, @"Core utun FD/control-socket identity changed during verification");
+  if (first.interfaceIndex != second.interfaceIndex) return Fail(error, @"Core utun interface index changed during verification");
   if (!KuroInterfaceIdentity(identity, reader, error)) return NO;
   *result = second;
   return YES;

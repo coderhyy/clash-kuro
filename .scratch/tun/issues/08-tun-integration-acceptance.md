@@ -1,21 +1,25 @@
 # macOS TUN 集成验收
 
-Status: ready-for-agent（22b 实机启动身份确认失败；原会话已停止，第三方重新运行使精确卸载暂停；诊断实现继续）
+Status: ready-for-agent（0102 实机启动观察稳定性门拒绝；原会话恢复与精确卸载完成，唯一 utun 稳定投影修复进行中）
 Type: validation
-Blocked by: 首次正常启停：定位 route confirmation 的具体失败分支，恢复无冲突基线并完成上轮卸载；正式交付：异常恢复与升级验收
+Blocked by: 首次正常启停：唯一 utun 稳定投影修复、回归独审与同版本新窗口；正式交付：受控流量、异常恢复与升级验收
 Owner: 主会话集成与最终验证；验收 agent 准备记录
 
 ## 当前交付状态（auto-route 决定后）
 
-- 当前：22b 的双平台 CI、实际包独审、fresh→ready 通过；真实 start 报 `route confirmation lacks this actor's prepared live Core`。原会话 SIGTERM/exit0 和持久停止证明已保存；卸载前发现第三方 App/Core、新接管路由及 DNS 变化，脚本在删除前停止，安装/job/receipt 保留。正在分开 journal/prepared/live-owner 诊断，不猜测放宽。见[本轮记录](../evidence/core-auto-route-global-20261106/RESULT.md)。
+- 当前（2026-11-10）：0102 的双平台 CI 42204832391、包及窗口独审通过；实际 fresh→ready 后，固定 Core 建立双栈 utun/auto-route，随后在验证阶段报 `Core FD/socket/interface observation changed during verification`。原会话 SIGTERM/exit0、两路输出 EOF、网络恢复及持久证明的 childReaped/cleanupComplete/routesOff/dnsOff 四项均通过；App Quit 后准确 job、安装与 receipt 清理完成，无第三方冲突，完整批准基线精确恢复。没有受控流量成功，不计正常 TUN 验收通过。见[本轮记录](../evidence/core-auto-route-global-20261106/RESULT.md)。
 
-- 最新：27a 实机已取证，lower IPv4 `/1` 仅多合法 `RTF_GLOBAL`，准确网关/接口/范围一致；窄修复及真实样本回归见[记录](../evidence/core-auto-route-global-20261106/RESULT.md)。失败恢复和精确卸载完成；新候选正常流量仍待验证。USB/无关接口变化保留为后续兼容性验收，不定义为最终产品全量基线锁定。
+- 下一修复：windows agent 正准备唯一 held utun 的稳定投影，保留完整进程/FD/socket 身份、接口唯一性及读取失败拒绝门。本轮诊断只证明组合观察变化，未记录变化的具体 FD 或接口字段；不得把源码推断写成已实测根因，修复仍需回归、独审和新候选真实验证。
 
-- 最新真实结果：[c7da1ba 首轮实机](../evidence/core-auto-route-live-c7da1ba-20261106/RESULT.md)。实际 App fresh→ready 通过，Core 建立双栈 utun6；路由 gateway/interface/flags 核验拒绝，SIGTERM exit0 后完整恢复、持久停止证明和精确卸载通过。尚未进行测试流量，不计正常启停通过。下一步仅补实际失败路由与预期元组诊断，不放宽门禁。
+- 上轮清理与测试边界：22b 已在本轮准确卸载，原安装基线保留；仅 Apple awdl/llw link-local 旋转经独审采用新 stop-only 快照，未改第三方配置。0102 沙箱外完整 native 与 UID501 单 socket/bind 检查通过；旧 8.156s native socket 创建/bind 断言失败及缺失 errno 仍保留，不称超时或已定位原因。
+
+- 历史（27a）：实机已取证，lower IPv4 `/1` 仅多合法 `RTF_GLOBAL`，准确网关/接口/范围一致；窄修复及真实样本回归见[记录](../evidence/core-auto-route-global-20261106/RESULT.md)。失败恢复和精确卸载完成；新候选正常流量仍待验证。USB/无关接口变化保留为后续兼容性验收，不定义为最终产品全量基线锁定。
+
+- 历史（c7da1ba）：[首轮实机](../evidence/core-auto-route-live-c7da1ba-20261106/RESULT.md)。实际 App fresh→ready 通过，Core 建立双栈 utun6；路由 gateway/interface/flags 核验拒绝，SIGTERM exit0 后完整恢复、持久停止证明和精确卸载通过。尚未进行测试流量，不计正常启停通过。下一步仅补实际失败路由与预期元组诊断，不放宽门禁。
 
 - 新增证据：[auto-route 组合结果](../evidence/core-auto-route-20261106/RESULT.md)。手工 writer 已删除；fresh/start/stop 与部分路由启动失败恢复八条生产链通过（模拟系统后端），固定 Core -t 通过；尚无新实机流量结论。
 - 负责范围沿用本票；04 移除手工 writer、保留鉴权/监督，06 接入固定配置与只读网络生命周期，08 负责生产组合回归、独审/CI 和同范围真实正常启停。
-- Blocked by：新候选的组合回归、独审/CI、产物冻结及现场基线；不以异常恢复全部完成阻塞首次正常启停。
+- Blocked by：当前唯一 utun 稳定投影修复的组合回归、独审/CI、产物冻结及新现场基线；不以异常恢复全部完成阻塞首次正常启停。
 - 验收：fresh→ready→start→stop、启动失败恢复；真实流量经过本会话 Core/utun、停止后网络恢复和持久证明、准确卸载。源码支持与模拟测试不代替实机。
 - Core 独占路由写入，helper DNS 保持；旧账本只允许缺席退役，未知不删。持续正常窗口授权有效，管理员弹窗由维护者处理；异常注入/升级另行安排。
 
