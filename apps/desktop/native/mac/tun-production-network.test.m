@@ -359,8 +359,39 @@ static void ProductionAutoRouteTests(void) {
   }
   ProbeRouteBackend=nil;ProbeQuestion=nil;CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);puts("PASS 23 Core auto-route coordinator cases (including delayed complete route observation within original readiness deadline): protected pre-CONT intent/binding/baseline, independently observed five upstream routes, original dual-stack probe, DNS-only helper writes, partial startup/prepare-sync recovery and full-owner restart joins; simulated Core/kernel, no system calls");
 }
+static void ProductionRouteBaselineDifferenceTests(void) {
+  char temporary[]="/tmp/kuro-route-diff-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));NSString *base=@(canonical),*session=@"00112233-4455-6677-8899-AABBCCDDEEFF";KuroCoreInterface association=RouteFixtureInterface();
+  for(NSUInteger scenario=0;scenario<5;scenario++) {
+    NSString *directory=[base stringByAppendingPathComponent:[NSString stringWithFormat:@"case%lu",(unsigned long)scenario]],*error=nil;FixtureDirectory(directory);
+    NSDictionary *old=ProductionRoute(4,@"192.168.1.61",32,@"link",@"en0",2,RTF_UP|RTF_CLONING|RTF_STATIC),*changed=ProductionRoute(4,@"192.168.1.132",32,@"link",@"en0",2,RTF_UP|RTF_CLONING|RTF_STATIC);
+    KuroFakeRouteStore *routes=[KuroFakeRouteStore new];routes.directory=directory;routes.entries=[[ProductionBaseline()arrayByAddingObject:old]mutableCopy];NSArray *original=[routes.entries copy];
+    KuroFakeDNSStore *dns=[KuroFakeDNSStore new];dns.directory=directory;__block NSArray *interfaces=ProductionInterfaces(NO);KuroNetworkEnvironment *environment=[KuroNetworkEnvironment new];
+    environment.interfaces=^NSArray *(NSString **failure){(void)failure;return interfaces;};environment.observeChild=^BOOL(pid_t child,KuroCoreInterface *result,NSString **failure){(void)failure;CHECK(child==association.process.pid);*result=association;return YES;};
+    environment.ownership=^KuroRouteOwnerState(KuroCoreInterface value,NSString **failure){(void)value;(void)failure;return interfaces.count==ProductionInterfaces(NO).count?KuroRouteOwnerExitedInterfaceGone:KuroRouteOwnerLive;};environment.probeDNS=^BOOL(KuroCoreInterface value,NSString **failure){(void)value;(void)failure;return YES;};
+    KuroProductionNetwork *network=[[KuroProductionNetwork alloc]initWithDirectory:directory owner:geteuid() routes:routes dns:dns environment:environment];
+    CHECK([network preflightConfig:ProductionConfig() error:&error]);CHECK([network prepareSession:session binding:ProductionBinding(association) error:&error]);interfaces=ProductionInterfaces(YES);[routes.entries addObjectsFromArray:ProductionCoreRoutes(association)];
+    if(scenario){CHECK([network readyChild:association.process.pid session:session error:&error]);CHECK([network applyChild:association.process.pid session:session error:&error]);if(scenario!=4){ProductionCoreGone(routes);interfaces=ProductionInterfaces(NO);}}
+    if(scenario<2||scenario==4){[routes.entries removeObject:old];[routes.entries insertObject:changed atIndex:0];}
+    if(scenario==2)[routes.entries addObject:changed];if(scenario==3)[routes.entries addObject:old];
+    NSString *journal=[directory stringByAppendingPathComponent:KuroRouteJournal];NSData *record=ReadProtected(directory,journal,geteuid(),NULL);NSArray *mutated=[routes.entries copy];
+    BOOL accepted=scenario==4?[network confirmSession:session error:&error]:scenario?[network recoverSession:session error:&error]:[network readyChild:association.process.pid session:session error:&error];CHECK(!accepted);
+    printf("route baseline refusal scenario=%lu: %s\n",(unsigned long)scenario,error.UTF8String);fflush(stdout);
+    CHECK([error hasPrefix:scenario&&scenario!=4?@"routes: recorded pre-resume route baseline has not been restored; stage=route-changed":@"route baseline changed; preserve all existing routing"]);
+    if(scenario==0||scenario==4)CHECK(([error containsString:[NSString stringWithFormat:@"dnsPublished=%d",scenario==4]]));
+    NSRange marker=[error rangeOfString:@"routeDiff="];CHECK(marker.location!=NSNotFound);NSData *encoded=[[error substringFromIndex:NSMaxRange(marker)]dataUsingEncoding:NSUTF8StringEncoding];CHECK(encoded.length<=768&&error.length<1024);
+    NSDictionary *difference=KuroDecodeJSON(encoded,768,NULL);CHECK([difference[@"missing"]isEqual:scenario<2||scenario==4?@1:@0]&&[difference[@"examplesOmitted"]isEqual:@NO]);
+    CHECK([difference[@"firstMissing"]isEqual:scenario<2||scenario==4?old:NSNull.null]);CHECK([difference[@"firstUnmatched"]isEqual:scenario==3?old:changed]);
+    CHECK([routes.entries isEqual:mutated]&&!network.networkOff&&Exists(journal));
+    if(scenario)CHECK([ReadProtected(directory,journal,geteuid(),NULL)isEqual:record]);
+    else CHECK([ReadJSON(directory,journal,geteuid(),NULL)[@"baselineRoutes"]isEqual:original]);
+    // Explicit fake OS restoration only; production never rewrites en0 routes.
+    routes.entries=[original mutableCopy];interfaces=ProductionInterfaces(NO);CHECK([network recoverSession:session error:&error]&&network.networkOff&&!Exists(journal));
+  }
+  CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);
+}
+
 static void ProductionNetworkTests(void) {
-  ProductionAutoRouteTests();InternalDNSProbeDiagnosticTests();IPv4UpstreamTests();ProductionDNSMetadataTests();ProductionActiveDNSDerivedTests();ProductionDNSDifferenceTests();ProductionRecoveryDNSDerivedTests();UnexpectedRouteEvidenceTests();HeldMulticastCompanionTests();
+  ProductionRouteBaselineDifferenceTests();ProductionAutoRouteTests();InternalDNSProbeDiagnosticTests();IPv4UpstreamTests();ProductionDNSMetadataTests();ProductionActiveDNSDerivedTests();ProductionDNSDifferenceTests();ProductionRecoveryDNSDerivedTests();UnexpectedRouteEvidenceTests();HeldMulticastCompanionTests();
   NSString *error=nil;CHECK(KuroCoreAddressesReady(RouteFixtureInterface(),ProductionInterfaces(YES),&error));CHECK(!KuroCoreAddressesReady(RouteFixtureInterface(),ProductionInterfaces(NO),&error));
   CHECK(!KuroPreservedEndpoint(@"fd00::1",ProductionBaseline(),@"en0",YES,NO,&error));CHECK(KuroPreservedEndpoint(@"192.168.1.53",ProductionBaseline(),@"en0",YES,NO,&error));
 }

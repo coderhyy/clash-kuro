@@ -1,11 +1,13 @@
 # macOS TUN 集成验收
 
-Status: ready-for-agent（1252 实机在 socket FD 复核拒绝；自动恢复、持久停止证明和精确卸载通过；受控流量未执行）
+Status: ready-for-agent（740 实机会话进入监督阶段后因路由变化停止；Core exit0，恢复证明受阻，安装保留；受控流量未执行）
 Type: validation
-Blocked by: 首次正常启停：Core socket FD 读取失败的准确归因与最小修复；正式交付：受控流量、异常恢复与升级验收
+Blocked by: 当前740会话安全恢复与物理网络动态变化核验收敛；首次正常启停仍缺受控流量及持久停止证明；正式交付另含异常恢复与升级验收
 Owner: 主会话集成与最终验证；验收 agent 准备记录
 
 ## 当前交付状态（auto-route 决定后）
+
+- 当前（2026-11-11）：740实际包（SHA256 `16734518f16be3ff497b1b006a09d19ca05ae2b071126d6080cd8aa022df67b8`）及独审通过；576f94c仅修Windows fixture，产品字节相同，CI42823953296双平台成功。fresh安装、实际App身份及初次ready/apply/open ACK已过，随后进入authenticated owner supervision；运行期复用的“during Core startup”措辞不代表启动失败。后续route baseline变化触发SIGTERM/exit0，但恢复全基线相等检查失败，stopped证明未生成，保留App/helper/job/receipt、owner/network/work与诊断；未手动修改任何网络设置，也未强行卸载。当前只读显示默认出口与router DNS不变、系统代理关闭、本次utun路由缺席；物理en0地址及对应本机/32路由已变化，不能恢复旧地址或凭路由flags猜归属，亦不能倒推这就是初次检测的差异。原预检输入临时文件已缺失，当前预检明确拒绝，不称完整恢复通过。受控流量未执行；stdout累计752,569,306字节仅保留前65536，早期IPv4 ENETUNREACH仍未定因，不认定环路或两秒输出速率。原始现场证据仅保留本机 `/private/tmp/kuro-74039f6-window-5ep3bjsg`。
 
 - 当前：`1252d09` 同提交完整 native／双平台 CI／实际包独审通过；实际启动在 DNS 写入后的 socket FD 复核拒绝。原会话自动退出、网络恢复、持久停止证明及精确卸载通过；未发受控流量。真实关闭 FD 机制已在无害 child 复现，现场 errno 仍未知。收敛为首次完整唯一发现、后续原目标 FD 双读及原 process/socket/interface 精确复核；不再把背景连接 FD 稳定性当作目标归属条件。IPv4 出站错误仍未解释。
 

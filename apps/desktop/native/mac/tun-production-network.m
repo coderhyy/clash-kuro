@@ -199,6 +199,20 @@ static BOOL KuroNetworkSameRoutes(NSArray *left,NSArray *right) {
   for(id route in left){NSUInteger index=[remaining indexOfObject:route];if(index==NSNotFound)return NO;[remaining removeObjectAtIndex:index];}
   return !remaining.count;
 }
+// Failure-only summary of these already read snapshots, never cleanup authority.
+static NSString *KuroRouteBaselineDifference(NSArray *before,NSArray *after) {
+  NSMutableArray *remaining=[after mutableCopy];NSUInteger missing=0;NSDictionary *firstMissing=nil;
+  for(NSDictionary *route in before) {
+    NSUInteger index=[remaining indexOfObject:route];
+    if(index==NSNotFound){missing++;if(!firstMissing)firstMissing=route;}
+    else [remaining removeObjectAtIndex:index];
+  }
+  NSDictionary *firstUnmatched=remaining.firstObject;
+  NSDictionary *summary=@{@"missing":@(missing),@"unmatched":@(remaining.count),@"firstMissing":firstMissing?:NSNull.null,@"firstUnmatched":firstUnmatched?:NSNull.null,@"examplesOmitted":@NO};
+  NSData *encoded=JSONData(summary);
+  if(!encoded || encoded.length>768)encoded=JSONData(@{@"missing":@(missing),@"unmatched":@(remaining.count),@"examplesOmitted":@YES,@"firstMissingSHA256":firstMissing?Hash(JSONData(firstMissing)):@"",@"firstUnmatchedSHA256":firstUnmatched?Hash(JSONData(firstUnmatched)):@""});
+  return [@"routeDiff="stringByAppendingString:[[NSString alloc]initWithData:encoded encoding:NSUTF8StringEncoding]?:@"unavailable"];
+}
 static NSDictionary *KuroNetworkOwnerBinding(NSDictionary *owner) {
   if(!KuroRestartRecord(owner,NULL))return nil;
   NSDictionary *launch=owner[@"launch"];
@@ -376,7 +390,7 @@ static NSString *KuroDNSBaselineDifference(NSDictionary *before, NSDictionary *a
   NSArray *current=KuroStableRoutes([_routeBackend routes:error]); if (!current) return NO;
   NSArray *interfaces=_environment.interfaces(error); if (!interfaces) return NO;
   NSMutableArray *remaining=[current mutableCopy];
-  for (NSDictionary *before in _baselineRoutes) { NSUInteger index=[remaining indexOfObject:before]; if (index==NSNotFound) return Fail(error,@"route baseline changed during Core startup; preserve all existing routing"); [remaining removeObjectAtIndex:index]; }
+  for (NSDictionary *before in _baselineRoutes) { NSUInteger index=[remaining indexOfObject:before]; if (index==NSNotFound) return Fail(error,[NSString stringWithFormat:@"route baseline changed; preserve all existing routing; dnsPublished=%d; %@",installed,KuroRouteBaselineDifference(_baselineRoutes,current)]); [remaining removeObjectAtIndex:index]; }
   for (NSDictionary *extra in remaining) {
     BOOL recorded=NO; for (NSDictionary *target in _installedRoutes) if (KuroCoreAutoRouteEqual(extra,target)) recorded=YES;
     if (recorded) continue;
@@ -501,7 +515,7 @@ static NSString *KuroDNSBaselineDifference(NSDictionary *before, NSDictionary *a
         if(_writerAbsent && !_writerAbsent(&routeFailure)){routesRecovered=NO;break;}
         NSString *readFailure=nil;NSArray *current=KuroStableRoutes([_routeBackend routes:&readFailure]);
         if(readFailure || !current){routesRecovered=Fail(&routeFailure,@"recorded route baseline readback unavailable; stage=route-read");break;}
-        if(!KuroNetworkSameRoutes(current,record[@"baselineRoutes"])) { routesRecovered=Fail(&routeFailure,@"recorded pre-resume route baseline has not been restored; stage=route-changed");break; }
+        if(!KuroNetworkSameRoutes(current,record[@"baselineRoutes"])) { routesRecovered=Fail(&routeFailure,[NSString stringWithFormat:@"recorded pre-resume route baseline has not been restored; stage=route-changed; %@",KuroRouteBaselineDifference(record[@"baselineRoutes"],current)]);break; }
         readFailure=nil;NSDictionary *dns=[_dnsBackend dnsRecords:&readFailure];
         if(readFailure || ![dns isKindOfClass:NSDictionary.class]){routesRecovered=Fail(&routeFailure,@"recorded DNS baseline readback unavailable; stage=dns-read");break;}
         if([dns isEqual:record[@"baselineDNS"]]) { if(baselineConfirmed)break;baselineConfirmed=YES;continue; }
