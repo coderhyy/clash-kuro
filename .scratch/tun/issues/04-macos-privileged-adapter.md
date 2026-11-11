@@ -1,10 +1,14 @@
 # macOS 特权 helper
 
-Status: ready-for-agent（740受限恢复及format3成功；App/job/Core退出；原fresh卸载因control.sock白名单缺口拒绝，安装/receipt完整保留，本窗口已停止）
+Status: ready-for-agent（固定control.sock生命周期修复已集成，隔离Serve/恢复/卸载通过；现场740安装保留，等待受限清理产物冻结及授权）
 Type: task
-Blocked by: 原740 fresh卸载不接受服务遗留control.sock，须准备最小修复及另行授权；IPv4 ENETUNREACH未定因；运行期全局路由门仍待收敛。
+Blocked by: 现场固定socket须经精确工具及新授权清理后再用原740卸载器；IPv4 ENETUNREACH未定因；新增网络实验暂停。
 Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
 
+
+## 固定 socket 修复进展（2026-11-11）
+
+生产Serve、fresh/legacy卸载和升级检查已统一固定端点归属规则；真实Serve隔离回归与原740实际format3消费者、完整安装模型卸载通过。现场未删除socket或重试卸载；完整集成验证与工具独审继续，完成后一次申请受限清理。详见[修复及证据边界](../evidence/control-socket-lifecycle-20261111/RESULT.md)。
 
 ## 最新实际收尾结果（2026-11-11）
 

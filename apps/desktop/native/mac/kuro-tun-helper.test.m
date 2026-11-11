@@ -50,6 +50,7 @@ static NSDictionary *Payload(NSString *prefix) {
 #import "tun-auth.test.m"
 #import "tun-service.test.m"
 #import "tun-admission.test.m"
+#import "tun-control-socket.test.m"
 int main(int argc, const char **argv) {
   setvbuf(stdout,NULL,_IONBF,0); // Preserve completed-test evidence if the suite watchdog fires.
   int environmentFixture=SessionEnvironmentFixtureMain(argc,argv);if(environmentFixture>=0)return environmentFixture;
@@ -57,6 +58,8 @@ int main(int argc, const char **argv) {
     if(argc==4&&!strcmp(argv[1],"--upgrade-package-layout-fixture")){char canonical[PATH_MAX];CHECK(geteuid()!=0&&realpath(argv[2],canonical));NSString *error=nil;BOOL ok=UpgradePackageLayoutFixture(@(canonical),@(argv[3]),&error);if(!ok)fprintf(stderr,"package layout: %s\n",error.UTF8String);return ok?0:1;}
     if(argc==2&&!strcmp(argv[1],"--upgrade-tests")){UpgradeTests();return 0;}
     if(argc==3&&!strcmp(argv[1],"--upgrade-recover-fixture")){CHECK(geteuid()!=0);NSString *prefix=@(argv[2]),*error=nil;BOOL ok=RecoverClientUpgrade(prefix,geteuid(),NO,Executable(),&error);if(!ok)fprintf(stderr,"upgrade recovery fixture: %s\n",error.UTF8String);return ok?0:1;}
+    int controlFixture=ControlSocketFixtureMain(argc,argv);if(controlFixture>=0)return controlFixture;
+    if(argc==2&&!strcmp(argv[1],"--control-socket-tests")){alarm(40);ControlSocketLifecycleTests();return 0;}
     int admissionFixture=AdmissionFixtureMain(argc,argv); if(admissionFixture>=0)return admissionFixture;
     int authFixture=AuthFixtureMain(argc,argv); if(authFixture>=0)return authFixture;
     if(argc==2 && !strcmp(argv[1],"--auth-tests")) { CHECK(geteuid()!=0); alarm(20); AuthTests(); return 0; }
@@ -90,6 +93,7 @@ int main(int argc, const char **argv) {
     InterfaceTests();
     ClientPinTests();
     FreshInstallTests();
+    ControlSocketLifecycleTests();
     AuthTests();
     ServiceTests();
     NSString *error = nil;
@@ -144,19 +148,26 @@ int main(int argc, const char **argv) {
     NSString *unknown = At(prefix, [State stringByAppendingPathComponent:@"keep-user-file"]);
     Put(unknown, Bytes(@"preserve"), 0600);
     CHECK(!Uninstall(prefix, geteuid(), NO, [At(prefix, Tools) stringByAppendingPathComponent:@"installer"], &error));
-    CHECK(Exists(unknown)); CHECK(!unlink(unknown.fileSystemRepresentation));
+    CHECK(Exists(unknown) && !Exists(At(prefix, RecoveryRecord))); CHECK(!unlink(unknown.fileSystemRepresentation));
+    // A genuine removal failure publishes approval, removes the approved version
+    // files, then preserves the changed Inbox file. No approval is fabricated.
+    NSString *version = [At(prefix, Tools) stringByAppendingPathComponent:[@"versions" stringByAppendingPathComponent:manifest[@"release"]]];
+    NSData *inboxHelper = [NSData dataWithContentsOfFile:helper]; CHECK(inboxHelper);
+    NSData *changedInboxHelper=Bytes(@"changed Inbox helper preserved");Put(helper,changedInboxHelper,0755);
+    CHECK(!Uninstall(prefix,geteuid(),NO,[At(prefix,Tools)stringByAppendingPathComponent:@"installer"],&error));
+    CHECK([error isEqual:@"changed installed file preserved; uninstall refused"] && [[NSData dataWithContentsOfFile:helper]isEqual:changedInboxHelper]);
+    for(NSString *name in @[@"helper",@"mihomo",@"manifest.json"])CHECK(!Exists([version stringByAppendingPathComponent:name]));
+    CHECK(Exists([At(prefix,Tools)stringByAppendingPathComponent:@"installer"]));
     NSData *approved = [NSData dataWithContentsOfFile:At(prefix, RecoveryRecord)]; CHECK(approved);
     NSData *recoveryBytes = [NSData dataWithContentsOfFile:At(prefix, Recovery)]; CHECK(recoveryBytes);
-    // Approval was persisted before the unknown file was detected; retry tolerates one already removed payload.
-    NSString *version = [At(prefix, Tools) stringByAppendingPathComponent:[@"versions" stringByAppendingPathComponent:manifest[@"release"]]];
-    CHECK(!unlink([version stringByAppendingPathComponent:@"mihomo"].fileSystemRepresentation));
-    CHECK(!unlink([At(prefix, Tools) stringByAppendingPathComponent:@"installer"].fileSystemRepresentation));
+    Put(helper,inboxHelper,0755);
     pid_t child;
     char *arguments[] = {(char *)At(prefix, Recovery).fileSystemRepresentation, "--resume-fixture", (char *)prefix.fileSystemRepresentation, NULL};
     CHECK(!posix_spawn(&child, arguments[0], NULL, NULL, arguments, NULL));
     int status = 0; CHECK(waitpid(child, &status, 0) == child); CHECK(WIFEXITED(status) && WEXITSTATUS(status) == 0);
     CHECK(!Exists(At(prefix, Tools))); CHECK(!Exists(At(prefix, State))); CHECK(!Exists(At(prefix, SocketDirectory)));
     CHECK(!Exists(At(prefix, Recovery))); CHECK(!Exists(At(prefix, RecoveryRecord)));
+    puts("legacy uninstall: unknown filename rejected before approval; real Inbox hash refusal produced approved partial removal and fixed Recovery retry passed");
     // Late interruption: main directories are already gone, but fixed recovery and approved record survived.
     Put(At(prefix, Recovery), recoveryBytes, 0755); Put(At(prefix, RecoveryRecord), approved, 0600);
     CHECK(!posix_spawn(&child, arguments[0], NULL, NULL, arguments, NULL));

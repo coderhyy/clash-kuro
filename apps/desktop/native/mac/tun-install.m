@@ -189,6 +189,36 @@ static BOOL RemoveClientSubset(NSString *prefix,uid_t owner,NSDictionary *entrie
 static BOOL SyncInstallDirectory(NSString *directory,NSString **error) {
   int fd=open(directory.fileSystemRepresentation,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);BOOL ok=fd>=0&&!fsync(fd);if(fd>=0)close(fd);return ok||Fail(error,@"install receipt directory sync failed");
 }
+// The fixed protected namespace, not an unrecorded historic inode, identifies old endpoints.
+// expected is only the socket this Serve invocation actually bound.
+static BOOL ControlSocketEndpoint(NSString *prefix,uid_t owner,int lock,const struct stat *expected,BOOL retire,NSString **error) {
+  NSString *directory=At(prefix,SocketDirectory),*path=[directory stringByAppendingPathComponent:@"control.sock"],*lockPath=[directory stringByAppendingPathComponent:@"service.lock"];
+  struct stat held,lockNode,before,after;
+  if(!SocketAncestorsProtected(prefix,owner,YES,error) || fstat(lock,&held) || !SafeMetadata(held,owner,NO) || (held.st_mode&07777)!=0600 || held.st_size ||
+      !SafeChain(prefix,lockPath,owner,NO,error) || lstat(lockPath.fileSystemRepresentation,&lockNode) || held.st_dev!=lockNode.st_dev || held.st_ino!=lockNode.st_ino || flock(lock,LOCK_EX|LOCK_NB))
+    return Fail(error,@"control socket requires the exact exclusive service lock");
+  if(lstat(path.fileSystemRepresentation,&before)) {
+    if(errno!=ENOENT)return Fail(error,@"control socket inspection failed; endpoint preserved");
+    return !retire || SyncInstallDirectory(directory,error);
+  }
+  mode_t mode=expected?(expected->st_mode&07777):0666;
+  if(!S_ISSOCK(before.st_mode) || before.st_uid!=owner || before.st_nlink!=1 || (before.st_mode&07777)!=mode || (mode&07000) ||
+      (expected && (before.st_dev!=expected->st_dev || before.st_ino!=expected->st_ino || !S_ISSOCK(expected->st_mode) || expected->st_uid!=owner || before.st_gid!=expected->st_gid || expected->st_nlink!=1)))
+    return Fail(error,@"unknown or changed control socket preserved");
+  struct sockaddr_un address;if(!KuroUnixSocketAddress(path,&address,error))return NO;
+  int probe=socket(AF_UNIX,SOCK_STREAM,0);
+  if(probe<0)return Fail(error,@"control socket listener inspection unavailable; endpoint preserved");
+  BOOL configured=fcntl(probe,F_SETFD,FD_CLOEXEC)==0 && fcntl(probe,F_SETFL,O_NONBLOCK)==0;
+  int connected=configured?connect(probe,(struct sockaddr *)&address,sizeof(address)):-1;
+  int connectionError=errno;close(probe);
+  if(!configured || connected==0 || connectionError!=ECONNREFUSED)return Fail(error,@"live or unknown control socket listener preserved");
+  if(!SocketAncestorsProtected(prefix,owner,YES,error) || lstat(path.fileSystemRepresentation,&after) || before.st_dev!=after.st_dev || before.st_ino!=after.st_ino ||
+      before.st_mode!=after.st_mode || before.st_uid!=after.st_uid || before.st_gid!=after.st_gid || before.st_nlink!=after.st_nlink)
+    return Fail(error,@"control socket identity changed before retirement; endpoint preserved");
+  if(!retire)return YES;
+  if(unlink(path.fileSystemRepresentation))return Fail(error,@"control socket retirement failed; installation preserved");
+  return SyncInstallDirectory(directory,error);
+}
 // Match SafeNode's ACL policy, including macOS's NULL representation of no ACL.
 // Never treat acl_get_file failure alone as evidence that an ACL is absent.
 static BOOL InstallScriptsEmptyACL(NSString *path,NSString **error) {
@@ -577,7 +607,7 @@ static BOOL UninstallFresh(NSString *prefix,uid_t owner,BOOL system,NSString *en
   if(![@[At(prefix,Recovery),[At(prefix,Tools) stringByAppendingPathComponent:@"installer"]] containsObject:entry] || (system&&![Executable() isEqual:entry]) || ![InstallFileHash(prefix,entry,owner,error) isEqual:helper] || ![InstallFileHash(prefix,At(prefix,Recovery),owner,error) isEqual:helper])return Fail(error,@"fresh recovery executable identity mismatch");
   if(HasOwnershipFootprint(prefix)||Exists(At(prefix,RecoveryRecord)))return Fail(error,@"unknown active ownership or recovery approval preserved");
   if(system) {int present=Launchctl(@[@"print",@"system/dev.kuro.tun"]);if(present!=3&&present!=113)return Fail(error,@"fresh cleanup requires absent launchd service");}
-  if(!OnlyNames(prefix,At(prefix,Tools),owner,@[@"installer",@"versions"],error)||!OnlyNames(prefix,versions,owner,@[manifest[@"release"]],error)||!OnlyNames(prefix,version,owner,@[@"helper",@"mihomo",@"manifest.json"],error)||!OnlyNames(prefix,At(prefix,State),owner,@[@"installed.json",@"stopped.json",@"client.json",@"transaction.json",@"auth-observer.json",@"Inbox"],error)||!OnlyNames(prefix,inbox,owner,@[@"helper",@"mihomo",@"manifest.json",@"dev.kuro.tun.plist",@"client-inventory.json"],error)||!OnlyNames(prefix,At(prefix,SocketDirectory),owner,@[@"service.lock",@"auth.sock"],error)||!ClientSubset(prefix,owner,entries,@"",error))return NO;
+  if(!OnlyNames(prefix,At(prefix,Tools),owner,@[@"installer",@"versions"],error)||!OnlyNames(prefix,versions,owner,@[manifest[@"release"]],error)||!OnlyNames(prefix,version,owner,@[@"helper",@"mihomo",@"manifest.json"],error)||!OnlyNames(prefix,At(prefix,State),owner,@[@"installed.json",@"stopped.json",@"client.json",@"transaction.json",@"auth-observer.json",@"Inbox"],error)||!OnlyNames(prefix,inbox,owner,@[@"helper",@"mihomo",@"manifest.json",@"dev.kuro.tun.plist",@"client-inventory.json"],error)||!OnlyNames(prefix,At(prefix,SocketDirectory),owner,@[@"service.lock",@"control.sock",@"auth.sock"],error)||!ClientSubset(prefix,owner,entries,@"",error))return NO;
   NSMutableDictionary *expected=[NSMutableDictionary dictionary];
   for(NSString *directory in @[version,inbox]) {
     expected[[directory stringByAppendingPathComponent:@"helper"]]=helper;
@@ -610,6 +640,7 @@ static BOOL UninstallFresh(NSString *prefix,uid_t owner,BOOL system,NSString *en
   @try {
     // Complete verification precedes any deletion. Missing approved files are retryable.
     for(NSString *path in expected)if(Exists(path)&&![InstallFileHash(prefix,path,owner,error) isEqual:expected[path]])return Fail(error,@"changed partial installation preserved");
+    if(!ControlSocketEndpoint(prefix,owner,lock,NULL,YES,error))return NO;
     if(started && !receipt[@"uninstall"]) {
       NSString *receiptPath=At(prefix,FreshReceipt);NSData *before=ReadProtected(prefix,receiptPath,owner,error);
       NSMutableDictionary *updated=[KuroDecodeJSON(before,InventoryLimit*2,error)mutableCopy];if(!updated)return NO;
@@ -642,7 +673,7 @@ static BOOL Uninstall(NSString *prefix, uid_t owner, BOOL system, NSString *entr
   if (!Exists(approvalPath) && !Exists(At(prefix, Tools)) && !Exists(At(prefix, State))) return FinalizeRecovery(prefix, owner, system, entry, error);
   NSString *statePath = At(prefix, [State stringByAppendingPathComponent:@"installed.json"]);
   NSString *inbox = At(prefix, [State stringByAppendingPathComponent:@"Inbox"]);
-  NSDictionary *approval = nil;
+  NSDictionary *approval = nil;BOOL createApproval=NO;
   if (Exists(approvalPath)) {
     approval = ReadJSON(prefix, approvalPath, owner, error);
     NSArray *approvalKeys = @[@"format", @"release", @"helper", @"core", @"manifest", @"plist", @"neverStarted"];
@@ -670,7 +701,7 @@ static BOOL Uninstall(NSString *prefix, uid_t owner, BOOL system, NSString *entr
       if (!clientBytes || ![clientBytes isEqual:JSONData(manifest[@"client"])]) return Fail(error, @"client approval changed; uninstall preserved");
       NSMutableDictionary *withClient = [approval mutableCopy]; withClient[@"client"] = Hash(clientBytes); approval = withClient;
     }
-    if (!WriteNew(approvalPath, JSONData(approval), 0600, error)) return NO;
+    createApproval=YES;
   }
   if (!Match(approval[@"release"], @"\\A[A-Za-z0-9.-]{1,120}\\z") || HasOwnershipFootprint(prefix) || Exists(At(prefix, [State stringByAppendingPathComponent:@"transaction.json"]))) return Fail(error, @"owned cleanup is unknown; uninstall preserved");
   NSString *versions = [At(prefix, Tools) stringByAppendingPathComponent:@"versions"];
@@ -686,6 +717,8 @@ static BOOL Uninstall(NSString *prefix, uid_t owner, BOOL system, NSString *entr
   int serviceLock = ServiceLock(prefix, owner, error);
   if (serviceLock < 0) return NO;
   @try {
+    if(!ControlSocketEndpoint(prefix,owner,serviceLock,NULL,YES,error))return NO;
+    if(createApproval && !WriteNew(approvalPath,JSONData(approval),0600,error))return NO;
     NSData *authRecord=nil;if(!FreshAuthEvidence(prefix,owner,approval[@"helper"],&authRecord,error))return NO;
     if(authRecord) {
       NSString *socket=At(prefix,[SocketDirectory stringByAppendingPathComponent:@"auth.sock"]);
@@ -700,9 +733,7 @@ static BOOL Uninstall(NSString *prefix, uid_t owner, BOOL system, NSString *entr
     if (!RemoveApproved(prefix, [inbox stringByAppendingPathComponent:@"dev.kuro.tun.plist"], owner, approval[@"plist"], error) ||
         !RemoveApproved(prefix, At(prefix, Plist), owner, approval[@"plist"], error) ||
         !RemoveDirectory(version, error) || !RemoveDirectory(versions, error) || !RemoveDirectory(inbox, error)) return NO;
-    NSString *socket = [At(prefix, SocketDirectory) stringByAppendingPathComponent:@"control.sock"];
     struct stat info;
-    if (Exists(socket) && (lstat(socket.fileSystemRepresentation, &info) || !S_ISSOCK(info.st_mode) || info.st_uid != owner || unlink(socket.fileSystemRepresentation))) return Fail(error, @"unknown socket preserved");
     for (NSString *lock in @[[At(prefix, SocketDirectory) stringByAppendingPathComponent:@"service.lock"]]) {
       if (Exists(lock) && (!SafeChain(prefix, lock, owner, NO, error) || lstat(lock.fileSystemRepresentation, &info) || info.st_size != 0 || unlink(lock.fileSystemRepresentation))) return Fail(error, @"unknown lock preserved");
     }
@@ -840,14 +871,14 @@ static NSDictionary *UpgradeSlotEntries(NSDictionary *record,NSDictionary *decod
   if(!next && [slot isEqual:@"stopped"] && record[@"oldStoppedJSON"]!=NSNull.null)return @{@"":UpgradeFile(Hash([record[@"oldStoppedJSON"]dataUsingEncoding:NSUTF8StringEncoding]),0600)};
   return UpgradeEntries(decoded,next,slot);
 }
-static BOOL UpgradeQuiescent(NSString *prefix,uid_t owner,BOOL system,NSString **error) {
+static BOOL UpgradeQuiescent(NSString *prefix,uid_t owner,BOOL system,int lock,NSString **error) {
   if(HasOwnershipFootprint(prefix)||Exists(At(prefix,LegacySocketDirectory)))return Fail(error,@"active, legacy or unknown network/Core ownership blocks upgrade");
   for(NSString *name in @[@"session-work",@"auth-observer.json"])if(Exists(At(prefix,[State stringByAppendingPathComponent:name])))return Fail(error,@"runtime/auth ownership blocks upgrade");
-  if(!OnlyNames(prefix,At(prefix,State),owner,@[@"installed.json",@"client.json",@"stopped.json",@"Inbox",@"Upgrade",@"transaction.json"],error)||!OnlyNames(prefix,At(prefix,SocketDirectory),owner,@[@"service.lock"],error))return NO;
+  if(!OnlyNames(prefix,At(prefix,State),owner,@[@"installed.json",@"client.json",@"stopped.json",@"Inbox",@"Upgrade",@"transaction.json"],error)||!OnlyNames(prefix,At(prefix,SocketDirectory),owner,@[@"service.lock",@"control.sock"],error))return NO;
   NSString *lockPath=At(prefix,[SocketDirectory stringByAppendingPathComponent:@"service.lock"]);struct stat info;
   if(lstat(lockPath.fileSystemRepresentation,&info)||info.st_size||!SafeNode(lockPath,owner,NO,error))return Fail(error,@"unexpected service lock bytes");
   if(system){int present=Launchctl(@[@"print",@"system/dev.kuro.tun"]);if(present!=3&&present!=113)return Fail(error,@"upgrade requires an independently absent launchd job");}
-  return YES;
+  return ControlSocketEndpoint(prefix,owner,lock,NULL,NO,error);
 }
 static NSDictionary *UpgradeMarkerValue(NSDictionary *record) {return @{@"format":@2,@"operation":@"upgrade",@"transaction":record[@"transaction"]};}
 static BOOL UpgradeMarkerValid(NSString *prefix,uid_t owner,NSDictionary *record,BOOL optional,NSString **error) {
@@ -948,7 +979,7 @@ static BOOL BeginClientUpgradeFromScripts(NSString *prefix,uid_t owner,BOOL syst
   if(!Exists(At(prefix,FreshReceipt))||!Exists(At(prefix,SocketDirectory)))return Fail(error,@"complete old installation is required; no upgrade state created");
   int lock=ServiceLock(prefix,owner,error);if(lock<0)return NO;
   @try {
-    if(!UpgradeQuiescent(prefix,owner,system,error))return NO;
+    if(!UpgradeQuiescent(prefix,owner,system,lock,error))return NO;
     NSData *oldReceipt=ReadProtected(prefix,At(prefix,FreshReceipt),owner,error),*installedBytes=ReadProtected(prefix,UpgradeCurrent(prefix,@"installed"),owner,error),*stopped=Exists(UpgradeCurrent(prefix,@"stopped"))?ReadProtected(prefix,UpgradeCurrent(prefix,@"stopped"),owner,error):nil;
     if(!oldReceipt||!installedBytes)return NO;
     NSDictionary *record=@{@"format":@2,@"operation":@"upgrade",@"transaction":NSUUID.UUID.UUIDString,@"phase":@"staging",@"oldReceiptJSON":UpgradeString(oldReceipt)?:@"",@"oldInstalledJSON":UpgradeString(installedBytes)?:@"",@"oldStoppedJSON":stopped?(UpgradeString(stopped)?:@""):NSNull.null,@"newManifestJSON":UpgradeString(manifestBytes),@"newInventoryJSON":UpgradeString(inventoryBytes)?:@"",@"newPlistBase64":[plist base64EncodedStringWithOptions:0]?:@""};
@@ -997,7 +1028,7 @@ static BOOL CompleteClientUpgradeFromScripts(NSString *prefix,uid_t owner,BOOL s
     NSMutableDictionary *record=[UpgradeRead(prefix,owner,error)mutableCopy];NSDictionary *decoded=record?UpgradeDecode(record,error):nil;if(!decoded)return NO;
     NSData *selfBytes=ReadProtected(scripts,[scripts stringByAppendingPathComponent:@"preflight-native"],owner,error);
     if(![Hash(selfBytes)isEqual:decoded[@"next"][@"manifest"][@"helper"][@"sha256"]]||(system&&![Executable()isEqual:[scripts stringByAppendingPathComponent:@"preflight-native"]]))return Fail(error,@"upgrade completion executable identity mismatch");
-    if(![record[@"phase"]isEqual:@"staging"]||!UpgradeQuiescent(prefix,owner,system,error)||!UpgradeMarkerValid(prefix,owner,record,NO,error)||!UpgradeCurrentFull(prefix,owner,record,decoded,NO,YES,error)||!UpgradePrepareNext(prefix,owner,record,decoded,error))return NO;
+    if(![record[@"phase"]isEqual:@"staging"]||!UpgradeQuiescent(prefix,owner,system,lock,error)||!UpgradeMarkerValid(prefix,owner,record,NO,error)||!UpgradeCurrentFull(prefix,owner,record,decoded,NO,YES,error)||!UpgradePrepareNext(prefix,owner,record,decoded,error))return NO;
     if(!UpgradePhase(prefix,owner,record,@"switching",error))return NO;
     NSString *root=UpgradeRoot(prefix),*next=[root stringByAppendingPathComponent:@"Next"],*previous=[root stringByAppendingPathComponent:@"Previous"];
     for(NSString *slot in UpgradeSlots()) {
@@ -1014,7 +1045,7 @@ static BOOL RecoverClientUpgrade(NSString *prefix,uid_t owner,BOOL system,NSStri
   if(!Exists(At(prefix,SocketDirectory)) || (!Exists(At(prefix,RecoveryRecord))&&!Exists(At(prefix,FreshReceipt))))return Fail(error,@"no approved upgrade or complete installation to observe");
   int lock=ServiceLock(prefix,owner,error);if(lock<0)return NO;
   @try {
-    if(!UpgradeQuiescent(prefix,owner,system,error))return NO;
+    if(!UpgradeQuiescent(prefix,owner,system,lock,error))return NO;
     if(!Exists(At(prefix,RecoveryRecord))) {
       // Idempotent observation only; absent evidence never authorizes deleting a partial tree.
       if(Exists(UpgradeRoot(prefix))||Exists(UpgradeMarker(prefix)))return Fail(error,@"unapproved partial upgrade remains");

@@ -379,42 +379,56 @@ static KuroTunService *ProductionService(void) {
   return [[KuroTunService alloc] initWithHooks:hooks];
 }
 static void StopSignal(int signalNumber) { (void)signalNumber; stopping = 1; }
-static int Serve(void) {
-  NSString *error = nil;
-  NSString *realSocket=[SocketDirectory stringByAppendingPathComponent:@"control.sock"];
+// Only tests supply a private installation prefix and service; production has no path selection.
+static int ServeAt(NSString *prefix,uid_t owner,KuroTunService *service) {
+  NSString *error=nil,*realSocket=At(prefix,[SocketDirectory stringByAppendingPathComponent:@"control.sock"]);
   struct sockaddr_un address;
-  if(!KuroUnixSocketAddress(realSocket,&address,&error)) { fprintf(stderr,"%s\n",error.UTF8String);return 1; }
-  int lock=ServiceLock(@"",0,&error);
-  if(lock<0) { fprintf(stderr,"%s\n",error.UTF8String);return 1; }
-  struct stat info;
-  if (Exists(realSocket)) {
-    if (lstat(realSocket.fileSystemRepresentation, &info) || !S_ISSOCK(info.st_mode) || info.st_uid != 0 || unlink(realSocket.fileSystemRepresentation)) return 1;
+  if(!service || !KuroUnixSocketAddress(realSocket,&address,&error)) {fprintf(stderr,"%s\n",(error?:@"service unavailable").UTF8String);return 1;}
+  int lock=ServiceLock(prefix,owner,&error);
+  if(lock<0) {fprintf(stderr,"%s\n",error.UTF8String);return 1;}
+  int listener=-1,result=1;BOOL bound=NO,drained=YES;struct stat ownedSocket={0};
+  dispatch_group_t workers=dispatch_group_create();
+  dispatch_semaphore_t slots=dispatch_semaphore_create(8);
+  @try {
+    do {
+      if(!ControlSocketEndpoint(prefix,owner,lock,NULL,YES,&error))break;
+      listener=socket(AF_UNIX,SOCK_STREAM,0);
+      if(listener<0 || fcntl(listener,F_SETFD,FD_CLOEXEC) || bind(listener,(struct sockaddr *)&address,sizeof(address))) {Fail(&error,@"control socket bind failed");break;}
+      if(lstat(realSocket.fileSystemRepresentation,&ownedSocket) || !S_ISSOCK(ownedSocket.st_mode) || ownedSocket.st_uid!=owner || ownedSocket.st_nlink!=1) {Fail(&error,@"bound control socket identity unavailable; preserved");break;}
+      bound=YES;
+      if(chmod(realSocket.fileSystemRepresentation,0666)) {Fail(&error,@"control socket mode setup failed");break;}
+      ownedSocket.st_mode=(ownedSocket.st_mode&~07777)|0666;
+      struct stat current;
+      if(lstat(realSocket.fileSystemRepresentation,&current) || current.st_dev!=ownedSocket.st_dev || current.st_ino!=ownedSocket.st_ino || current.st_mode!=ownedSocket.st_mode || current.st_uid!=owner || current.st_nlink!=1 || listen(listener,8)) {Fail(&error,@"control socket listen or identity setup failed");break;}
+      stopping=0;signal(SIGTERM,StopSignal);signal(SIGINT,StopSignal);signal(SIGPIPE,SIG_IGN);
+      result=0;
+      while(!stopping) {
+        struct pollfd pending={.fd=listener,.events=POLLIN};int ready=poll(&pending,1,500);
+        if(ready<0 && errno==EINTR)continue;
+        if(ready<0 || (ready>0 && (pending.revents&(POLLERR|POLLHUP|POLLNVAL)))) {Fail(&error,@"control listener failed");result=1;break;}
+        if(!ready)continue;
+        int peer=accept(listener,NULL,NULL);if(peer<0)continue;
+        if(dispatch_semaphore_wait(slots,DISPATCH_TIME_NOW)) {close(peer);continue;}
+        dispatch_group_async(workers,dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{
+          ServicePeer(service,peer);dispatch_semaphore_signal(slots);
+        });
+      }
+    } while(NO);
+  } @finally {
+    if(listener>=0)close(listener);
+    [service requestShutdown];
+    drained=dispatch_group_wait(workers,dispatch_time(DISPATCH_TIME_NOW,3*NSEC_PER_SEC))==0;
+    if(!drained) {Fail(&error,@"control workers did not drain; service lock retained until process exit");result=1;}
+    NSString *cleanupError=nil;
+    if(bound && !ControlSocketEndpoint(prefix,owner,lock,&ownedSocket,YES,&cleanupError)) {if(!error)error=cleanupError;result=1;}
+    // Unknown workers must never overlap a new helper in this namespace.
+    if(drained)close(lock);
   }
-  int listener = socket(AF_UNIX, SOCK_STREAM, 0);
-  if (listener < 0 || bind(listener, (struct sockaddr *)&address, sizeof(address)) || chmod(realSocket.fileSystemRepresentation, 0666) || listen(listener, 8)) return 1;
-  struct stat ownedSocket;
-  if (lstat(realSocket.fileSystemRepresentation, &ownedSocket)) return 1;
-  signal(SIGTERM, StopSignal); signal(SIGINT, StopSignal); signal(SIGPIPE, SIG_IGN);
-  KuroTunService *service = ProductionService();
-  dispatch_group_t workers = dispatch_group_create();
-  dispatch_semaphore_t slots = dispatch_semaphore_create(8);
-  while (!stopping) {
-    struct pollfd pending = {.fd = listener, .events = POLLIN};
-    if (poll(&pending, 1, 500) <= 0) continue;
-    int peer = accept(listener, NULL, NULL);
-    if (peer < 0) continue;
-    if (dispatch_semaphore_wait(slots, DISPATCH_TIME_NOW)) { close(peer); continue; }
-    dispatch_group_async(workers, dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-      ServicePeer(service, peer); dispatch_semaphore_signal(slots);
-    });
-  }
-  close(listener);
-  [service requestShutdown];
-  if (dispatch_group_wait(workers, dispatch_time(DISPATCH_TIME_NOW, 3 * NSEC_PER_SEC))) return 1;
-  if (!lstat(realSocket.fileSystemRepresentation, &info) && info.st_ino == ownedSocket.st_ino && info.st_dev == ownedSocket.st_dev) unlink(realSocket.fileSystemRepresentation);
-  close(lock);
-  return 0;
+  if(result)fprintf(stderr,"%s\n",(error?:@"control service failed").UTF8String);
+  return result;
 }
+static int Serve(void) {return ServeAt(@"",0,ProductionService());}
+
 #if !defined(KURO_TESTING) && !defined(KURO_CORE_EXPERIMENT)
 int main(int argc, const char **argv) {
   @autoreleasepool {

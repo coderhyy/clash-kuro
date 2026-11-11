@@ -57,7 +57,7 @@ export async function buildMacosHelper(target, test = false) {
     if (test) {
       const binary = join(temporary, 'tests')
       execFileSync('/usr/bin/clang', [...flags, '-Wno-unused-function', join(source, 'kuro-tun-helper.test.m'), '-o', binary], { stdio: 'inherit' })
-      // Tests reject root; only socketpair and private temporary-directory operations.
+      // Tests reject root; Unix sockets and installation fixtures stay in private temporary directories.
       // The full install/recovery matrix exceeds 30s on hosted runners; individual waits stay bounded.
       runNativeCheck('native-suite', binary, [], { stdio: 'inherit', timeout: 90_000 })
       runNativeCheck('upgrade-suite', binary, ['--upgrade-tests'], { stdio: 'inherit', timeout: 180_000 })
