@@ -2,9 +2,17 @@
 
 Status: ready-for-agent（740固定socket、原安装及receipt已精确清理；job/进程缺席；新增网络实验未授权）
 Type: task
-Blocked by: IPv4 ENETUNREACH未定因，需另行准备并批准最小对照窗口；运行期全局路由假设仍待收敛。
+Blocked by: IPv4 ENETUNREACH未定因，需另行准备并批准最小对照窗口；运行期本地路由变化已窄化实现，待完整验证与真实窗口。
 Owner: TUN 接入 agent；主会话统一 Core/State/桌面公共接口与源码分工
 
+
+## 本轮运行期路由核验收敛（2026-11-11，已集成待完整验证）
+
+仅对已精确观察到 held Core／utun 与固定五条路由后的运行期核验，允许有独立接口证据的本机 IPv4 地址轮换及有限 link-local／scoped multicast 路由增删：缺失项须匹配保存的原接口快照，新增项须匹配当前接口；接口名称／索引／类型／运行状态、link 网关和精确形状／flags 均须成立。不能仅凭 /32 或 HOST 判断归属，不能覆盖已准入 literal 端点或原系统 DNS 地址。CONT 前完整基线比较保持。
+
+原默认出口／网关／物理接口索引、LAN／端点与 scoped DNS 路径、held 身份、固定五条接管路由、地址池冲突、双族探针及 DNS 所有权门保持。未知或影响这些路径的变化仍中断并安全停止；若因此未能完成对照，结果为 **inconclusive**，不是 IPv4 连接失败或成功。未增加路由写入／删除权，恢复逻辑未改。
+
+旧源码对合法本地地址轮换真实 RED；新源码严格生产编译、25 个 coordinator 场景、两条真实无害 child 的 service 心跳／正常停止和默认出口变化自动停止链、既有网络回归均通过（系统后端为 fixture，未运行真实 Core／网络）。完整集成验证、CI 和新安装包由主会话继续；IPv4 ENETUNREACH 根因仍未确认，未取得受控流量成功。脱敏证据见[RESULT](../evidence/core-auto-route-global-20261106/RESULT.md)。
 
 ## 本次精确清理完成（2026-11-11）
 

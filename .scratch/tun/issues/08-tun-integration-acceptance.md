@@ -2,9 +2,17 @@
 
 Status: ready-for-agent（740固定socket、原安装及receipt已精确清理；job/进程缺席；新增网络实验未授权）
 Type: validation
-Blocked by: IPv4 ENETUNREACH未定因，需另行准备并批准最小对照窗口；运行期全局路由假设仍待收敛。
+Blocked by: IPv4 ENETUNREACH未定因，需另行准备并批准最小对照窗口；运行期本地路由变化已窄化实现，待完整验证与真实窗口。
 Owner: 主会话集成与最终验证；验收 agent 准备记录
 
+
+## 本轮运行期路由核验收敛（2026-11-11，已集成待完整验证）
+
+仅对已精确观察到 held Core／utun 与固定五条路由后的运行期核验，允许有独立接口证据的本机 IPv4 地址轮换及有限 link-local／scoped multicast 路由增删：缺失项须匹配保存的原接口快照，新增项须匹配当前接口；接口名称／索引／类型／运行状态、link 网关和精确形状／flags 均须成立。不能仅凭 /32 或 HOST 判断归属，不能覆盖已准入 literal 端点或原系统 DNS 地址。CONT 前完整基线比较保持。
+
+原默认出口／网关／物理接口索引、LAN／端点与 scoped DNS 路径、held 身份、固定五条接管路由、地址池冲突、双族探针及 DNS 所有权门保持。未知或影响这些路径的变化仍中断并安全停止；若因此未能完成对照，结果为 **inconclusive**，不是 IPv4 连接失败或成功。未增加路由写入／删除权，恢复逻辑未改。
+
+旧源码对合法本地地址轮换真实 RED；新源码严格生产编译、25 个 coordinator 场景、两条真实无害 child 的 service 心跳／正常停止和默认出口变化自动停止链、既有网络回归均通过（系统后端为 fixture，未运行真实 Core／网络）。完整集成验证、CI 和新安装包由主会话继续；IPv4 ENETUNREACH 根因仍未确认，未取得受控流量成功。脱敏证据见[RESULT](../evidence/core-auto-route-global-20261106/RESULT.md)。
 
 ## 本次精确清理完成（2026-11-11）
 
@@ -25,7 +33,7 @@ Owner: 主会话集成与最终验证；验收 agent 准备记录
 | 问题与原始错误 | 直接证据 | 根因状态 | 最小修复／判别 | 成功标准 |
 | --- | --- | --- | --- | --- |
 | IPv4 实际出站失败：`dial tcp …:443: connect: network is unreachable` | 固定Core真实stdout反复记录IPv4连接错误；已完成ready/apply/openACK进入owner supervision，故不只是helper拒绝。无受控48173流量成功；日志仅保留前64KiB，不能以累计字节推断环路或速率。 | **未确认根因**。缺少错误发生时实际IP_BOUND_IF调用结果、接口index、scoped路由及同身份原生connect对照；缺IPv6不能解释IPv4。 | 清理后再申请一次短判别窗口：固定IPv4目标，TUN前后同euid原生IP_BOUND_IF连接与同窗Core请求，加normal/scoped lookup；不先猜测修改配置。 | 能区分内核/接口路由条件与Core调用／进程策略差异；随后受控请求有本会话Tun元数据、双向字节及成功响应，正常关闭有恢复证明。 |
-| 运行期全局基线检查仍过宽，且旧错误把运行期称为startup | 740诊断阶段为authenticated owner supervision；该阶段在openACK后设置，通用baseline比较却输出during Core startup。现检查要求每条旧stable route存在。 | **已确认错误阶段表述；全局不变假设缺乏普遍必要性依据**。尚不能声称现场最初缺失条目已取证。 | 6da324e已改中性措辞和有界具体差异；保护复核按准确owner、自有路由、实际出口/LAN/DNS条件区分相关和无关变化，禁止忽略全部新增路由。该兼容性项不代替IPv4转发诊断。 | 合法无关动态变化不被当作身份丢失；影响实际接管／出口的变化仍拒绝并能安全恢复；对应真实变化样本回归。 |
+| 运行期全局基线门已按有限本地变化窄化，真实兼容仍待验 | 原门在 openACK 后每秒仍要求全部旧 stable routes；旧源码在合法本地地址轮换 fixture 真实 RED。没有740活动路由快照可证明其具体缺失项。 | **实现已集成，尚非实机通过**；IPv4 ENETUNREACH 独立未定因。 | 仅接受独立旧／当前接口证据支持的本地地址、link-local 和 scoped multicast 变化；保留默认出口／LAN／端点／DNS／固定五路由与完整 held 身份。未知变化仍停，实验记 inconclusive。 | 完整回归／CI／包审及同版本窗口通过；无关合法动态不误判身份丢失，相关冲突仍拒绝并安全恢复；不能用本项替代 IPv4 对照。 |
 
 已解决的固定socket卸载、鉴权、Global DNS派生识别及背景socket census问题不再列作当前阻塞；其历史证据保留在下文。当前首次正常启停未验收通过，CI／测试／独审仅为前置证据。
 

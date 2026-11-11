@@ -1,6 +1,16 @@
 # Exact Core auto-route RTF_GLOBAL observation
 
-## Current result (2026-11-10): 0102 failed start recovered and fully removed
+## Current implementation (2026-11-11): bounded runtime local-route changes
+
+The two-file production-network change is integrated for full validation. It keeps the complete pre-CONT baseline comparison. After exact held Core/utun and five-route observation, missing local routes require immutable baseline interface evidence and added local routes require independent current interface evidence. Only explicit local IPv4 address rotation, link-local and fixed scoped multicast shapes are allowed, with exact name/index, Ethernet type, UP/RUNNING, link gateway and flags. A /32 or HOST bit alone is insufficient. No tolerated delta may cover an admitted literal endpoint or original system DNS server. Default gateway/physical identity, LAN and admitted/scoped paths, exact owned routes, pool conflicts, probes and DNS ownership remain guarded. Recovery and route write/delete authority are unchanged.
+
+The old production source with the new anonymous fixtures compiled and failed at legal local IPv4 address rotation. New strict production compilation passed; 25 coordinator cases and two actual harmless-child/private-Unix-socket service chains passed (0.965s). They verify a valid rotation permits heartbeat and normal stop, while a subsequent changed default triggers actual periodic verification and owned automatic stop/reap/cleanup. All existing production-network regression functions passed (4.998s). Kernel routes/DNS/interfaces and authorization remain fixtures; KURO_SKIP_CORE_SYNTAX=1. No real Core, system network or controlled request was run for this change. Full integrated native/CI/package checks are pending at this record's update.
+
+Patch SHA256: `a1a716decc5112ce75d0fed09e30b2bccd952054fb158c07aca206b46b057a5a`; freeze SHA256: `3a07f2585dcc48c28d5c55df91df9a2f431d4bb9375eb7fc56f439c2d615a902`. Local evidence directory: `/private/tmp/kuro-active-route-context-8wq43btp`; only sanitized findings and hashes are recorded here. Initial sandbox AF_UNIX EPERM evidence is preserved separately from the ordinary-UID successful run.
+
+Unknown or relevant routing changes still interrupt the session. If a planned comparison is stopped before the request, its outcome is **inconclusive**, not an IPv4 forwarding result. Arbitrary USB/third-party route dynamics are not certified. No activity-time740 route snapshot establishes its exact first missing entry, and IPv4 ENETUNREACH remains unexplained; neither fixture passes nor cleanup prove forwarding success. The older dated results below retain their original limits.
+
+## Historical result (2026-11-10): 0102 failed start recovered and fully removed
 
 Source `0102e49c80819f166a747ddf703bad5b5fff314a`, package SHA256 `43ff2b7e6d5d1e77dc862011d852d76fcd9e6168881eef3ce93dcccf1a4fd815`. CI 42204832391 passed on macOS and Windows; actual package and exact window scripts passed independent review. The new source0102 production preflight passed and its complete stable-route, DNS and interface snapshots matched the explicitly approved current baseline. No third-party conflict was present. The prior22 installation had already been exactly removed before this fresh window.
 

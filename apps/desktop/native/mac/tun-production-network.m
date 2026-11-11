@@ -192,6 +192,58 @@ static BOOL KuroPreservedEndpoint(NSString *text, NSArray *routes, NSString *phy
   return YES;
 }
 
+// The same admitted literal/scoped-DNS path checks are used at preflight and
+// during the held session. No config credentials or arbitrary config are saved.
+static BOOL KuroNetworkPreservedPaths(NSArray *routes,NSArray *interfaces,NSDictionary *dns,NSArray *endpoints,NSString *physical,BOOL missingIPv6Default,NSString **error) {
+  for (NSString *key in dns) {
+    NSDictionary *record=dns[key]; NSString *scoped=[key containsString:@"/Interface/"]?[[key componentsSeparatedByString:@"/"]objectAtIndex:3]:nil;
+    NSNumber *index=record[@"InterfaceIndex"]?:record[@"__IF_INDEX__"]; BOOL known=!scoped && !index;
+    for (NSDictionary *entry in interfaces) if ((!scoped || [entry[@"name"]isEqual:scoped]) && (!index || [entry[@"index"]isEqual:index])) known=YES;
+    if (!known) return Fail(error,@"scoped DNS interface is unavailable; preserving existing resolver");
+    for (NSString *address in record[@"ServerAddresses"]) {
+      if (!KuroPreservedEndpoint(address,routes,physical,NO,missingIPv6Default,error)) return NO;
+      if ((scoped || index) && (KuroPrivateEndpoint(address) || (missingIPv6Default && KuroRouteIP(KuroCanonicalEndpoint(address),6)))) {
+        BOOL preserved=NO; for (NSDictionary *route in routes) if ([route[@"prefix"]intValue]>1 && KuroRouteContainsIP(route,address) &&
+          (!scoped || [route[@"interfaceName"]isEqual:scoped]) && (!index || [route[@"interfaceIndex"]isEqual:index]) && ([route[@"flags"]unsignedIntValue]&RTF_UP) && !([route[@"flags"]unsignedIntValue]&(RTF_REJECT|RTF_BLACKHOLE))) preserved=YES;
+        if (!preserved) return Fail(error,@"scoped LAN DNS server has no preserved route on its original interface");
+      }
+    }
+  }
+  for (NSString *address in endpoints) if (!KuroPreservedEndpoint(address,routes,physical,YES,missingIPv6Default,error)) return NO;
+  return YES;
+}
+static BOOL KuroLocalRouteChange(NSDictionary *route,NSArray *interfaces,NSArray *endpoints,NSDictionary *dns,KuroCoreInterface association) {
+  NSString *name=route[@"interfaceName"],*destination=route[@"destination"];NSNumber *index=route[@"interfaceIndex"];
+  if ([name isEqual:@(association.interfaceName)] || [index isEqual:@(association.interfaceIndex)] || ![route[@"gateway"]isEqual:@"link"]) return NO;
+  // A local address is not harmless if it takes over an admitted server path.
+  for (NSString *address in endpoints) if (KuroRouteContainsIP(route,address)) return NO;
+  for (NSDictionary *record in dns.allValues) for (NSString *address in record[@"ServerAddresses"]) if (KuroRouteContainsIP(route,address)) return NO;
+  NSUInteger links=0;BOOL local=NO,linkLocal4=NO,linkLocal6=NO;
+  for (NSDictionary *entry in interfaces) {
+    if (![entry[@"name"]isEqual:name] && ![entry[@"index"]isEqual:index]) continue;
+    if (![entry[@"name"]isEqual:name] || ![entry[@"index"]isEqual:index] ||
+      ([entry[@"flags"]unsignedIntValue]&(IFF_UP|IFF_RUNNING|IFF_LOOPBACK|IFF_POINTOPOINT))!=(IFF_UP|IFF_RUNNING)) return NO;
+    if ([entry[@"family"]isEqual:@0]) { if (![entry[@"linkType"]isEqual:@(IFT_ETHER)]) return NO; links++; }
+    if ([entry[@"family"]isEqual:route[@"family"]] && [entry[@"address"]isEqual:destination]) local=YES;
+    NSData *v4=KuroRouteIP(entry[@"address"],4);
+    if (v4 && ((const unsigned char *)v4.bytes)[0]==169 && ((const unsigned char *)v4.bytes)[1]==254 && [entry[@"prefix"]isEqual:@16]) linkLocal4=YES;
+    struct in6_addr v6={0};
+    if ([entry[@"family"]isEqual:@6] && inet_pton(AF_INET6,[entry[@"address"]UTF8String],&v6)==1 && IN6_IS_ADDR_LINKLOCAL(&v6) && [entry[@"prefix"]isEqual:@64]) linkLocal6=YES;
+  }
+  if (links!=1) return NO;
+  unsigned int flags=[route[@"flags"]unsignedIntValue];int prefix=[route[@"prefix"]intValue];
+  // Sanitized Darwin snapshots have UP|STATIC|CLONING local IPv4 routes,
+  // including /32 entries without HOST. Address evidence, not flags, binds them.
+  if ([route[@"family"]isEqual:@4] && flags==(RTF_UP|RTF_STATIC|RTF_CLONING))
+    return (prefix==32 && local) || (prefix==16 && [destination isEqual:@"169.254.0.0"] && linkLocal4);
+  if (![route[@"family"]isEqual:@6] || !linkLocal6) return NO;
+  NSString *zone=[NSString stringWithFormat:@"%%%u",index.unsignedIntValue];
+  if (prefix==64 && [destination isEqual:[@"fe80::"stringByAppendingString:zone]] && flags==(RTF_UP|RTF_CLONING|RTF_IFSCOPE)) return YES;
+  BOOL multicast=(prefix==8 && [destination isEqual:[@"ff00::"stringByAppendingString:zone]]) ||
+    (prefix==32 && ([destination isEqual:[@"ff01::"stringByAppendingString:zone]] || [destination isEqual:[@"ff02::"stringByAppendingString:zone]]));
+  return multicast && flags==(RTF_UP|RTF_CLONING|RTF_MULTICAST|RTF_IFSCOPE);
+}
+
 // Exact multisets retain duplicate-baseline detection while allowing dump order changes.
 static BOOL KuroNetworkSameRoutes(NSArray *left,NSArray *right) {
   if(![left isKindOfClass:NSArray.class]||![right isKindOfClass:NSArray.class]||left.count!=right.count)return NO;
@@ -289,7 +341,7 @@ static BOOL KuroCurrentOwnedRoutesAbsent(NSArray *routes, NSDictionary *associat
   NSString *_directory; uid_t _owner; pthread_t _thread;
   id<KuroRouteStore> _routeBackend; id<KuroDNSStore> _dnsBackend; KuroNetworkEnvironment *_environment;
   KuroOwnedRoutes *_routes; KuroOwnedDNS *_dns;
-  NSArray *_baselineRoutes; NSDictionary *_baselineDNS; NSString *_physical, *_session;
+  NSArray *_baselineRoutes,*_baselineInterfaces,*_pathEndpoints; NSDictionary *_baselineDNS; NSString *_physical, *_session;
   KuroCoreInterface _association; BOOL _prepared, _networkOff, _internalDNSReady;
   NSArray *_installedRoutes;
   NSDictionary *_stoppedEvidence,*_binding,*_recoveryOwner,*_recoveryObservation,*_retiredRouteRecord;
@@ -355,26 +407,12 @@ static BOOL KuroCurrentOwnedRoutesAbsent(NSArray *routes, NSDictionary *associat
   // Never shadow any pre-existing address/route in the fixed internal pools.
   for (NSDictionary *entry in interfaces) if ([entry[@"address"]isEqual:@"198.18.0.1"] || [entry[@"address"]isEqual:@"198.18.0.2"] || [entry[@"address"]isEqual:@"fdfe:dcba:9876::1"] || [entry[@"address"]isEqual:@"fdfe:dcba:9876::2"]) return Fail(error,@"fixed internal TUN address already exists");
   for (NSDictionary *route in routes) if ([route[@"prefix"]intValue]>0 && (KuroRouteContainsIP(route,@"198.18.0.1") || KuroRouteContainsIP(route,@"198.18.0.2") || KuroRouteContainsIP(route,@"fdfe:dcba:9876::1") || KuroRouteContainsIP(route,@"fdfe:dcba:9876::2"))) return Fail(error,@"existing route overlaps fixed internal DNS/utun pool");
-  for (NSString *key in dns) {
-    NSDictionary *record=dns[key]; NSString *scoped=[key containsString:@"/Interface/"]?[[key componentsSeparatedByString:@"/"]objectAtIndex:3]:nil;
-    NSNumber *index=record[@"InterfaceIndex"]?:record[@"__IF_INDEX__"]; BOOL known=!scoped && !index;
-    for (NSDictionary *entry in interfaces) if ((!scoped || [entry[@"name"]isEqual:scoped]) && (!index || [entry[@"index"]isEqual:index])) known=YES;
-    if (!known) return Fail(error,@"scoped DNS interface is unavailable; preserving existing resolver");
-    for (NSString *address in record[@"ServerAddresses"]) {
-      if (!KuroPreservedEndpoint(address,routes,physical,NO,!v6,error)) return NO;
-      if ((scoped || index) && (KuroPrivateEndpoint(address) || (!v6 && KuroRouteIP(KuroCanonicalEndpoint(address),6)))) {
-        BOOL preserved=NO; for (NSDictionary *route in routes) if ([route[@"prefix"]intValue]>1 && KuroRouteContainsIP(route,address) &&
-          (!scoped || [route[@"interfaceName"]isEqual:scoped]) && (!index || [route[@"interfaceIndex"]isEqual:index]) && ([route[@"flags"]unsignedIntValue]&RTF_UP) && !([route[@"flags"]unsignedIntValue]&(RTF_REJECT|RTF_BLACKHOLE))) preserved=YES;
-        if (!preserved) return Fail(error,@"scoped LAN DNS server has no preserved route on its original interface");
-      }
-    }
-  }
   NSMutableArray *endpoints=[NSMutableArray array]; NSDictionary *settings=config[@"dns"];
   for (NSString *field in @[@"nameservers",@"bootstrap",@"proxyNameservers"]) [endpoints addObjectsFromArray:settings[field]];
   for (NSDictionary *policy in settings[@"policies"]) [endpoints addObjectsFromArray:policy[@"nameservers"]];
   for (NSDictionary *proxy in config[@"proxies"]) [endpoints addObject:proxy[@"server"]];
-  for (NSString *address in endpoints) if (!KuroPreservedEndpoint(address,routes,physical,YES,!v6,error)) return NO;
-  _baselineRoutes=routes; _baselineDNS=dns; _physical=[physical copy]; _prepared=YES; return YES;
+  if (!KuroNetworkPreservedPaths(routes,interfaces,dns,endpoints,physical,!v6,error)) return NO;
+  _baselineRoutes=routes; _baselineInterfaces=[interfaces copy]; _pathEndpoints=[endpoints copy]; _baselineDNS=dns; _physical=[physical copy]; _prepared=YES; return YES;
 }
 // No route writer exists here. Complete observations and their protected
 // pre-resume baseline record, not an in-memory phase, gate DNS publication.
@@ -404,12 +442,19 @@ static BOOL KuroCurrentOwnedRoutesAbsent(NSArray *routes, NSDictionary *associat
   if (_installedRoutes && ![self confirmedRoutePlan:_installedRoutes error:error]) return NO;
   NSArray *current=KuroStableRoutes([_routeBackend routes:error]); if (!current) return NO;
   NSArray *interfaces=_environment.interfaces(error); if (!interfaces) return NO;
+  BOOL dynamic=_installedRoutes && KuroRouteAssociation(_association);
+  if (dynamic) for (NSDictionary *entry in interfaces) {
+    BOOL pool=[@[@"198.18.0.1",@"198.18.0.2",@"fdfe:dcba:9876::1",@"fdfe:dcba:9876::2"]containsObject:entry[@"address"]?:@""];
+    if (pool && (![entry[@"name"]isEqual:@(_association.interfaceName)] || ![entry[@"index"]isEqual:@(_association.interfaceIndex)])) return Fail(error,@"fixed internal TUN address appeared on another interface");
+  }
   NSMutableArray *remaining=[current mutableCopy];
-  for (NSDictionary *before in _baselineRoutes) { NSUInteger index=[remaining indexOfObject:before]; if (index==NSNotFound) return Fail(error,[NSString stringWithFormat:@"route baseline changed; preserve all existing routing; dnsPublished=%d; %@",installed,KuroRouteBaselineDifference(_baselineRoutes,current)]); [remaining removeObjectAtIndex:index]; }
+  for (NSDictionary *before in _baselineRoutes) { NSUInteger index=[remaining indexOfObject:before]; if (index==NSNotFound) { if (dynamic && KuroLocalRouteChange(before,_baselineInterfaces,_pathEndpoints,_baselineDNS,_association)) continue; return Fail(error,[NSString stringWithFormat:@"route baseline changed; preserve all existing routing; dnsPublished=%d; %@",installed,KuroRouteBaselineDifference(_baselineRoutes,current)]); } [remaining removeObjectAtIndex:index]; }
   for (NSDictionary *extra in remaining) {
     BOOL recorded=NO; for (NSDictionary *target in _installedRoutes) if (KuroCoreAutoRouteEqual(extra,target)) recorded=YES;
     if (recorded) continue;
     if (KuroHeldMulticastCompanion(extra,_association,interfaces)) continue;
+    NSUInteger equal=0;for (NSDictionary *entry in current) if ([entry isEqual:extra]) equal++;
+    if (dynamic && equal==1 && KuroLocalRouteChange(extra,interfaces,_pathEndpoints,_baselineDNS,_association)) continue;
     BOOL own=[extra[@"interfaceName"]isEqual:@(_association.interfaceName)] && [extra[@"interfaceIndex"]isEqual:@(_association.interfaceIndex)];
     NSString *destination=extra[@"destination"]; int prefix=[extra[@"prefix"]intValue];
     BOOL expected=([extra[@"family"]isEqual:@4] && (([destination isEqual:@"198.18.0.0"] && prefix==30) || ([destination isEqual:@"198.18.0.1"] && prefix==32))) ||
@@ -422,6 +467,13 @@ static BOOL KuroCurrentOwnedRoutesAbsent(NSArray *routes, NSDictionary *associat
       return Fail(error,[NSString stringWithFormat:@"unexpected route appeared while creating Core utun; refusing takeover; phase=%@; owned-interface=%s/%u; observed=%@",installed?@"active verification":@"Core startup",_association.interfaceName,_association.interfaceIndex,observed]);
     }
   }
+  NSMutableArray *preserved=[NSMutableArray array];BOOL missingIPv6Default=YES;
+  for (NSDictionary *route in current) {
+    BOOL recorded=NO;for (NSDictionary *target in _installedRoutes) if (KuroCoreAutoRouteEqual(route,target)) recorded=YES;
+    if (!recorded) [preserved addObject:route];
+    if ([route[@"family"]isEqual:@6] && [route[@"prefix"]isEqual:@0] && ([route[@"flags"]unsignedIntValue]&RTF_UP) && !([route[@"flags"]unsignedIntValue]&RTF_IFSCOPE)) missingIPv6Default=NO;
+  }
+  if (!KuroNetworkPreservedPaths(preserved,interfaces,_baselineDNS,_pathEndpoints,_physical,missingIPv6Default,error)) return NO;
   NSMutableDictionary *dns=[[_dnsBackend dnsRecords:error]mutableCopy];
   if (installed) {
     NSString *key=KuroDNSKey(_session); if (![dns[key]isEqual:KuroDNSValue()]) return Fail(error,@"owned DNS key changed or disappeared during active session");

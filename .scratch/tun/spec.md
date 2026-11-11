@@ -6,7 +6,9 @@ Status: ready-for-agent（产品边界已批准；安全实现与真实验收未
 
 ## 当前约束（2026-11-11）
 
-暂停新增 TUN 重试，先处理保留的740安装。已确认恢复要求全部系统路由回到旧快照过宽：外部物理地址变化不等于本应用残留。v2恢复修复保留安装／owner／writer退出绑定、原utun及固定地址池缺席、DNS连续读回和持久证明；外部路由差异仅报告，不取得修改权。当前准备受限恢复工具，未执行；运行期全局基线门尚待另行收敛，IPv4 ENETUNREACH尚未定因。具体当前阻塞见[08](issues/08-tun-integration-acceptance.md)。
+740保留安装已完成受限恢复、format3持久证明及固定socket／原安装／receipt精确清理，本次授权结束。v2恢复保留安装／owner／writer退出绑定、原utun及固定地址池缺席、DNS连续读回和持久证明；外部路由差异仅报告，不取得修改权。正在准备新的可安装候选与固定IPv4目标对照，运行期基线门已按下述有限本地变化窄化实现并集成，完整验证与真实窗口仍待完成；IPv4 ENETUNREACH尚未定因。当前未获新网络实验授权。具体阻塞见[08](issues/08-tun-integration-acceptance.md)。
+
+2026-11-11 运行期核验：CONT 前完整基线不变；held Core／utun 与固定五条路由精确观察后，仅允许有原／当前独立接口证据的本机 IPv4 地址轮换、IPv4 link-local 和 IPv6 link-local／固定 scoped multicast 增删。保留精确接口形状／flags、原 default／gateway／physical index、LAN／已准入端点／scoped DNS 路径及 DNS 所有权；不能凭 /32 或 HOST 推定本地归属，不能容忍覆盖已准入 literal／系统 DNS 的变化。未知仍停止，未完成对照记 inconclusive；不增加写入／删除权。旧源码 RED、新25 coordinator＋2实际无害 child service 链和既有回归 GREEN，严格生产编译通过；尚未由此证明实机兼容或 IPv4 转发成功。见 [ADR-0018](../../docs/adr/0018-macos-tun-network-boundaries.md) 与[脱敏记录](evidence/core-auto-route-global-20261106/RESULT.md)。
 
 以下为历史实现和授权记录，不代表当前仍可重试。
 
