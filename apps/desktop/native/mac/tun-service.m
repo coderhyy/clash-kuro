@@ -330,6 +330,17 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
   NSString *safeReason=KuroDiagnosticText(_session.stopContext[@"reason"]?:@"",_diagnosticSecrets);
   NSDictionary *metadata=safeStage&&safeError&&safeDiagnostic&&safeNetwork&&safeReason?@{@"format":@1,@"stage":safeStage,@"error":safeError,@"diagnosticError":safeDiagnostic,@"termination":_session.terminationEvidence?:@{@"request":@"none",@"observed":@NO},@"capture":[_output statistics],@"captureComplete":@(_captureComplete),@"stopContext":@{@"reason":safeReason,@"unexpected":_session.stopContext[@"unexpected"]?:@NO},@"networkRecovery":@{@"attempted":_diagnosticNetwork[@"attempted"]?:@NO,@"restored":_diagnosticNetwork[@"restored"]?:@NO,@"error":safeNetwork}}:nil;
   if(!metadata)return Fail(error,@"diagnostic summary redaction failed; preserve work");
+  if(metadata && _session) {
+    NSMutableDictionary *updated=[metadata mutableCopy];
+    updated[@"timeline"]=@{@"clock":@"CLOCK_MONOTONIC",@"unit":@"milliseconds",@"wallClock":@"CLOCK_REALTIME Unix epoch",@"events":_session.lifecycleTiming};
+    NSDictionary *first=_session.firstCleanupFailure;
+    if(first) {
+      NSString *reason=KuroDiagnosticText(first[@"error"],_diagnosticSecrets);
+      if(!reason)return Fail(error,@"first cleanup error redaction failed; preserve work");
+      updated[@"firstCleanupFailure"]=@{@"at":first[@"at"],@"stage":first[@"stage"],@"error":reason};
+    }
+    metadata=updated;
+  }
   NSDictionary *observation=_diagnosticNetwork[@"observation"];
   if(observation) {
     NSString *difference=KuroDiagnosticText(observation[@"routeDifference"],_diagnosticSecrets);
@@ -403,6 +414,13 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
     NSString *failure=nil;BOOL ok=NO;
     if(admitted && [_session heldCleanupCanRetry]) {
       ok=[_session stop:&failure] && _session.off && !_workCreated;
+      // The cleanup hook's summary precedes stop returning. Persist the completed
+      // transition (or first stop failure) now, without erasing the earlier error.
+      NSString *timingFailure=nil;
+      if(![self persistDiagnosticSummary:&timingFailure]) {
+        [self diagnosticError:timingFailure];_diagnosticComplete=NO;
+        if(!failure)failure=timingFailure;ok=NO;
+      }
       if(ok)ok=[self checkpointStopped:&failure];
       else [self snapshot:@"unknown" error:failure?:@"held cleanup retry not proven"];
     } else failure=@"held recovery expired, cancelled, or ownership no longer admits retry";
@@ -790,15 +808,18 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
       strong->_diagnosticStage=stage;
       NSString *diagnostic=nil,*network=nil;BOOL saved=[strong finishDiagnostics:&diagnostic];
       // Network recovery must run even if logging failed; it retains its own ownership gates.
+      if(!saved)[strong->_session noteCleanupFailure:diagnostic stage:@"diagnostic finish"];
       BOOL restored=strong->_hooks.recoverNetwork(strong->_session.identifier,&network);
+      if(!restored)[strong->_session noteCleanupFailure:network?:@"network restoration is not proven" stage:@"network recovery"];
       NSMutableDictionary *recovery=[@{@"attempted":@YES,@"restored":@(restored),@"error":network?:@""}mutableCopy];
       NSDictionary *observation=restored&&strong->_hooks.networkRecoveryObservation?strong->_hooks.networkRecoveryObservation():nil;
       if(observation)recovery[@"observation"]=observation;
       strong->_diagnosticNetwork=recovery;
       NSString *summaryFailure=nil;BOOL summary=[strong persistDiagnosticSummary:&summaryFailure];
-      if(!summary){[strong diagnosticError:summaryFailure];strong->_diagnosticComplete=NO;saved=NO;diagnostic=summaryFailure;}
+      if(!summary){[strong->_session noteCleanupFailure:summaryFailure stage:@"diagnostic summary"];[strong diagnosticError:summaryFailure];strong->_diagnosticComplete=NO;saved=NO;diagnostic=summaryFailure;}
       if(!saved || !restored)return Fail(problem,!restored?(network?:@"network restoration is not proven"):(diagnostic?:@"diagnostic persistence is not proven"));
-      return [strong removeWork:problem];
+      NSString *workFailure=nil;BOOL removed=[strong removeWork:&workFailure];
+      if(!removed){[strong->_session noteCleanupFailure:workFailure stage:@"work removal"];return Fail(problem,workFailure?:@"work removal is not proven");}return YES;
     } resumeGate:^BOOL(KuroSessionHook resume,NSString **problem) {
       KuroTunService *strong=weakSelf; if(!strong)return Fail(problem,@"service owner disappeared");
 #ifdef KURO_TESTING

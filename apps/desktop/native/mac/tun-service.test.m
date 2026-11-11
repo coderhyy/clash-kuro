@@ -275,7 +275,11 @@ static void RetainedRecoveryTests(void) {
     CHECK(!ServiceRecoverySocket(service)); // Live owner cannot be recovered/adopted.
     if(scenario==6)shutdown(peers[1],SHUT_RDWR);
     else {ServiceSend(peers[1],@{@"version":@2,@"operation":@"stop",@"session":session,@"sequence":@1});CHECK(![ServiceRead(peers[1])[@"ok"]boolValue]);}
-    ServiceWait(retained);CHECK([service.statusSnapshot[@"state"]isEqual:@"unknown"]);CHECK(Exists(journal)&&Exists(work));
+    ServiceWait(retained);
+    NSString *timingRoot=[directory stringByAppendingPathComponent:@"TunDiagnostics"];NSArray *timingNames=[[NSFileManager defaultManager]contentsOfDirectoryAtPath:timingRoot error:NULL];CHECK(timingNames.count==1);
+    NSDictionary *firstMetadata=ReadJSON(directory,[[timingRoot stringByAppendingPathComponent:timingNames[0]]stringByAppendingPathComponent:@"diagnostics.json"],geteuid(),NULL),*firstCleanup=firstMetadata[@"firstCleanupFailure"];
+    CHECK(firstCleanup);
+    CHECK([service.statusSnapshot[@"state"]isEqual:@"unknown"]);CHECK(Exists(journal)&&Exists(work));
     NSDictionary *record=ReadJSON(directory,journal,geteuid(),NULL);pid_t child=[record[@"pid"]intValue];
     CHECK(child>0 && waitpid(child,NULL,WNOHANG)==-1 && errno==ECHILD); // Already reaped, not a stored-PID stop capability.
     NSUInteger before;@synchronized(guard){before=recoveries;}CHECK(before>=2);
@@ -312,7 +316,15 @@ static void RetainedRecoveryTests(void) {
       [service requestShutdown];ServiceWait(done);CHECK(Exists(journal)&&Exists(work));CHECK([service.statusSnapshot[@"state"]isEqual:@"unknown"]);
       @synchronized(guard){CHECK(recoveries==before&&proofs==0);}CHECK(!ServiceRecoverySocket(service));
     } else {@synchronized(guard){allowed=YES;}CHECK(ServiceRecoverySocket(service));}
-    if(scenario!=5&&scenario!=7){ServiceWait(done);CHECK(!Exists(journal)&&!Exists(work));CHECK([service.statusSnapshot[@"state"]isEqual:@"off"]);@synchronized(guard){CHECK(proofs==1);}}
+    if(scenario!=5&&scenario!=7){ServiceWait(done);
+      NSString *root=[directory stringByAppendingPathComponent:@"TunDiagnostics"];NSArray *names=[[NSFileManager defaultManager]contentsOfDirectoryAtPath:root error:NULL];CHECK(names.count==1);
+      NSDictionary *metadata=ReadJSON(directory,[[root stringByAppendingPathComponent:names[0]]stringByAppendingPathComponent:@"diagnostics.json"],geteuid(),NULL);
+      CHECK([metadata[@"firstCleanupFailure"]isEqual:firstCleanup]);CHECK([metadata[@"networkRecovery"][@"restored"]isEqual:@YES]);CHECK([metadata[@"firstCleanupFailure"][@"stage"]isEqual:@"network recovery"]);
+      CHECK([metadata[@"firstCleanupFailure"][@"error"]isEqual:@"injected same-thread DNS readback failure"]);
+      CHECK([metadata[@"timeline"][@"unit"]isEqual:@"milliseconds"]&&[metadata[@"timeline"][@"clock"]isEqual:@"CLOCK_MONOTONIC"]);
+      NSDictionary *events=metadata[@"timeline"][@"events"];CHECK(events[@"resumeSignalSent"]&&events[@"reaped"]&&events[@"cleanupEntered"]&&events[@"cleanupCompleted"]);
+      CHECK([events[@"resumeSignalSent"][@"monotonicMilliseconds"]unsignedLongLongValue]<=[events[@"reaped"][@"monotonicMilliseconds"]unsignedLongLongValue]);
+CHECK(!Exists(journal)&&!Exists(work));CHECK([service.statusSnapshot[@"state"]isEqual:@"off"]);@synchronized(guard){CHECK(proofs==1);}}
     close(peers[1]);CHECK([[NSFileManager defaultManager]removeItemAtPath:directory error:NULL]);
   }
   puts("native retained recovery: 8 harmless held-child cases; original pthread retained, second-socket explicit recovery, owner mismatch, expiry/cancellation, concurrent/open/write rejection, EOF and shutdown preservation; no Core/network");

@@ -8,6 +8,13 @@ static uint64_t KuroMonotonicMilliseconds(void) {
   struct timespec now; clock_gettime(CLOCK_MONOTONIC, &now);
   return (uint64_t)now.tv_sec * 1000 + (uint64_t)now.tv_nsec / 1000000;
 }
+// Diagnostic clocks only. Wall time can jump; monotonic values order observations
+// on this host. External collectors must use clock_gettime_ns(CLOCK_MONOTONIC)
+// divided by 1000000 for the same explicitly selected clock and unit.
+static NSDictionary *KuroLifecycleTime(void) {
+  struct timespec wall={0};if(clock_gettime(CLOCK_REALTIME,&wall))return nil;
+  return @{ @"wallUnixMilliseconds":@((uint64_t)wall.tv_sec*1000+(uint64_t)wall.tv_nsec/1000000),@"monotonicMilliseconds":@(KuroMonotonicMilliseconds()) };
+}
 typedef BOOL (^KuroSessionHook)(NSString **error);
 typedef BOOL (^KuroSessionStopEvidenceCheckpoint)(NSDictionary *process,NSString **error);
 typedef NSDictionary *(^KuroSessionSupervisionSource)(NSString **error);
@@ -176,6 +183,8 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   NSString *_terminationRequest;
   NSDictionary *_terminationEvidence;
   NSDictionary *_stopContext;
+  NSMutableDictionary *_lifecycleTiming;
+  NSDictionary *_firstCleanupFailure;
   int _stdoutDescriptor,_stderrDescriptor;
 #ifdef KURO_CORE_EXPERIMENT
   KuroExperimentStopTrigger _experimentStopTrigger;
@@ -187,6 +196,9 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
 @property(nonatomic, readonly) BOOL off;
 @property(nonatomic, readonly) NSDictionary *terminationEvidence;
 @property(nonatomic, readonly) NSDictionary *stopContext;
+@property(nonatomic, readonly) NSDictionary *lifecycleTiming;
+@property(nonatomic, readonly) NSDictionary *firstCleanupFailure;
+- (void)noteCleanupFailure:(NSString *)reason stage:(NSString *)stage;
 @property(nonatomic, copy) KuroRestartWorkCleanup recoveredNetwork;
 - (NSDictionary *)preparedNetworkBinding:(NSString **)error;
 - (BOOL)setOutputStdout:(int)output stderr:(int)errors error:(NSString **)error;
@@ -251,6 +263,17 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   return binding;
 }
 - (NSDictionary *)stopContext {return _stopContext;}
+- (NSDictionary *)lifecycleTiming {return [_lifecycleTiming copy]?:@{};}
+- (NSDictionary *)firstCleanupFailure {return _firstCleanupFailure;}
+- (void)markLifecycle:(NSString *)event {
+  if(_lifecycleTiming[event])return;
+  NSDictionary *at=KuroLifecycleTime();if(!at)return;
+  if(!_lifecycleTiming)_lifecycleTiming=[NSMutableDictionary dictionary];_lifecycleTiming[event]=at;
+}
+- (void)noteCleanupFailure:(NSString *)reason stage:(NSString *)stage {
+  if(_firstCleanupFailure||!reason.length)return;
+  NSDictionary *at=KuroLifecycleTime();if(at)_firstCleanupFailure=@{@"at":at,@"stage":stage,@"error":reason};
+}
 - (NSDictionary *)terminationEvidence { return _terminationEvidence ?: @{@"request":@"none",@"observed":@NO}; }
 - (BOOL)setOutputStdout:(int)output stderr:(int)errors error:(NSString **)error {
   if(![self onThread:error] || _child || _journaled || _unknown || !KuroCaptureWriters(output,errors,error))return Fail(error,@"clean session and valid output capture writers required");
@@ -493,10 +516,11 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   // global IPv6 address. Our owned internal dual-stack utun is verified after
   // resume; this switch does not claim physical IPv6 connectivity.
   char *environment[] = {"PATH=/usr/bin:/bin", "LANG=C", "SKIP_SYSTEM_IPV6_CHECK=true", NULL};
-  _terminationRequest=nil;_terminationEvidence=nil;_stopContext=nil;
+  _terminationRequest=nil;_terminationEvidence=nil;_stopContext=nil;_lifecycleTiming=nil;_firstCleanupFailure=nil;
   int spawned = setup ? setup : posix_spawn(&_child, executable.fileSystemRepresentation, &actions, &attr, argv, environment);
   posix_spawn_file_actions_destroy(&actions); posix_spawnattr_destroy(&attr);
   if (spawned) { _child = 0; return Fail(error, @"owned child spawn failed"); }
+  [self markLifecycle:@"spawnedSuspended"];
   struct proc_bsdinfo process = {0};
   BOOL known = proc_pidinfo(_child, PROC_PIDTBSDINFO, 0, &process, sizeof(process)) == sizeof(process) && process.pbi_ppid == (uint32_t)getpid() && process.pbi_pgid == (uint32_t)getpgrp();
   NSMutableDictionary *record = [@{ @"format":@1, @"session":_identifier, @"pid":@(_child), @"parent":@(getpid()), @"startSeconds":@(process.pbi_start_tvsec), @"startMicros":@(process.pbi_start_tvusec), @"executableSHA256":Hash(bytes), @"phase":@"prepared", @"processGroup":@(process.pbi_pgid) } mutableCopy];
@@ -538,7 +562,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
     if(workDirectory && ![KuroWorkDirectorySnapshot(self->_directory,self->_owner,problem)isEqual:workDirectory])return Fail(problem,@"fixed work directory changed before Core resume");
     if(self->_workCacheOrigin && ![KuroWorkCacheSnapshot(self->_directory,self->_owner,problem)isEqual:self->_workCacheInitial])return Fail(problem,@"precreated cache changed before Core resume; preserve work");
     if(kill(self->_child,SIGCONT))return Fail(problem,@"owned child could not be resumed");
-    resumed=YES; return YES;
+    [self markLifecycle:@"resumeSignalSent"];resumed=YES; return YES;
   };
   BOOL permitted=resumeGate ? resumeGate(resume,error) : resume(error);
   if(!permitted || !resumed) { NSString *ignored=nil; [self stop:&ignored]; return Fail(error,@"owned child resume refused; cleanup status must be inspected"); }
@@ -548,7 +572,7 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   while (_child) {
     int status=0;pid_t result = waitpid(_child, &status, WNOHANG);
     if (result == _child) {
-      _reapedOwnedChild=_child;
+      [self markLifecycle:@"reaped"];_reapedOwnedChild=_child;
       _terminationEvidence=@{@"request":_terminationRequest ?: @"none",@"observed":@YES,@"exitCode":WIFEXITED(status)?@(WEXITSTATUS(status)):NSNull.null,@"signal":WIFSIGNALED(status)?@(WTERMSIG(status)):NSNull.null};
       _child = 0; return YES;
     }
@@ -566,6 +590,14 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   _beforeOwnerRemoval=[checkpoint copy];return YES;
 }
 - (BOOL)stop:(NSString **)error {
+  if(![self onThread:error])return NO;
+  [self markLifecycle:@"stopEntered"];
+  NSString *failure=nil;BOOL ok=[self stopOwned:&failure];
+  if(!ok){failure=failure?:@"held stop or cleanup was not confirmed";[self noteCleanupFailure:failure stage:@"held stop"];}
+  else [self markLifecycle:@"cleanupCompleted"];
+  if(!ok&&error)*error=failure;return ok;
+}
+- (BOOL)stopOwned:(NSString **)error {
   if (![self onThread:error]) return NO;
   if (_unknown) return Fail(error, @"session ownership is unknown");
   if (_child) {
@@ -574,13 +606,17 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
     [self reapUntil:KuroMonotonicMilliseconds() error:error];
     if (_unknown) return NO;
     if (_child) {
-      _terminationRequest=@"SIGTERM";
-      if (kill(_child, SIGTERM) && errno != ESRCH) return Fail(error, @"owned child termination failed");
+      [self markLifecycle:@"sigtermAttempted"];_terminationRequest=@"SIGTERM";
+      int terminated=kill(_child,SIGTERM);
+      if(terminated && errno!=ESRCH)return Fail(error,@"owned child termination failed");
+      if(!terminated)[self markLifecycle:@"sigtermSignalSent"];
     }
     if (_child && ![self reapUntil:KuroMonotonicMilliseconds() + 150 error:error]) {
       if (_unknown) return NO;
-      _terminationRequest=@"SIGKILL";
-      if (kill(_child, SIGKILL) && errno != ESRCH) return Fail(error, @"owned child forced termination failed");
+      [self markLifecycle:@"sigkillAttempted"];_terminationRequest=@"SIGKILL";
+      int forced=kill(_child,SIGKILL);
+      if(forced && errno!=ESRCH)return Fail(error,@"owned child forced termination failed");
+      if(!forced)[self markLifecycle:@"sigkillSignalSent"];
       if (![self reapUntil:KuroMonotonicMilliseconds() + 1000 error:error]) return Fail(error, @"owned child has not been reaped");
     }
   }
@@ -594,7 +630,10 @@ typedef NS_ENUM(NSUInteger,KuroExperimentStopTrigger) {
   if (_journaled) {
     NSString *heldPath=[_directory stringByAppendingPathComponent:@"owner.json"];
     if(!_heldOwnerBytes || ![ReadProtected(_directory,heldPath,_owner,error)isEqual:_heldOwnerBytes])return Fail(error,@"held owner journal changed; network cleanup refused");
-    if (!_cleanup || !_cleanup(error)) return Fail(error, @"child reaped but network restoration is not proven");
+    [self markLifecycle:@"cleanupEntered"];
+    NSString *cleanupFailure=nil;
+    if (!_cleanup || !_cleanup(&cleanupFailure))
+      return Fail(error,cleanupFailure.length?[@"child reaped but network restoration is not proven: " stringByAppendingString:cleanupFailure]:@"child reaped but network restoration is not proven");
     NSString *path = [_directory stringByAppendingPathComponent:@"owner.json"];
     NSData *bytes=ReadProtected(_directory,path,_owner,error);
     NSDictionary *record=bytes?KuroDecodeJSON(bytes,MessageLimit,error):nil;

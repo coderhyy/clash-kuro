@@ -309,7 +309,39 @@ static void OwnedCoreEnvironmentTests(void) {
   CHECK([[NSFileManager defaultManager]removeItemAtPath:directory error:NULL]);puts("native Core environment: actual held ordinary env child receives fixed PATH/LANG/IPv6-check switch, no inherited extra environment (apart from Foundation runtime encoding key), hostile inherited false is ignored; no Core/network execution");
 }
 
+static void HeldCleanupErrorTests(void) {
+  NSArray *reasons=@[@"fixture network readback failed",@"fixture work removal failed",@"fixture diagnostic persistence failed",@""];
+  for(NSString *reason in reasons) {
+    char temporary[]="/tmp/kuro-held-cleanup-error-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));
+    NSString *directory=@(canonical),*child=[directory stringByAppendingPathComponent:@"child"],*journal=[directory stringByAppendingPathComponent:@"owner.json"],*error=nil;
+    Put(child,[NSData dataWithContentsOfFile:Executable()],0755);
+    KuroOwnedSession *session=[[KuroOwnedSession alloc]initWithDirectory:directory owner:geteuid()];
+    __block NSUInteger cleanups=0;__block BOOL allowed=NO;
+    CHECK([session spawnExecutable:child arguments:@[@"--session-child"] beforeResume:^BOOL(NSString **failure){(void)failure;return YES;} afterReap:^BOOL(NSString **failure){
+      cleanups++;if(allowed)return YES;if(reason.length)return Fail(failure,reason);return NO;
+    } error:&error]);
+    NSDictionary *started=session.lifecycleTiming;CHECK(started[@"spawnedSuspended"]&&started[@"resumeSignalSent"]&&!started[@"reaped"]&&!session.firstCleanupFailure);
+    CHECK([started[@"spawnedSuspended"][@"monotonicMilliseconds"]unsignedLongLongValue]<=[started[@"resumeSignalSent"][@"monotonicMilliseconds"]unsignedLongLongValue]);
+    pid_t held=session.child;NSData *owner=[NSData dataWithContentsOfFile:journal];CHECK(held>0&&owner);
+    error=@"stale caller error";CHECK(![session stop:&error]);
+    NSString *context=@"child reaped but network restoration is not proven";
+    NSString *expected=reason.length?[context stringByAppendingFormat:@": %@",reason]:context;
+    CHECK([error isEqual:expected]);CHECK(cleanups==1&&!session.child&&!session.off&&[session heldCleanupCanRetry]);
+    CHECK(waitpid(held,NULL,WNOHANG)==-1&&errno==ECHILD);CHECK([session.terminationEvidence[@"observed"]isEqual:@YES]);
+    CHECK([[NSData dataWithContentsOfFile:journal]isEqual:owner]&&![session completedStopEvidence:NULL]);
+    NSDictionary *first=[session.firstCleanupFailure copy],*timing=[session.lifecycleTiming copy];CHECK(first&&[first[@"error"]isEqual:expected]&&[first[@"stage"]isEqual:@"held stop"]);
+    for(NSString *event in @[@"spawnedSuspended",@"resumeSignalSent",@"stopEntered",@"reaped",@"cleanupEntered"]) {CHECK([timing[event][@"wallUnixMilliseconds"]unsignedLongLongValue]>0);CHECK([timing[event][@"monotonicMilliseconds"]unsignedLongLongValue]>0);}
+    if([session.terminationEvidence[@"request"]isEqual:@"SIGTERM"])CHECK(timing[@"sigtermAttempted"]&&timing[@"sigtermSignalSent"]);
+    CHECK([timing[@"reaped"][@"monotonicMilliseconds"]unsignedLongLongValue]<=[timing[@"cleanupEntered"][@"monotonicMilliseconds"]unsignedLongLongValue]);
+    error=nil;CHECK(![session stop:&error]&&[session.firstCleanupFailure isEqual:first]);
+    allowed=YES;CHECK([session stop:&error]&&session.off&&cleanups==3&&!Exists(journal));CHECK(KuroCompletedStopEvidence([session completedStopEvidence:NULL]));CHECK([session.firstCleanupFailure isEqual:first]&&session.lifecycleTiming[@"cleanupCompleted"]);
+    CHECK([[NSFileManager defaultManager]removeItemAtPath:directory error:NULL]);
+  }
+  puts("native held cleanup error: 4 real harmless child cases preserve context and network/work/diagnostic reason, no stale reason; reap/owner retention/no proof/retry unchanged");
+}
+
 static void SessionTests(void) {
+  HeldCleanupErrorTests();
   OwnedCoreEnvironmentTests();
   RestartCacheCheckpointTests();
   SessionDurabilityTests();
