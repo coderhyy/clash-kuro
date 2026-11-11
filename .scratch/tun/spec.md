@@ -4,6 +4,12 @@ Status: ready-for-agent（产品边界已批准；安全实现与真实验收未
 
 2026-11-03 建立草案，2026-11-04 记录维护者批准的首版产品行为；已接受的产品与生命周期边界以 [ADR-0014](../../docs/adr/0014-macos-tun-lifecycle.md) 为准。安装路线以 [ADR-0015](../../docs/adr/0015-macos-traditional-privileged-helper.md) 为准。任务入口见 `issues/`；正常重开策略见 [ADR-0016](../../docs/adr/0016-macos-tun-manual-start.md)，双栈固定模板见 [ADR-0017](../../docs/adr/0017-macos-tun-dual-stack.md)；LAN/DNS/DIRECT 与无 kill switch 边界见 [ADR-0018](../../docs/adr/0018-macos-tun-network-boundaries.md)，具体参数可技术选定并验证，人工系统操作须等维护者明确说“开始”。
 
+## 当前约束（2026-11-11）
+
+暂停新增 TUN 重试，先处理保留的740安装。已确认恢复要求全部系统路由回到旧快照过宽：外部物理地址变化不等于本应用残留。v2恢复修复保留安装／owner／writer退出绑定、原utun及固定地址池缺席、DNS连续读回和持久证明；外部路由差异仅报告，不取得修改权。当前准备受限恢复工具，未执行；运行期全局基线门尚待另行收敛，IPv4 ENETUNREACH尚未定因。具体当前阻塞见[08](issues/08-tun-integration-acceptance.md)。
+
+以下为历史实现和授权记录，不代表当前仍可重试。
+
 ## 当前实现与验收证据（2026-11-06）
 
 2026-11-10 核验层收敛：初次完整枚举唯一 utun，后续双读原绑定 FD 及原 process/socket/interface 身份；不重复要求全部背景 socket 可稳定枚举。Global DNS 只接受真实样本约束的本会话精确派生记录，其他 DNS 保留原检查，停止后仍须完整原基线连续读回及持久退役。邻居缓存及已证明的内核伴生路由不是自有删除目标；物理出口、接管范围、未知路由和第三方变化的保护不变。USB/无关接口变化仍待兼容验证，不将当前验收窗口的完整基线冻结解释为产品身份定义。`1252d09` 已通过失败停止恢复及卸载，但在 socket FD 复核拒绝，未发受控流量；IPv4 ENETUNREACH 原因尚未确定。

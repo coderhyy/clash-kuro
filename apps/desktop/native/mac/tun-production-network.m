@@ -199,7 +199,7 @@ static BOOL KuroNetworkSameRoutes(NSArray *left,NSArray *right) {
   for(id route in left){NSUInteger index=[remaining indexOfObject:route];if(index==NSNotFound)return NO;[remaining removeObjectAtIndex:index];}
   return !remaining.count;
 }
-// Failure-only summary of these already read snapshots, never cleanup authority.
+// Bounded summary of already read snapshots, never cleanup authority.
 static NSString *KuroRouteBaselineDifference(NSArray *before,NSArray *after) {
   NSMutableArray *remaining=[after mutableCopy];NSUInteger missing=0;NSDictionary *firstMissing=nil;
   for(NSDictionary *route in before) {
@@ -272,6 +272,19 @@ static NSString *KuroDNSBaselineDifference(NSDictionary *before, NSDictionary *a
   // All emitted characters are fixed ASCII labels, bounded numbers and booleans.
   return [summary substringToIndex:MIN(summary.length,(NSUInteger)512)];
 }
+// Only rejects current session footprints. It grants no route deletion or
+// authority over unrelated physical routes, including a changed address.
+static BOOL KuroCurrentOwnedRoutesAbsent(NSArray *routes, NSDictionary *association, NSString **error) {
+  for (NSDictionary *route in routes) {
+    if (([route[@"flags"]unsignedIntValue]&RTF_PROTO2) || ([route[@"prefix"]intValue]==1 && ([route[@"flags"]unsignedIntValue]&RTF_UP)))
+      return Fail(error,@"current marked/split-default route is not absent; stage=route-owned-absence");
+    if (association && ([route[@"interfaceName"]isEqual:association[@"interfaceName"]] || [route[@"interfaceIndex"]isEqual:association[@"interfaceIndex"]]))
+      return Fail(error,@"recorded utun route is not absent; stage=route-owned-absence");
+    if (KuroRouteOverlapsCorePool(route))
+      return Fail(error,@"current route overlaps the fixed utun/internal DNS pool; stage=route-owned-absence");
+  }
+  return YES;
+}
 @interface KuroProductionNetwork : NSObject {
   NSString *_directory; uid_t _owner; pthread_t _thread;
   id<KuroRouteStore> _routeBackend; id<KuroDNSStore> _dnsBackend; KuroNetworkEnvironment *_environment;
@@ -279,11 +292,12 @@ static NSString *KuroDNSBaselineDifference(NSDictionary *before, NSDictionary *a
   NSArray *_baselineRoutes; NSDictionary *_baselineDNS; NSString *_physical, *_session;
   KuroCoreInterface _association; BOOL _prepared, _networkOff, _internalDNSReady;
   NSArray *_installedRoutes;
-  NSDictionary *_stoppedEvidence,*_binding,*_recoveryOwner;
+  NSDictionary *_stoppedEvidence,*_binding,*_recoveryOwner,*_recoveryObservation,*_retiredRouteRecord;
   KuroSessionHook _writerAbsent;
 }
 @property(nonatomic,readonly) NSString *runtimeInterfaceName;
 @property(nonatomic,readonly) BOOL networkOff;
+@property(nonatomic,readonly) NSDictionary *recoveryObservation;
 - (instancetype)initWithDirectory:(NSString *)directory owner:(uid_t)owner;
 - (instancetype)initWithDirectory:(NSString *)directory owner:(uid_t)owner routes:(id<KuroRouteStore>)routes dns:(id<KuroDNSStore>)dns environment:(KuroNetworkEnvironment *)environment;
 - (BOOL)preflightConfig:(NSDictionary *)config error:(NSString **)error;
@@ -305,6 +319,7 @@ static NSString *KuroDNSBaselineDifference(NSDictionary *before, NSDictionary *a
 }
 - (NSString *)runtimeInterfaceName { return _prepared?_physical:nil; }
 - (BOOL)networkOff { return _networkOff; }
+- (NSDictionary *)recoveryObservation { return [_recoveryObservation copy]; }
 - (BOOL)adapters:(NSString **)error {
   if (!pthread_equal(_thread,pthread_self()) || !_routeBackend || !_environment.interfaces || !_environment.observeChild || !_environment.ownership || !_environment.probeDNS) return Fail(error,@"network coordinator requires owning serial thread and complete internal adapters");
   if (!_dnsBackend) _dnsBackend=[[KuroDarwinDNSStore alloc]initWithError:error]; if (!_dnsBackend) return NO;
@@ -468,10 +483,22 @@ static NSString *KuroDNSBaselineDifference(NSDictionary *before, NSDictionary *a
   }
   return [_stoppedEvidence copy];
 }
+- (BOOL)recordedInterfaceAbsent:(NSDictionary *)record error:(NSString **)error {
+  if(_session || ![record[@"format"]isEqual:@2] || ![record[@"interface"]isKindOfClass:NSDictionary.class])return YES;
+  NSString *failure=nil;NSArray *interfaces=_environment.interfaces(&failure);
+  if(failure || ![interfaces isKindOfClass:NSArray.class])return Fail(error,@"recorded utun absence readback unavailable; stage=interface-read");
+  NSDictionary *association=record[@"interface"];
+  for(id entry in interfaces) {
+    if(![entry isKindOfClass:NSDictionary.class] || ![entry[@"name"]isKindOfClass:NSString.class] || !KuroNumber(entry[@"index"],1,UINT16_MAX))return Fail(error,@"recorded utun absence readback malformed; stage=interface-read");
+    if([entry[@"name"]isEqual:association[@"interfaceName"]] || [entry[@"index"]isEqual:association[@"interfaceIndex"]])return Fail(error,@"recorded utun interface is not absent; stage=interface-present");
+  }
+  return YES;
+}
 - (BOOL)recoverSession:(NSString *)session error:(NSString **)error {
   // This short readback allowance is part of cleanup, not a new outer timeout.
   uint64_t readbackDeadline=KuroMonotonicMilliseconds()+200;
-  NSDictionary *previous=_stoppedEvidence; _stoppedEvidence=nil;
+  NSDictionary *previous=_stoppedEvidence; _networkOff=NO; _recoveryObservation=nil;
+  NSDictionary *observation=nil;
   BOOL held=session && ([_session isEqual:session] || _prepared || [previous[@"session"]isEqual:session]);
   NSMutableDictionary *journals=[NSMutableDictionary dictionary];
   if(held)for(NSString *name in @[KuroRouteJournal,KuroDNSJournal]) {
@@ -489,8 +516,16 @@ static NSString *KuroDNSBaselineDifference(NSDictionary *before, NSDictionary *a
   BOOL dnsRecovered=[_dns recoverDNS:&dnsFailure];
   BOOL routesRecovered=YES;
   NSDictionary *record=[_routes preparedRecord:&routeFailure];
+  // This actor may recheck a successful retirement after later work/summary
+  // failure. Memory is rejection/readback context, never a recreated receipt.
+  NSString *authoritySession=session?:_recoveryOwner[@"session"];
+  BOOL retiredContext=!record && !routeFailure && authoritySession && [_retiredRouteRecord[@"session"]isEqual:authoritySession];
+  BOOL heldReplay=retiredContext && held && [previous[@"session"]isEqual:session];
+  if(retiredContext)record=_retiredRouteRecord;
+  KuroCoreInterface recoveryAssociation=_association;
+  if(heldReplay && [record[@"interface"]isKindOfClass:NSDictionary.class])KuroRouteDecodeAssociation(record[@"interface"],&recoveryAssociation);
   if(routeFailure)routesRecovered=NO;
-  if(routesRecovered && record && !_session && (!_writerAbsent || !_recoveryOwner || !_writerAbsent(&routeFailure)))
+  if(routesRecovered && record && !_session && !heldReplay && (!_writerAbsent || !_recoveryOwner || !_writerAbsent(&routeFailure)))
     routesRecovered=Fail(&routeFailure,@"recorded route intent requires the session's explicit writer-exit validation before retirement");
   if(routesRecovered && record && _session && (![record[@"format"]isEqual:@2] || ![record[@"session"]isEqual:_session]))
     routesRecovered=Fail(&routeFailure,@"held Core cannot retire a different or legacy route intent");
@@ -500,8 +535,8 @@ static NSString *KuroDNSBaselineDifference(NSDictionary *before, NSDictionary *a
       routesRecovered=Fail(&routeFailure,@"legacy route observation does not match the protected Core owner");
   }
   if(routesRecovered && [record[@"format"]isEqual:@2]) {
-    NSDictionary *binding=_binding;
-    if(!_session) {
+    NSDictionary *binding=heldReplay?record[@"binding"]:_binding;
+    if(!_session && !heldReplay) {
       NSDictionary *owner=ReadJSON(_directory,[_directory stringByAppendingPathComponent:@"owner.json"],_owner,&routeFailure);
       binding=KuroNetworkOwnerBinding(owner);
       if(![owner isEqual:_recoveryOwner] || ![owner[@"session"]isEqual:record[@"session"]])binding=nil;
@@ -511,11 +546,15 @@ static NSString *KuroDNSBaselineDifference(NSDictionary *before, NSDictionary *a
       BOOL baselineConfirmed=NO;
       for(;;) {
         // Only the already validated writer/Core/interface absence can wait.
-        if(_session && KuroRouteAssociation(_association) && _environment.ownership(_association,&routeFailure)!=KuroRouteOwnerExitedInterfaceGone) { routesRecovered=Fail(&routeFailure,@"Core/interface exit is not independently confirmed; stage=owner-exit");break; }
+        if(held && KuroRouteAssociation(recoveryAssociation) && _environment.ownership(recoveryAssociation,&routeFailure)!=KuroRouteOwnerExitedInterfaceGone) { routesRecovered=Fail(&routeFailure,@"Core/interface exit is not independently confirmed; stage=owner-exit");break; }
         if(_writerAbsent && !_writerAbsent(&routeFailure)){routesRecovered=NO;break;}
-        NSString *readFailure=nil;NSArray *current=KuroStableRoutes([_routeBackend routes:&readFailure]);
+        if(![self recordedInterfaceAbsent:record error:&routeFailure]){routesRecovered=NO;break;}
+        NSString *readFailure=nil;NSArray *raw=[_routeBackend routes:&readFailure],*current=KuroStableRoutes(raw);
         if(readFailure || !current){routesRecovered=Fail(&routeFailure,@"recorded route baseline readback unavailable; stage=route-read");break;}
-        if(!KuroNetworkSameRoutes(current,record[@"baselineRoutes"])) { routesRecovered=Fail(&routeFailure,[NSString stringWithFormat:@"recorded pre-resume route baseline has not been restored; stage=route-changed; %@",KuroRouteBaselineDifference(record[@"baselineRoutes"],current)]);break; }
+        NSDictionary *association=[record[@"interface"]isKindOfClass:NSDictionary.class]?record[@"interface"]:KuroRouteAssociation(_association);
+        if(!KuroCurrentOwnedRoutesAbsent(raw,association,&routeFailure)){routesRecovered=NO;break;}
+        BOOL same=KuroNetworkSameRoutes(current,record[@"baselineRoutes"]);
+        observation=@{@"kind":@"current-owned-absence",@"systemRouteBaselineRestored":@(same),@"routeDifference":same?@"":KuroRouteBaselineDifference(record[@"baselineRoutes"],current)};
         readFailure=nil;NSDictionary *dns=[_dnsBackend dnsRecords:&readFailure];
         if(readFailure || ![dns isKindOfClass:NSDictionary.class]){routesRecovered=Fail(&routeFailure,@"recorded DNS baseline readback unavailable; stage=dns-read");break;}
         if([dns isEqual:record[@"baselineDNS"]]) { if(baselineConfirmed)break;baselineConfirmed=YES;continue; }
@@ -529,10 +568,21 @@ static NSString *KuroDNSBaselineDifference(NSDictionary *before, NSDictionary *a
       }
     }
   }
-  if(routesRecovered && _session && KuroRouteAssociation(_association) && _environment.ownership(_association,&routeFailure)!=KuroRouteOwnerExitedInterfaceGone)routesRecovered=Fail(&routeFailure,@"Core/interface exit is not independently confirmed; stage=owner-exit");
+  if(routesRecovered && held && KuroRouteAssociation(recoveryAssociation) && _environment.ownership(recoveryAssociation,&routeFailure)!=KuroRouteOwnerExitedInterfaceGone)routesRecovered=Fail(&routeFailure,@"Core/interface exit is not independently confirmed; stage=owner-exit");
   if(routesRecovered && _writerAbsent && !_writerAbsent(&routeFailure))routesRecovered=NO;
+  if(routesRecovered && ![self recordedInterfaceAbsent:record error:&routeFailure])routesRecovered=NO;
   if(routesRecovered && !dnsRecovered)routesRecovered=Fail(&routeFailure,@"DNS ownership retirement is not durable; stage=dns-retirement");
-  if(routesRecovered)routesRecovered=[_routes recoverRecordedAbsence:&routeFailure];
+  if(routesRecovered && _recoveryOwner) {
+    NSString *routeRead=nil,*dnsRead=nil;NSArray *raw=[_routeBackend routes:&routeRead];NSDictionary *dns=[_dnsBackend dnsRecords:&dnsRead];
+    if(routeRead || !KuroStableRoutes(raw))routesRecovered=Fail(&routeFailure,@"current route readback unavailable; stage=route-read");
+    else if(dnsRead || ![dns isKindOfClass:NSDictionary.class])routesRecovered=Fail(&routeFailure,@"current DNS readback unavailable; stage=dns-read");
+    else {
+      NSDictionary *association=[record[@"interface"]isKindOfClass:NSDictionary.class]?record[@"interface"]:nil;
+      routesRecovered=KuroCurrentOwnedRoutesAbsent(raw,association,&routeFailure);
+      for(id key in dns)if(![key isKindOfClass:NSString.class] || [key hasPrefix:KuroDNSPrefix]){routesRecovered=Fail(&routeFailure,@"current owned DNS UUID key is not absent");break;}
+    }
+  }
+  if(routesRecovered){routesRecovered=[_routes recoverRecordedAbsence:&routeFailure];if(routesRecovered&&[record[@"format"]isEqual:@2])_retiredRouteRecord=record;}
   if(routesRecovered && _writerAbsent && !_writerAbsent(&routeFailure))routesRecovered=NO;
   if(!dnsRecovered || !routesRecovered) {
     NSMutableArray *failures=[NSMutableArray array];
@@ -541,6 +591,7 @@ static NSString *KuroDNSBaselineDifference(NSDictionary *before, NSDictionary *a
     return Fail(error,[failures componentsJoinedByString:@"; "]);
   }
   _networkOff=_routes.routesOff && _dns.dnsOff;
+  if(_networkOff)_recoveryObservation=observation;
   if(_networkOff && held) {
     _stoppedEvidence=@{@"format":@1,@"session":session,@"routesOff":@YES,@"dnsOff":@YES,
       @"routeJournalSHA256":previous[@"routeJournalSHA256"]?:journals[KuroRouteJournal],@"dnsJournalSHA256":previous[@"dnsJournalSHA256"]?:journals[KuroDNSJournal]};
@@ -573,16 +624,13 @@ static NSString *KuroDNSBaselineDifference(NSDictionary *before, NSDictionary *a
   // no route receipt this is current absence only; it grants no retirement.
   if(Exists([_directory stringByAppendingPathComponent:KuroRouteJournal]) && !_writerAbsent){Fail(error,@"route receipt retirement requires explicit session writer-exit authority");return nil;}
   if(_writerAbsent && !_writerAbsent(error))return nil;
-  if(![self recoverSession:nil error:error])return nil;
-  NSArray *routes=KuroStableRoutes([_routeBackend routes:error]);
-  NSDictionary *dns=[_dnsBackend dnsRecords:error];
-  if(!routes || ![dns isKindOfClass:NSDictionary.class]){Fail(error,@"complete current route/DNS readback unavailable");return nil;}
-  for(NSDictionary *route in routes)if(([route[@"flags"]unsignedIntValue]&RTF_PROTO2) || ([route[@"prefix"]intValue]==1 && ([route[@"flags"]unsignedIntValue]&RTF_UP))) {Fail(error,@"current marked/split-default route is not absent");return nil;}
-  for(NSDictionary *route in routes)if([route[@"prefix"]intValue]>0 && (KuroRouteContainsIP(route,@"198.18.0.1") || KuroRouteContainsIP(route,@"198.18.0.2") || KuroRouteContainsIP(route,@"fdfe:dcba:9876::1") || KuroRouteContainsIP(route,@"fdfe:dcba:9876::2"))){Fail(error,@"current route overlaps the fixed utun/internal DNS pool");return nil;}
-  for(id key in dns)if(![key isKindOfClass:NSString.class] || [key hasPrefix:KuroDNSPrefix]){Fail(error,@"current owned DNS UUID key is not absent");return nil;}
-  if(!_networkOff || Exists([_directory stringByAppendingPathComponent:KuroRouteJournal]) || Exists([_directory stringByAppendingPathComponent:KuroDNSJournal])){Fail(error,@"current network receipts are not durably retired");return nil;}
-  if(_writerAbsent && !_writerAbsent(error))return nil;
-  return @{@"format":@1,@"kind":@"current-owned-absence",@"session":session,@"routesOff":@YES,@"dnsOff":@YES};
+  BOOL scopedOwner=_recoveryOwner==nil;if(scopedOwner)_recoveryOwner=[owner copy];
+  @try {
+    if(![self recoverSession:nil error:error])return nil;
+    if(!_networkOff || Exists([_directory stringByAppendingPathComponent:KuroRouteJournal]) || Exists([_directory stringByAppendingPathComponent:KuroDNSJournal])){Fail(error,@"current network receipts are not durably retired");return nil;}
+    if(_writerAbsent && !_writerAbsent(error)){_networkOff=NO;_recoveryObservation=nil;return nil;}
+    return @{@"format":@1,@"kind":@"current-owned-absence",@"session":session,@"routesOff":@YES,@"dnsOff":@YES};
+  } @finally {if(scopedOwner)_recoveryOwner=nil;}
 }
 
 @end

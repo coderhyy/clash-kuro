@@ -358,6 +358,7 @@ static KuroTunService *ProductionService(void) {
   hooks.ready=^BOOL(pid_t child,NSString *session,NSString **error) { return [network readyChild:child session:session error:error]; };
   hooks.applyNetwork=^BOOL(pid_t child,NSString *session,NSString **error) { return [network applyChild:child session:session error:error]; };
   hooks.recoverNetwork=^BOOL(NSString *session,NSString **error) { return [network recoverSession:session error:error]; };
+  hooks.networkRecoveryObservation=^NSDictionary *{ return network.recoveryObservation; };
   hooks.confirmStopped=^BOOL(NSDictionary *process,NSString **error) {
     NSDictionary *proof=[network stoppedEvidenceForSession:process[@"session"] error:error];
     return proof && KuroMarkSessionStopped(@"",0,Executable(),process,proof,error);

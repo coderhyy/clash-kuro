@@ -5,7 +5,17 @@ Type: validation
 Blocked by: 当前740会话安全恢复与物理网络动态变化核验收敛；首次正常启停仍缺受控流量及持久停止证明；正式交付另含异常恢复与升级验收
 Owner: 主会话集成与最终验证；验收 agent 准备记录
 
-## 当前交付状态（auto-route 决定后）
+## 当前有效阻塞（2026-11-11，暂停新增 TUN 重试）
+
+| 问题与原始错误 | 直接证据 | 根因状态 | 最小修复／判别 | 成功标准 |
+| --- | --- | --- | --- | --- |
+| 当前安装无法取得停止证明：`recorded pre-resume route baseline has not been restored; stage=route-changed` | 实际 Core 已观察到 SIGTERM/exit0；owner/network/work 保留且无 stopped。原 journal 与原批准快照一致，后来物理接口地址及其 /32 路由变化。生产恢复在 actor 自有路由缺席检查前要求全路由相等。 | **已确认恢复逻辑根因**：系统完整旧基线等于自有设置清理的错误前置。当前差异不能倒推运行期首次检测的具体条目。 | v2 恢复复用准确 writer/owner/原utun/固定key与地址池缺席、两次真实读回和持久退役；外部变化另报，不写系统路由。当前740不能热换或绕proof升级，先封定单次受限恢复工具并另申请授权。 | 当前自有网络足迹重复确认缺席；真实format3证明可被原740卸载器接受；准确job/安装/receipt清理；未知对象保留。不声称整个物理网络回到旧地址。 |
+| IPv4 实际出站失败：`dial tcp …:443: connect: network is unreachable` | 固定Core真实stdout反复记录IPv4连接错误；已完成ready/apply/openACK进入owner supervision，故不只是helper拒绝。无受控48173流量成功；日志仅保留前64KiB，不能以累计字节推断环路或速率。 | **未确认根因**。缺少错误发生时实际IP_BOUND_IF调用结果、接口index、scoped路由及同身份原生connect对照；缺IPv6不能解释IPv4。 | 清理后再申请一次短判别窗口：固定IPv4目标，TUN前后同euid原生IP_BOUND_IF连接与同窗Core请求，加normal/scoped lookup；不先猜测修改配置。 | 能区分内核/接口路由条件与Core调用／进程策略差异；随后受控请求有本会话Tun元数据、双向字节及成功响应，正常关闭有恢复证明。 |
+| 运行期全局基线检查仍过宽，且旧错误把运行期称为startup | 740诊断阶段为authenticated owner supervision；该阶段在openACK后设置，通用baseline比较却输出during Core startup。现检查要求每条旧stable route存在。 | **已确认错误阶段表述；全局不变假设缺乏普遍必要性依据**。尚不能声称现场最初缺失条目已取证。 | 6da324e已改中性措辞和有界具体差异；保护复核按准确owner、自有路由、实际出口/LAN/DNS条件区分相关和无关变化，禁止忽略全部新增路由。该兼容性项不代替IPv4转发诊断。 | 合法无关动态变化不被当作身份丢失；影响实际接管／出口的变化仍拒绝并能安全恢复；对应真实变化样本回归。 |
+
+已解决的鉴权、Global DNS派生识别及背景socket census问题不再列作当前阻塞；其历史证据保留在下文。当前首次正常启停未验收通过，CI／测试／独审仅为前置证据。
+
+## 历史交付状态（auto-route 决定后，以下不代表当前授权）
 
 - 当前（2026-11-11）：740实际包（SHA256 `16734518f16be3ff497b1b006a09d19ca05ae2b071126d6080cd8aa022df67b8`）及独审通过；576f94c仅修Windows fixture，产品字节相同，CI42823953296双平台成功。fresh安装、实际App身份及初次ready/apply/open ACK已过，随后进入authenticated owner supervision；运行期复用的“during Core startup”措辞不代表启动失败。后续route baseline变化触发SIGTERM/exit0，但恢复全基线相等检查失败，stopped证明未生成，保留App/helper/job/receipt、owner/network/work与诊断；未手动修改任何网络设置，也未强行卸载。当前只读显示默认出口与router DNS不变、系统代理关闭、本次utun路由缺席；物理en0地址及对应本机/32路由已变化，不能恢复旧地址或凭路由flags猜归属，亦不能倒推这就是初次检测的差异。原预检输入临时文件已缺失，当前预检明确拒绝，不称完整恢复通过。受控流量未执行；stdout累计752,569,306字节仅保留前65536，早期IPv4 ENETUNREACH仍未定因，不认定环路或两秒输出速率。原始现场证据仅保留本机 `/private/tmp/kuro-74039f6-window-5ep3bjsg`。
 

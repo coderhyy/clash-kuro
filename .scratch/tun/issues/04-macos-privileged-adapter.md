@@ -1,11 +1,15 @@
 # macOS 特权 helper
 
-Status: ready-for-agent（1252 实机在 socket FD 复核拒绝；自动恢复、持久停止证明和精确卸载通过；受控流量未执行）
+Status: ready-for-agent（暂停新增 TUN 重试；740 Core 已 exit0，安装保留，准备受限恢复与独审）
 Type: task
-Blocked by: 首次正常启停：Core socket FD 读取失败的准确归因与最小修复；正式交付：受控流量、异常恢复与升级验收
+Blocked by: 当前740安装安全收尾；IPv4 ENETUNREACH 尚未定因；运行期全局路由不变检查需要收敛。正式交付另含异常恢复与升级验收。
 Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
 
-## 当前交付状态（auto-route 决定后）
+## 当前状态（2026-11-11）
+
+当前有效问题、原始错误及成功标准统一见 [08 当前阻塞表](08-tun-integration-acceptance.md#当前有效阻塞2026-11-11暂停新增-tun-重试)。恢复把全部系统路由回到旧基线误当作自有设置清除，现已确认；IPv4 出站错误是实际 Core 错误，尚未定因，不能以恢复修复代替转发验证。当前仅准备受限恢复，不启动 Core、不改网络；工具冻结与独审完成后集中申请授权。
+
+## 历史交付状态（auto-route 决定后，以下不代表当前授权）
 
 - 当前：`1252d09` 同提交完整 native／双平台 CI／实际包独审通过；实际启动在 DNS 写入后的 socket FD 复核拒绝。原会话自动退出、网络恢复、持久停止证明及精确卸载通过；未发受控流量。真实关闭 FD 机制已在无害 child 复现，现场 errno 仍未知。收敛为首次完整唯一发现、后续原目标 FD 双读及原 process/socket/interface 精确复核；不再把背景连接 FD 稳定性当作目标归属条件。IPv4 出站错误仍未解释。
 

@@ -300,4 +300,19 @@ static void RouteAbsenceTests(void) {
   CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);
   puts("native route absence: 15 prepared/observed/legacy/no-journal/foreign/duplicate/read-failure/two-snapshot/unlink-sync retry cases PASS; no route deletion method exists");
 }
-static void RouteTests(void) {RouteKernelDumpTests();RouteGlobalFlagTests();RouteObservationTests();RouteReadinessTests();RouteConfirmationDiagnosticTests();RouteMismatchDiagnosticTests();RouteAbsenceTests();}
+static void RouteV2FootprintRetirementTests(void) {
+  char temporary[]="/tmp/kuro-route-v2-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));NSString *base=@(canonical),*session=@"00112233-4455-6677-8899-AABBCCDDEEFF";KuroCoreInterface association=RouteFixtureInterface();
+  for(NSUInteger scenario=0;scenario<2;scenario++) {
+    NSString *directory=[base stringByAppendingPathComponent:[NSString stringWithFormat:@"case%lu",(unsigned long)scenario]],*error=nil;FixtureDirectory(directory);
+    KuroFakeRouteStore *store=[KuroFakeRouteStore new];store.entries=[RouteFixtureBaseline()mutableCopy];KuroOwnedRoutes *routes=[[KuroOwnedRoutes alloc]initWithDirectory:directory owner:geteuid() backend:store];
+    CHECK([routes prepareForSession:session binding:RouteFixtureBinding() baselineRoutes:RouteFixtureBaseline() baselineDNS:@{} physicalInterface:@"en0" error:&error]);RouteFixtureCoreAppears(store);
+    CHECK([routes observeForSession:session interface:association ownership:^KuroRouteOwnerState(KuroCoreInterface value,NSString **failure){(void)value;(void)failure;return KuroRouteOwnerLive;} error:&error]);
+    store.entries=[RouteFixtureBaseline()mutableCopy];NSString *journal=[directory stringByAppendingPathComponent:KuroRouteJournal];NSData *bytes=ReadProtected(directory,journal,geteuid(),NULL);store.snapshots=0;
+    NSMutableDictionary *extra=[ObservedRoute(KuroCoreAutoRouteCandidate(association)[0])mutableCopy];extra[@"destination"]=scenario?@"203.0.113.1":@"198.18.0.2";extra[@"prefix"]=@32;extra[@"flags"]=@(RTF_UP|RTF_HOST|RTF_LLINFO);if(!scenario){extra[@"interfaceName"]=@"en0";extra[@"interfaceIndex"]=@2;}
+    store.onSnapshot=^(KuroFakeRouteStore *value){if(value.snapshots==2)[value.entries addObject:extra];};
+    CHECK(![routes recoverRecordedAbsence:&error]&&!routes.routesOff&&store.snapshots==2&&[ReadProtected(directory,journal,geteuid(),NULL)isEqual:bytes]);CHECK([error containsString:@"recorded utun or fixed pool route remains"]);
+    store.onSnapshot=nil;[store.entries removeObject:extra];CHECK([routes recoverRecordedAbsence:&error]&&routes.routesOff&&!Exists(journal));
+  }
+  CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);puts("PASS 2 v2 retirement second-snapshot pool-host/recorded-utun refusals; journal preserved, no route writes");
+}
+static void RouteTests(void) {RouteKernelDumpTests();RouteGlobalFlagTests();RouteObservationTests();RouteReadinessTests();RouteConfirmationDiagnosticTests();RouteMismatchDiagnosticTests();RouteAbsenceTests();RouteV2FootprintRetirementTests();}

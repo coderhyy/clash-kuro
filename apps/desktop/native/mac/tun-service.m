@@ -145,6 +145,7 @@ typedef BOOL (^KuroServiceStopped)(NSDictionary *sessionEvidence, NSString **err
 @property(nonatomic, copy) KuroServiceProcessHook ready;
 @property(nonatomic, copy) KuroServiceProcessHook applyNetwork;
 @property(nonatomic, copy) KuroServiceRecovery recoverNetwork;
+@property(nonatomic, copy) NSDictionary *(^networkRecoveryObservation)(void);
 @property(nonatomic, copy) BOOL (^identityValid)(int peer);
 @property(nonatomic, copy) NSString *(^physicalInterface)(void);
 @property(nonatomic, copy) NSDictionary *(^readinessHosts)(void);
@@ -329,6 +330,14 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
   NSString *safeReason=KuroDiagnosticText(_session.stopContext[@"reason"]?:@"",_diagnosticSecrets);
   NSDictionary *metadata=safeStage&&safeError&&safeDiagnostic&&safeNetwork&&safeReason?@{@"format":@1,@"stage":safeStage,@"error":safeError,@"diagnosticError":safeDiagnostic,@"termination":_session.terminationEvidence?:@{@"request":@"none",@"observed":@NO},@"capture":[_output statistics],@"captureComplete":@(_captureComplete),@"stopContext":@{@"reason":safeReason,@"unexpected":_session.stopContext[@"unexpected"]?:@NO},@"networkRecovery":@{@"attempted":_diagnosticNetwork[@"attempted"]?:@NO,@"restored":_diagnosticNetwork[@"restored"]?:@NO,@"error":safeNetwork}}:nil;
   if(!metadata)return Fail(error,@"diagnostic summary redaction failed; preserve work");
+  NSDictionary *observation=_diagnosticNetwork[@"observation"];
+  if(observation) {
+    NSString *difference=KuroDiagnosticText(observation[@"routeDifference"],_diagnosticSecrets);
+    if(![observation[@"kind"]isEqual:@"current-owned-absence"] || !KuroBool(observation[@"systemRouteBaselineRestored"]) || !difference || difference.length>4096)return Fail(error,@"network absence observation is invalid; preserve work");
+    NSMutableDictionary *network=[metadata[@"networkRecovery"]mutableCopy];
+    network[@"observation"]=@{@"kind":@"current-owned-absence",@"systemRouteBaselineRestored":observation[@"systemRouteBaselineRestored"],@"routeDifference":difference};
+    NSMutableDictionary *updated=[metadata mutableCopy];updated[@"networkRecovery"]=network;metadata=updated;
+  }
   return [self saveDiagnostic:@"diagnostics.json" bytes:JSONData(metadata) error:error];
 }
 - (BOOL)finishDiagnostics:(NSString **)error {
@@ -782,7 +791,10 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
       NSString *diagnostic=nil,*network=nil;BOOL saved=[strong finishDiagnostics:&diagnostic];
       // Network recovery must run even if logging failed; it retains its own ownership gates.
       BOOL restored=strong->_hooks.recoverNetwork(strong->_session.identifier,&network);
-      strong->_diagnosticNetwork=@{@"attempted":@YES,@"restored":@(restored),@"error":network?:@""};
+      NSMutableDictionary *recovery=[@{@"attempted":@YES,@"restored":@(restored),@"error":network?:@""}mutableCopy];
+      NSDictionary *observation=restored&&strong->_hooks.networkRecoveryObservation?strong->_hooks.networkRecoveryObservation():nil;
+      if(observation)recovery[@"observation"]=observation;
+      strong->_diagnosticNetwork=recovery;
       NSString *summaryFailure=nil;BOOL summary=[strong persistDiagnosticSummary:&summaryFailure];
       if(!summary){[strong diagnosticError:summaryFailure];strong->_diagnosticComplete=NO;saved=NO;diagnostic=summaryFailure;}
       if(!saved || !restored)return Fail(problem,!restored?(network?:@"network restoration is not proven"):(diagnostic?:@"diagnostic persistence is not proven"));
