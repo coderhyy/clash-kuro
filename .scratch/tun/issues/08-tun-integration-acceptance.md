@@ -1,15 +1,22 @@
 # macOS TUN 集成验收
 
-Status: ready-for-agent（740 实机会话进入监督阶段后因路由变化停止；Core exit0，恢复证明受阻，安装保留；受控流量未执行）
+Status: ready-for-agent（740受限恢复及format3成功；App/job/Core退出；原fresh卸载因control.sock白名单缺口拒绝，安装/receipt完整保留，本窗口已停止）
 Type: validation
-Blocked by: 当前740会话安全恢复与物理网络动态变化核验收敛；首次正常启停仍缺受控流量及持久停止证明；正式交付另含异常恢复与升级验收
+Blocked by: 原740 fresh卸载不接受服务遗留control.sock，须准备最小修复及另行授权；IPv4 ENETUNREACH未定因；运行期全局路由门仍待收敛。
 Owner: 主会话集成与最终验证；验收 agent 准备记录
+
+
+## 最新实际收尾结果（2026-11-11）
+
+已按批准的固定工具完成准确bootout、原writer/进程组缺席、生产恢复及持久format3，随后正常菜单Quit原App。原740 `--uninstall` 返回1：`unknown files preserved; uninstall refused`。只读目录确认唯一白名单外项为固定run目录的 `control.sock`；原fresh路径仅允许service.lock/auth.sock。检查早于安装删除、receipt改写及format3消费者校验，因此当前安装和receipt完整保留，未重试或删除socket。本次授权随停止终止，不包含新网络实验。
+
+模型限制：此前真实临时安装模型未执行Serve或创建其control.sock；其旧consumer正例不覆盖此真实服务残留布局。现场socket的具体遗留退出分支尚无证据，不能推定worker超时。下一项仅准备严格归属、停止证明与锁保护下的固定socket清理兼容修复；当前不执行。IPv4出站错误仍独立未解释，本次恢复成功不是TUN功能验收通过。
 
 ## 当前有效阻塞（2026-11-11，暂停新增 TUN 重试）
 
 | 问题与原始错误 | 直接证据 | 根因状态 | 最小修复／判别 | 成功标准 |
 | --- | --- | --- | --- | --- |
-| 当前安装无法取得停止证明：`recorded pre-resume route baseline has not been restored; stage=route-changed` | 实际 Core 已观察到 SIGTERM/exit0；owner/network/work 保留且无 stopped。原 journal 与原批准快照一致，后来物理接口地址及其 /32 路由变化。生产恢复在 actor 自有路由缺席检查前要求全路由相等。 | **已确认恢复逻辑根因**：系统完整旧基线等于自有设置清理的错误前置。当前差异不能倒推运行期首次检测的具体条目。 | v2 恢复复用准确 writer/owner/原utun/固定key与地址池缺席、两次真实读回和持久退役；外部变化另报，不写系统路由。当前740不能热换或绕proof升级，先封定单次受限恢复工具并另申请授权。 | 当前自有网络足迹重复确认缺席；真实format3证明可被原740卸载器接受；准确job/安装/receipt清理；未知对象保留。不声称整个物理网络回到旧地址。 |
+| 原740 fresh卸载拒绝：`unknown files preserved; uninstall refused` | 已成功format3且writer/job/App缺席；run目录仍有control.sock，原fresh白名单只有service.lock/auth.sock。 | **已确认卸载兼容缺口**；拒绝在任何安装删除、receipt改写及proof消费者校验之前。socket具体遗留分支未确认。 | 最小固定socket归属/锁/停止证据检查及准确清理兼容，须真实Unix socket模型覆盖；现场不删除、不重试，另行授权。 | 原安装在有效proof及准确socket归属条件下完整卸载；未知、替换或活体端点拒绝；receipt及剩余路径核对。 |
 | IPv4 实际出站失败：`dial tcp …:443: connect: network is unreachable` | 固定Core真实stdout反复记录IPv4连接错误；已完成ready/apply/openACK进入owner supervision，故不只是helper拒绝。无受控48173流量成功；日志仅保留前64KiB，不能以累计字节推断环路或速率。 | **未确认根因**。缺少错误发生时实际IP_BOUND_IF调用结果、接口index、scoped路由及同身份原生connect对照；缺IPv6不能解释IPv4。 | 清理后再申请一次短判别窗口：固定IPv4目标，TUN前后同euid原生IP_BOUND_IF连接与同窗Core请求，加normal/scoped lookup；不先猜测修改配置。 | 能区分内核/接口路由条件与Core调用／进程策略差异；随后受控请求有本会话Tun元数据、双向字节及成功响应，正常关闭有恢复证明。 |
 | 运行期全局基线检查仍过宽，且旧错误把运行期称为startup | 740诊断阶段为authenticated owner supervision；该阶段在openACK后设置，通用baseline比较却输出during Core startup。现检查要求每条旧stable route存在。 | **已确认错误阶段表述；全局不变假设缺乏普遍必要性依据**。尚不能声称现场最初缺失条目已取证。 | 6da324e已改中性措辞和有界具体差异；保护复核按准确owner、自有路由、实际出口/LAN/DNS条件区分相关和无关变化，禁止忽略全部新增路由。该兼容性项不代替IPv4转发诊断。 | 合法无关动态变化不被当作身份丢失；影响实际接管／出口的变化仍拒绝并能安全恢复；对应真实变化样本回归。 |
 

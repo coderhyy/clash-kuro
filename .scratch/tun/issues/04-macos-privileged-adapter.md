@@ -1,9 +1,16 @@
 # macOS 特权 helper
 
-Status: ready-for-agent（暂停新增 TUN 重试；740 Core 已 exit0，安装保留，准备受限恢复与独审）
+Status: ready-for-agent（740受限恢复及format3成功；App/job/Core退出；原fresh卸载因control.sock白名单缺口拒绝，安装/receipt完整保留，本窗口已停止）
 Type: task
-Blocked by: 当前740安装安全收尾；IPv4 ENETUNREACH 尚未定因；运行期全局路由不变检查需要收敛。正式交付另含异常恢复与升级验收。
+Blocked by: 原740 fresh卸载不接受服务遗留control.sock，须准备最小修复及另行授权；IPv4 ENETUNREACH未定因；运行期全局路由门仍待收敛。
 Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
+
+
+## 最新实际收尾结果（2026-11-11）
+
+已按批准的固定工具完成准确bootout、原writer/进程组缺席、生产恢复及持久format3，随后正常菜单Quit原App。原740 `--uninstall` 返回1：`unknown files preserved; uninstall refused`。只读目录确认唯一白名单外项为固定run目录的 `control.sock`；原fresh路径仅允许service.lock/auth.sock。检查早于安装删除、receipt改写及format3消费者校验，因此当前安装和receipt完整保留，未重试或删除socket。本次授权随停止终止，不包含新网络实验。
+
+模型限制：此前真实临时安装模型未执行Serve或创建其control.sock；其旧consumer正例不覆盖此真实服务残留布局。现场socket的具体遗留退出分支尚无证据，不能推定worker超时。下一项仅准备严格归属、停止证明与锁保护下的固定socket清理兼容修复；当前不执行。IPv4出站错误仍独立未解释，本次恢复成功不是TUN功能验收通过。
 
 ## 当前状态（2026-11-11）
 
