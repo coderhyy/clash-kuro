@@ -1,16 +1,20 @@
 # macOS 特权 helper
 
-Status: ready-for-agent（固定control.sock生命周期修复已集成，隔离Serve/恢复/卸载通过；现场740安装保留，等待受限清理产物冻结及授权）
+Status: ready-for-agent（740固定socket、原安装及receipt已精确清理；job/进程缺席；新增网络实验未授权）
 Type: task
-Blocked by: 现场固定socket须经精确工具及新授权清理后再用原740卸载器；IPv4 ENETUNREACH未定因；新增网络实验暂停。
+Blocked by: IPv4 ENETUNREACH未定因，需另行准备并批准最小对照窗口；运行期全局路由假设仍待收敛。
 Owner: macOS helper agent；主会话分配安装/认证文件范围并集成
 
 
-## 固定 socket 修复进展（2026-11-11）
+## 本次精确清理完成（2026-11-11）
+
+使用批准的07918b8b冻结清单及b7e9942d工具执行一次：全部固定产物、原安装及原始format3证明复核通过，准确job/进程/组缺席与原锁、socket身份检查通过后，固定socket退役exit0；未修改的原740卸载器exit0。原11安装路径及socket独立确认缺席，job查询113，进程匹配为空；准确receipt forget0、随后查询1。诊断、原恢复证据及候选用户数据按约保留。没有启动Core或服务、没有网络修改；本次授权结束，不计TUN功能通过。完整本地证据位于 `/private/tmp/kuro-740-socket-retirement-authorized-etnhqtus`；机器原始记录不提交远端。
+
+## 历史：固定 socket 清理前准备（2026-11-11）
 
 生产Serve、fresh/legacy卸载和升级检查已统一固定端点归属规则；真实Serve隔离回归与原740实际format3消费者、完整安装模型卸载通过。现场未删除socket或重试卸载；完整集成验证与工具独审继续，完成后一次申请受限清理。详见[修复及证据边界](../evidence/control-socket-lifecycle-20261111/RESULT.md)。
 
-## 最新实际收尾结果（2026-11-11）
+## 历史：首次卸载拒绝（2026-11-11，已由上方清理闭环解决）
 
 已按批准的固定工具完成准确bootout、原writer/进程组缺席、生产恢复及持久format3，随后正常菜单Quit原App。原740 `--uninstall` 返回1：`unknown files preserved; uninstall refused`。只读目录确认唯一白名单外项为固定run目录的 `control.sock`；原fresh路径仅允许service.lock/auth.sock。检查早于安装删除、receipt改写及format3消费者校验，因此当前安装和receipt完整保留，未重试或删除socket。本次授权随停止终止，不包含新网络实验。
 

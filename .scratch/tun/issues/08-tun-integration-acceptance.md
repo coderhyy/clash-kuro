@@ -1,16 +1,20 @@
 # macOS TUN 集成验收
 
-Status: ready-for-agent（固定control.sock生命周期修复已集成，隔离Serve/恢复/卸载通过；现场740安装保留，等待受限清理产物冻结及授权）
+Status: ready-for-agent（740固定socket、原安装及receipt已精确清理；job/进程缺席；新增网络实验未授权）
 Type: validation
-Blocked by: 现场固定socket须经精确工具及新授权清理后再用原740卸载器；IPv4 ENETUNREACH未定因；新增网络实验暂停。
+Blocked by: IPv4 ENETUNREACH未定因，需另行准备并批准最小对照窗口；运行期全局路由假设仍待收敛。
 Owner: 主会话集成与最终验证；验收 agent 准备记录
 
 
-## 固定 socket 修复进展（2026-11-11）
+## 本次精确清理完成（2026-11-11）
+
+使用批准的07918b8b冻结清单及b7e9942d工具执行一次：全部固定产物、原安装及原始format3证明复核通过，准确job/进程/组缺席与原锁、socket身份检查通过后，固定socket退役exit0；未修改的原740卸载器exit0。原11安装路径及socket独立确认缺席，job查询113，进程匹配为空；准确receipt forget0、随后查询1。诊断、原恢复证据及候选用户数据按约保留。没有启动Core或服务、没有网络修改；本次授权结束，不计TUN功能通过。完整本地证据位于 `/private/tmp/kuro-740-socket-retirement-authorized-etnhqtus`；机器原始记录不提交远端。
+
+## 历史：固定 socket 清理前准备（2026-11-11）
 
 生产Serve、fresh/legacy卸载和升级检查已统一固定端点归属规则；真实Serve隔离回归与原740实际format3消费者、完整安装模型卸载通过。现场未删除socket或重试卸载；完整集成验证与工具独审继续，完成后一次申请受限清理。详见[修复及证据边界](../evidence/control-socket-lifecycle-20261111/RESULT.md)。
 
-## 最新实际收尾结果（2026-11-11）
+## 历史：首次卸载拒绝（2026-11-11，已由上方清理闭环解决）
 
 已按批准的固定工具完成准确bootout、原writer/进程组缺席、生产恢复及持久format3，随后正常菜单Quit原App。原740 `--uninstall` 返回1：`unknown files preserved; uninstall refused`。只读目录确认唯一白名单外项为固定run目录的 `control.sock`；原fresh路径仅允许service.lock/auth.sock。检查早于安装删除、receipt改写及format3消费者校验，因此当前安装和receipt完整保留，未重试或删除socket。本次授权随停止终止，不包含新网络实验。
 
@@ -20,11 +24,10 @@ Owner: 主会话集成与最终验证；验收 agent 准备记录
 
 | 问题与原始错误 | 直接证据 | 根因状态 | 最小修复／判别 | 成功标准 |
 | --- | --- | --- | --- | --- |
-| 原740 fresh卸载拒绝：`unknown files preserved; uninstall refused` | 已成功format3且writer/job/App缺席；run目录仍有control.sock，原fresh白名单只有service.lock/auth.sock。 | **已确认卸载兼容缺口**；拒绝在任何安装删除、receipt改写及proof消费者校验之前。socket具体遗留分支未确认。 | 最小固定socket归属/锁/停止证据检查及准确清理兼容，须真实Unix socket模型覆盖；现场不删除、不重试，另行授权。 | 原安装在有效proof及准确socket归属条件下完整卸载；未知、替换或活体端点拒绝；receipt及剩余路径核对。 |
 | IPv4 实际出站失败：`dial tcp …:443: connect: network is unreachable` | 固定Core真实stdout反复记录IPv4连接错误；已完成ready/apply/openACK进入owner supervision，故不只是helper拒绝。无受控48173流量成功；日志仅保留前64KiB，不能以累计字节推断环路或速率。 | **未确认根因**。缺少错误发生时实际IP_BOUND_IF调用结果、接口index、scoped路由及同身份原生connect对照；缺IPv6不能解释IPv4。 | 清理后再申请一次短判别窗口：固定IPv4目标，TUN前后同euid原生IP_BOUND_IF连接与同窗Core请求，加normal/scoped lookup；不先猜测修改配置。 | 能区分内核/接口路由条件与Core调用／进程策略差异；随后受控请求有本会话Tun元数据、双向字节及成功响应，正常关闭有恢复证明。 |
 | 运行期全局基线检查仍过宽，且旧错误把运行期称为startup | 740诊断阶段为authenticated owner supervision；该阶段在openACK后设置，通用baseline比较却输出during Core startup。现检查要求每条旧stable route存在。 | **已确认错误阶段表述；全局不变假设缺乏普遍必要性依据**。尚不能声称现场最初缺失条目已取证。 | 6da324e已改中性措辞和有界具体差异；保护复核按准确owner、自有路由、实际出口/LAN/DNS条件区分相关和无关变化，禁止忽略全部新增路由。该兼容性项不代替IPv4转发诊断。 | 合法无关动态变化不被当作身份丢失；影响实际接管／出口的变化仍拒绝并能安全恢复；对应真实变化样本回归。 |
 
-已解决的鉴权、Global DNS派生识别及背景socket census问题不再列作当前阻塞；其历史证据保留在下文。当前首次正常启停未验收通过，CI／测试／独审仅为前置证据。
+已解决的固定socket卸载、鉴权、Global DNS派生识别及背景socket census问题不再列作当前阻塞；其历史证据保留在下文。当前首次正常启停未验收通过，CI／测试／独审仅为前置证据。
 
 ## 历史交付状态（auto-route 决定后，以下不代表当前授权）
 

@@ -1,6 +1,6 @@
 # 固定 control.sock 生命周期修复
 
-本记录不授权现场删除，不代表 TUN 转发或网络恢复验收通过。原740安装、Installer receipt及固定socket保留；job/App/Core已退出，恢复已生成实际format3停止证明。
+本记录不代表 TUN 转发或网络恢复验收通过。用户另行批准的一次清理现已完成：固定socket、原740安装与准确Installer receipt均清除；job/App/Core缺席，原format3及清理证据已归档。
 
 ## 已确认根因与最小修复
 
@@ -15,3 +15,7 @@
 原740源码消费者已读取现场原始format3字节并接受；实际611项App和安装文件复制到隔离前缀，唯一有意省略计划退役的control.sock，原Uninstall返回成功且目标缺席。普通UID映射与system:NO不替代现场root、job、执行入口和元数据复核。
 
 原始安装、进程和机器证据只存本机临时目录，不提交远端。最终受限清理必须另行授权，先核新工具与原安装全部固定摘要及准确socket身份，再调用不变的原740卸载器；任何不符即停止，无自动重试。
+
+## 授权后的实际结果
+
+07918b8b冻结清单34项及固定support全部复核；socket-only工具exit0，原740 Recovery卸载exit0。安装11路径与固定socket缺席，独立job查询113，own process匹配为空；receipt forget0，查询1。工具成功包含原安装/证明/准确job及进程组缺席、原锁独占、固定socket无监听者及删除前身份复核；未运行Core或服务、未修改网络。新root0700证据 `/private/tmp/kuro-740-socket-retirement-authorized-etnhqtus`，独立只读结果 `/private/tmp/kuro-740-socket-final-readonly.json`。旧诊断、原恢复/实验记录和候选用户数据保留，授权随窗口结束终止。
