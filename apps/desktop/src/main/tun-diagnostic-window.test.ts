@@ -1,10 +1,16 @@
 import { once } from 'node:events'
+import { join } from 'node:path'
 import type { ChildProcess } from 'node:child_process'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { createTunDiagnosticWindow } from './tun-diagnostic-window'
 
 const entrySHA = 'b7cf9d1700c6fd016a9ab6ba7de4cca23e9c0f732bf4777f1fcb0730c37d5f47'
-const fake = vi.hoisted(() => ({ spawn: vi.fn(), readFile: vi.fn(), open: vi.fn(), lstat: vi.fn(), writeFile: vi.fn(), hash: vi.fn() }))
+const fake = vi.hoisted(() => ({ spawn: vi.fn(), readFile: vi.fn(), open: vi.fn(), lstat: vi.fn(), writeFile: vi.fn(), hash: vi.fn(), windowsPaths: false }))
+// process.platform stubbing does not change node:path's host semantics.
+vi.mock('node:path', async original => {
+  const actual = await original<typeof import('node:path')>()
+  return { ...actual, join: (...parts: string[]) => fake.windowsPaths ? actual.win32.join(...parts) : actual.join(...parts) }
+})
 vi.mock('node:child_process', async original => ({ ...await original<typeof import('node:child_process')>(), spawn: (...args: unknown[]) => fake.spawn(...args) }))
 vi.mock('node:crypto', async original => ({ ...await original<typeof import('node:crypto')>(), createHash: (...args: unknown[]) => fake.hash(...args) }))
 vi.mock('node:fs/promises', async original => ({ ...await original<typeof import('node:fs/promises')>(),
@@ -22,6 +28,7 @@ const missing = () => Object.assign(new Error('fixture evidence not yet created'
 
 beforeEach(async () => {
   vi.clearAllMocks()
+  fake.windowsPaths = false
   Object.defineProperty(process, 'platform', { configurable: true, value: 'darwin' })
   Object.defineProperty(process, 'getuid', { configurable: true, value: () => 501 })
   evidence = ''; ready = false; marker = undefined; writes = new Map()
@@ -35,7 +42,7 @@ beforeEach(async () => {
   })
   fake.writeFile.mockImplementation(async (path: string, bytes: string, options: { flag: string }) => {
     expect(options.flag).toBe('wx')
-    if (path.startsWith(`${evidence}/`) && !ready) throw missing()
+    if (['cancel-requested.json', 'app-collector-exit.json'].some(name => path === join(evidence, name)) && !ready) throw missing()
     if (writes.has(path)) throw Object.assign(new Error('exclusive fixture output exists'), { code: 'EEXIST' })
     writes.set(path, JSON.parse(bytes))
   })
@@ -62,9 +69,10 @@ afterEach(async () => {
   vi.restoreAllMocks()
 })
 function window() { const value = createTunDiagnosticWindow(); evidence = value.evidence; return value }
-async function closedEvidence() { await vi.waitFor(() => expect(writes.has(`${evidence}/app-collector-exit.json`)).toBe(true)); return writes.get(`${evidence}/app-collector-exit.json`)! }
+async function closedEvidence() { await vi.waitFor(() => expect(writes.has(join(evidence, 'app-collector-exit.json'))).toBe(true)); return writes.get(join(evidence, 'app-collector-exit.json'))! }
 
-test('fixed launcher is pinned and latest exact prepared marker allows one attempt', async () => {
+test.each(['host', 'win32'] as const)('fixed launcher is pinned and latest exact prepared marker allows one attempt (%s paths)', async paths => {
+  fake.windowsPaths = paths === 'win32'
   const value = window()
   await value.prepare()
   expect(value.signal.aborted).toBe(false)
@@ -78,7 +86,7 @@ test('fixed launcher is pinned and latest exact prepared marker allows one attem
   await expect(value.prepare()).rejects.toThrow('already used')
   expect(fake.spawn).toHaveBeenCalledOnce()
   await value.cancel(new Error('fixture done'))
-  expect(writes.get(`${evidence}/cancel-requested.json`)).toMatchObject({ reason: 'fixture done', actualStop: false })
+  expect(writes.get(join(evidence, 'cancel-requested.json'))).toMatchObject({ reason: 'fixture done', actualStop: false })
 })
 
 test('real child exit aborts before inherited output pipe closes; close later retains evidence', async () => {
@@ -89,7 +97,7 @@ test('real child exit aborts before inherited output pipe closes; close later re
   await exited
   expect(value.signal.aborted).toBe(true)
   expect(value.signal.reason.message).toContain('code=7')
-  expect(writes.has(`${evidence}/app-collector-exit.json`)).toBe(false)
+  expect(writes.has(join(evidence, 'app-collector-exit.json'))).toBe(false)
   const result = await closedEvidence()
   expect(result).toMatchObject({ code: 7, signal: null, actualStop: false })
 })
@@ -113,7 +121,7 @@ test.each([
   const value = window(); marker = { ...fields, evidence }
   await expect(value.prepare()).rejects.toThrow('identity mismatch')
   expect(value.signal.aborted).toBe(true)
-  expect(writes.has(`${evidence}/cancel-requested.json`)).toBe(true)
+  expect(writes.has(join(evidence, 'cancel-requested.json'))).toBe(true)
   await expect(value.prepare()).rejects.toThrow('already used')
   expect(fake.spawn).toHaveBeenCalledOnce()
 })
@@ -157,7 +165,7 @@ test('cancel after E is present preserves first cause and never signals wrapper'
   await value.cancel(new Error('later cancellation'))
   expect(kill).not.toHaveBeenCalled()
   expect(value.signal.reason.message).toBe('first collector failure')
-  expect(writes.get(`${evidence}/cancel-requested.json`)?.reason).toBe('first collector failure')
+  expect(writes.get(join(evidence, 'cancel-requested.json'))?.reason).toBe('first collector failure')
 })
 
 
