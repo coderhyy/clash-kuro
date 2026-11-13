@@ -1,0 +1,13 @@
+# 432真实失败的最小修复
+
+真实证据见../432-tun-window-20261106/RESULT.md；此前安装/job/进程/socket/receipt已准确清理，诊断保留。用户持续正常窗口允许本范围内证据修复和冻结新包重试。
+
+- 固定Core源码证明宿主无GlobalUnicast时清空显式inet6-address。受控spawn仅增加固定SKIP_SYSTEM_IPV6_CHECK=true，不继承调用者环境；真实utun双族地址、内部DNS及网络归属门禁保持。
+- 原生错误需完成readiness和stop/reap/diagnostics才回应，实测2.557秒；客户端仅open默认预算15秒，heartbeat/stop2秒和lease15秒保持。非native硬完成保证；超时仍unknown/断开，不自动重试。
+- launch诊断同步记录固定开关是否设置，不保存敏感环境值。
+
+独立agent(macOS acceptance)审查三组补丁通过：env bc27a6586ae56d7a6b9ed3e89f9439302cb004b66c79646dbe3f1e507263831e；open 91be865a9246c38e372ff3f5188f8307d3e63bab405ea7b470c888c5f59c10fe；diagnostic e3a7e32d37839f3861c2157832849601c602c7e67d4664125c06fb720b1e450e。
+
+env新回归对旧源码RED，真实普通子进程经过生产spawn/capture固定环境、exit0/off清理；仅排除Foundation派生CF运行时字段，不声称exec原始env可从Foundation全等反推。open新回归旧源码RED；集成57/57及desktop typecheck通过。标准原生/组合链/CI和实际包核验将在干净提交上执行，其结果另记录。
+
+未更改DNS mode或Profile。固定mihomo在disabled模式仍加入两族内部DNS精确地址，而disabled跳过系统DNS配置；真实DNS探针尚待本轮。

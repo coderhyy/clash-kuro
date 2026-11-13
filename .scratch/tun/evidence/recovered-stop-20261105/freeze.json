@@ -1,0 +1,61 @@
+{
+  "baselineObservedCommit": "e2243bbb6bc73f03b01c93e264c2c44917456e74",
+  "sharedCurrentCommitAtFreeze": "fa529dd14eac8cc9e33645d814f147b37360ff90",
+  "files": [
+    {
+      "file": "kuro-tun-helper.m",
+      "baselineSHA256": "cde6458fa587391bcfc53b7f1e6c2167f7c9f8f3632a548c40c8b41f793a4033",
+      "candidateSHA256": "3456efb9b859939dac4d39a3c36a7d1152bfba3cbb91ede22b370ff889416144"
+    },
+    {
+      "file": "tun-install.m",
+      "baselineSHA256": "9d5a5bd941ac303bdb19d11d466791b9f90bd0abf04646ddc235c8fc31b24a8d",
+      "candidateSHA256": "3171958e1473e36b425d13486ad93a38fa1383a8cecef09215ea3ed5381306ea"
+    },
+    {
+      "file": "tun-production-network.m",
+      "baselineSHA256": "a86dab5a85dd7a246e15e8d3051be084a96b8c150c7ceadae2ac16af51695974",
+      "candidateSHA256": "f4eb115a32e7ff694861ac6521a8cf3dbb6085a9635a853e297512f178b04f02"
+    },
+    {
+      "file": "tun-production-network.test.m",
+      "baselineSHA256": "cfbe825b7f01ed4e8806fec8b770f7d59755a6aa74db21104040ee1a8d214c91",
+      "candidateSHA256": "e39247b4713f4ef7584df7cc73987934d978d9f4a3c516f09d26c016507c9573"
+    },
+    {
+      "file": "tun-service.m",
+      "baselineSHA256": "0ba50e4f3988584de21329fde88d0b48ee95a9b9aad634e5600b366f31edea70",
+      "candidateSHA256": "33cc16f3867deda07316d44b9cde89456eeef9bac378ba39836a865915d18abf"
+    },
+    {
+      "file": "tun-service.test.m",
+      "baselineSHA256": "46c8ec0fc5a15c5060fa4d2e7980e15256c86e963f37bba031d9ccd64d739d24",
+      "candidateSHA256": "f2e8a5244130ef77b9b1123e8870f244c6c4c0563babd5e277c6f8a937450437"
+    },
+    {
+      "file": "tun-session.m",
+      "baselineSHA256": "67e6db59f89c4956c675bca0a25a35badd6d94460558c691caa932bd2210c7d1",
+      "candidateSHA256": "4ded3f3fa04036130e3213320a3900e2e45be674aa609040123952f741fabbb3"
+    }
+  ],
+  "patch": "/private/tmp/kuro-recovered-stop-candidate/recovered-stop.patch",
+  "patchSHA256": "efabda5ff8c0e955e76dc2ff8ccd835f67460eb620ad55ed02adc46982d50dd6",
+  "evidence": {
+    "/private/tmp/kuro-recovered-stop-candidate/INTEGRATION.md": "29a3017b2f1fdd13678411065dcf0b94a31efd46d5eef86f5d165c86a4c14c70",
+    "/private/tmp/kuro-recovered-stop-candidate/focused-compile.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/private/tmp/kuro-recovered-stop-candidate/focused-compile.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/private/tmp/kuro-recovered-stop-candidate/focused.m": "9878e43c34991da50948beef3b0e9eef26303a4ab1731f4ad917d272598947aa",
+    "/private/tmp/kuro-recovered-stop-candidate/focused.stderr.log": "149d062421b764ab13b265e6ccd8915e12a8b41d33186075012ae6457c17ed87",
+    "/private/tmp/kuro-recovered-stop-candidate/focused.stdout.log": "4f0706cb2ff3512f0aef5d6f686c23b375479adb04f9b658eb72550ccdb8be88",
+    "/private/tmp/kuro-recovered-stop-candidate/full-fixtures.stderr.log": "9ebcedd55b0081213ba5906929d28dd1d60e5f338d35b5d28cf26e8ef68488d8",
+    "/private/tmp/kuro-recovered-stop-candidate/full-fixtures.stdout.log": "294ce77674def76b23af978f5a714ee93588f0f33ee03bdf8ffda397413ede81",
+    "/private/tmp/kuro-recovered-stop-candidate/production-compile.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/private/tmp/kuro-recovered-stop-candidate/production-compile.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/private/tmp/kuro-recovered-stop-candidate/test-compile.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/private/tmp/kuro-recovered-stop-candidate/test-compile.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/private/tmp/kuro-recovered-stop-candidate/upgrade-fixtures.stderr.log": "e11da9e514323c72c892f7015b32815ab140f04c74b9d4100deb3f15f8ef9d59",
+    "/private/tmp/kuro-recovered-stop-candidate/upgrade-fixtures.stdout.log": "921df3913befd7f79df71a416fbc291d6bdcfed9d6f4f80ffc9d7d45baa3ace3",
+    "/private/tmp/kuro-recovered-stop-candidate/verification.json": "699ab2f88d6b1907a2f26f35603a3ffbb6a00403a5854b573c2d01c54f617505",
+    "/private/tmp/kuro-recovered-stop-candidate/verify.py": "4193f4c6b00c4281df4f4af1357ae305dc99e49657049ca698e2691300916917"
+  }
+}

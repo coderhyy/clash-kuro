@@ -1,0 +1,28 @@
+{
+  "client": {
+    "format": 2,
+    "cdhash": "e045b6d156fd6992d5ef35312308b1fbe0fdf279",
+    "executableSHA256": "76cd14f8b5a2ebaede4942cc53d34015bae8d50a70a72089dbc101cbf54a2a7b",
+    "infoSHA256": "1b381807513b19173fdfe08e83af1d88284584ace68a530d42cb68be5f8e06ff",
+    "asarSHA256": "fc246e4c228b8234bdf5153908150eaedbc8744e04e79679ba87ea0626b234eb"
+  },
+  "checks": [
+    {
+      "path": "/Library/PrivilegedHelperTools/dev.kuro.tun-uninstall",
+      "sha256": "cfe03d38d1cb2ea6d90fc64bcc04d09f4cc45e8e99690789e271354b0f643416"
+    },
+    {
+      "path": "/Library/PrivilegedHelperTools/dev.kuro.tun/installer",
+      "sha256": "cfe03d38d1cb2ea6d90fc64bcc04d09f4cc45e8e99690789e271354b0f643416"
+    },
+    {
+      "path": "/Library/PrivilegedHelperTools/dev.kuro.tun/versions/v1.19.33-0.1.0-arm64-dac57e1bef75e44f-c74a08bb54976755de092666c08a5ce37cf53b9a6da53900bcf9264b549ff5ff4/helper",
+      "sha256": "cfe03d38d1cb2ea6d90fc64bcc04d09f4cc45e8e99690789e271354b0f643416"
+    }
+  ],
+  "job": {
+    "code": 113,
+    "stdout": "",
+    "stderr": "Bad request.\nCould not find service \"dev.kuro.tun\" in domain for system\n"
+  }
+}

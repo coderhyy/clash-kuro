@@ -1,0 +1,9 @@
+
+ RUN  v5.0.5 /Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro
+
+
+ Test Files  1 passed (1)
+      Tests  57 passed (57)
+   Start at  11:16:08
+   Duration  496ms (tests 93%, import 4%, transform 2%)
+

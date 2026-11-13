@@ -1,0 +1,66 @@
+[
+  {
+    "name": "focused-compile",
+    "argv": [
+      "/usr/bin/clang",
+      "-fobjc-arc",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-Wno-unused-function",
+      "-O2",
+      "-framework",
+      "Foundation",
+      "-framework",
+      "Security",
+      "-framework",
+      "SystemConfiguration",
+      "-lbsm",
+      "/private/tmp/kuro-staged-dns-coordinator-candidate/focused.m",
+      "-o",
+      "/private/tmp/kuro-staged-dns-coordinator-candidate/focused"
+    ],
+    "exit": 0,
+    "seconds": 3.1688448750646785
+  },
+  {
+    "name": "focused",
+    "argv": [
+      "/private/tmp/kuro-staged-dns-coordinator-candidate/focused"
+    ],
+    "exit": 0,
+    "seconds": 2.1921404158929363
+  },
+  {
+    "name": "baseline-compile",
+    "argv": [
+      "/usr/bin/clang",
+      "-fobjc-arc",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-Wno-unused-function",
+      "-O2",
+      "-framework",
+      "Foundation",
+      "-framework",
+      "Security",
+      "-framework",
+      "SystemConfiguration",
+      "-lbsm",
+      "/private/tmp/kuro-staged-dns-coordinator-candidate/baseline.m",
+      "-o",
+      "/private/tmp/kuro-staged-dns-coordinator-candidate/baseline"
+    ],
+    "exit": 0,
+    "seconds": 3.009974499931559
+  },
+  {
+    "name": "baseline",
+    "argv": [
+      "/private/tmp/kuro-staged-dns-coordinator-candidate/baseline"
+    ],
+    "exit": 1,
+    "seconds": 0.26210641604848206
+  }
+]

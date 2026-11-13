@@ -1,0 +1,82 @@
+{
+  "processReadback": [
+    {
+      "pid": 21629,
+      "proc_pidinfoBytes": 0,
+      "errno": 3
+    },
+    {
+      "pid": 21628,
+      "proc_pidinfoBytes": 0,
+      "errno": 3
+    }
+  ],
+  "files": [
+    {
+      "path": "/private/tmp/kuro-core-bkpsAy",
+      "uid": 501,
+      "mode": "0o700",
+      "symlink": false,
+      "size": 96,
+      "sha256": null
+    },
+    {
+      "path": "/private/tmp/kuro-core-evidence-pUMvdX",
+      "uid": 501,
+      "mode": "0o700",
+      "symlink": false,
+      "size": 224,
+      "sha256": null
+    },
+    {
+      "path": "/private/tmp/kuro-core-bkpsAy/mihomo",
+      "uid": 501,
+      "mode": "0o755",
+      "symlink": false,
+      "size": 56810034,
+      "sha256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9"
+    },
+    {
+      "path": "/private/tmp/kuro-core-evidence-pUMvdX/stderr.log",
+      "uid": 501,
+      "mode": "0o600",
+      "symlink": false,
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/private/tmp/kuro-core-evidence-pUMvdX/diagnostics.json",
+      "uid": 501,
+      "mode": "0o600",
+      "symlink": false,
+      "size": 556,
+      "sha256": "4fbfea3343e5373e7ea6ab694bded8d147552426a69dfe7496e67372962f2d68"
+    },
+    {
+      "path": "/private/tmp/kuro-core-evidence-pUMvdX/stdout.log",
+      "uid": 501,
+      "mode": "0o600",
+      "symlink": false,
+      "size": 118,
+      "sha256": "f886f3adad31ed7e155164aee3874c2e916e747318cf937a3dcdd49c603ccea6"
+    },
+    {
+      "path": "/private/tmp/kuro-core-evidence-pUMvdX/launch.json",
+      "uid": 501,
+      "mode": "0o600",
+      "symlink": false,
+      "size": 656,
+      "sha256": "5084f8a2fa872e4271d4253c94ae8947bfc96fc1f8fa2aa665a5140d19b6c756"
+    },
+    {
+      "path": "/private/tmp/kuro-core-evidence-pUMvdX/config.redacted.json",
+      "uid": 501,
+      "mode": "0o600",
+      "symlink": false,
+      "size": 1235,
+      "sha256": "b7ce9bab89199e6c5410856c4831407049f701942a8b19c9f07ab64f0af9ef79"
+    }
+  ],
+  "ownerAbsent": true,
+  "workAbsent": true
+}

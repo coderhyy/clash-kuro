@@ -1,0 +1,10 @@
+{
+  "format": 1,
+  "protocol": 1,
+  "target": "darwin-arm64",
+  "coreVersion": "v1.19.33",
+  "coreSHA256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+  "coreArchiveSHA256": "060b64b0f2c9a310831db0fe4adb2878de67bfa606c311813c1f13966aa504b6",
+  "runnerSHA256": "72d10765f48bdd2d63ce6b6c39dae3a66becaeba87f66182d6a05e833a088064",
+  "epoch": "973D82CC-BA3C-4389-9AA7-F7EA75D2C797"
+}

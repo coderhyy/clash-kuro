@@ -1,0 +1,9 @@
+# Same-held session cleanup recovery
+
+Implemented in the existing service/session and existing authenticated recovery operation. A reaped, journaled, non-unknown session retains its original owner worker after cleanup failure. One explicit request can retry that original cleanup on its original pthread; no new process, old-PID adoption, automatic TUN restart or public operation is introduced. Owner bytes must still match before network cleanup. Normal stop does not discard this recovery capability; helper shutdown releases the wait and preserves unresolved evidence.
+
+Eight new fixture cases use an actual harmless held child and a second socket. They cover same-thread retry, exact reap, changed owner rejection before cleanup, cancellation/expiry, concurrent recovery/open/control rejection, EOF and shutdown preservation. Network callbacks are injected fixtures, not actual PF_ROUTE or DNS writes. Existing 27 service cases also passed, including repeated failed checkpoint and subsequent absence recovery retaining physical `off` plus the checkpoint error.
+
+Full native fixture execution passed with `KURO_SKIP_CORE_SYNTAX=1`; see `native-fixture.log`. Production helper compiled with strict warnings as errors into `/private/tmp/kuro-retained-production-compile-only`, without execution. Mandatory fixed Core syntax validation belongs to the subsequent integrated build. Independent agent review found and verified the checkpoint-error persistence fix; no remaining blocker within this change.
+
+Boundaries: this retry requires the same helper and accurately reaped original session. Changed/present routes after owner death, changed DNS values, cross-helper recovery and owner unlink followed by fsync failure remain conservative refusals. Expired queued requests do not run; an already executing synchronous cleanup cannot be cancelled. None of these fixtures proves actual TUN/network recovery, and no system installation or network mutation occurred.

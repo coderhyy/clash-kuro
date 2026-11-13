@@ -1,0 +1,84 @@
+{
+  "sourceCommit": "10fc6a8e5a598bb812da70a6a691714d42ec51d8",
+  "sessionDiagnostics": "DCBA8F65-8B7D-4E0B-B1A0-2A652160E5CE",
+  "diagnosticSummary": {
+    "capture": {
+      "stderr": {
+        "bytesRead": 0,
+        "eof": true,
+        "readErrno": 0,
+        "retainedBytes": 0,
+        "truncated": 0
+      },
+      "stdout": {
+        "bytesRead": 1173,
+        "eof": true,
+        "readErrno": 0,
+        "retainedBytes": 1173,
+        "truncated": 0
+      }
+    },
+    "captureComplete": true,
+    "diagnosticError": "",
+    "error": "fixed internal IPv4 DNS static-host probe was not confirmed",
+    "format": 1,
+    "networkRecovery": {
+      "attempted": true,
+      "error": "",
+      "restored": true
+    },
+    "stage": "process and network readback",
+    "stopContext": {
+      "reason": "",
+      "unexpected": false
+    },
+    "termination": {
+      "exitCode": 0,
+      "observed": true,
+      "request": "SIGTERM",
+      "signal": null
+    }
+  },
+  "packageSHA256": "fce8938f150cd0b24b4875fb7ffe27289e70c3f9d8b24181acb1dcd4fe937c33",
+  "cleanup": {
+    "paths-after.json": {
+      "/Library/Application Support/Clash Kuro/Privileged": false,
+      "/Library/Application Support/Clash Kuro/Client/Clash Kuro.app": false,
+      "/Library/PrivilegedHelperTools/dev.kuro.tun": false,
+      "/Library/PrivilegedHelperTools/dev.kuro.tun-uninstall": false,
+      "/Library/PrivilegedHelperTools/dev.kuro.tun-fresh-install.json": false,
+      "/Library/PrivilegedHelperTools/dev.kuro.tun-uninstall.json": false,
+      "/Library/LaunchDaemons/dev.kuro.tun.plist": false,
+      "/Library/Application Support/Clash Kuro/Run": false,
+      "/Library/PrivilegedHelperTools/dev.kuro.tun-run": false,
+      "/private/var/run/dev.kuro.tun": false,
+      "/Library/PrivilegedHelperTools/dev.kuro.tun-client-install.json": false
+    },
+    "receipt-after.json": {
+      "exit": 1,
+      "stdout": "",
+      "stderr": "No receipt for 'dev.kuro.tun.disabled' found at '/'.\n"
+    },
+    "final-job.json": {
+      "exit": 113,
+      "stdout": "",
+      "stderr": "Bad request.\nCould not find service \"dev.kuro.tun\" in domain for system\n"
+    },
+    "uninstall-result.json": {
+      "exit": 0,
+      "stdout": "Helper/App uninstall complete; diagnostic evidence, if any, is retained at /Library/Application Support/Clash Kuro/TunDiagnostics and was not deleted.\n",
+      "stderr": ""
+    },
+    "cleanup-proxy-comparison.json": {
+      "matchesBaseline": true
+    },
+    "cleanup-dns-comparison.json": {
+      "matchesBaseline": true
+    },
+    "cleanup-dns-store-comparison.json": {
+      "matchesBaseline": true
+    }
+  },
+  "actualTrafficThroughTun": false,
+  "publicProbeSent": false
+}

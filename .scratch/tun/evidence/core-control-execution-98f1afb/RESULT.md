@@ -1,0 +1,9 @@
+# Real fixed Core normal and EOF passed
+
+Source `98f1afbe6822999bab02723d62820a96c395571e`; artifact `/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/core-control-experiment-98f1afbe6822999bab02723d62820a96c395571e`. Preflight all six SHA256SUMS passed; exact Core/archive pinned, --inspect prepared before normal and normalPassed:true before EOF. Runner SHA256 be59c352acad1fe7c7582c6127877580e8655b3502e1363f28b0a881a41d7bcb; inventory SHA256 dee348aaed5c1e601b343b110ae6b7d3ba755e49d5705d9f59e806296a2f4cbc.
+
+Both invocations runner exit0, same epoch. Fixed mihomo v1.19.33 private /version, mode rule/direct readback and selector REJECT/DIRECT readback completed, two NoIP FD observations each. normal owner-stop+ACK true; EOF observed owner read0 with ACK false. Both requested SIGTERM, actual Core exit0, signal:null. EOF worker error text "session closed" is the observed closure reason, not a failing stage (failureStage:null). Both full 17-field success receipts exist and pass strict checking.
+
+Core/worker independent proc_pidinfo queries returned ESRCH; both dedicated runtime base directories absent (includes owner/config/socket/cache/fixed executable copy). Restricted diagnostic directories remain intentionally, all five files0600, dirs0700; mirrored here. No additional termination or deletion was needed. No installation, launchd, TUN, system proxy/routes/DNS/login changes performed.
+
+Scope: validates fixed ordinary-UID Core private control and exact supervised stop/owner-connection EOF. Does not prove actual Electron exit, root App/helper combination, all possible detached descendants, launchd/helper-kill behavior, TUN/dual-stack routing/DNS/LAN preservation, upgrade or uninstall. NoIP sampling is two point-in-time observations, not proof of absence of every transient socket. First TUN window still needs explicit approval.

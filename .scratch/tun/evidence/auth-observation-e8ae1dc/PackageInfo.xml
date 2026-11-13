@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<pkg-info overwrite-permissions="true" relocatable="false" identifier="dev.kuro.tun.disabled" postinstall-action="none" version="0.1.0" format-version="2" generator-version="InstallCmds-883 (26B123)" install-location="/" auth="root">
+    <payload numberOfFiles="1255" installKBytes="396155"/>
+    <bundle path="./Library/Application Support/Clash Kuro/Client/Clash Kuro.app" id="dev.kuro.desktop" CFBundleShortVersionString="0.1.0" CFBundleVersion="0.1.0"/>
+    <bundle id="dev.kuro.desktop.helper.GPU" CFBundleVersion="0.1.0" path="./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (GPU).app"/>
+    <bundle id="dev.kuro.desktop.helper.Renderer" CFBundleVersion="0.1.0" path="./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (Renderer).app"/>
+    <bundle path="./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Squirrel.framework" id="com.github.Squirrel" CFBundleShortVersionString="1.0" CFBundleVersion="1"/>
+    <bundle id="com.github.Electron.framework" CFBundleVersion="45.1.0" path="./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework"/>
+    <bundle path="./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Mantle.framework" id="com.electron.mantle" CFBundleShortVersionString="1.0" CFBundleVersion="0.0.0"/>
+    <bundle id="dev.kuro.desktop.helper" CFBundleVersion="0.1.0" path="./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper.app"/>
+    <bundle path="./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/ReactiveObjC.framework" id="com.electron.reactive" CFBundleShortVersionString="3.1.0" CFBundleVersion="0.0.0"/>
+    <bundle id="dev.kuro.desktop.helper.Plugin" CFBundleVersion="0.1.0" path="./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (Plugin).app"/>
+    <bundle-version/>
+    <upgrade-bundle>
+        <bundle id="dev.kuro.desktop"/>
+    </upgrade-bundle>
+    <update-bundle/>
+    <atomic-update-bundle/>
+    <strict-identifier>
+        <bundle id="dev.kuro.desktop"/>
+        <bundle id="dev.kuro.desktop.helper.GPU"/>
+        <bundle id="dev.kuro.desktop.helper.Renderer"/>
+        <bundle id="com.github.Squirrel"/>
+        <bundle id="com.github.Electron.framework"/>
+        <bundle id="com.electron.mantle"/>
+        <bundle id="dev.kuro.desktop.helper"/>
+        <bundle id="com.electron.reactive"/>
+        <bundle id="dev.kuro.desktop.helper.Plugin"/>
+    </strict-identifier>
+    <relocate/>
+    <scripts>
+        <preinstall file="./preinstall" timeout="600"/>
+        <postinstall file="./postinstall" timeout="600"/>
+    </scripts>
+</pkg-info>

@@ -1,0 +1,146 @@
+time="2026-11-06T11:54:01.720160000+08:00" level=info msg="Start initial configuration in progress"
+time="2026-11-06T11:54:01.722071000+08:00" level=info msg="Geodata Loader mode: memconservative"
+time="2026-11-06T11:54:01.722098000+08:00" level=info msg="Geosite Matcher implementation: succinct"
+time="2026-11-06T11:54:01.722276000+08:00" level=info msg="Initial configuration complete, total time: 1ms"
+configuration file /tmp/kuro-native-syntax-BqVm6v/config.json test is successful
+/private/tmp/kuro-client-pin-wkXM8B/Library/Application Support/Clash Kuro/Client/Clash Kuro.app: replacing existing signature
+/private/tmp/kuro-act-Pci6GR/source/fixture.app: replacing existing signature
+native Core environment: actual held ordinary env child receives fixed PATH/LANG/IPv6-check switch, no inherited extra environment (apart from Foundation runtime encoding key), hostile inherited false is ignored; no Core/network execution
+native restart cache checkpoint: 19 real temporary-file chains; explicit fixed approval validator, stable origin snapshot and durable marked owner, changed bytes/inode/mode/symlink/unknown and replaced/reappeared work-directory refusals, all installed records require validator including cache-absent/final-cache/owner-only; nil retry and fsync/publish/partial cleanup retries; no Core/stop proof
+native session durability: socket rename, absent owner recovery and held-owner unlink reject repeated sync failure; only successful sync permits acceptance/off, unknown replacement preserved; no Core/network
+native cache origin: 11 ordinary-user held-child cases; exclusive0600, sync/publication failures, pre-resume replacement, same-inode writes, changed mode/inode and unknown-owner preservation; no Core/network
+native restart owner: strict/legacy receipts, present/reused/denied/incomplete PID observations, changing observation and retained DNS preserve ownership; ESRCH never proves descendants exited
+native supervisor absence: 11 temporary owner cases; live/reused/unknown helper and reappearance before/during/after cleanup rejected; legacy unchanged; no PID signal or fresh stop proof
+native owner/session: EOF, lease, heartbeat, replay, peer exit, cleanup retry, stop, preparation refusal passed
+PASS native JSON candidate accepted by fixed Core -t (syntax only; no TUN activation)
+native TUN config: closed schema, references, DNS, duplicate keys, limits and JSON candidate passed
+native peer identity: kernel audit identity observed, passed FD cannot survive original peer exit
+DNS metadata: immutable raw Global default snapshot, known A/AAAA flags, typed metadata/alias binding; unsupported scope/service/unknown/incomplete metadata retained and refused
+Darwin route parser: four sanitized recorded wire shapes + nonlocal/nonhost/conflicting-zone/noncontiguous/truncation rejects PASS
+native route durability: 2 absence-only retirement/retry paths require successful directory sync, no route deletion
+native routes: bounded wire fixtures and 12 ownership/recovery scenarios passed; no PF_ROUTE/sysctl/network operation executed
+PASS 3 unexpected-route diagnostic cases: exact closed entry and stage retained, original startup/active and wrong-interface refusal unchanged; fake backend only
+PASS 4 production DNS metadata cases: effective interface admission, preserved scoped path, exact journal/baseline and mutation refusal, UUID-only recovery
+PASS 8 recovered backend readback cases: complete current route/DNS observations, late marked/split/internal-pool/DNS/journal conflicts reject; no held history or network writes
+IPv4-only upstream: 18 admission/apply/recovery cases preserve dual-stack TUN, four routes, both DNS addresses and existing LAN/scoped DNS; unsafe literal paths and egress changes rejected (mock only)
+production network: inert construction, local-only DNS packets, baseline admission, dual-stack apply, partial failure, held-owner and restart absence fixtures passed (no system network calls)
+native DNS partial recovery: 5 fresh-object exact deletion, pre-remove value/journal changes, extra UUID and failed-unlink-sync retry cases passed
+native DNS ownership: 30 journal + 5 route-admission scenarios passed; no Darwin store or system network operation executed
+native Core/interface association: 21 injected snapshots and real self-identity rejection passed; no Core spawn, utun creation or network mutation
+native client pin: real ad-hoc runtime seal, internal Framework links, escape/writable/tamper rejection, install record and exact removal passed (temporary ordinary-user fixture)
+native stopped uninstall: 11 held harmless child fixtures cover complete proof, missing/false/mismatched/changed/active preservation, sticky history, durable revocation and partial cleanup retry; network proofs mocked
+native finit/private/tmp/kuro-auth-policy-qwU8HO/Library/Application Support/Clash Kuro/Client/Clash Kuro.app: replacing existing signature
+/private/tmp/kuro-fresh-admit-pnhC5Q/source/fixture.app: replacing existing signature
+/private/tmp/kuro-fresh-admit-VnwtoK/source/fixture.app: replacing existing signature
+/private/tmp/kuro-fresh-admit-qXEFk7/source/fixture.app: replacing existing signature
+/private/tmp/kuro-fresh-admit-VXckzr/source/fixture.app: replacing existing signature
+/private/tmp/krp-hTgYik/source/fixture.app: replacing existing signature
+/private/tmp/krp-hTgYik/next/fixture.app: replacing existing signature
+/private/tmp/ks-rBoQUD/source/fixture.app: replacing existing signature
+/private/tmp/ks-rBoQUD/next/fixture.app: replacing existing signature
+e activation: explicit boolean/client/inventory, completed protected install, fixed helper identity, receipt binding and temporary auth-observer refusal passed; no service/Core/network
+native installer ACL: production /private/tmp accepted (NULL ACL absence fallback); no system mutation
+native socket host: old ancestor uid=0 gid=1 mode=0775; new fixed ancestors pass strict ACL/metadata/search policy (read only)
+native socket migration: legacy metadata/path rejection, public 0700 ancestor/run refusal, fixed/prefixed/overlong addresses and two protected ordinary-user endpoint connections passed; no system service
+native fresh install: 7 inventory rejection checks + 19 receipt, partial-copy, unknown/changed identity, active lock and exact auth socket recovery cases passed; no system install
+native auth: shared production policy accepts real signed live fixture, rejects impostor/pin/resource changes and every non-observation operation; no root/Core/network
+fresh admission: actual temporary install/Status + dispatch capability gate + real recovery; finite ready/off, auth-only denied, unknown route retained, checkpoint blocked/off preserved; no Core/root/network writes
+recovered checkpoint 0: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 1: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 2: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 3: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 4: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 5: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 6: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 7: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 8: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 9: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 10: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 11: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 12: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 13: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 14: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 15: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 16: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 17: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 18: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 19: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 20: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 21: exact production binding/readback + fresh retry/consumer gate passed
+recovered checkpoint 22: exact production binding/readback + fresh retry/consumer gate passed
+PASS 23 recovered-stop cases: actual temporary install/upgrade/uninstall, proof durability/raw-byte mismatch, backend readback/live/unknown refusals; no held proof fabricated, no Core/system/network
+held checkpoint 0: real reap, durable exact proof, fresh retry/absence gates and actual uninstall passed
+held checkpoint 1: real reap, durable exact proof, fresh retry/absence gates and actual uninstall passed
+held checkpoint 2: real reap, durable exact proof, fresh retry/absence gates and actual uninstall passed
+held checkpoint 3: real reap, durable exact proof, fresh retry/absence gates and actual uninstall passed
+held checkpoint 4: real reap, durable exact proof, fresh retry/absence gates and actual uninstall passed
+held checkpoint 5: real reap, durable /private/tmp/kr-JQeMWD/source/fixture.app: replacing existing signature
+/private/tmp/kuro-install-bind-O8hObG/source/fixture.app: replacing existing signature
+/private/tmp/kuro-supservice-y3aAcq/binding/source/fixture.app: replacing existing signature
+/private/tmp/kuro-writer-bind-UVImwE/source/fixture.app: replacing existing signature
+native supervision producer: fixed top-level saved-job grammar/pid/program/full argv/properties, kernel/root/helper hash/start identity, strict optional owner shape and legacy compatibility; no launchctl execution
+native installation binding: actual temporary install, eight changed artifacts, wrong helper, transaction, symlink and mutable neverStarted identity checks passed; no root/service/Core
+native supervision session: setter first snapshot rejects nil/malformed before work; 6 admission/held-child cases preserve three samples and publish/resume mismatch refusal; optional held provenance only, no restart authority
+native supervision service: positive three-sample owner/private-controller/held-stop chain plus two initial source refusals before work/cache/revocation/child; isolated job fixture only, no root/launchctl/Core/network
+native installed writer recovery: real protected temporary install -> production validator -> origin checkpoint -> exact work cleanup; 15 cases including legacy/mismatch/live/reused/unknown/cache/directory replacement refusal, no synthetic stopped proof
+exact proof, fresh retry/absence gates and actual uninstall passed
+held checkpoint 6: real reap, durable exact proof, fresh retry/absence gates and actual uninstall passed
+held checkpoint 7: real reap, durable exact proof, fresh retry/absence gates and actual uninstall passed
+held checkpoint 8: actual service checkpoint/retained retry; neverStarted=false preserved, exact uninstall passed
+held checkpoint 9: actual service checkpoint/retained retry; neverStarted=true preserved, exact uninstall passed
+held checkpoint 10: real reap, durable exact proof, fresh retry/absence gates and actual uninstall passed
+held checkpoint 11: real reap, durable exact proof, fresh retry/absence gates and actual uninstall passed
+held checkpoint 12: actual service checkpoint/retained retry; neverStarted=false preserved, exact uninstall passed
+PASS 13 held-stop checkpoint cases: proof write/file-sync/directory-sync, owner unlink/sync, changed proof/owner, both sticky histories, network failure and missing-proof refusal; no Core/launchd/network
+early failure: old proof retained=1 physicalOff=1 uninstall=1 neverStarted false unchanged
+initial supervision refused before work: old proof retained byte-for-byte, no resume/revocation/stop checkpoint, exact uninstall succeeds
+beforeStart refused: actual suspended child reaped, no beforeResume/CONT, old proof retained, old valid stop authority remains usable
+resumed successor: old proof revoked before beforeResume/CONT; new exact completed proof required for successful stop/uninstall
+native service DNS partial recovery: 5 persisted positive chains retain live/unknown/origin-only owner gates, permit exact final-cache recovery, aggregate real deletion errors and never issue stopped proof; no Core/network
+fixture listener evidence: real temporary Unix listen success, EADDRINUSE and overlong path preserve existing socket; no Core/system network
+native production diagnostics: 8 actual harmless service cases cover redacted startup/normal, exit37, overflow drain, timeout, failed-save explicit recovery, unknown checkpoint preservation and pre-cleanup invalid-frame reason; no Core/network
+native service cache preparation: 4 actual startup-chain failures preserve work/unknown before resume (collision, cache fsync, owner publication, resume identity replacement); no Core/network
+native retained recovery: 8 harmless held-child cases; original pthread retained, second-socket explicit recovery, owner mismatch, expiry/cancellation, concurrent/open/write rejection, EOF and shutdown preservation; no Core/network
+native restart work: exact runtime/socket cleanup, mismatch/unknown/symlink/unsafe reread rejection and partial cleanup retry passed (temporary sockets only)
+native production cache: closed durable receipt, legacy refusal, changed/symlink/writable/unknown preservation, exact removal, old-group nonempty/unknown rejection and partial cleanup retry passed; no Core/network
+native service: 27 fixture cases cover closed open, preflight gates, private HTTP, typed control, concurrent status, single owner, stop, bounded network-only receipt recovery, Core-owner refusal and work preservation
+PASS native protocol, audit-token identity rejection, protected paths/metadata and isolated install/uninstall
+/private/tmp/kuro-upgrade-zgRRuD/old-helper: replacing existing signature
+/private/tmp/kuro-upgrade-zgRRuD/old-source/fixture.app: replacing existing signature
+/private/tmp/kuro-upgrade-zgRRuD/new-source/fixture.app: replacing existing signature
+/private/tmp/kuro-upgrade-zgRRuD/third-source/fixture.app: replacing existing signature
+upgrade recovery fixture: completed upgrade off proof absent
+upgrade recovery fixture: unknown or changed upgrade object: /private/tmp/kuro-upgrade-zgRRuD/stage1/Library/Application Support/Clash Kuro/Privileged/Upgrade/Payload/Client.app/unknown
+upgrade recovery fixture: changed upgrade bytes: /private/tmp/kuro-upgrade-zgRRuD/stage2/Library/Application Support/Clash Kuro/Privileged/Upgrade/Payload/Client.app/Contents/Resources/app.asar
+upgrade recovery fixture: unsafe upgrade permissions: /private/tmp/kuro-upgrade-zgRRuD/stage3/Library/Application Support/Clash Kuro/Privileged/Upgrade/Payload/Client.app/Contents/Resources/app.asar
+upgrade recovery fixture: unsafe upgrade permissions: /private/tmp/kuro-upgrade-zgRRuD/stage4/Library/Application Support/Clash Kuro/Privileged/Upgrade/Payload/Client.app/Contents/Resources/app.asar
+upgrade recovery fixture: changed upgrade bytes: /private/tmp/kuro-upgrade-zgRRuD/truncated-helper/Library/Application Support/Clash Kuro/Privileged/Upgrade/Payload/Inbox/helper
+truncated staged helper: recovery refused; entire original installation, approval and truncated payload preserved
+upgrade recovery fixture: changed upgrade bytes: /private/tmp/kuro-upgrade-zgRRuD/truncated-mihomo/Library/Application Support/Clash Kuro/Privileged/Upgrade/Payload/Inbox/mihomo
+truncated staged mihomo: recovery refused; entire original installation, approval and truncated payload preserved
+native upgrade retirement: final unlink + failed sync, repeated no-record sync failure, changed App preservation and successful sync retry; actual exact recovery CLI and uninstall passed
+native upgrade: both histories success, repeated upgrade and immediate uninstall; 102 deterministic approval/prepare/rename/sync/forward-cleanup/retirement interruptions recovered via exact protected executable; no Core/system/network
+
+ RUN  v5.0.5 /Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop
+
+native-admission-evidence {"mode":"fresh","applications":1,"authorizations":2,"decodedBaselineRoutes":4,"dnsAdds":1,"dnsJournalAbsent":true,"dnsRemovals":1,"finalizing":false,"opens":1,"ownerAbsent":true,"recoveries":2,"recoverRefusals":0,"routeAdds":4,"routeRemovals":0,"starts":1,"status":{"availability":"ready","state":"off"},"workAbsent":true}
+native-admission-evidence {"mode":"residue","applications":1,"authorizations":2,"decodedBaselineRoutes":0,"dnsAdds":2,"dnsJournalAbsent":true,"dnsRemovals":2,"finalizing":false,"opens":1,"ownerAbsent":true,"recoveries":2,"recoverRefusals":0,"routeAdds":4,"routeRemovals":0,"starts":1,"status":{"availability":"ready","state":"off"},"workAbsent":true}
+native-admission-evidence {"mode":"recovery-failed","applications":0,"authorizations":1,"decodedBaselineRoutes":0,"dnsAdds":1,"dnsJournalAbsent":false,"dnsRemovals":1,"finalizing":false,"opens":0,"ownerAbsent":true,"recoveries":1,"recoverRefusals":1,"routeAdds":0,"routeRemovals":0,"starts":0,"status":{"availability":"blocked","error":"DNS: remove failed","state":"unknown"},"workAbsent":true,"rejection":"DNS: remove failed","recoveryRejection":"DNS: remove failed"}
+native-admission-evidence {"mode":"auth-only","applications":0,"authorizations":0,"decodedBaselineRoutes":0,"dnsAdds":0,"dnsJournalAbsent":true,"dnsRemovals":0,"finalizing":false,"opens":0,"ownerAbsent":true,"recoveries":0,"recoverRefusals":0,"routeAdds":0,"routeRemovals":0,"starts":0,"status":{"availability":"blocked","error":"authenticated recovery is required before a new TUN session","state":"off"},"workAbsent":true,"rejection":"authenticated recovery is required before a new TUN session; Recovery failed: installed manifest does not explicitly permit finite TUN sessions","recoveryRejection":"installed manifest does not explicitly permit finite TUN sessions"}
+native-admission-evidence {"mode":"identity","applications":0,"authorizations":1,"decodedBaselineRoutes":0,"dnsAdds":0,"dnsJournalAbsent":true,"dnsRemovals":0,"finalizing":false,"opens":1,"ownerAbsent":true,"recoveries":2,"recoverRefusals":0,"routeAdds":0,"routeRemovals":0,"starts":0,"status":{"availability":"ready","state":"off"},"workAbsent":true,"rejection":"client hardening is insufficient"}
+native-admission-evidence {"mode":"invalid-config","applications":0,"authorizations":1,"decodedBaselineRoutes":0,"dnsAdds":0,"dnsJournalAbsent":true,"dnsRemovals":0,"finalizing":false,"opens":1,"ownerAbsent":true,"recoveries":2,"recoverRefusals":0,"routeAdds":0,"routeRemovals":0,"starts":0,"status":{"availability":"ready","state":"off"},"workAbsent":true,"rejection":"unsupported TUN session envelope"}
+native-admission-evidence {"mode":"finalizing","applications":1,"authorizations":2,"decodedBaselineRoutes":0,"dnsAdds":1,"dnsJournalAbsent":true,"dnsRemovals":1,"finalizing":true,"opens":1,"ownerAbsent":true,"recoveries":2,"recoverRefusals":0,"routeAdds":4,"routeRemovals":0,"starts":1,"status":{"availability":"ready","state":"off"},"workAbsent":true}
+ ✓ src/main/candidate-startup.test.ts (11 tests | 4 skipped) 2219ms
+   ✓ authenticated native admission fresh: installed identity -> startup recovery -> finite V2 dispatch 635ms
+   ✓ authenticated native admission residue: installed identity -> startup recovery -> finite V2 dispatch 349ms
+   ✓ authenticated native admission finalizing: installed identity -> startup recovery -> finite V2 dispatch 339ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed | 4 skipped (11)
+   Start at  11:55:00
+   Duration  2.29s (tests 99%)
+
+JSON report written to /var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-helper-build-zJ4NXm/admission.json
+PASS 94 assertions; harmless self-child exit37; no Core/network; evidence /private/tmp/kuro-output-test-ljeuJe
+/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-helper-build-zJ4NXm/helper: replacing existing signature
+Built darwin-arm64 helper 0.1.0; executable pin written (root activation remains disabled)

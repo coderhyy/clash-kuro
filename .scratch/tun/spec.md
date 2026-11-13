@@ -1,63 +1,155 @@
 # TUN 与特权 helper
 
-Status: needs-info
+Status: ready-for-agent（产品边界已批准；安全实现与真实验收未完成）
 
-2026-11-03 草案。任务入口见 `issues/`；本文件记录现有约束、待决定项及依赖，不代表已批准特权架构或可开始系统网络实验。
+2026-11-03 建立草案，2026-11-04 记录维护者批准的首版产品行为；已接受的产品与生命周期边界以 [ADR-0014](../../docs/adr/0014-macos-tun-lifecycle.md) 为准。安装路线以 [ADR-0015](../../docs/adr/0015-macos-traditional-privileged-helper.md) 为准。任务入口见 `issues/`；正常重开策略见 [ADR-0016](../../docs/adr/0016-macos-tun-manual-start.md)，双栈固定模板见 [ADR-0017](../../docs/adr/0017-macos-tun-dual-stack.md)；LAN/DNS/DIRECT 与无 kill switch 边界见 [ADR-0018](../../docs/adr/0018-macos-tun-network-boundaries.md)，具体参数可技术选定并验证，人工系统操作须等维护者明确说“开始”。
+
+## 当前约束（2026-11-11）
+
+740保留安装已完成受限恢复、format3持久证明及固定socket／原安装／receipt精确清理，本次授权结束。v2恢复保留安装／owner／writer退出绑定、原utun及固定地址池缺席、DNS连续读回和持久证明；外部路由差异仅报告，不取得修改权。正在准备新的可安装候选与固定IPv4目标对照，运行期基线门已按下述有限本地变化窄化实现并集成，完整验证与真实窗口仍待完成；IPv4 ENETUNREACH尚未定因。当前未获新网络实验授权。具体阻塞见[08](issues/08-tun-integration-acceptance.md)。
+
+2026-11-11 运行期核验：CONT 前完整基线不变；held Core／utun 与固定五条路由精确观察后，仅允许有原／当前独立接口证据的本机 IPv4 地址轮换、IPv4 link-local 和 IPv6 link-local／固定 scoped multicast 增删。保留精确接口形状／flags、原 default／gateway／physical index、LAN／已准入端点／scoped DNS 路径及 DNS 所有权；不能凭 /32 或 HOST 推定本地归属，不能容忍覆盖已准入 literal／系统 DNS 的变化。未知仍停止，未完成对照记 inconclusive；不增加写入／删除权。旧源码 RED、新25 coordinator＋2实际无害 child service 链和既有回归 GREEN，严格生产编译通过；尚未由此证明实机兼容或 IPv4 转发成功。见 [ADR-0018](../../docs/adr/0018-macos-tun-network-boundaries.md) 与[脱敏记录](evidence/core-auto-route-global-20261106/RESULT.md)。
+
+以下为历史实现和授权记录，不代表当前仍可重试。
+
+## 当前实现与验收证据（2026-11-06）
+
+2026-11-10 核验层收敛：初次完整枚举唯一 utun，后续双读原绑定 FD 及原 process/socket/interface 身份；不重复要求全部背景 socket 可稳定枚举。Global DNS 只接受真实样本约束的本会话精确派生记录，其他 DNS 保留原检查，停止后仍须完整原基线连续读回及持久退役。邻居缓存及已证明的内核伴生路由不是自有删除目标；物理出口、接管范围、未知路由和第三方变化的保护不变。USB/无关接口变化仍待兼容验证，不将当前验收窗口的完整基线冻结解释为产品身份定义。`1252d09` 已通过失败停止恢复及卸载，但在 socket FD 复核拒绝，未发受控流量；IPv4 ENETUNREACH 原因尚未确定。
+
+本次参考固定源码：[Verge 会话 stop proof](https://github.com/clash-verge-rev/clash-verge-rev/blob/304a65fc36dfba7dec25124c0294865897df8c00/src-tauri/src/core/service.rs#L1544-L1595)、[Party 实际 child 与 API readiness](https://github.com/mihomo-party-org/clash-party/blob/72af7d82cc217a64d6cd6c147ac70534c0eb8308/src/main/core/manager.ts#L696-L732)、[Nyanpasu 未知状态不等于停止](https://github.com/libnyanpasu/clash-nyanpasu/blob/93ce63265a0c47335f9198e512b7756355f6bff8/backend/nyanpasu-core/src/actor_v2/endpoint.rs#L383-L434)。这些调用约定支持身份与运行健康分层，不代替本实现安全证明或实机验收；没有审完各仓外部 supervisor，也不复制其 setuid、公共 DNS、按名称/PID 清退策略。
+
+| 核验对象 | 必须保留的条件 | 动态状态处理 |
+|---|---|---|
+| 安装／App／Core／会话 | 受保护安装、摘要、鉴权、held child 起始身份和会话绑定 | 不以健康探针成功替代身份 |
+| utun | 初次唯一发现；之后原 FD/socket/control/name/index 双读一致 | 背景 socket 增删或统计变化不参与后续目标归属判断 |
+| 路由 | 准确 held 接口、固定接管范围、未知对象不删 | Core 独占写入；已证实的邻居克隆、系统瞬态 flags 和自有伴生项独立识别，不要求旧手工路由形状 |
+| DNS | 本会话专属 service key 两路精确读回 | Global 是 configd 派生观测，仅接受真实样本约束的同 UUID 固定字段；不写 Global、不改公共 DNS |
+| 物理接口／第三方变化 | 原出口有效、地址池无冲突、保护第三方设置 | 本窗口冻结基线不等于永久身份；USB 等兼容另验，不泛化忽略变化 |
+| 停止／恢复 | 原 Core 退出、自有网络消失、原基线读回、持久停止证明 | unknown 不作 stopped；不凭旧 PID、组为空或一次实验扩大清理权 |
+
+[Nyanpasu 专属 DNS key](https://github.com/libnyanpasu/clash-nyanpasu/blob/93ce63265a0c47335f9198e512b7756355f6bff8/backend/nyanpasu-core/src/actor_v2/local_host.rs#L65-L82)支持归属分工，但不证明我们的派生 Global 已实机通过。其他项目默认 auto-detect-interface 也不能证明本机 en0 绑定导致 IPv4 ENETUNREACH；必须取得同会话受控请求及对应出口证据，不能把普通 App 直连成功或 IPv6 无出口当作解释。
+
+04/06/08持续正常窗口已由维护者批准，允许同范围有证据修复、冻结新包重试；系统管理员弹窗由维护者处理，前轮恢复清理必须确认。helper强杀、TUN-on退出App、升级和第三方设置更改不在此窗口。
+
+实际安装App鉴权恢复ready、固定root Core创建双族utun、失败后准确SIGTERM/exit0与持久停止证明、原生卸载/receipt清理已有现场记录。尚未通过完整TUN就绪、流量接管或正常on→off，不能把MATCH,DIRECT和本地双族地址扩大为代理节点或外网IPv6通过。
+
+IPv4-only宿主仍建立固定双族utun：固定Core受控环境设置其支持的SKIP_SYSTEM_IPV6_CHECK=true，随后真实接口双族地址门禁保持。地址配置的内核多播伴生路由只可按held接口、精确scope/prefix/flags、实时独立地址核对识别，不凭形状增加清理权。[11902现场](evidence/7c351-route-rejection-20261106/11902-real-result.md)、[源码与边界](evidence/utun-multicast-20261106/RESULT.md)。下方早期“未启动/门禁关闭”记录保留其研究时点，不代表当前入口始终拒绝。
+
+### 内部 DNS 路径准备（2026-11-06 实机失败后的技术修正，集成中）
+
+`dd3f0d4` 实际探针在 send/1ms 返回 Darwin EHOSTUNREACH(65)，未进入响应等待。Darwin IPv4 点对点地址不能由 /30 推定存在到 `.2` 的 connected route。固定 `dns-mode: disabled` 保持：它禁止 Core 自行写系统 DNS，不妨碍固定 Core 的内部 `.2/::2:53` 处理；不更换 Profile/DNS 供应商或放宽响应检查。
+
+启动顺序改为：真实 held Core/双族接口与原基线检查 → 同一 `network.json` 持久记录并精确读回 `198.18.0.2/32`、`fdfe:dcba:9876::2/128` 两条固定内部 host route → 原 A/AAAA 静态记录探针 → 精确同会话账本续写为 host2＋原 split4 → 六条完整持久证明 → 自有系统 DNS。不能先安装四条广域路由来绕过 DNS 就绪；不能用未记账路由、删建账本或任意 append。
+
+两阶段均沿用 live held owner、逐条读回、写入/目录同步与 compare-delete。部分失败只按已有 receipt 恢复；Core/接口消失后只确认缺席，不凭旧 PID/index 删除。旧四条 v1 journal 仍可按原规则恢复，但不可作为新准备阶段的续写前缀。实机正常启动和流量尚未通过；设计/隔离回归不替代验收。
 
 ## 目标与边界
 
-为 Clash Kuro 增加应用可控制、可观测且能够停止和恢复的 TUN 能力。首批候选平台为当前桌面平台 macOS / Windows，具体先后见决定 D1。Linux、正式签名、公证和自动更新只记录依赖，不在本轮启动实现。
+为 Clash Kuro 增加应用可控制、可观测且能够停止和恢复的 TUN 能力。首版只交付 **macOS**，Windows TUN 后续再排，不因实现可并行而纳入首版。Linux、自动更新只记录依赖。首版已选择管理员授权安装传统 LaunchDaemon + 小型 helper，不依赖付费开发者会员；SMAppService、Developer ID 和公证延期，不作为本路线前置条件。具体受保护产物身份、调用者鉴别和权限安全仍必须实现验证。
 
-已有领域语言沿用根 `CONTEXT.md`。TUN 与现有 **System Proxy** 分开描述；是否同时启用、由谁管理 `tun` 字段和哪些偏好持久化，须先完成 D3。用户 Profile 原文继续只读。
+已有领域语言沿用根 `CONTEXT.md`。TUN 与现有 **System Proxy** 互斥，确认旧模式已退出后才能启用新模式。用户 Profile 原文继续只读；订阅/Override 不能绕过应用的模式互斥和恢复门禁。正常重开 App 先检查/恢复自有残留，保持 TUN 关闭并由用户手动开启；双栈固定模板与无高级参数 UI 已批准，参数依据锁定版本作技术选择，真实覆盖仍须验证。
 
 ## 已核对的事实
 
 | 来源 | 当前行为 | 对本期的影响 |
 | --- | --- | --- |
-| `packages/core/src/config.ts` | Profile → Override → App-managed Fields；当前没有管理或删除 `tun` 字段 | 订阅/覆写可以携带 `tun`，尚不能把新增 UI 开关当作最终生效值；须决定并测试配置归属 |
-| `packages/core/src/index.ts` | `Settings` 只有 Mode、mixed-port、allow-lan、log-level；Platform 没有 TUN/特权安装接口 | 共享类型、FakePlatform 与调用方应由一张票先统一，平台和 UI 才可并行实现 |
+| `packages/core/src/config.ts` | Profile → Override → App-managed Fields；普通 Core 路径现已强制已有 tun.enable=false | 必须在最终配置对 `tun.enable` 执行应用准入门禁，防止订阅/覆写绕过已批准的互斥；此要求不选定其余 TUN 参数默认值 |
+| `packages/core/src/index.ts` | 本轮已有 `TunStatus` / `TunPlatform`；State、桌面客户端与 UI 正在同一最小接口接线 | 源码接线与可信 native 能力分开：blocked/unknown 不得假成功，最终组合验证由主会话回填 |
 | `apps/desktop/src/main/platform/index.ts` | 普通路径由 Electron 启动 Core；Runtime Config 用打包 Core 的 `-t` 校验后原子替换 | 更换 Core 启动权限时，需要保留校验失败不替换旧配置、启动就绪和准确停止的契约 |
 | `resident-session.ts`、`resident-startup.ts`、ADR-0013 | Windows 当前用户 helper 持有准确 Core Job，串行 WinINet，启动先恢复旧 journal；没有管理员服务 | TUN 提权不能新增竞争的 Core owner 或绕过既有代理写入门；现有 helper 不是已批准的特权 helper |
 | ADR-0001 / 0002 / 0011 | 共享包不依赖平台；控制通道为 socket/pipe；不使用 Node addon/FFI | 新权限适配留在桌面端，现有私有控制通道边界须随权限变化复核 |
-| ADR-0009 / 0010、`electron-builder.yml` | 特权 helper 留到 TUN；当前 macOS arm64 为 ad-hoc 签名、未公证；尚无特权安装实现 | 安装、调用者鉴别、升级、卸载及签名要求需先验证，不能默认当前包已满足系统准入 |
+| ADR-0009 / 0010、`electron-builder.yml` | 特权 helper 留到 TUN；当前 macOS arm64 为 ad-hoc 签名、未公证；本轮已有原生服务与安装准备源码，完整可信安装/运行仍未验收 | 安装、调用者鉴别、升级、卸载及签名要求需先验证，不能默认当前包已满足系统准入 |
 | `apps/desktop/core.lock.json` | mihomo 固定为 v1.19.33 | 技术研究和试验绑定此版本；不能依据最新版文档静默更换 Core |
 
 2026-11-04，02 已完成 [一手资料研究](platform-feasibility.md)：固定 mihomo v1.19.33 / sing-tun v0.4.28 已有两平台 TUN，无需为能力存在性升级 Core；Windows amd64 内置 Wintun 与官方 0.14.1 DLL 逐字节相同。macOS 原生 utun 需要 root；SMAppService LaunchDaemon 的 Apple SDK 契约要求签名/公证，当前 ad-hoc 未公证包不能算已满足该路线。Electron 45 已提供 daemonService 注册接口；Windows 路由操作需要管理员/提升，LocalSystem 服务不能自动继承当前用户 WinINet 语义。具体来源、候选、跨权限 IPC 与未实验边界见报告。本研究不批准安装方式或真实网络实验。
 
-## 待决定项
+## 已批准的产品决定
 
-| ID | 需要维护者决定 | 当前可供选择的方向 | 决定前可推进 |
-| --- | --- | --- | --- |
-| D1 | 首个可交付平台与顺序 | macOS 先、Windows 先，或两平台分别实现后一起交付；推荐先在一平台完成最小闭环，另一平台研究并行 | 两平台能力与风险研究，现有代码边界盘点 |
-| D2 | 首版可接受的授权安装和生命周期体验 | 是否接受首次启用时系统管理员授权、系统安装组件及退出后仍保留的安装项；是否要求每次运行授权。具体可行方案由 02 给证据，再选型 | 官方机制、当前签名可行性、升级卸载和调用者鉴别研究；不安装服务 |
-| D3 | 首版 TUN 的用户行为与配置归属 | 建议应用管理 `tun.enable`、默认关闭、订阅/Override 不得越过开关；TUN 与 System Proxy 先互斥。同时决定重启/登录是否恢复 TUN、DNS/路由是否只提供固定默认值 | 盘点配置/备份/重载调用方；不预先保存新设置或改 Runtime Config |
+| ID | 2026-11-04 维护者决定 | 实现必须满足 |
+| --- | --- | --- |
+| D1 | macOS 首版 | Windows TUN 适配保持后续待排，既有 Windows 代理恢复验收独立保留 |
+| D2 | 接受管理员授权安装持久 helper，必须可卸载 | 安装与代理运行分开；退出 App 停止 TUN/Core，清理本应用拥有的网络状态；保留安装组件不等于退出后继续代理 |
+| D3 | TUN / System Proxy 互斥 | 切换必须确认旧模式已退出后再启动新模式；旧模式停止失败或状态未知时不启动目标模式；订阅/Override 不得绕过门禁 |
+| D4 | 异常后不自动开启 TUN | 下次 App 启动先检查并恢复本应用残留；无法确认归属、恢复或旧 writer 已退出时提示处理并拒绝继续启用 |
+| D5 | 人工系统操作等待“开始” | 方案、代码、fake 测试和只读准备可继续；真实授权安装、卸载、路由/代理修改及会话实验由主会话协调，维护者明确说“开始”后才执行 |
+| D6 | 传统管理员安装 LaunchDaemon + 小型 helper；不依赖付费会员 | 09 路线决定已解决，技术安全设计和实现由 04 承接；SMAppService/Developer ID/公证延期；禁止 setuid Core 和任意 root 命令/路径接口，不要求关闭 SIP 或全局 Gatekeeper |
+| D7 | 正常重开也关闭 TUN，先残留检查，再手动开启 | ADR-0016 已批准；未知时提示并关门，不能从旧偏好、Backup、唤醒或 helper 重连自动开启 |
+| D8 | IPv4/IPv6 双栈固定模板，无高级参数 UI，具体参数可技术选定 | ADR-0017 已批准；以固定 Core 源码及实验证据选择，不再等待 IPv6 范围批准，不实现静默关闭用户 IPv6 |
+| D9 | 保持 LAN/split DNS，不新增 DNS 供应商；明确 DIRECT 与无 kill switch | ADR-0018 已批准；使用明确且安全支持的 Profile DNS，缺失/不支持具体报错并拒绝；遵守显式 DIRECT，故障不自动切模式，但路由消失后 OS 可能直连，开启/故障文案明确说明 |
 
-这些是提案，不是决定。不能把“默认关闭”“互斥”“持久服务”“自动恢复”写进实现后再补确认。D2 涉及改动 ADR-0011 的管理员服务限制时，必须由主会话提出新 ADR 或修订并获得维护者选择；本草案不解除该限制。
+**互斥的必要推论：** 应用必须决定 Runtime Config 中 `tun.enable` 此刻是否可以生效。Profile / Override 在此字段上的值不得越过已确认模式、关闭或恢复门禁。正常重开先残留检查、保持 TUN 关闭、仅用户手动开启已由 ADR-0016 批准，不实现自动恢复上次 TUN 偏好。该互斥推论本身不选择参数；D8 已另行允许技术选型。候选、技术门和产品影响如下，不把源码支持当作真机通过。
 
-## 实现前必须固定的契约
+## 路由执行方决定（2026-11-06，维护者已批准，生产接线完成）
 
-01、02 完成后由主会话在 03 统一以下语义，再分派源码任务：
+**结论：没有找到已批准要求必须由 helper 自写 PF_ROUTE、而固定 Core 自动路由明确无法满足的证据。维护者已批准 Core `auto-route: true` 负责路由，helper 保留鉴权、监督、只读核验与现有 DNS；配置、观察账本和生命周期已完成替换，八条生产组合回归通过；独审/CI/新候选与真实网络验收尚未完成。** 不再把已投入的手工账本或 host2→probe→split4 顺序当作产品要求。ADR-0014/17/18 未指定路由写入方；本 spec 最初候选也为 auto-route:true。
 
-- TUN 偏好、实际状态和错误分别由谁持有；权限未安装、授权被拒、配置错误、启动失败和状态不确定如何对 UI 可见。
-- Profile / Override / App-managed Fields 对 `tun`、DNS、路由的优先顺序；旧 settings 与旧 Backup 缺字段时的行为。
-- 特权边界只接受已定义操作；确认调用者、Core 产物身份、参数及路径，处理用户可写数据和跨权限 socket/pipe 访问。不能提供任意命令执行接口。
-- 同一 Core、System Proxy、TUN 路由各由谁写入及停止；失败后何时关门、何时允许重试，停止和恢复的预算及成功证据。
-- 安装、授权、升级和卸载行为；可验证失败时不留下未知 writer 或不可追溯的系统网络修改。
+固定 mihomo v1.19.33 (`3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8`) 锁定 sing-tun v0.4.28 (`a128d0c3c8001e041725fa67ff3b521502298f17`)。已只读核对固定源文件及缓存 Git blob：
 
-03 的公共类型/协议经主会话集成后，04（macOS）、05（Windows）、06（State/UI）才能分别进入各自 worktree。若 D1 只选一个平台，另一平台适配票保持等待，不因可并行而扩大交付范围。
+- [路由计算](https://github.com/MetaCubeX/sing-tun/blob/a128d0c3c8001e041725fa67ff3b521502298f17/tun_rules.go#L106-L192)支持两族 route-address/exclude；Darwin 默认是每族8个子范围，**不是**当前四条/1。[创建阶段](https://github.com/MetaCubeX/sing-tun/blob/a128d0c3c8001e041725fa67ff3b521502298f17/tun_darwin.go#L330-L347)自行加路由，[写入器](https://github.com/MetaCubeX/sing-tun/blob/a128d0c3c8001e041725fa67ff3b521502298f17/tun_darwin.go#L517-L543)使用 x/net/route 和自身.1/::1网关，仅检查Write，不提供独立ACK或持久receipt。后两项需要helper核验，不证明helper必须写路由。
+- [Close](https://github.com/MetaCubeX/sing-tun/blob/a128d0c3c8001e041725fa67ff3b521502298f17/tun_darwin.go#L185-L191)关闭DNS session与utun FD，没有显式逐条delete。正常/部分启动失败/异常退出后路由是否消失必须实机读回，不能从源码或无TUN root实验推导通过。[flushDNSCache](https://github.com/MetaCubeX/sing-tun/blob/a128d0c3c8001e041725fa67ff3b521502298f17/tun_darwin.go#L546-L548)会异步派生固定dscacheutil -flushcache，需纳入既有进程组退出证据，不新增常驻监督组件。
+- Core在创建TUN时先安装路由，无法原样维持我们选择的host2→DNS probe→split4时序；该时序不是已批准产品约束。改变执行方后须承认DNS-ready前路由可能短暂生效，启动失败仍停止准确Core并恢复，不能把后置读回写成写前保证。
 
-## 任务依赖与并行边界
+**最小调整范围（04/06内，不新增框架/RPC/UI）：**
 
-| 票 | 范围 | 阻塞 | 可并行关系 |
-| --- | --- | --- | --- |
-| 01 | D1–D3 产品及架构决定 | 维护者选择；D2 最终选型参考 02 | 可与 02 同时讨论 |
-| 02 | 两平台官方机制、固定 Core、权限与包装可行性 | 已完成只读研究；真实安装/网络实验另计 | 已为 01/03 提供证据，见 platform-feasibility.md |
-| 03 | 共享类型、配置、Fake 与协议契约 | 01、02；有 ADR 变化则等待批准 | 主会话先集成，避免平台/UI 各自发明接口 |
-| 04 | macOS 特权适配 | 03；D1 纳入本平台；02 明确系统准入 | 与 05、06 可在接口稳定后并行 |
-| 05 | Windows 权限与 owner 适配 | 03；D1 纳入本平台；issue 08 主线整合已由主会话确认完成 | 与 04、06 可在接口稳定后并行；最终 CI 由主会话核验 |
-| 06 | TUN 命令、状态与界面 | 03 | 可以 fake Platform 验证，与 04/05 并行，真实联调等适配完成 |
-| 07 | 既有 Windows 取消关机、启动恢复、显式恢复验收 | 确切产物、维护者选择实验范围、系统状态验证时段 | 准备可与 02/03 并行；真实操作由主会话串行安排，不阻塞 macOS 研究 |
-| 08 | TUN 端到端交付验收 | 本次 D1 选中平台的 04/05、06；Windows 涉及既有恢复则含 07 | 自动测试与文档可并行；同机器的代理/路由/授权/会话验证串行 |
+1. 保留受保护安装/升级/卸载、实际App身份、固定Core与受限配置、私有控制通道、loaded-job/held-child/lease、准确owner/work/cache、模式互斥、重开关闭和诊断。路由参数仍由root固定生成，不接受App任意route字段。
+2. 只换路由执行方，保持 `dns-mode: disabled`、原Profile DNS及现有helper临时DNS/精确恢复；不捆绑迁移Core native DNS。采用固定 `route-address: [0.0.0.0/1, 128.0.0.0/1, ::/1, 8000::/1]` 保持当前/1范围，由固定Core计算实际项，避免未经核对直接改为默认16条。上游会附加IPv4自身/30的ADD请求，实际安装仍需读回，gateway/flags也改变，必须按实际结果核验；不重写第三套路由算法。
+3. 启动前持久化基线、有限预计计划及安装/Core/会话绑定；Core启动后验证准确held utun与实际路由、内部双族DNS，随后才激活现有helper DNS。新路由记录是Core创建的观测证据，不冒充手工PROTO2/applied删除授权。旧 routes-v1 账本仅在严格证明记录条目缺席后退役，不保留旧 writer；未知或第三方条目不删除。
+4. 停止准确Core后，独立核验接口、计划路由缺席和DNS/基线恢复再签发停止证明。必须适配当前网络协调器及fresh恢复逻辑，不能只把auto-route布尔值翻转。离线覆盖部分创建、冲突、读回不符与旧账本；实机验证正常启停、LAN/scoped DNS、失败恢复及后续另批异常窗口。
+
+**现有手工路径不只剩一个已收敛问题。** e2addf7现场完整写出188字节后，首先读到64字节RTM_NEWMADDR通知；代码在分类前按rt_msghdr长度拒绝，因此未读到匹配ACK，不能把syscall errno0当作内核ACK成功。回滚前目标IPv6 host路由存在。通知分类最小补丁已完成同测试旧源码RED/新源码GREEN并独审，但未安装/重试。另有实际flags0x4c05相对期望0x4805多RTF_LLINFO，将被后续精确读回拒绝；未放宽该门。内部双族DNS、完整on、流量接管、LAN/split DNS及网络异常恢复仍缺实证。[现场证据](evidence/route-ack-diagnostic-20261106/candidate-e2addf7/REAL-WINDOW.md)。因此不建议继续把自写PF_ROUTE当首版关键路径。
+
+维护者已恢复同范围正常启停持续授权；须先完成组合回归、独审、必要 CI 和新候选冻结，再确认上一轮已清理及现场基线匹配。上一轮 job/安装/socket/receipt 已准确清理。本轮尚无 auto-route 实机成功证据；异常注入、升级不在正常窗口内。
+
+## 固定版本事实与技术候选
+
+本轮只读核对 mihomo **v1.19.33 / `3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8`** 与其锁定 sing-tun **v0.4.28 / `a128d0c3c8001e041725fa67ff3b521502298f17`**。下表保留固定源码事实与最初研究候选。当前实施选择已由上节及 ADR-0017 更新为 Core `auto-route: true` / 固定四个 `/1` 范围、helper DNS（`dns-mode: disabled`）。历史手工路径实机已创建过 Core/utun，但没有 TUN-on/流量通过；新自动路由路径仍待组合与实机验证，语法校验不代表网络通过。
+
+| 已证实事实（固定提交） | 对模板的约束与候选 |
+| --- | --- |
+| [mihomo 默认 `Stack: C.TunMips`](https://github.com/MetaCubeX/mihomo/blob/3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8/config/config.go#L545-L555)，[字符串枚举](https://github.com/MetaCubeX/mihomo/blob/3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8/constant/tun.go#L8-L48)；[sing-tun 空值/`mips` 确实调用 `NewMipstack`](https://github.com/MetaCubeX/sing-tun/blob/a128d0c3c8001e041725fa67ff3b521502298f17/stack.go#L41-L61) | **首个实验候选显式 `stack: mips`**，依据为锁定版默认而非性能优胜证明。`system` / `gvisor` / `mixed` 都有独立实现；mixed 的 [TCP 使用 System、UDP 送 gVisor](https://github.com/MetaCubeX/sing-tun/blob/a128d0c3c8001e041725fa67ff3b521502298f17/stack_mixed.go#L220-L261)，是兼容问题时的备选，不为并行同时引入多套生产模板 |
+| [顶层 IPv6 默认 true，但 DNS 默认关闭且 DNS IPv6=false](https://github.com/MetaCubeX/mihomo/blob/3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8/config/config.go#L484-L529)；[顶层 IPv6=false 或能力检查失败会移除 TUN IPv6 地址](https://github.com/MetaCubeX/mihomo/blob/3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8/config/config.go#L1680-L1707) | 候选显式管理 `ipv6: true`、`dns.enable: true`、`dns.ipv6: true` 及双族接口地址；订阅/Override 不能清掉双栈。能力不满足或读回缺失时拒绝开启/报告原因，不能静默降成 IPv4 并报双栈成功 |
+| [RawTun 的 `inet4-address` 在 YAML 结构中被注释](https://github.com/MetaCubeX/mihomo/blob/3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8/config/config.go#L273-L288)；[实际 IPv4 从 DNS fake-ip-range 派生并强制 /30](https://github.com/MetaCubeX/mihomo/blob/3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8/config/config.go#L1687-L1707) | 首个地址候选为源默认派生的 `198.18.0.1/30` 与 `fdfe:dcba:9876::1/126`，相应内部 DNS 为 `.2` / `::2`；不能编写无效 `inet4-address` YAML。root schema 须连带约束 `dns.fake-ip-range`，预检与已有接口/路由重叠，冲突明确拒绝，不按任意订阅地址写 root 路由 |
+| [macOS 默认生成两族若干子路由而非简单 0/0](https://github.com/MetaCubeX/sing-tun/blob/a128d0c3c8001e041725fa67ff3b521502298f17/tun_rules.go#L104-L192)，[Darwin 将其逐项 addRoute](https://github.com/MetaCubeX/sing-tun/blob/a128d0c3c8001e041725fa67ff3b521502298f17/tun_darwin.go#L330-L347)；[自动出站接口监视](https://github.com/MetaCubeX/mihomo/blob/3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8/listener/sing_tun/server.go#L343-L394) | 首个路由候选 `auto-route: true`、`auto-detect-interface: true`、动态 utun 名、MTU 1500；MTU 是待实验的保守工程起点。先用该版本路由计算器形成有限两族清单，不手写声称等价的全流量路由。`strict-route` 不作为 kill switch；出站绑定、LAN/分域 DNS、VPN 冲突和接口变化仍须实验读回 |
+| [macOS 空 dns-mode 默认 disabled](https://github.com/MetaCubeX/sing-tun/blob/a128d0c3c8001e041725fa67ff3b521502298f17/tun.go#L141-L190)；[native DNS 用临时 Dynamic Store catch-all，关闭 session 移除](https://github.com/MetaCubeX/sing-tun/blob/a128d0c3c8001e041725fa67ff3b521502298f17/internal/systemconfiguration/dns.go#L21-L43)，[catch-all 搜索优先级](https://github.com/MetaCubeX/sing-tun/blob/a128d0c3c8001e041725fa67ff3b521502298f17/internal/systemconfiguration/dns.go#L187-L258) | DNS 首个候选 `dns-mode: native`，把系统解析交给内部双族 DNS；用源支持的 [`redir-host`](https://github.com/MetaCubeX/mihomo/blob/3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8/constant/dns.go#L39-L47) 起步，避免首版额外引入双族 fake-IP 池行为。临时 session 清理是源码机制，不替代 forced-kill/残留读回验收，也不覆盖或抹除第三方永久 DNS |
+| [TUN 自动加入双族内部 DNS 地址:53](https://github.com/MetaCubeX/mihomo/blob/3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8/listener/sing_tun/server.go#L277-L307)；[hijack 精确地址或通配 port53，TCP/UDP 均处理](https://github.com/MetaCubeX/mihomo/blob/3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8/listener/sing_tun/dns.go#L21-L50) | 推荐先验证仅内部 DNS 端点：显式空额外 `dns-hijack` 列表，由 Core 添加内部地址；`any:53` 可作为扩大接管的比较项，不能默默吞掉 LAN DNS。DoH/DoT 是普通加密流量，不由 port53 劫持解密；mDNS、scoped resolver、已有更具体路由/第三方 VPN 不保证覆盖 |
+
+**内部 DNS 源码路径与待验证边界：** 固定 mihomo v1.19.33 的 `listener/sing_tun/server.go` 在解析额外 `dns-hijack` 后，仍无条件把两族 TUN 接口地址的 `Addr.Next():53` 加入内部 `DnsAddrPorts`；`listener/sing_tun/dns.go` 对这些精确目的地址的 TCP/UDP 调用内部 DNS relay。因此候选 `dns-hijack: []` 仅关闭额外劫持范围，`dns.listen: ""` 关闭外部监听，而 `.2` / `::2` 经 utun 到达 Core 时仍有源码处理路径。当前候选已改为 `auto-route: false`、`dns-mode: disabled`，路由与系统 DNS 变更由 helper 显式管理。此处只有固定源码与普通用户 `mihomo -t` 语法证据，尚未验证准确 utun owner、内部地址路由、TCP/UDP DNS、AAAA 或 LAN/scoped DNS 保留；Core DNS-ready 和真实 start 门禁仍关闭。
+
+**DNS 上游不照抄 Core 默认。** 上述默认包含具体公共明文 bootstrap 与第三方 DoH/DoT，源码有值不构成用户隐私选择。ADR-0018 已批准复用 Profile 已明确提供且通过 root 有限 schema 的上游/策略，完整枚举 nameserver、bootstrap、fallback 与 proxy-server-nameserver；缺失或不被支持时具体报错并拒绝 TUN 请求，不偷偷换供应商或丢字段。技术验证须证明保持 LAN/分域 DNS；不开放高级 UI，也不将任意 Profile DNS/路径原样交给 root。
+
+## 已批准的网络边界与具体技术门
+
+[01](issues/01-scope-and-lifecycle-decisions.md) 的产品决定已解决，不再等待范围或隐私选择：
+
+- 保持 LAN 和现有 scoped/split DNS 可达；不新增 DNS 供应商，只有明确且安全支持的 Profile DNS 才可使用，缺失或不支持必须具体报错并拒绝启用。任意 port53 改送公共 resolver 不符合此边界。
+- 遵守 Profile 显式 DIRECT；启动/恢复故障不自动切 DIRECT 或开启其他代理模式。首版无独立 kill switch，utun/路由消失后 OS 可能直连；开启说明和故障状态均须说明，不据双栈宣称全流量/防泄漏。
+
+04/06 当前真正的技术阻塞为：**完整 Electron 资源/启动/注入可信链与有限 broker；原生活跃会话接入及并发独立 status 读回；准确 Core owner 与两族路由/DNS 归属、停止读回和异常恢复的生产汇合。** root 侧闭合配置 schema 与离线候选生成已实现并通过隔离验证，不再列为“未实现”；它不证明会话授权、网络就绪或恢复成立。 09 路线已解决，付费会员/Developer ID/公证不重设为前置。已有安全分析与威胁边界保留在本 spec 和 [安全方案](macos-helper-security.md)，不新增分析文档。
+
+**root schema 与候选的当前边界。** Core `TunSessionConfig` 与原生 `tun-config.m` 均实行有限字段、引用、DNS 和大小校验，拒绝 raw YAML、额外 root 配置、任意路径/命令、providers 或动态扩面；已生成离线固定候选并通过相关隔离检查。实际地址/路由/DNS 写入仍需准确 owner 与读回恢复证明。普通路径继续强制 TUN 关闭；固定 Core `-t` 仅证明候选语法，不能证明网络就绪、完整 root 安全或清理成功。
+
+IPv6 必须覆盖：两族路由、Wi-Fi/有线/VPN 等接口变化、双栈 DNS（AAAA、单族失败/回退与 bootstrap 环路）、正常停止与异常恢复、双栈绕过/泄漏测试。保留系统 IPv6；没有可用外部 IPv6 的网络需区分“本机双栈接口/路由配置正确”和“外网 IPv6 可达”，不能伪造后者通过。
+
+**2026-11-05 IPv4-only上游兼容修正：** 双栈模板不要求上游同时提供IPv6。预检允许缺IPv6默认路由，但仍要求可信IPv4物理出口；有IPv6默认时要求同接口名/index。无IPv6默认时，literal IPv6 DNS/代理端点须有明确、更具体且可保留的路由，Profile须匹配Core绑定物理出口，系统scoped DNS须保留原scope；否则具体拒绝，不删字段/换DNS。双栈接口、四条路由、A/AAAA和完整基线比较不变。隔离验证通过，真实网络尚未验收；域名由原Profile解析，不据此声称AAAA外网可达。IPv6-only上游和分离双出口仍不支持。本修复不改变现场第三方路由。
+
+## 实现契约与并行边界
+
+三张实施主票为 04 helper、06 生命周期、08 集成验收。03/10 并入 06，11/12 并入 04；旧票保留历史证据与回链，归并不是实现完成。共享契约、调用方和 fake 矩阵是 06 票内清单，[contract.md](contract.md) 为其设计与受测证据；新公共接口由主会话统一接受。04 安装事务与认证/broker 实验可并行，生产 pin 来源依赖受保护安装记录；06 机制无关契约/测试独立，生产适配再与 04 汇合。
+
+普通 Core 配置禁止 `tun.enable` 绕过的切片已获批并有既有测试记录；它不代表特权 TUN 已实现。所有切换都需旧模式退出和网络归属确认，未知关闭新写入；退出停止准确 Core/TUN 并清理仅自有网络。正常重开先检查/恢复残留、TUN 关闭、仅手动开启已批准。双栈固定模板已批准，root schema/离线候选已通过当前隔离检查；真实开启仍等原生可信链、活跃会话与网络归属/恢复门汇合。最终证据写主票 Comments，不提前宣称完成。
+
+| 票 | 负责范围与当前状态 | 阻塞与并行关系 |
+| --- | --- | --- |
+| [01](issues/01-scope-and-lifecycle-decisions.md) | 产品决定 D1–D9 resolved | 参数可技术选择；仅对应技术门与真实操作授权仍保留 |
+| [02](issues/02-platform-feasibility.md) | 一手研究 resolved，历史事实保留 | 不等于真实安装/TUN 验收 |
+| [04](issues/04-macos-privileged-adapter.md) | macOS helper；内含原11安装事务、12认证/broker及网络归属清理 | 与06并行；生产 pin依赖本票安装记录，接入须获批契约/安全设计；真实操作等“开始” |
+| [06](issues/06-state-and-ui.md) | TUN生命周期；内含原03共享契约/配置、10调用方与测试矩阵 | 机制无关部分独立；主会话统一公共接口，生产联调等04；模板先等root schema/可信链与恢复证据 |
+| [08](issues/08-tun-integration-acceptance.md) | 04+06集成、精确产物与最终验收 | 等04/06技术门与组合验证；人工操作等“开始”，无需等Windows05/07 |
+| [09](issues/09-macos-installation-choice.md) | 安装路线 resolved | 不重新制造路线/付费身份阻塞 |
+| [03](issues/03-shared-contract-and-config.md)、[10](issues/10-mode-transition-contract.md) | 已归并06，保留配置与既有入口测试历史 | 仅票务归并，未实现完成；后续清单/证据见06 |
+| [11](issues/11-protected-install-transaction.md)、[12](issues/12-peer-authentication-and-broker.md) | 已归并04，保留目录/身份原型历史 | 仅票务归并，未实现完成；安装与认证实验仍可并行 |
+| [05](issues/05-windows-privileged-owner.md) | Windows TUN 暂不实施 | 首版范围外，另行排期 |
+| [07](issues/07-deferred-windows-recovery-validation.md) | 旧Windows恢复验收独立保留 | 产物/范围与“开始”限制保留，不阻塞macOS |
 
 ## Windows 已延期的验收
 
@@ -67,14 +159,26 @@ Status: needs-info
 2. 残留 journal 的下次 App 启动恢复，包含没有 Active Profile 时也在新写入前恢复。
 3. 保留 helper 的显式恢复，作为独立分支验证。
 
-07 沿用 `FORMAL-APP-RESULTS.md` 的最小提案与原票证据，不要求重做已完成三例。父进程 EOF 后 helper 自动清理成功不等于 journal 回放通过；没有可观察残留则恢复实验不成立。仍不把登录视作自动恢复，也不因此扩大到断电、服务或完整 RAS/多系统矩阵。真实操作授权和当前精确产物须由主会话确认。
+07 沿用 `FORMAL-APP-RESULTS.md` 的最小提案与原票证据，不要求重做已完成三例。父进程 EOF 后 helper 自动清理成功不等于 journal 回放通过；没有可观察残留则恢复实验不成立。仍不把登录视作自动恢复，也不因此扩大到断电、服务或完整 RAS/多系统矩阵。Windows TUN 不在首版，07 独立保留而不串行阻塞 macOS。真实操作须主会话确认精确产物/范围并等待维护者说“开始”。
 
 ## 后续能力的依赖记录
 
 - Linux：等待维护者确定目标发行版、桌面环境、包格式和权限机制；可复用最终共享契约，当前无 Linux 实现票。
-- 正式签名/公证：等待开发者身份、证书/凭据和发布范围决定。若选定的 helper 安装/鉴别机制确实依赖正式签名，这是该机制的具体阻塞；不预设所有 TUN 研究都被签名阻塞。
+- 正式签名/公证与 SMAppService：已明确延期，不阻塞传统管理员安装路线；后续若采用，另确认开发者身份、证书/凭据和发布范围。当前路线仍须完成独立身份鉴别、受保护安装和权限校验，不能作为安全捷径。
 - 自动更新：沿用 ADR-0010，依赖正式签名及 helper/Core 升级兼容与回滚策略；本轮不接入 updater。
 
 ## 本轮完成标准
 
-草案与编号票包含负责范围、`Blocked by` 和可验证验收项；未决点保持 `needs-info`。任务拆分、本地事实核对与 02 官方资料研究已完成；TUN 本身尚未实现，权限安装、真实网络行为和恢复仍须在选型后实验。
+04/06/08 主票具备简明负责范围、Blocked by 与验收清单；03/10/11/12 保留历史和相互链接，明确归并不是实现完成。D1–D9 与候选参数/未验证能力分开；源码/自动检查/产物和真实验收证据等待实施 agent 在主票 Comments 回填，人工系统操作仍等待“开始”。
+
+## 2026-11-04 本轮生产接线检查点
+
+主会话已统一 `TunStatus { availability: unsupported | not-installed | ready | blocked; state: off | on | unknown; error? }`、`snapshot.tun` 与 `setTun({enabled})` / `recoverTun({})`。生产 Profile 来源先读取原文、应用 Override 与当前 mode，完成 TUN 配置准入后才停止旧模式；反向 `startCore` / `setSystemProxy` 在 inspect 确认 TUN 活跃后，先离线校验目标普通配置再停止 TUN，失败保持原 TUN。双语 UI 展示真实状态、恢复与无 kill switch/可能直连边界，重开保持关闭且手动启用。
+
+macOS 客户端已接 V2 `open(config)` 长连接：重验并复制配置，不退回 V1 start；有限帧、严格 UTF-8/重复键、序号、单个待确认心跳与 lease，断链保持未知，停止后独立 V1 status 读回。start/stop 捕获具体会话引用，避免并发 inspect 清空引用后的迟到结果。原生闭合 root schema 与离线候选已实现并通过隔离验证；native owner/lease 组件已有隔离测试，但 Serve 当前仍串行且 V2 open 明确拒绝，尚未接通活跃 session 与并发独立 status，亦未完成完整调用者可信链、有限 broker、网络 owner/恢复的生产汇合。当前没有可开启 TUN 的产品，不以 schema 或组件测试冒称真实会话成功。
+
+当前阶段证据：主会话报告 State **170/170**；本 agent 只读复核并重跑反向准入两项回归通过，客户端 **43/43** 临时 socket 测试与 desktop main typecheck 通过。此前 UI/i18n/dev-bridge **27/27** 与 renderer typecheck 通过。各计数对应当时源码，最终组合 build/CI、精确产物和真实网络验收由主会话回填；人工系统操作仍等待维护者明确说“开始”。
+
+### 固定 Core Unix 控制接口安全核对（2026-11-05）
+
+mihomo v1.19.33 Unix controller 不验证 Bearer secret；不能以发送 token 或错误 token 被接受作为鉴权通过证据。生产仍须核验受保护的工作目录祖先、socket 类型/owner/nlink/dev/inode 和准确 Core 身份，外部 App→helper 的生产鉴权不可省略。普通用户0700目录不隔离同UID恶意进程。相关准入/集成检查须保留此边界，参见 [源码核对](core-control-offline-review.md)。

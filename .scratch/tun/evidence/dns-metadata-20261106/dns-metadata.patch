@@ -1,0 +1,120 @@
+--- a/apps/desktop/native/mac/tun-network.m
++++ b/apps/desktop/native/mac/tun-network.m
+@@ -73,8 +73,23 @@
+       !Match(key, @"\\A(State|Setup):/Network/(Global|Service/[^/]+|Interface/[a-zA-Z][a-zA-Z0-9]{0,14})/DNS\\z")) { Fail(error,@"DNS preflight found retained ownership or unsupported resolver key"); return nil; }
+     NSDictionary *value=records[key];
+     if (![value isKindOfClass:NSDictionary.class]) { Fail(error,@"DNS record is not a mapping"); return nil; }
+-    for (NSString *field in value) if (![@[@"ServerAddresses",@"ServerPort",@"SearchOrder",@"SearchDomains",@"DomainName",@"SupplementalMatchDomains",@"SupplementalMatchOrders",@"SupplementalMatchDomainsNoSearch",@"InterfaceIndex"]containsObject:field]) {
++    for (NSString *field in value) if (![@[@"ServerAddresses",@"ServerPort",@"SearchOrder",@"SearchDomains",@"DomainName",@"SupplementalMatchDomains",@"SupplementalMatchOrders",@"SupplementalMatchDomainsNoSearch",@"InterfaceIndex",@"__CONFIGURATION_ID__",@"__ORDER__",@"__IF_INDEX__",@"__FLAGS__"]containsObject:field]) {
+       Fail(error,[NSString stringWithFormat:@"unsupported DNS resolver field %@; preserving existing configuration",field]); return nil;
++    }
++    // configd's State Global default-resolver metadata is retained verbatim.
++    // __IF_INDEX__ selects the resolver interface; the coordinator consumes it.
++    // Only the observed default shape/query flags are supported, not scoped,
++    // service-specific or supplemental private configurations.
++    NSArray *metadata=@[@"__CONFIGURATION_ID__",@"__ORDER__",@"__IF_INDEX__",@"__FLAGS__"];
++    BOOL hasMetadata=NO; for(NSString *field in metadata)if(value[field])hasMetadata=YES;
++    if(hasMetadata) {
++      if(![key isEqual:@"State:/Network/Global/DNS"] ||
++        !Match(value[@"__CONFIGURATION_ID__"],@"\\ADefault: [0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12} 0\\z") ||
++        !KuroNumber(value[@"__ORDER__"],0,INT32_MAX) || !KuroNumber(value[@"__IF_INDEX__"],1,UINT16_MAX) ||
++        !KuroNumber(value[@"__FLAGS__"],0,UINT32_MAX) || ([value[@"__FLAGS__"]unsignedIntValue]&~(uint32_t)0x0006) ||
++        (value[@"InterfaceIndex"] && ![value[@"InterfaceIndex"]isEqual:value[@"__IF_INDEX__"]])) {
++        Fail(error,@"unsupported Global default DNS metadata or conflicting interface; preserving existing resolver");return nil;
++      }
+     }
+     NSArray *servers=value[@"ServerAddresses"];
+     if (![servers isKindOfClass:NSArray.class] || !servers.count || servers.count>16) { Fail(error,@"DNS record lacks bounded explicit servers"); return nil; }
+--- a/apps/desktop/native/mac/tun-network.test.m
++++ b/apps/desktop/native/mac/tun-network.test.m
+@@ -62,9 +62,38 @@
+ - (BOOL)syncDirectory:(NSString **)error {self.syncCalls++;return self.refuseSync?Fail(error,@"injected DNS sync failure"):[super syncDirectory:error];}
+ @end
+ 
++// Sanitized actual State Global shape; source metadata is never stripped.
++static NSDictionary *DarwinDNSMetadataFixture(void) {
++  return @{@"State:/Network/Global/DNS":@{@"ServerAddresses":@[@"192.168.1.1"],
++    @"__CONFIGURATION_ID__":@"Default: 00112233-4455-6677-8899-AABBCCDDEEFF 0",@"__ORDER__":@0,@"__IF_INDEX__":@2,@"__FLAGS__":@2},
++    @"State:/Network/Service/00112233-4455-6677-8899-AABBCCDDEEFF/DNS":@{@"ServerAddresses":@[@"192.168.1.1"]}};
++}
++static void DNSMetadataTests(void) {
++  NSString *error=nil,*key=@"State:/Network/Global/DNS";
++  NSDictionary *fixture=DarwinDNSMetadataFixture();CHECK([KuroDNSPreflight(fixture,&error)isEqual:fixture]);
++  for(NSNumber *flags in @[@0,@2,@4,@6]) {
++    NSMutableDictionary *records=[fixture mutableCopy],*global=[fixture[key]mutableCopy];
++    global[@"__FLAGS__"]=flags;global[@"InterfaceIndex"]=@2;records[key]=global;
++    NSDictionary *snapshot=KuroDNSPreflight(records,&error);CHECK([snapshot isEqual:records]);
++    global[@"__ORDER__"]=@1;CHECK([snapshot[key][@"__ORDER__"]isEqual:@0]);
++  }
++  NSArray *changes=@[@{@"__FLAGS__":@0x1000},@{@"__FLAGS__":@0x2000},@{@"__FLAGS__":@0x4000},@{@"__FLAGS__":@8},@{@"__FLAGS__":@YES},
++    @{@"__CONFIGURATION_ID__":@"Supplemental: 00112233-4455-6677-8899-AABBCCDDEEFF 0"},@{@"__CONFIGURATION_ID__":@[]},
++    @{@"__IF_INDEX__":@0},@{@"__IF_INDEX__":@65536},@{@"__IF_INDEX__":@"2"},@{@"__IF_INDEX__":@YES},
++    @{@"__ORDER__":@(-1)},@{@"__ORDER__":@YES},@{@"__ORDER__":@1.5},@{@"__FUTURE__":@0},@{@"InterfaceIndex":@3}];
++  for(NSDictionary *change in changes) {
++    NSMutableDictionary *records=[fixture mutableCopy],*global=[fixture[key]mutableCopy];[global addEntriesFromDictionary:change];records[key]=global;
++    CHECK(!KuroDNSPreflight(records,&error));
++  }
++  for(NSString *other in @[@"Setup:/Network/Global/DNS",@"State:/Network/Interface/en0/DNS",@"State:/Network/Service/default/DNS"])CHECK(!KuroDNSPreflight(@{other:fixture[key]},&error));
++  NSMutableDictionary *incomplete=[fixture[key]mutableCopy];[incomplete removeObjectForKey:@"__IF_INDEX__"];CHECK(!KuroDNSPreflight(@{key:incomplete},&error));
++  puts("DNS metadata: immutable raw Global default snapshot, known A/AAAA flags, typed metadata/alias binding; unsupported scope/service/unknown/incomplete metadata retained and refused");
++}
++
+ #import "tun-production-network.test.m"
+ 
+ static void NetworkTests(void) {
++  DNSMetadataTests();
+   CHECK(geteuid() != 0);
+   RouteTests();
+   ProductionNetworkTests();
+--- a/apps/desktop/native/mac/tun-production-network.m
++++ b/apps/desktop/native/mac/tun-production-network.m
+@@ -198,7 +198,7 @@
+   for (NSDictionary *route in routes) if ([route[@"prefix"]intValue]>0 && (KuroRouteContainsIP(route,@"198.18.0.1") || KuroRouteContainsIP(route,@"198.18.0.2") || KuroRouteContainsIP(route,@"fdfe:dcba:9876::1") || KuroRouteContainsIP(route,@"fdfe:dcba:9876::2"))) return Fail(error,@"existing route overlaps fixed internal DNS/utun pool");
+   for (NSString *key in dns) {
+     NSDictionary *record=dns[key]; NSString *scoped=[key containsString:@"/Interface/"]?[[key componentsSeparatedByString:@"/"]objectAtIndex:3]:nil;
+-    NSNumber *index=record[@"InterfaceIndex"]; BOOL known=!scoped && !index;
++    NSNumber *index=record[@"InterfaceIndex"]?:record[@"__IF_INDEX__"]; BOOL known=!scoped && !index;
+     for (NSDictionary *entry in interfaces) if ((!scoped || [entry[@"name"]isEqual:scoped]) && (!index || [entry[@"index"]isEqual:index])) known=YES;
+     if (!known) return Fail(error,@"scoped DNS interface is unavailable; preserving existing resolver");
+     for (NSString *address in record[@"ServerAddresses"]) {
+--- a/apps/desktop/native/mac/tun-production-network.test.m
++++ b/apps/desktop/native/mac/tun-production-network.test.m
+@@ -54,7 +54,38 @@
+   CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);puts("PASS 8 recovered backend readback cases: complete current route/DNS observations, late marked/split/internal-pool/DNS/journal conflicts reject; no held history or network writes");
+ }
+ 
++static void ProductionDNSMetadataTests(void) {
++  char temporary[]="/tmp/kuro-dns-meta-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));NSString *base=@(canonical),*session=@"00112233-4455-6677-8899-AABBCCDDEEFF";
++  KuroCoreInterface association=RouteFixtureInterface();
++  for(NSUInteger scenario=0;scenario<4;scenario++) {
++    NSString *directory=[base stringByAppendingPathComponent:[NSString stringWithFormat:@"case%lu",(unsigned long)scenario]],*error=nil;FixtureDirectory(directory);
++    KuroFakeRouteStore *routes=[KuroFakeRouteStore new];routes.directory=directory;routes.entries=[ProductionBaseline()mutableCopy];
++    KuroFakeDNSStore *dns=[KuroFakeDNSStore new];dns.directory=directory;dns.records=[DarwinDNSMetadataFixture()mutableCopy];
++    __block NSArray *interfaces=ProductionInterfaces(NO);
++    if(scenario==1||scenario==2) {
++      NSMutableDictionary *global=[dns.records[@"State:/Network/Global/DNS"]mutableCopy];global[@"__IF_INDEX__"]=@3;dns.records[@"State:/Network/Global/DNS"]=global;
++      if(scenario==2)interfaces=[interfaces arrayByAddingObject:@{@"family":@0,@"name":@"en1",@"index":@3,@"flags":@(IFF_UP|IFF_RUNNING),@"linkType":@(IFT_ETHER)}];
++    }
++    NSDictionary *original=[dns.records copy];KuroNetworkEnvironment *environment=[KuroNetworkEnvironment new];
++    environment.interfaces=^NSArray *(NSString **failure){(void)failure;return interfaces;};
++    environment.observeChild=^BOOL(pid_t child,KuroCoreInterface *result,NSString **failure){(void)failure;CHECK(child==association.process.pid);*result=association;return YES;};
++    environment.ownership=^KuroRouteOwnerState(KuroCoreInterface expected,NSString **failure){(void)expected;(void)failure;return KuroRouteOwnerLive;};
++    environment.probeDNS=^BOOL(KuroCoreInterface expected,NSString **failure){(void)expected;(void)failure;return YES;};
++    KuroProductionNetwork *network=[[KuroProductionNetwork alloc]initWithDirectory:directory owner:geteuid() routes:routes dns:dns environment:environment];
++    BOOL admitted=[network preflightConfig:ProductionConfig() error:&error];CHECK(admitted==(scenario!=1&&scenario!=2));
++    if(!admitted){CHECK([error containsString:scenario==1?@"unavailable":@"original interface"]);CHECK(!routes.additions&&!dns.additions);continue;}
++    interfaces=ProductionInterfaces(YES);[routes.entries addObject:ProductionRoute(4,@"198.18.0.0",30,@"link",@"utun7",7,RTF_UP)];[routes.entries addObject:ProductionRoute(6,@"fdfe:dcba:9876::",126,@"link",@"utun7",7,RTF_UP)];
++    CHECK([network readyChild:association.process.pid session:session error:&error]);CHECK([network applyChild:association.process.pid session:session error:&error]);
++    NSDictionary *journal=ReadJSON(directory,[directory stringByAppendingPathComponent:KuroDNSJournal],geteuid(),&error);CHECK([journal[@"baseline"]isEqual:original]);
++    CHECK([network confirmSession:session error:&error]);
++    if(scenario==3){NSMutableDictionary *global=[dns.records[@"State:/Network/Global/DNS"]mutableCopy];global[@"__ORDER__"]=@1;dns.records[@"State:/Network/Global/DNS"]=global;CHECK(![network confirmSession:session error:&error]&&[error containsString:@"DNS baseline changed"]);dns.records[@"State:/Network/Global/DNS"]=original[@"State:/Network/Global/DNS"];}
++    CHECK([network recoverSession:session error:&error]&&network.networkOff&&[dns.records isEqual:original]);CHECK(routes.deletions==4&&dns.removals==1);
++  }
++  CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);puts("PASS 4 production DNS metadata cases: effective interface admission, preserved scoped path, exact journal/baseline and mutation refusal, UUID-only recovery");
++}
++
+ static void ProductionNetworkTests(void) {
++  ProductionDNSMetadataTests();
+   RecoveredNetworkReadbackTests();
+   IPv4UpstreamTests();
+   CHECK(geteuid()!=0); NSString *error=nil,*session=@"00112233-4455-6677-8899-AABBCCDDEEFF";

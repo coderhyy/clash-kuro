@@ -1,0 +1,12 @@
+{
+  "REPORT.md": "8cbd6585c0fdde663baec14bcc4807ce0e30aaf8fdbb713e5133b4d891252808",
+  "verification.json": "3727653103a1079d2087c010377ac87b6bf29cf7279200fc7b0e83744d9c8251",
+  "verify.mjs": "bc8213a02123b15eea9b784d92c58160bb852c01f71b8cff2f81510eb84b8124",
+  "postcheck.py": "d851a164cae76b320cdd47803314b9eb7ed758a47bae45bbb6166361238327cd",
+  "package.json": "312d90d7ea428de35fbf7f084e178a11899e1f4a1822bdd5c8791fe4dcc1faff",
+  "verify.stdout.log": "acfbf75f17eb02b3ec5392b5c61acba31206a858793a13fd4f9ef35606d6a8a4",
+  "verify.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "postcheck.stdout.log": "afc23da5afbfefb7eb7a2e3801e30dbb55bf7317a5417c016031ac90da40d8e4",
+  "postcheck.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "bom.txt": "594c6f240fbe5eff26c6f30439f526aa2c3203299f0cb29bcdf2354d79c13fbd"
+}

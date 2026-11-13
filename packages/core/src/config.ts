@@ -104,6 +104,8 @@ export function buildRuntimeConfig(
   config['log-level'] = settings.logLevel
   // ADR-0012: Geo data ships pinned with the app; a subscription must not switch on network updates.
   config['geo-auto-update'] = false
+  // This ordinary Core path cannot authorize TUN, including values supplied by Override.
+  if (Object.hasOwn(config, 'tun')) config.tun = { ...(isMapping(config.tun) ? config.tun : {}), enable: false }
   config.profile = { ...(isMapping(config.profile) ? config.profile : {}), 'store-selected': true }
   config[controlChannel.kind === 'unix' ? 'external-controller-unix' : 'external-controller-pipe'] = address
   return stringify(config)

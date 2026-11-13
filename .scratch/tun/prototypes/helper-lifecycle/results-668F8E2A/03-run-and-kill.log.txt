@@ -1,0 +1,252 @@
+PRESERVE launchctl print before kill: system/dev.kuro.tun.lifecycle-a = {
+	active count = 1
+	path = /Library/LaunchDaemons/dev.kuro.tun.lifecycle-a.plist
+	type = LaunchDaemon
+	state = running
+
+	program = /Library/PrivilegedHelperTools/dev.kuro.tun.lifecycle-a
+	arguments = {
+		/Library/PrivilegedHelperTools/dev.kuro.tun.lifecycle-a
+		--supervisor
+		668F8E2A-414B-476C-A648-1DC49D24788B
+	}
+
+	default environment = {
+		PATH => /usr/bin:/bin:/usr/sbin:/sbin
+	}
+
+	environment = {
+		OSLogRateLimit => 64
+		XPC_SERVICE_NAME => dev.kuro.tun.lifecycle-a
+	}
+
+	domain = system
+	minimum runtime = 10
+	exit timeout = 5
+	runs = 1
+	pid = 59565
+	immediate reason = non-ipc demand
+	forks = 1
+	execs = 1
+	initialized = 1
+	trampolined = 1
+	started suspended = 0
+	proxy started suspended = 0
+	checked allocations = 0 (queried = 1)
+	checked allocations reason = no host
+	checked allocations flags = 0x0
+	last exit code = (never exited)
+
+	resource coalition = {
+		ID = 70633
+		type = resource
+		state = active
+		active count = 1
+		name = dev.kuro.tun.lifecycle-a
+	}
+
+	jetsam coalition = {
+		ID = 70634
+		type = jetsam
+		state = active
+		active count = 1
+		name = dev.kuro.tun.lifecycle-a
+	}
+
+	spawn type = daemon (3)
+	jetsam priority = 40
+	jetsam memory limit (active) = (unlimited)
+	jetsam memory limit (inactive) = (unlimited)
+	jetsamproperties category = daemon
+	jetsam thread limit = 32
+	cpumon = default
+	sanitizer flags = 0x0
+
+	properties = inferred program
+}
+
+{"child": "same-instance-live", "elapsedMilliseconds": 58, "epoch": "668F8E2A-414B-476C-A648-1DC49D24788B", "supervisor": "same-instance-live"}
+Within 30 seconds, run kill-test; otherwise use cleanup and a fresh experiment.
+{"child": "same-instance-live", "elapsedMilliseconds": 281, "epoch": "668F8E2A-414B-476C-A648-1DC49D24788B", "supervisor": "same-instance-live"}
+PRESERVE launchctl print before kill: system/dev.kuro.tun.lifecycle-a = {
+	active count = 1
+	path = /Library/LaunchDaemons/dev.kuro.tun.lifecycle-a.plist
+	type = LaunchDaemon
+	state = running
+
+	program = /Library/PrivilegedHelperTools/dev.kuro.tun.lifecycle-a
+	arguments = {
+		/Library/PrivilegedHelperTools/dev.kuro.tun.lifecycle-a
+		--supervisor
+		668F8E2A-414B-476C-A648-1DC49D24788B
+	}
+
+	default environment = {
+		PATH => /usr/bin:/bin:/usr/sbin:/sbin
+	}
+
+	environment = {
+		OSLogRateLimit => 64
+		XPC_SERVICE_NAME => dev.kuro.tun.lifecycle-a
+	}
+
+	domain = system
+	minimum runtime = 10
+	exit timeout = 5
+	runs = 1
+	pid = 59565
+	immediate reason = non-ipc demand
+	forks = 1
+	execs = 1
+	initialized = 1
+	trampolined = 1
+	started suspended = 0
+	proxy started suspended = 0
+	checked allocations = 0 (queried = 1)
+	checked allocations reason = no host
+	checked allocations flags = 0x0
+	last exit code = (never exited)
+
+	resource coalition = {
+		ID = 70633
+		type = resource
+		state = active
+		active count = 1
+		name = dev.kuro.tun.lifecycle-a
+	}
+
+	jetsam coalition = {
+		ID = 70634
+		type = jetsam
+		state = active
+		active count = 1
+		name = dev.kuro.tun.lifecycle-a
+	}
+
+	spawn type = daemon (3)
+	jetsam priority = 40
+	jetsam memory limit (active) = (unlimited)
+	jetsam memory limit (inactive) = (unlimited)
+	jetsamproperties category = daemon
+	jetsam thread limit = 32
+	cpumon = default
+	sanitizer flags = 0x0
+
+	properties = inferred program
+}
+
+PRESERVE launchctl print at 1s: system/dev.kuro.tun.lifecycle-a = {
+	active count = 0
+	path = /Library/LaunchDaemons/dev.kuro.tun.lifecycle-a.plist
+	type = LaunchDaemon
+	state = not running
+
+	program = /Library/PrivilegedHelperTools/dev.kuro.tun.lifecycle-a
+	arguments = {
+		/Library/PrivilegedHelperTools/dev.kuro.tun.lifecycle-a
+		--supervisor
+		668F8E2A-414B-476C-A648-1DC49D24788B
+	}
+
+	default environment = {
+		PATH => /usr/bin:/bin:/usr/sbin:/sbin
+	}
+
+	environment = {
+		OSLogRateLimit => 64
+		XPC_SERVICE_NAME => dev.kuro.tun.lifecycle-a
+	}
+
+	domain = system
+	minimum runtime = 10
+	exit timeout = 5
+	runs = 1
+	last terminating signal = Killed: 9
+
+	resource coalition = {
+		ID = 70633
+		type = resource
+		state = active
+		active count = 1
+		name = dev.kuro.tun.lifecycle-a
+	}
+
+	jetsam coalition = {
+		ID = 70634
+		type = jetsam
+		state = active
+		active count = 1
+		name = dev.kuro.tun.lifecycle-a
+	}
+
+	spawn type = daemon (3)
+	jetsam priority = 40
+	jetsam memory limit (active) = (unlimited)
+	jetsam memory limit (inactive) = (unlimited)
+	jetsamproperties category = daemon
+	jetsam thread limit = 32
+	cpumon = default
+	sanitizer flags = 0x0
+
+	properties = inferred program
+}
+
+{"child": "absent", "elapsedMilliseconds": 1330, "epoch": "668F8E2A-414B-476C-A648-1DC49D24788B", "supervisor": "absent"}
+PRESERVE launchctl print at 5s: system/dev.kuro.tun.lifecycle-a = {
+	active count = 0
+	path = /Library/LaunchDaemons/dev.kuro.tun.lifecycle-a.plist
+	type = LaunchDaemon
+	state = not running
+
+	program = /Library/PrivilegedHelperTools/dev.kuro.tun.lifecycle-a
+	arguments = {
+		/Library/PrivilegedHelperTools/dev.kuro.tun.lifecycle-a
+		--supervisor
+		668F8E2A-414B-476C-A648-1DC49D24788B
+	}
+
+	default environment = {
+		PATH => /usr/bin:/bin:/usr/sbin:/sbin
+	}
+
+	environment = {
+		OSLogRateLimit => 64
+		XPC_SERVICE_NAME => dev.kuro.tun.lifecycle-a
+	}
+
+	domain = system
+	minimum runtime = 10
+	exit timeout = 5
+	runs = 1
+	last terminating signal = Killed: 9
+
+	resource coalition = {
+		ID = 70633
+		type = resource
+		state = active
+		active count = 1
+		name = dev.kuro.tun.lifecycle-a
+	}
+
+	jetsam coalition = {
+		ID = 70634
+		type = jetsam
+		state = active
+		active count = 1
+		name = dev.kuro.tun.lifecycle-a
+	}
+
+	spawn type = daemon (3)
+	jetsam priority = 40
+	jetsam memory limit (active) = (unlimited)
+	jetsam memory limit (inactive) = (unlimited)
+	jetsamproperties category = daemon
+	jetsam thread limit = 32
+	cpumon = default
+	sanitizer flags = 0x0
+
+	properties = inferred program
+}
+
+{"child": "absent", "elapsedMilliseconds": 5362, "epoch": "668F8E2A-414B-476C-A648-1DC49D24788B", "supervisor": "absent"}
+GROUP-CLEANUP-PASS (this fixture only)

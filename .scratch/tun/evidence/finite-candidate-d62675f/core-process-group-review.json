@@ -1,0 +1,225 @@
+{
+  "format": 1,
+  "reviewedAt": "2026-11-05T04:43:13.276318+00:00",
+  "kind": "bounded-read-only-source-review",
+  "systemActionsExecuted": false,
+  "coreExecuted": false,
+  "repositoryModified": false,
+  "question": "Does fixed mihomo deliberately leave its inherited launchd process group or spawn uncontrolled processes on the admitted macOS session path?",
+  "sourceIdentity": [
+    {
+      "repository": "MetaCubeX/mihomo",
+      "tag": "v1.19.33",
+      "commit": "3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8",
+      "treeComplete": true,
+      "allTreeBlobsVerified": true,
+      "verifiedBlobCount": 1045,
+      "extractedSourceDirectory": "/private/tmp/kuro-mihomo-3f27ef39-source",
+      "treeEvidence": "/private/tmp/kuro-tun-mihomo-tree.json",
+      "tagEvidence": "/private/tmp/kuro-tun-mihomo-tag.json",
+      "archive": "/private/tmp/kuro-mihomo-3f27ef39-source.tar.gz",
+      "archiveSHA256": "68ac946032bc53f24aec5c7b15977ee1b1773a77573970b347908105b73756b0",
+      "verification": "For every blob, SHA1(\"blob \" + decimal byte length + NUL + original bytes) equals the cached pinned Git tree entry; tag commit equals tree commit. This does not attest a reproducible release binary build."
+    },
+    {
+      "repository": "MetaCubeX/sing-tun",
+      "tag": "v0.4.28",
+      "commit": "a128d0c3c8001e041725fa67ff3b521502298f17",
+      "treeComplete": true,
+      "allTreeBlobsVerified": true,
+      "verifiedBlobCount": 172,
+      "extractedSourceDirectory": "/private/tmp/kuro-sing-tun-a128d0-source",
+      "treeEvidence": "/private/tmp/kuro-tun-sing-tree.json",
+      "tagEvidence": "/private/tmp/kuro-tun-sing-tag.json",
+      "archive": "/private/tmp/kuro-sing-tun-a128d0-source.tar.gz",
+      "archiveSHA256": "5bf7cff875a44b48730f2170bfd058a9c1f9ee019eb4a1c21f6defb81eb7b1f2",
+      "verification": "For every blob, SHA1(\"blob \" + decimal byte length + NUL + original bytes) equals the cached pinned Git tree entry; tag commit equals tree commit. This does not attest a reproducible release binary build."
+    }
+  ],
+  "searchScope": {
+    "files": "All .go/.c/.h/.s files in the two complete pinned source trees; connected callsites for all discovered exec entrypoints; current native argv, environment and typed control allowlist.",
+    "patterns": [
+      "Setsid",
+      "Setpgid",
+      "setsid",
+      "setpgid",
+      "daemonize",
+      "Daemonize",
+      "SYS_SETSID",
+      "SYS_SETPGID",
+      "os/exec",
+      "syscall.Exec",
+      "unix.Exec",
+      "os.StartProcess",
+      "ForkExec",
+      "exec.Command",
+      "SysProcAttr"
+    ],
+    "result": "No setsid/setpgid/daemonize or equivalent direct syscall found in these source trees. External command entrypoints exist and are scoped below.",
+    "excluded": "Not a complete review of every transitive dependency, Go runtime, unknown build tags, release toolchain or binary-to-source reproducibility; no runtime syscall trace."
+  },
+  "findings": [
+    {
+      "id": "foreground-main",
+      "result": "Fixed main has no daemon mode; normal execution waits on SIGINT/SIGTERM/SIGHUP. Nonempty post-up/post-down can execute a shell.",
+      "sources": [
+        "https://github.com/MetaCubeX/mihomo/blob/3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8/main.go#L60",
+        "https://github.com/MetaCubeX/mihomo/blob/3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8/main.go#L224",
+        "https://github.com/MetaCubeX/mihomo/blob/3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8/main.go#L237",
+        "https://github.com/MetaCubeX/mihomo/blob/3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8/common/cmd/cmd.go#L39",
+        "https://github.com/MetaCubeX/mihomo/blob/3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8/common/cmd/cmd_other.go#L9"
+      ],
+      "admittedPath": "Current native Core argv is only -d <fixed work> -f <fixed config>; environment is only PATH=/usr/bin:/bin and LANG=C. No post-up/down CLI/env values are supplied.",
+      "localEvidence": [
+        {
+          "path": "/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/native/mac/tun-service.m",
+          "line": 410
+        },
+        {
+          "path": "/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/native/mac/tun-session.m",
+          "line": 286
+        }
+      ]
+    },
+    {
+      "id": "restart",
+      "result": "On macOS restartExecutable uses syscall.Exec in place; Windows branch alone uses exec.Command.Start. No group/session mutation is requested here.",
+      "sources": [
+        "https://github.com/MetaCubeX/mihomo/blob/3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8/hub/route/restart.go#L45",
+        "https://github.com/MetaCubeX/mihomo/blob/3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8/hub/route/restart.go#L63"
+      ],
+      "admittedPath": "Native typed broker does not expose restart, upgrade or arbitrary HTTP paths.",
+      "localEvidence": [
+        {
+          "path": "/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/native/mac/tun-core-control.m",
+          "line": 23
+        }
+      ]
+    },
+    {
+      "id": "upgrade",
+      "result": "Core update copy can run /usr/bin/codesign on Darwin. Therefore the unqualified claim that mihomo can never spawn a child would be false.",
+      "sources": [
+        "https://github.com/MetaCubeX/mihomo/blob/3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8/component/updater/update_core.go#L468",
+        "https://github.com/MetaCubeX/mihomo/blob/3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8/hub/route/upgrade.go#L25"
+      ],
+      "admittedPath": "Core upgrade endpoint is not in the native typed broker allowlist."
+    },
+    {
+      "id": "iptables",
+      "result": "mihomo common/cmd ExecCmd callsites are protected by runtime Linux checks in the executor and cleanup. sing-tun redirect_iptables.go is Linux build tagged; *_linux.go files and Windows netsh do not form the Darwin TUN path.",
+      "sources": [
+        "https://github.com/MetaCubeX/mihomo/blob/3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8/hub/executor/executor.go#L469",
+        "https://github.com/MetaCubeX/mihomo/blob/3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8/listener/tproxy/tproxy_iptables.go#L115",
+        "https://github.com/MetaCubeX/sing-tun/blob/a128d0c3c8001e041725fa67ff3b521502298f17/redirect_iptables.go#L1",
+        "https://github.com/MetaCubeX/sing-tun/blob/a128d0c3c8001e041725fa67ff3b521502298f17/redirect_linux.go",
+        "https://github.com/MetaCubeX/sing-tun/blob/a128d0c3c8001e041725fa67ff3b521502298f17/tun_linux.go"
+      ]
+    },
+    {
+      "id": "darwin-utun",
+      "result": "sing-tun Darwin New opens AF_SYSTEM in the current Core process, configures it and holds tunFd; no subprocess, setsid or setpgid found in this Darwin path.",
+      "sources": [
+        "https://github.com/MetaCubeX/sing-tun/blob/a128d0c3c8001e041725fa67ff3b521502298f17/tun_darwin.go#L102",
+        "https://github.com/MetaCubeX/sing-tun/blob/a128d0c3c8001e041725fa67ff3b521502298f17/tun_darwin.go#L112",
+        "https://github.com/MetaCubeX/sing-tun/blob/a128d0c3c8001e041725fa67ff3b521502298f17/tun_darwin.go#L185",
+        "https://github.com/MetaCubeX/sing-tun/blob/a128d0c3c8001e041725fa67ff3b521502298f17/tun_darwin.go#L226"
+      ]
+    },
+    {
+      "id": "launchd-contract",
+      "result": "Local launchd.plist(5) states launchd kills remaining processes with the job process-group ID when the job dies; AbandonProcessGroup=true disables that behavior. Current production plist explicitly sets false; initial native child identity requires inherited helper PGID.",
+      "localEvidence": [
+        {
+          "path": "/usr/share/man/man5/launchd.plist.5",
+          "line": 621
+        },
+        {
+          "path": "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/share/man/man5/launchd.plist.5",
+          "line": 609
+        },
+        {
+          "path": "/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/scripts/prepare-macos-helper.mjs",
+          "line": 129
+        },
+        {
+          "path": "/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/native/mac/tun-session.m",
+          "line": 291
+        }
+      ]
+    },
+    {
+      "id": "existing-fixture-result",
+      "result": "Experiment A previously observed its harmless fixture child absent at approximately 1s and 5s after exact job SIGKILL, before marker/TTL; this was not mihomo and did not create utun/routes/DNS.",
+      "localEvidence": [
+        {
+          "path": "/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/.scratch/tun/prototypes/helper-lifecycle/results-668F8E2A/RESULT.md",
+          "line": 7
+        }
+      ]
+    }
+  ],
+  "conclusion": {
+    "recommendation": "Prefer the existing launchd AbandonProcessGroup=false strategy for the next narrowly scoped fixed-Core validation. Static findings do not require adding a guardian component.",
+    "conditionalOn": [
+      "The pinned admitted Core path remains constrained by current closed schema, fixed argv/environment and typed private broker.",
+      "Actual released Core remains in the verified launchd group throughout the finite observation window."
+    ],
+    "notEstablished": [
+      "Actual fixed Core or all descendants die after helper SIGKILL.",
+      "No escaped/detached process ever exists at runtime.",
+      "utun disappears or recorded routes/DNS are absent after group cleanup.",
+      "Restart recovery can delete still-present network state or unreceipted cache.",
+      "Stored PID/start-time becomes safe later signal authority.",
+      "Release binary is reproducibly built from the examined source."
+    ]
+  },
+  "proposedNonTunLaunchdValidation": {
+    "status": "Steps only; not implemented or executed. Existing experiment-A CLI cannot directly launch Core. Existing core-experiment worker establishes a separate PGID and refuses root, so running it as the job is not a valid inherited-group test.",
+    "minimalPreparation": "Extend only the existing test-only lifecycle fixture with a fixed pinned Core child mode; retain its protected job/epoch/hash installer and observations. Do not add a production entry, arbitrary executable/path input, daemon, or new guardian layer. Review/freeze that tiny change before execution authorization.",
+    "fixedJobPolicy": {
+      "label": "dev.kuro.tun.lifecycle-a",
+      "RunAtLoad": false,
+      "KeepAlive": false,
+      "AbandonProcessGroup": false,
+      "spawn": "Default inherited process group; no POSIX_SPAWN_SETPGROUP, setsid or setpgid. Reuse production KuroOwnedSession where feasible without the ordinary-UID runner guardian."
+    },
+    "configuration": "Use the already reviewed core-experiment ExperimentConfig closed literal as a template: tun.enable=false, dns.enable=false/listen empty, all IP listener ports zero, no proxies/providers/URLs, no post hooks, geo-auto-update=false, ntp/sniffer/iptables/tuic disabled; private Unix controller only. No -t. Core SHA must equal the actual lock-pinned extracted executable, and the archive SHA, config SHA, fixture SHA and fresh epoch must be recorded before launch.",
+    "steps": [
+      {
+        "step": 1,
+        "action": "Offline prepare/freeze a fresh epoch with exact fixed Core/config/fixture/plist hashes and private work/evidence paths. Confirm the old fixture job and fixed files are absent. Existing completed epoch is not reused."
+      },
+      {
+        "step": 2,
+        "action": "After explicit authorization, use the existing fixed-path lifecycle driver install/bootstrap/kickstart policy, adapted to the new reviewed child mode. The supervisor alone spawns fixed Core suspended and journals exact child identity before resume. No TUN/root-network operations."
+      },
+      {
+        "step": 3,
+        "action": "Before any kill test, complete a fresh normal baseline: supervisor holds the unreaped direct child; verify PID/start seconds+micros/executable path+SHA/UID/PPID/PGID, launchctl job program+epoch+supervisor identity, and PGID equality. Verify finite private /version readiness and two bounded complete FD observations rejecting AF_INET/AF_INET6/AF_SYSTEM; FD samples are not a proof of zero transient network activity. Stop through held child, waitpid/reap, preserve accurate termination and exact work cleanup evidence. Baseline failure forbids kill stage."
+      },
+      {
+        "step": 4,
+        "action": "Use another fresh epoch for group test. Repeat direct-child and complete group-member identity checks immediately before a single launchctl kill SIGKILL system/dev.kuro.tun.lifecycle-a against the exact verified job. Never kill a PID read from a receipt. Bound early observation to 1s and 5s as the proven fixture policy; record actual elapsed monotonic time and job exit/runs."
+      },
+      {
+        "step": 5,
+        "action": "PASS only if recorded supervisor/Core identities are explicitly absent, the full recorded group is empty, no unexpected member/escaped child is observed, and no alternate held-stop cleanup was needed. Keep process-group result separate from any future TUN/network result."
+      },
+      {
+        "step": 6,
+        "action": "Before supervisor death, abort/cleanup may signal only its still-held unreaped direct Core child and waitpid/reap; job commands require exact current protected job binding. After supervisor death the observer has no held child signal authority: absent is read-only, same-live/changed/unknown stops automation and preserves all evidence/work. No killall/pkill, no persisted PID/PGID kill and no recursive unknown deletion. Bootout/remove only exact approved job/files after repeated identity absence and known inventory. Core has no fixture stop-marker/TTL, so do not copy that fallback claim from harmless experiment A."
+      }
+    ],
+    "stopConditions": [
+      "Hash/epoch/protected path or launchctl binding mismatch",
+      "Missing/truncated/ambiguous process or group observation",
+      "Core no longer a direct child or not in the supervisor job group",
+      "Any unexpected group member, IP/kernel-control socket or configuration change",
+      "Readiness/observation deadline expired",
+      "Normal held-stop/reap or known work cleanup unproven",
+      "Any same-live/reused/unknown process after job death; preserve and request exact reviewed recovery"
+    ],
+    "recoveryBoundary": "Existing fixture identity checks are evidence, not a retained kernel process handle. After killing the supervisor, failure of launchd group cleanup is BLOCKED; this plan does not invent safe stale-PID cleanup. No root network was enabled in this proposed stage."
+  }
+}

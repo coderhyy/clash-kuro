@@ -1,0 +1,14 @@
+[
+  {
+    "label": "normal UI/IPC and in-memory Backup",
+    "directory": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-fA3JJs",
+    "args": [],
+    "code": 1,
+    "signal": null,
+    "timedOut": false,
+    "stdout": "",
+    "stderr": "(node:71757) electron: Failed to load URL: file:///Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/electron-runtime-candidate/mac-arm64/Clash%20Kuro.app/Contents/Resources/app.asar/out/renderer/index.html with error: ERR_FILE_NOT_FOUND\n(Use `Clash Kuro --trace-warnings ...` to show where the warning was created)\n[Error: ERR_FILE_NOT_FOUND (-6) loading 'file:///Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/electron-runtime-candidate/mac-arm64/Clash%20Kuro.app/Contents/Resources/app.asar/out/renderer/index.html'] {\n  errno: -6,\n  code: 'ERR_FILE_NOT_FOUND',\n  url: 'file:///Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/electron-runtime-candidate/mac-arm64/Clash%20Kuro.app/Contents/Resources/app.asar/out/renderer/index.html'\n}\n[71757:1104/180632.598580:ERROR:base/process/process_mac.cc:45] task_policy_set TASK_CATEGORY_POLICY: (os/kern) invalid argument (4)\n[71757:1104/180632.598606:ERROR:base/process/process_mac.cc:90] task_policy_set TASK_SUPPRESSION_POLICY: (os/kern) invalid argument (4)\n",
+    "tcpReachable": false,
+    "pipeResponse": ""
+  }
+]

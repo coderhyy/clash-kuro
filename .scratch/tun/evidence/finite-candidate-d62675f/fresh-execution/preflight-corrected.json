@@ -1,0 +1,73 @@
+{
+  "timestamp": "2026-11-05T12:36:17.855836",
+  "package": "/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/kuro-tun-finite-session-0.1.0-arm64-d62675f583c3.pkg",
+  "sha256": "3e574cbf1d432c70dda45d4774c40c62ebabb74441abcd9b9f46182a506e5169",
+  "paths": {
+    "/Library/PrivilegedHelperTools/dev.kuro.tun": false,
+    "/Library/PrivilegedHelperTools/dev.kuro.tun-uninstall": false,
+    "/Library/PrivilegedHelperTools/dev.kuro.tun-uninstall.json": false,
+    "/Library/PrivilegedHelperTools/dev.kuro.tun-fresh-install.json": false,
+    "/Library/Application Support/Clash Kuro/Privileged": false,
+    "/Library/PrivilegedHelperTools/dev.kuro.tun-run": false,
+    "/private/var/run/dev.kuro.tun": false,
+    "/Library/LaunchDaemons/dev.kuro.tun.plist": false,
+    "/Library/Application Support/Clash Kuro/Client/Clash Kuro.app": false
+  },
+  "receipt": {
+    "status": 1,
+    "stdout": "",
+    "stderr": "No receipt for 'dev.kuro.tun.disabled' found at '/'.\n"
+  },
+  "upgradeReceipt": {
+    "status": 1,
+    "stdout": "",
+    "stderr": "No receipt for 'dev.kuro.tun.upgrade' found at '/'.\n"
+  },
+  "job": {
+    "status": 113,
+    "stdout": "",
+    "stderr": "Bad request.\nCould not find service \"dev.kuro.tun\" in domain for system\n"
+  },
+  "retainedAncestor": {
+    "path": "/Library/Application Support/Clash Kuro/Client",
+    "entries": [],
+    "chain": [
+      {
+        "path": "/",
+        "uid": 0,
+        "gid": 0,
+        "mode": "0o755",
+        "inode": 2
+      },
+      {
+        "path": "/Library",
+        "uid": 0,
+        "gid": 0,
+        "mode": "0o755",
+        "inode": 160274596
+      },
+      {
+        "path": "/Library/Application Support",
+        "uid": 0,
+        "gid": 80,
+        "mode": "0o755",
+        "inode": 160274986
+      },
+      {
+        "path": "/Library/Application Support/Clash Kuro",
+        "uid": 0,
+        "gid": 80,
+        "mode": "0o755",
+        "inode": 171891554
+      },
+      {
+        "path": "/Library/Application Support/Clash Kuro/Client",
+        "uid": 0,
+        "gid": 0,
+        "mode": "0o755",
+        "inode": 171891569
+      }
+    ],
+    "reason": "Existing empty protected ancestor is permitted by BeginClientInstallFromScripts; no deletion or overwrite of existing App. Initial external preflight incorrectly treated parent as exclusive target."
+  }
+}

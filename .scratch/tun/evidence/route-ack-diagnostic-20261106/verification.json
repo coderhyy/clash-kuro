@@ -1,0 +1,38 @@
+{
+  "runs": [
+    {
+      "label": "compile",
+      "args": [
+        "/usr/bin/clang",
+        "-arch",
+        "arm64",
+        "-fobjc-arc",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-Wno-unused-function",
+        "-O2",
+        "-framework",
+        "Foundation",
+        "-framework",
+        "Security",
+        "-framework",
+        "SystemConfiguration",
+        "-lbsm",
+        "/private/tmp/kuro-route-ack-diagnostics-candidate/focused.m",
+        "-o",
+        "/private/tmp/kuro-route-ack-diagnostics-candidate/focused"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 3.061869208002463
+    },
+    {
+      "label": "focused",
+      "args": [
+        "/private/tmp/kuro-route-ack-diagnostics-candidate/focused"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 1.0041113749612123
+    }
+  ]
+}

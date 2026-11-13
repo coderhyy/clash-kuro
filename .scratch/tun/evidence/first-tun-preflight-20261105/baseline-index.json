@@ -1,0 +1,118 @@
+{
+  "service-2-getsecurewebproxy.json": {
+    "sha256": "8eaa0cc73e204afad3aac4b9f269e1a3c41276ef496a44ac377c8c7456b3fd43",
+    "exit": 0
+  },
+  "service-1-getproxybypassdomains.json": {
+    "sha256": "f925153bbb85d85c4f841e652631a426379b921a9ab651b55767acd460a53d44",
+    "exit": 0
+  },
+  "service-0-getdnsservers.json": {
+    "sha256": "8d0474aa5b5bf257ca2564b0e11ad83274c25c731ac0990e11b3c8a82532c56e",
+    "exit": 0
+  },
+  "service-1-getsecurewebproxy.json": {
+    "sha256": "9d079b9986d20743cf5bd2c112e8998e3a6036904f98d426d4271aace7bc5623",
+    "exit": 0
+  },
+  "service-2-getsocksfirewallproxy.json": {
+    "sha256": "18bda6d4c81f182008ec38293bd63fcada3c2ac02613728d44450a8bc59c5ee3",
+    "exit": 0
+  },
+  "services.json": {
+    "sha256": "047f66c03c81666efa90e2906afb604b35f3238ca69fe0a9094071b8c6fc269f",
+    "exit": 0
+  },
+  "service-2-getwebproxy.json": {
+    "sha256": "60938e1d58fd12c52bad4118ff2a8367c63954fa503a87b4d0dbee7cb153e828",
+    "exit": 0
+  },
+  "service-0-getproxybypassdomains.json": {
+    "sha256": "c0dc8f94db01fc0b004bd7014b251f4fa5c0070c65d76fa98e1f3a53cc79de19",
+    "exit": 0
+  },
+  "routes4.json": {
+    "sha256": "e57eb89ee43a8150456149fc69219f3ada81a9c0a963e62cff2663acdd51c140",
+    "exit": 0
+  },
+  "proxy.json": {
+    "sha256": "542d32fee8a0efa422435354dea9a3b8c27c852c5422b0b37a3843df535ae07e",
+    "exit": 0
+  },
+  "service-0-getsecurewebproxy.json": {
+    "sha256": "f6466b3bc8de7ea3662964dde888d55d2f187188c8182ffbaa52b70b70cc53f0",
+    "exit": 0
+  },
+  "default6.json": {
+    "sha256": "efeb2cfb825a61ad0dde7dcee595017279bb3a7d636859686f5bc4667adf45b9",
+    "exit": 0
+  },
+  "dns.json": {
+    "sha256": "16b2a84b663b83653a214b545d3c369a6283ebb2f284bb141aa5c637f11c2bfc",
+    "exit": 0
+  },
+  "receipts.json": {
+    "sha256": "27554a0c4a66c88d9e465a3f56395d60f45f48263999b5993001f6c34a03c3a2",
+    "exit": 0
+  },
+  "service-1-getsocksfirewallproxy.json": {
+    "sha256": "99f6d106f0592f47bcac8c194bd0caf1838179d5050e706be98219267c31c9ef",
+    "exit": 0
+  },
+  "routes6.json": {
+    "sha256": "b86d2c322374c4914cc311d957093453f4a1829c6f2555c6956b8f9342dda548",
+    "exit": 0
+  },
+  "service-2-getproxybypassdomains.json": {
+    "sha256": "3849d68aee2b733eda9c5f464833ec21c008ec58ef0b40dd979f57a7c5044ea8",
+    "exit": 0
+  },
+  "default4.json": {
+    "sha256": "40b77a2423480ff84336c9dd91e74d6dc9d2fbb661f51d5ca09803ab8142250e",
+    "exit": 0
+  },
+  "dns-keys.json": {
+    "sha256": "f2829ae81e1d6c92e6e5d89b3f479556691b018470d6d2118c8dae725a639b6b",
+    "exit": 0
+  },
+  "service-0-getwebproxy.json": {
+    "sha256": "ed30a136afcd42a571694da1dc3378436417af95c49c7f0356957e9589aa328d",
+    "exit": 0
+  },
+  "job.json": {
+    "sha256": "ebe86c5096e3ff0464cf71ae4d865fb79071ead383eab1d4508071f33f17cb03",
+    "exit": 113
+  },
+  "interfaces.json": {
+    "sha256": "a67984b6a4889f35b7f15ade191b72cb2ce39d6aa88fccfdb8c603a488545e26",
+    "exit": 0
+  },
+  "service-1-getdnsservers.json": {
+    "sha256": "e2b8d5f3a1ca04a81a3d2d1f3f02700799055e19b5ea05465674697676bb317f",
+    "exit": 0
+  },
+  "disabled.json": {
+    "sha256": "dbe42c4fdce22c2a46bcc7ac46cd324fecdb83669b6e7955329b77abff5885bb",
+    "exit": 0
+  },
+  "service-1-getwebproxy.json": {
+    "sha256": "e68e557f234232ff751f36d5fa97eb52eacfe24b87e20d0276cccaf01ccd8eb8",
+    "exit": 0
+  },
+  "service-0-getsocksfirewallproxy.json": {
+    "sha256": "9fe7235045f27d2ecf5facf3f98c90d01f447fcbebf629dc6db45213d5ac4f22",
+    "exit": 0
+  },
+  "nwi.json": {
+    "sha256": "8a9b376f06925edb7652406afb4a547e1561c11bfd2de3a3d1110137cea6eb27",
+    "exit": 0
+  },
+  "dns-store.json": {
+    "sha256": "5784aa24a4d4711b07098e0c73c96cfe7ac2c2ead2f7ec7ebf190a70cf37d542",
+    "exit": 0
+  },
+  "service-2-getdnsservers.json": {
+    "sha256": "d81773c5f677b15cdb4d01d7e032a71d6687bc2b08f50e79fbc9a43f49fd9a66",
+    "exit": 0
+  }
+}

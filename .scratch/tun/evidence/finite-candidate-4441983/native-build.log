@@ -1,0 +1,23 @@
+time="2026-11-05T11:44:28.997452000+08:00" level=info msg="Start initial configuration in progress"
+time="2026-11-05T11:44:28.999275000+08:00" level=info msg="Geodata Loader mode: memconservative"
+time="2026-11-05T11:44:28.999292000+08:00" level=info msg="Geosite Matcher implementation: succinct"
+time="2026-11-05T11:44:28.999785000+08:00" level=info msg="Initial configuration complete, total time: 2ms"
+configuration file /tmp/kuro-native-syntax-eN7aEt/config.json test is successful
+/private/tmp/kuro-client-pin-0cAhyv/Library/Application Support/Clash Kuro/Client/Clash Kuro.app: replacing existing signature
+/private/tmp/kuro-act-pptO8C/source/fixture.app: replacing existing signature
+FAIL line 100: listener>=0&&!bind(listener,(struct sockaddr *)&address,sizeof(address))
+native restart owner: strict/legacy receipts, present/reused/denied/incomplete PID observations, changing observation and retained DNS preserve ownership; ESRCH never proves descendants exited
+native owner/session: EOF, lease, heartbeat, replay, peer exit, cleanup retry, stop, preparation refusal passed
+PASS native JSON candidate accepted by fixed Core -t (syntax only; no TUN activation)
+native TUN config: closed schema, references, DNS, duplicate keys, limits and JSON candidate passed
+native peer identity: kernel audit identity observed, passed FD cannot survive original peer exit
+native routes: bounded wire fixtures and 12 ownership/recovery scenarios passed; no PF_ROUTE/sysctl/network operation executed
+production network: inert construction, local-only DNS packets, baseline admission, dual-stack apply, partial failure, held-owner and restart absence fixtures passed (no system network calls)
+native DNS ownership: 30 journal + 5 route-admission scenarios passed; no Darwin store or system network operation executed
+native Core/interface association: 21 injected snapshots and real self-identity rejection passed; no Core spawn, utun creation or network mutation
+native client pin: real ad-hoc runtime seal, internal Framework links, escape/writable/tamper rejection, install record and exact removal passed (temporary ordinary-user fixture)
+native stopped uninstall: 11 held harmless child fixtures cover complete proof, missing/false/mismatched/changed/active preservation, sticky history, durable revocation and partial cleanup retry; network proofs mocked
+native finite activation: explicit boolean/client/inventory, completed protected install, fixed helper identity, receipt binding and temporary auth-observer refusal passed; no service/Core/network
+native installer ACL: production /private/tmp accepted (NULL ACL absence fallback); no system mutation
+native socket host: old ancestor uid=0 gid=1 mode=0775; new fixed ancestors pass strict ACL/metadata/search policy (read only)
+Command failed: /var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-helper-build-QmqNKB/tests

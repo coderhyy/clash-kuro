@@ -1,0 +1,61 @@
+{
+  "bundle": "/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/electron-runtime-candidate/mac-arm64/Clash Kuro.app",
+  "evidence": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-client-tampering-j1QPsQ",
+  "noAppLaunch": true,
+  "cases": [
+    {
+      "label": "asar-payload",
+      "headerUnchanged": true,
+      "originalPayloadSHA256": "736bccdb834c50c5c0fc959912d59bd95186484701c63c001b9bb35b431603e9",
+      "changedASARSHA256": "5d422d08e0220608ae045b44eb7815cba328f1e85f49b76d0098d4ae5103cfd4",
+      "codesignExit": 1,
+      "codesignStderr": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-client-tampering-j1QPsQ/asar-payload/Clash Kuro.app: a sealed resource is missing or invalid\n",
+      "verifierError": "Error: Command failed: /usr/bin/codesign --verify --deep --strict /private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-client-tampering-j1QPsQ/asar-payload/Clash Kuro.app\n/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-client-tampering-j1QPsQ/asar-payload/Clash Kuro.app: a sealed resource is missing or invalid\n"
+    },
+    {
+      "label": "native-library",
+      "resource": "Contents/Frameworks/Electron Framework.framework/Versions/A/Libraries/libffmpeg.dylib",
+      "replacementSHA256": "614fb6b854dc100200c391a2d8822cbf499bb0c168d1224759daf5b9f36dda1e",
+      "codesignExit": 1,
+      "codesignStderr": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-client-tampering-j1QPsQ/native-library/Clash Kuro.app: a sealed resource is missing or invalid\nIn subcomponent: /private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-client-tampering-j1QPsQ/native-library/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework\n",
+      "verifierError": "Error: Command failed: /usr/bin/codesign --verify --deep --strict /private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-client-tampering-j1QPsQ/native-library/Clash Kuro.app\n/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-client-tampering-j1QPsQ/native-library/Clash Kuro.app: a sealed resource is missing or invalid\nIn subcomponent: /private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-client-tampering-j1QPsQ/native-library/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework\n"
+    },
+    {
+      "label": "resealed-copy",
+      "codesignExit": 0,
+      "verifierPassed": true,
+      "originalPinMatches": false,
+      "pin": {
+        "format": 2,
+        "cdhash": "96d8190b6b1a89bf7f3fb872480a90e6e9938c9a",
+        "executableSHA256": "1b9e27e54739dca53905d32fd6912b06ac6b7ec0fcdfa89be76b52c800318713",
+        "infoSHA256": "c6ee4596dcdaebb3c624421de67937d7b62ad1be281a0ad96996186d2aba3ab8",
+        "asarSHA256": "97749c5d4d67382480b9e2e7da76f728274aa6a3f7bad5fe34b2db2a46aa5a20"
+      }
+    }
+  ],
+  "before": {
+    "pin": {
+      "format": 2,
+      "cdhash": "dec6d36f1109ea4970c5c79cbff493cdaee24477",
+      "executableSHA256": "b227d91e80f33cb0d84c8c6edf416b897f6771360d19fd8431e3268757813f99",
+      "infoSHA256": "c6ee4596dcdaebb3c624421de67937d7b62ad1be281a0ad96996186d2aba3ab8",
+      "asarSHA256": "97749c5d4d67382480b9e2e7da76f728274aa6a3f7bad5fe34b2db2a46aa5a20"
+    },
+    "treeSHA256": "a5b7285121ae042d869b294ef02b4357fbbd55827b00601c29315ca4019f5f54",
+    "entries": 611
+  },
+  "ok": true,
+  "after": {
+    "pin": {
+      "format": 2,
+      "cdhash": "dec6d36f1109ea4970c5c79cbff493cdaee24477",
+      "executableSHA256": "b227d91e80f33cb0d84c8c6edf416b897f6771360d19fd8431e3268757813f99",
+      "infoSHA256": "c6ee4596dcdaebb3c624421de67937d7b62ad1be281a0ad96996186d2aba3ab8",
+      "asarSHA256": "97749c5d4d67382480b9e2e7da76f728274aa6a3f7bad5fe34b2db2a46aa5a20"
+    },
+    "treeSHA256": "a5b7285121ae042d869b294ef02b4357fbbd55827b00601c29315ca4019f5f54",
+    "entries": 611
+  },
+  "originalUnchanged": true
+}

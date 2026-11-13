@@ -1,0 +1,25 @@
+{
+  "uid": 501,
+  "sourceCommit": "639c64fbfd3d371057dfd59d8b01b882c8aebbe3",
+  "hashes": {
+    "core-experiment": "0f010836b99a4251dacf3e923bab4c720a87fda0dfea22d06a3b73f8f4986114",
+    "inventory.json": "445ebe1992beefeabbe2da958a17c1d133426f0117cec8267b94db42a9f46e06",
+    "mihomo": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9"
+  },
+  "inspect": {
+    "normalPassed": false,
+    "receipt": {
+      "coreArchiveSHA256": "060b64b0f2c9a310831db0fe4adb2878de67bfa606c311813c1f13966aa504b6",
+      "coreSHA256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+      "coreVersion": "v1.19.33",
+      "epoch": "51ACE461-6D10-48F2-8828-E00282DD8C4E",
+      "format": 1,
+      "protocol": 1,
+      "runnerSHA256": "0f010836b99a4251dacf3e923bab4c720a87fda0dfea22d06a3b73f8f4986114",
+      "target": "darwin-arm64"
+    },
+    "stage3": "not implemented or authorized",
+    "status": "prepared"
+  },
+  "stageReceiptsAbsent": true
+}

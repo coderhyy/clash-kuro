@@ -1,0 +1,2 @@
+kernel-like coordinator RED: error=added route differs from admitted plan; journal retained additions=1 deletions=0
+FAIL line 140: kernelApplied

@@ -2,21 +2,48 @@ import { execFile, type ExecFileException } from 'node:child_process'
 import { randomInt } from 'node:crypto'
 import { createSocket } from 'node:dgram'
 import { createServer } from 'node:net'
+import { relative } from 'node:path'
 import { promisify } from 'node:util'
+import { expect } from 'vitest'
 
 let excluded: Promise<readonly (readonly [number, number])[]> | undefined
 function exclusions() {
   return excluded ??= process.platform !== 'win32' ? Promise.resolve([]) : (async () => {
     const ranges: (readonly [number, number])[] = []
+    const testPath = expect.getState().testPath
+    const context = {
+      suite: testPath ? relative(process.cwd(), testPath).replaceAll('\\', '/').slice(0, 512) : 'unknown',
+      workerPID: process.pid,
+      workerID: process.env.VITEST_WORKER_ID?.slice(0, 64) ?? null,
+      poolID: process.env.VITEST_POOL_ID?.slice(0, 64) ?? null,
+    }
+    let ordinal = 0
     for (const protocol of ['tcp', 'udp']) {
       const read = async (kind: string) => {
         const args = ['int', 'ipv4', 'show', kind, `protocol=${protocol}`]
-        const started = performance.now()
+        const started = performance.now(), startTime = new Date().toISOString()
+        const command = { ...context, ordinal: ++ordinal, protocol, kind, startTime, timeoutMs: 5000 }
+        const report = (event: 'started' | 'passed' | 'failed', stdout?: string | Buffer, stderr?: string | Buffer, failure?: ExecFileException) => {
+          const elapsedMs = event === 'started' ? 0 : Math.round(performance.now() - started)
+          const stdoutBytes = stdout === undefined ? null : Buffer.byteLength(stdout)
+          const stderrBytes = stderr === undefined ? null : Buffer.byteLength(stderr)
+          process.stderr.write(`[test-port-inventory] ${JSON.stringify({
+            ...command, event, endTime: event === 'started' ? null : new Date().toISOString(),
+            elapsedMs,
+            stdoutBytes, stderrBytes, outputBytes: stdoutBytes === null || stderrBytes === null ? null : stdoutBytes + stderrBytes,
+            ...(failure ? { code: failure.code ?? null, signal: failure.signal ?? null, killed: failure.killed ?? null } : {}),
+          })}\n`)
+          return elapsedMs
+        }
+        report('started')
         try {
-          return await promisify(execFile)('netsh.exe', args, { windowsHide: true, timeout: 5000, maxBuffer: 128 * 1024 })
+          const output = await promisify(execFile)('netsh.exe', args, { windowsHide: true, timeout: 5000, maxBuffer: 128 * 1024 })
+          report('passed', output.stdout, output.stderr)
+          return output
         } catch (error) {
           const failure = error as ExecFileException
-          throw new Error(`Windows test port inventory failed: netsh.exe ${args.join(' ')} (code=${failure.code ?? 'null'}, signal=${failure.signal ?? 'null'}, killed=${failure.killed ?? 'unknown'}, elapsedMs=${Math.round(performance.now() - started)}, timeoutMs=5000)\n${failure.message}`, { cause: error })
+          const elapsedMs = report('failed', failure.stdout, failure.stderr, failure)
+          throw new Error(`Windows test port inventory failed: netsh.exe ${args.join(' ')} (code=${failure.code ?? 'null'}, signal=${failure.signal ?? 'null'}, killed=${failure.killed ?? 'unknown'}, elapsedMs=${elapsedMs}, timeoutMs=5000)\n${failure.message}`, { cause: error })
         }
       }
       // Overlapping netsh launches add per-command overhead; keep each read's own 5s budget.

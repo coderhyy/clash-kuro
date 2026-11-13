@@ -1,0 +1,16 @@
+
+ RUN  v5.0.5 /Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop
+
+native-admission-evidence {"mode":"fresh","applications":1,"authorizations":2,"decodedBaselineRoutes":4,"dnsAdds":1,"dnsJournalAbsent":true,"dnsRemovals":1,"finalizing":false,"opens":1,"ownerAbsent":true,"recoveries":2,"recoverRefusals":0,"routeAdds":4,"routeRemovals":0,"starts":1,"status":{"availability":"ready","state":"off"},"workAbsent":true}
+native-admission-evidence {"mode":"residue","applications":1,"authorizations":2,"decodedBaselineRoutes":0,"dnsAdds":2,"dnsJournalAbsent":true,"dnsRemovals":2,"finalizing":false,"opens":1,"ownerAbsent":true,"recoveries":2,"recoverRefusals":0,"routeAdds":4,"routeRemovals":0,"starts":1,"status":{"availability":"ready","state":"off"},"workAbsent":true}
+native-admission-evidence {"mode":"recovery-failed","applications":0,"authorizations":1,"decodedBaselineRoutes":0,"dnsAdds":1,"dnsJournalAbsent":false,"dnsRemovals":1,"finalizing":false,"opens":0,"ownerAbsent":true,"recoveries":1,"recoverRefusals":1,"routeAdds":0,"routeRemovals":0,"starts":0,"status":{"availability":"blocked","error":"DNS: remove failed","state":"unknown"},"workAbsent":true,"rejection":"DNS: remove failed","recoveryRejection":"DNS: remove failed"}
+native-admission-evidence {"mode":"auth-only","applications":0,"authorizations":0,"decodedBaselineRoutes":0,"dnsAdds":0,"dnsJournalAbsent":true,"dnsRemovals":0,"finalizing":false,"opens":0,"ownerAbsent":true,"recoveries":0,"recoverRefusals":0,"routeAdds":0,"routeRemovals":0,"starts":0,"status":{"availability":"blocked","error":"authenticated recovery is required before a new TUN session","state":"off"},"workAbsent":true,"rejection":"authenticated recovery is required before a new TUN session; Recovery failed: installed manifest does not explicitly permit finite TUN sessions","recoveryRejection":"installed manifest does not explicitly permit finite TUN sessions"}
+native-admission-evidence {"mode":"identity","applications":0,"authorizations":1,"decodedBaselineRoutes":0,"dnsAdds":0,"dnsJournalAbsent":true,"dnsRemovals":0,"finalizing":false,"opens":1,"ownerAbsent":true,"recoveries":2,"recoverRefusals":0,"routeAdds":0,"routeRemovals":0,"starts":0,"status":{"availability":"ready","state":"off"},"workAbsent":true,"rejection":"client hardening is insufficient"}
+native-admission-evidence {"mode":"invalid-config","applications":0,"authorizations":1,"decodedBaselineRoutes":0,"dnsAdds":0,"dnsJournalAbsent":true,"dnsRemovals":0,"finalizing":false,"opens":1,"ownerAbsent":true,"recoveries":2,"recoverRefusals":0,"routeAdds":0,"routeRemovals":0,"starts":0,"status":{"availability":"ready","state":"off"},"workAbsent":true,"rejection":"unsupported TUN session envelope"}
+native-admission-evidence {"mode":"finalizing","applications":1,"authorizations":2,"decodedBaselineRoutes":0,"dnsAdds":1,"dnsJournalAbsent":true,"dnsRemovals":1,"finalizing":true,"opens":1,"ownerAbsent":true,"recoveries":2,"recoverRefusals":0,"routeAdds":4,"routeRemovals":0,"starts":1,"status":{"availability":"ready","state":"off"},"workAbsent":true}
+
+ Test Files  1 passed (1)
+      Tests  7 passed | 4 skipped (11)
+   Start at  09:59:17
+   Duration  2.96s (tests 99%)
+

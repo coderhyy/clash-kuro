@@ -1,0 +1,79 @@
+{
+  "baseCommit": "49f7dd6e610e18b2a4c59c85b92f2c29045b95d4",
+  "patchSHA256": "0767f08aba1a871677b938eb0d802613d4c5d80446d0bddc4113e7b9642a6f4f",
+  "deltaFrom3086SHA256": "82c3c06848bb61f1afef05a6aa4a3eaf878ac698b3c66fca82000e10307f58db",
+  "previousPatchSHA256": "3086ae041ff033a0c16d6c0be24f1c23cbf2c8493e6c3800415347f74caf5179",
+  "files": {
+    "apps/desktop/native/mac/kuro-tun-helper.m": {
+      "baseSHA256": "cde6458fa587391bcfc53b7f1e6c2167f7c9f8f3632a548c40c8b41f793a4033",
+      "sourceSHA256": "420761a3417345f8a76007b359c4b4f3c364e094cdbc53170b7f8e86725c7585"
+    },
+    "apps/desktop/native/mac/tun-service.m": {
+      "baseSHA256": "12fca9e1ed603bec2a5a6ebbb2d75f8e5a4fa2d25b25937e08231929253cff6a",
+      "sourceSHA256": "32a67c6f04e21634420f549c116535dd2dd1e644f4cef8dfd8335ae64cfc69b4"
+    },
+    "apps/desktop/native/mac/tun-service.test.m": {
+      "baseSHA256": "e4624e9e7defa70533c31beccd59e055bf3f5b1916b5140f60b7d31c49e9a57a",
+      "sourceSHA256": "157a2a5427bf4c54527f6113c58fc55d51013b21700d00e7a8632e67bdf64e4c"
+    },
+    "apps/desktop/native/mac/kuro-tun-helper.test.m": {
+      "baseSHA256": "626430315cabe58f6cfbff8bd8b39446b24ea0fe53319ff50b068f569fb3d3c5",
+      "sourceSHA256": "1f562210a1f62f0dd38cfbf3c63cf2a764002804bf5d1568b480a9b5b7cdfa46"
+    },
+    "apps/desktop/native/mac/tun-admission.test.m": {
+      "baseSHA256": null,
+      "sourceSHA256": "10b42ebe0827e953e58643f1f99c417fea0fa0b568b72e7d327c9a637b47e799"
+    },
+    "apps/desktop/src/main/platform/macos-tun.ts": {
+      "baseSHA256": "652ac962a78eebde33afec9f74a680da563bbc05708021cd361318c28ad0b919",
+      "sourceSHA256": "207fed07dd0d5642d7fe514191f8e04cc5f21c2a16c42d9e18532ec1ec155cc6"
+    },
+    "apps/desktop/src/main/platform/macos-tun.test.ts": {
+      "baseSHA256": "a7a1de81ce67fab0312172ad2c1a7c9f4c901ec020cb3d9ab2205f02c8f2f059",
+      "sourceSHA256": "5dcdcef8b4547cc56c470018e767c9d3a560c80f78398a63e890f3ce0af85bc6"
+    },
+    "apps/desktop/src/main/candidate-startup.test.ts": {
+      "baseSHA256": "eef7153f61bc836698cdcbdb119651b1d2d518a1701bba711a85dc2de6f8316d",
+      "sourceSHA256": "42290b7b71a1009eb53d55f47a019360165333c9c91914701a7d457ec6a7fabf"
+    },
+    "packages/state/src/store.ts": {
+      "baseSHA256": "1ab7dc87e714e553d6e7bd981857cf39c46b0735e666ac025107bbd907124363",
+      "sourceSHA256": "086e4cabc70f83de267bd25ced1149f0d21be2d7300c2a0a5125445344326325"
+    }
+  },
+  "binarySHA256": "7ad5bcd3f33d260baf6035ee9157dd6959716e1a3e1a259f5f10315005e86a0a",
+  "evidenceSHA256": {
+    "full-chain-final.log": "0f9e8f48d8ab8590df732fdf5e79d327888962844513b821f1caa307726a8697",
+    "owned-busy-native-red.log": "43b986f87647e30eb993548fe167632aaab4690e8e3c939a3127b61b42969784",
+    "final-ts-full.log": "bc1fd14e5fbc6b32941017a24f1fad94cac6d9b8f540044ec2ad266bad2bcab1",
+    "final-desktop-typecheck.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "final-state-typecheck.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "final-native-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "final-native-service.log": "80bfb89e28b794440c87529158a510286119523551c2753f0ad80454e5cef6b0",
+    "admission-stage-evidence.json": "e4aea730fad38014d6d1d84e00399b1cf6bef7746e814e07cc8afb9d8455b8fe"
+  },
+  "verification": {
+    "explicitCIMatchedAdmission": "7 passed, 4 unrelated skipped; full-chain-final.log",
+    "unitRegression": "10 files, 230 passed, 7 admission tests env-absent skipped; explicit run above executes all seven",
+    "desktopTypecheck": "exit0",
+    "stateTypecheck": "exit0",
+    "nativeStrictCompile": "exit0",
+    "nativeService": "exit0; 27 existing service cases +4 fresh-install cases and nested suites",
+    "deterministicRED": "owned-busy-native-red.log: original unconditional recover fails while worker is deliberately held after stop ACK"
+  },
+  "integrationNotes": [
+    "Parent already integrated original3086: use delta-from-3086.patch as hunk reference, not whole-file replacement.",
+    "Keep parent-held replay/checkpoint/session changes in shared native files.",
+    "kuro-tun-helper.test.m changes only test import/mode routing; preserve parent alarm80 rather than baseline40.",
+    "Parent build-macos-helper.mjs invokes exact authenticated native admission test name with KURO_ADMISSION_FIXTURE=temp native test binary.",
+    "readinessHosts matches production KuroProductionRuntimeFields()[hosts]."
+  ],
+  "limits": [
+    "Ordinary UID signed native relay, not Electron or installed root identity acceptance.",
+    "Test AdmissionFrame dispatch routes V1 through actual authorization/activation+service recovery and V2 through actual serveOpenFrame; it is not the production ServicePeer listener.",
+    "Core fixture is inert executable serving harmless private HTTP; route/DNS/kernel-interface backends are isolated fakes. No real Core/-t, root job, installation or system settings changes.",
+    "Production desktop platform ordinary-stop and four-protocol SystemProxy-off gates execute with read-only fake networksetup output.",
+    "Actual Profile source/buildTunConfig, schema, private Unix transport and sequenced V2 open/stop plus independent status are exercised; short chain does not claim heartbeat.",
+    "confirmStopped uses existing fixture exact completed-held evidence validator, not real installation stopped.json persistence; no uninstall/upgrade acceptance claimed."
+  ]
+}

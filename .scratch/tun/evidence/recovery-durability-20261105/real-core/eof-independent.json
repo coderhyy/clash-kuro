@@ -1,0 +1,22 @@
+{
+  "stage": "eof",
+  "processChecks": [
+    {
+      "pid": 83040,
+      "proc_pidpath": 0,
+      "errno": 3
+    },
+    {
+      "pid": 83039,
+      "proc_pidpath": 0,
+      "errno": 3
+    }
+  ],
+  "processGroupMembers": [],
+  "runtimeBaseAbsent": true,
+  "diagnosticsDirectory": "/private/tmp/kuro-core-evidence-DZ8nBJ",
+  "diagnosticsProtected": true,
+  "diagnosticsComplete": true,
+  "cacheOriginPreserved": true,
+  "passed": true
+}

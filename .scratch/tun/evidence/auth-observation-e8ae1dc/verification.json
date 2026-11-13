@@ -1,0 +1,12 @@
+{
+  "expandedAppPin": true,
+  "expandedInventory": true,
+  "sidecarHelper": true,
+  "authEndpoint": "/Library/PrivilegedHelperTools/dev.kuro.tun-run/auth.sock",
+  "activationAllowed": false,
+  "fixedBundles": 9,
+  "bomRootOwnedEntries": 1255,
+  "disabledPlist": true,
+  "systemInstalled": false,
+  "actualInstalledAuthExecuted": false
+}

@@ -1,0 +1,44 @@
+{
+  "format": 1,
+  "reviewDirectory": "/private/tmp/kuro-lifecycle-core-review-69728e6",
+  "sourceCommit": "69728e6abeb27f45f1bbea5b47b5e638d5f0ae9e",
+  "approvalSHA256": "3b29916ebe575c4679159b8241e89974e37779fd27aba330b62f8a9e8852902d",
+  "artifactSHA256": "eec5d7c6866a2e1eaa71ae44982bf23633d0613d630ab4fd1e5573b1c38b9c98",
+  "checks": {
+    "SHA256SUMS": 13,
+    "inventoryPayloads": 12,
+    "exactFilesNoExtra": true,
+    "sourceBlobs": 27,
+    "sourceHeadAndScopeClean": true,
+    "packagedDriverOfflineReview": true,
+    "oldFrozenDriverOfflineReview": true,
+    "cleanupExactGeneratedBytes": true,
+    "twoDistinctEpochPlists": true,
+    "utilityVerifiedSourceExecutionNoPyc": true
+  },
+  "oldArchiveDependencies": {
+    "/private/tmp/kuro-lifecycle-core-review-85834ab/core-driver.py": "88e2c6b830b51c48498c6c44d32a2a17eeb5700b006854b2b5d4ac9b4836668f",
+    "/private/tmp/kuro-lifecycle-core-review-85834ab/experiment-a.py": "4b1c05025816da23ffe702eaaaa7598c12d4663c0c8836c608f059479ee64953",
+    "/private/tmp/kuro-root858-cleanup-candidate/cleanup-root858.py": "768d0938c0d0e321f8152c0328c8a629d0e30379ad57aa3052f1094ccfe482dc",
+    "/private/tmp/kuro-root858-normal-retire-candidate/retire-normal-root858.py": "29c5fc0ae37902f77a89ed1f03ff2fcaeabe4dbad541d096d24ab6432a61fd27"
+  },
+  "oldApprovalSHA256": "c20eb39a0032b73a4b6b5b229377642f2504aac30b77fe9ae592b3bb5ed29ec1",
+  "normalEpoch": "BF3DEB81-569D-41CF-8408-7666C64BD3BB",
+  "killEpoch": "76713027-6BD9-484C-B4AA-C1DE01BCB546",
+  "coreSHA256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+  "helperSHA256": "3e3a2451cc553280bb91b4bb34a05eb7c79df9d90aa0768e04aabd7642054ea0",
+  "execution": {
+    "Core": false,
+    "nativeBinaryOrSelfTest": false,
+    "launchctlOrKernelObservation": false,
+    "installOrNetwork": false,
+    "sharedSourceMutation": false
+  },
+  "limitations": [
+    "Offline source/inventory/provenance validation only; no new root normal/kill acceptance.",
+    "archive-old needs pinned old858 dependencies at recorded temporary paths and exact live baseline checks at authorized execution time.",
+    "Partial install or unknown objects are preserved; no automatic rollback.",
+    "retire/recover only boot out exact stopped job and preserve root files; successful cleanup removes only four exact installation files and preserves evidence/work/cache/directories.",
+    "No production writer-exit, origin-only cache recovery, TUN/network, used uninstall or upgrade acceptance is established by this artifact."
+  ]
+}

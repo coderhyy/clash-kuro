@@ -1,0 +1,41 @@
+{
+  "sourceCommit": "11902bc18b6e552385829b3070591da4078fae0d",
+  "sourceFiles": {
+    "apps/desktop/native/mac/kuro-tun-helper.m": "09a75020a7b13bcd1a04aee96b3b572b54579f67bde17791f564b45fab9edac6",
+    "apps/desktop/native/mac/tun-auth.m": "a48acef810e70fb9d831ff5b4784a99d410bff2cfa03c117fa1a9fd69b1787f8",
+    "apps/desktop/native/mac/tun-client.m": "580b35e9a467b7e99146f6f361e20a9d70a45d51f9dd08ebf014a8e3cdb587f3",
+    "apps/desktop/native/mac/tun-config.m": "5c9e456e985ce20279629d977c9b1a9f12fa87dede13e7b322b0e90931ed7bb1",
+    "apps/desktop/native/mac/tun-core-control.m": "6efa42c86a68266b726cecd1c28d1f8c1c8e2bc6008cec6e662fe50991ee41f8",
+    "apps/desktop/native/mac/tun-install.m": "3171958e1473e36b425d13486ad93a38fa1383a8cecef09215ea3ed5381306ea",
+    "apps/desktop/native/mac/tun-interface.m": "e2db8d3d0ab9eaf5c10e1e871171d76fecd3d693ab0fb067fd66871ac1a89eeb",
+    "apps/desktop/native/mac/tun-network.m": "59afd8ae680798717f4045cc3a3b6cb67010147fd4639529492dfbb8c3b38eed",
+    "apps/desktop/native/mac/tun-output.m": "9da5e9b329546699a56e3740ee3e569172b24276b45011602bdb11abae66716d",
+    "apps/desktop/native/mac/tun-peer.m": "8057bb853a8cf3f9a1ce8b12eedc029f1dfa44c41fe909c51018245e4628b022",
+    "apps/desktop/native/mac/tun-production-network.m": "8958ffe87d4306dc5f62b7d20706bb2f5d1796517b5ad63cc58802c7c21b23a7",
+    "apps/desktop/native/mac/tun-routes.m": "8751a49b894364961bed091c5ad439a5ad77460fcd9e0ccea05948d20a50b9f4",
+    "apps/desktop/native/mac/tun-service.m": "ee6f4fa6bffd6ce8d33bd78f4b528361a5184cf177c70ea5bb202b0112fa0540",
+    "apps/desktop/native/mac/tun-session.m": "3e20ad97dbb899a20672ad899b69e66202b8a67fc2c811d5fab4b122fd04a2ab",
+    "apps/desktop/scripts/build-macos-helper.mjs": "6f3ba875024b6bb071f7f22c71d1528c806cf422ffe0d6f444eec2cf87fe5664",
+    "apps/desktop/scripts/macos-client-pin.mjs": "3a397f8a8dd855eddcfbdd4f6f2ee885a687727d1c0dfa91a91d2867698959c6",
+    "apps/desktop/scripts/package-macos-helper.mjs": "f2122f02b0d19be49fc53b9717154a8e4b424fa665a08ffca1187534b25b5f41",
+    "apps/desktop/src/main/index.ts": "7a8716ad5ce179a9829683618f54173d0ed5bcf2f151c4a5896d02fa872b9841",
+    "apps/desktop/src/main/runtime-verification.ts": "32ef9976b43437741fddfe300fe267f738c4ebe3475a68e6ff2cce41909e1673"
+  },
+  "embeddedNativeFields": [
+    "phase=%@; owned-interface=%s/%u; observed=%@",
+    "[route evidence unavailable or oversized]",
+    "SKIP_SYSTEM_IPV6_CHECK=true",
+    "installation",
+    "freshReceiptSHA256",
+    "runtimeSHA256",
+    "cacheOrigin",
+    "cacheCheckpoint",
+    "validated-restart-v1",
+    "recorded work directory was replaced or reappeared; preserve all objects",
+    "origin-only cache requires an explicit installed writer validator; preserve work",
+    "supervision installation manifest/receipt/helper/Core binding failed",
+    "old writer is not bound to this exact protected fixed-Core installation/runtime/cache origin",
+    "/Library/Application Support/Clash Kuro/TunDiagnostics"
+  ],
+  "doesNotProveReproducibleBuild": true
+}

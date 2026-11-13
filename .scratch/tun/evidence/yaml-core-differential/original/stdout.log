@@ -1,0 +1,2 @@
+time="2026-11-05T10:40:59.983479000+08:00" level=error msg="yaml: found unknown escape character"
+configuration file /private/tmp/kuro-yaml-differential-w0k8gotn/original/config.json test failed

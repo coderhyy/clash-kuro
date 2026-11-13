@@ -1,0 +1,168 @@
+{
+  "source": "95a88084518f5162bb4af434b9429ab5b18e98e5",
+  "packageSHA256": "83e24b7af760ac58fb276d22bfcad4183088bb4010e0f175661ccc7147f41763",
+  "window": "/private/tmp/kuro-95a8808-window-t_dp13rl",
+  "diagnostics": [
+    {
+      "path": "/Library/Application Support/Clash Kuro/TunDiagnostics/50E366FB-F0DC-4C14-8041-618516FEADB7/stderr.log",
+      "size": 0,
+      "modified": 1793942704.524464,
+      "text": ""
+    },
+    {
+      "path": "/Library/Application Support/Clash Kuro/TunDiagnostics/50E366FB-F0DC-4C14-8041-618516FEADB7/diagnostics.json",
+      "size": 548,
+      "modified": 1793942705.121732,
+      "text": "{\"capture\":{\"stderr\":{\"bytesRead\":0,\"eof\":true,\"readErrno\":0,\"retainedBytes\":0,\"truncated\":0},\"stdout\":{\"bytesRead\":1173,\"eof\":true,\"readErrno\":0,\"retainedBytes\":1173,\"truncated\":0}},\"captureComplete\":true,\"diagnosticError\":\"\",\"error\":\"route acknowledgement absent or rejected; ownership must be reconciled\",\"format\":1,\"networkRecovery\":{\"attempted\":true,\"error\":\"\",\"restored\":true},\"stage\":\"process and network readback\",\"stopContext\":{\"reason\":\"\",\"unexpected\":false},\"termination\":{\"exitCode\":0,\"observed\":true,\"request\":\"SIGTERM\",\"signal\":null}}"
+    },
+    {
+      "path": "/Library/Application Support/Clash Kuro/TunDiagnostics/50E366FB-F0DC-4C14-8041-618516FEADB7/stdout.log",
+      "size": 1173,
+      "modified": 1793942705.1068573,
+      "text": "time=\"2026-11-06T13:25:05.043857000+08:00\" level=info msg=\"Start initial configuration in progress\"\ntime=\"2026-11-06T13:25:05.043949000+08:00\" level=info msg=\"Geodata Loader mode: memconservative\"\ntime=\"2026-11-06T13:25:05.043954000+08:00\" level=info msg=\"Geosite Matcher implementation: succinct\"\ntime=\"2026-11-06T13:25:05.044015000+08:00\" level=info msg=\"Initial configuration complete, total time: 0ms\"\ntime=\"2026-11-06T13:25:05.045126000+08:00\" level=info msg=\"Sniffer is closed\"\ntime=\"2026-11-06T13:25:05.045579000+08:00\" level=warning msg=\"[TUN] default interface changed by monitor, => en0\"\ntime=\"2026-11-06T13:25:05.046546000+08:00\" level=info msg=\"[TUN] Tun adapter listening at: utun6([198.18.0.1/30],[fdfe:dcba:9876::1/126]), mtu: 1500, auto route: false, auto redir: false, ip stack: Mips, dns mode: disabled\"\ntime=\"2026-11-06T13:25:05.046850000+08:00\" level=info msg=\"Start initial compatible provider default\"\ntime=\"2026-11-06T13:25:05.047865000+08:00\" level=info msg=\"RESTful API unix listening at: /Library/Application Support/Clash Kuro/Privileged/session-work/core.sock\"\ntime=\"2026-11-06T13:25:05.099534000+08:00\" level=warning msg=\"Mihomo shutting down\"\n"
+    },
+    {
+      "path": "/Library/Application Support/Clash Kuro/TunDiagnostics/50E366FB-F0DC-4C14-8041-618516FEADB7/launch.json",
+      "size": 1010,
+      "modified": 1793942704.5241733,
+      "text": "{\"argv\":[\"\\/Library\\/PrivilegedHelperTools\\/dev.kuro.tun\\/versions\\/v1.19.33-0.1.0-arm64-8c4ef9253e5ef388-ccc6fcb23a3bcdf52cae444d6648b1caec001f0da5eb36dbcddc7d0e7e9607c7b\\/mihomo\",\"-d\",\"\\/Library\\/Application Support\\/Clash Kuro\\/Privileged\\/session-work\",\"-f\",\"\\/Library\\/Application Support\\/Clash Kuro\\/Privileged\\/session-work\\/config.json\"],\"configSHA256\":\"cacd97e67045ed1e1d2d832aae249560bbbe66e334dd6a33ce9ab6c445c6baf0\",\"coreSHA256\":\"f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9\",\"environment\":{\"CLASH_CONFIG_FILE\":false,\"CLASH_HOME_DIR\":false,\"CLASH_OVERRIDE_CONFIG\":false,\"CLASH_OVERRIDE_RULES\":false,\"DYLD_FRAMEWORK_PATH\":false,\"DYLD_INSERT_LIBRARIES\":false,\"DYLD_LIBRARY_PATH\":false,\"HOME\":false,\"LANG\":true,\"PATH\":true,\"SKIP_SYSTEM_IPV6_CHECK\":true},\"format\":1,\"redactedConfigSHA256\":\"0442e31c0e4c7025c242dae0714e5887612dcc6c35b791d861254e83bb77fc3b\",\"stdio\":\"bounded-redacted-capture\",\"workingDirectory\":\"\\/Library\\/Application Support\\/Clash Kuro\\/Privileged\\/session-work\"}"
+    },
+    {
+      "path": "/Library/Application Support/Clash Kuro/TunDiagnostics/50E366FB-F0DC-4C14-8041-618516FEADB7/config.redacted.json",
+      "size": 1207,
+      "modified": 1793942704.5237026,
+      "text": "{\"allow-lan\":false,\"bind-address\":\"127.0.0.1\",\"dns\":{\"default-nameserver\":[\"192.168.0.1\"],\"direct-nameserver\":[],\"direct-nameserver-follow-policy\":false,\"enable\":true,\"enhanced-mode\":\"redir-host\",\"fake-ip-range\":\"198.18.0.1/16\",\"fake-ip-range6\":\"\",\"fallback\":[],\"fallback-filter\":{\"geoip\":false},\"ipv6\":true,\"listen\":\"\",\"nameserver\":[\"192.168.0.1\"],\"nameserver-policy\":{},\"proxy-server-nameserver\":[\"192.168.0.1\"],\"proxy-server-nameserver-policy\":{},\"respect-rules\":false,\"use-hosts\":true,\"use-system-hosts\":true},\"external-controller-unix\":\"/Library/Application Support/Clash Kuro/Privileged/session-work/core.sock\",\"find-process-mode\":\"off\",\"geo-auto-update\":false,\"hosts\":{\"kuro-tun-ready.invalid\":[\"198.18.0.1\",\"fdfe:dcba:9876::1\"]},\"interface-name\":\"en0\",\"ipv6\":true,\"log-level\":\"info\",\"mixed-port\":0,\"mode\":\"rule\",\"port\":0,\"profile\":{\"store-fake-ip\":false,\"store-selected\":false},\"proxies\":[],\"proxy-groups\":[],\"redir-port\":0,\"rules\":[\"MATCH,DIRECT\"],\"secret\":\"[REDACTED]\",\"socks-port\":0,\"tproxy-port\":0,\"tun\":{\"auto-detect-interface\":true,\"auto-route\":false,\"dns-hijack\":[],\"dns-mode\":\"disabled\",\"enable\":true,\"inet6-address\":[\"fdfe:dcba:9876::1/126\"],\"mtu\":1500,\"stack\":\"mips\",\"strict-route\":false}}"
+    }
+  ],
+  "actualAppStatus": {
+    "ok": true,
+    "status": {
+      "availability": "ready",
+      "state": "off"
+    },
+    "version": 1
+  },
+  "stoppedProof": {
+    "coreSHA256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+    "format": 1,
+    "helperSHA256": "7e774570a0b8fab2a515327115f93e70df4738dd2d696dbad255d8a968bc0bda",
+    "installedSHA256": "2f1e292c8133b24ddf03d0432523839a1859915d1bdde43e74e745d2c564e740",
+    "inventorySHA256": "cc6fcb23a3bcdf52cae444d6648b1caec001f0da5eb36dbcddc7d0e7e9607c7b",
+    "manifestSHA256": "265a6593b3f0a2b7f0f90f527a139c7c719df21971a3dced0ffbe68df47c28c4",
+    "network": {
+      "dnsJournalSHA256": null,
+      "dnsOff": true,
+      "format": 1,
+      "routeJournalSHA256": "c056a46206366912b147f95a0d5fd591339e6fc5934d3ce8f948c42aa5b71a04",
+      "routesOff": true,
+      "session": "821D204C-075B-4712-A6DF-142637B5E874"
+    },
+    "process": {
+      "childReaped": true,
+      "cleanupComplete": true,
+      "format": 1,
+      "owner": {
+        "executableSHA256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+        "format": 2,
+        "launch": {
+          "configSHA256": "5f8a2ecd15ede8ba8c51e0f4269770520db1a8e2e1c1ddc4490f2d0d974a3294",
+          "coreSHA256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+          "runtimeSHA256": "cacd97e67045ed1e1d2d832aae249560bbbe66e334dd6a33ce9ab6c445c6baf0",
+          "template": "macos-dual-stack-v1"
+        },
+        "parent": 2960,
+        "phase": "prepared",
+        "pid": 3267,
+        "processGroup": 2960,
+        "session": "821D204C-075B-4712-A6DF-142637B5E874",
+        "startMicros": 551192,
+        "startSeconds": 1793942704,
+        "supervision": {
+          "helperSHA256": "7e774570a0b8fab2a515327115f93e70df4738dd2d696dbad255d8a968bc0bda",
+          "installation": {
+            "coreSHA256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+            "freshReceiptSHA256": "edbc126b140d6e110688fd7d6e5ceb58bc8094040b69762e0b01681318e7d29a",
+            "manifestSHA256": "265a6593b3f0a2b7f0f90f527a139c7c719df21971a3dced0ffbe68df47c28c4",
+            "release": "v1.19.33-0.1.0-arm64-8c4ef9253e5ef388-ccc6fcb23a3bcdf52cae444d6648b1caec001f0da5eb36dbcddc7d0e7e9607c7b"
+          },
+          "policy": "fixed-mihomo-launchd-v1",
+          "startMicros": 225806,
+          "startSeconds": 1793942533
+        },
+        "work": {
+          "cache": {
+            "changedNanos": 524801988,
+            "changedSeconds": 1793942704,
+            "device": 16777230,
+            "inode": 174226261,
+            "mode": 384,
+            "modifiedNanos": 524789405,
+            "modifiedSeconds": 1793942704,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0
+          },
+          "cacheOrigin": {
+            "device": 16777230,
+            "inode": 174226261,
+            "mode": 384,
+            "owner": 0
+          },
+          "configSHA256": "cacd97e67045ed1e1d2d832aae249560bbbe66e334dd6a33ce9ab6c445c6baf0",
+          "directory": {
+            "device": 16777230,
+            "inode": 174226259,
+            "mode": 448,
+            "owner": 0
+          },
+          "socket": {
+            "device": 16777230,
+            "inode": 174226264
+          }
+        }
+      },
+      "ownerSHA256": "abb87777debe375e3d58af861d04b17eb29347fe194ab3b03086e40f77a4e999",
+      "session": "821D204C-075B-4712-A6DF-142637B5E874"
+    },
+    "release": "v1.19.33-0.1.0-arm64-8c4ef9253e5ef388-ccc6fcb23a3bcdf52cae444d6648b1caec001f0da5eb36dbcddc7d0e7e9607c7b",
+    "session": "821D204C-075B-4712-A6DF-142637B5E874"
+  },
+  "stableBaselineMatches": true,
+  "trafficProbeExecuted": false,
+  "cleanup-dns-comparison": {
+    "matchesBaseline": true
+  },
+  "cleanup-dns-store-comparison": {
+    "matchesBaseline": true
+  },
+  "cleanup-proxy-comparison": {
+    "matchesBaseline": true
+  },
+  "paths-after": {
+    "/Library/Application Support/Clash Kuro/Privileged": false,
+    "/Library/Application Support/Clash Kuro/Client/Clash Kuro.app": false,
+    "/Library/PrivilegedHelperTools/dev.kuro.tun": false,
+    "/Library/PrivilegedHelperTools/dev.kuro.tun-uninstall": false,
+    "/Library/PrivilegedHelperTools/dev.kuro.tun-fresh-install.json": false,
+    "/Library/PrivilegedHelperTools/dev.kuro.tun-uninstall.json": false,
+    "/Library/LaunchDaemons/dev.kuro.tun.plist": false,
+    "/Library/Application Support/Clash Kuro/Run": false,
+    "/Library/PrivilegedHelperTools/dev.kuro.tun-run": false,
+    "/private/var/run/dev.kuro.tun": false,
+    "/Library/PrivilegedHelperTools/dev.kuro.tun-client-install.json": false
+  },
+  "final-job": {
+    "exit": 113,
+    "stdout": "",
+    "stderr": "Bad request.\nCould not find service \"dev.kuro.tun\" in domain for system\n"
+  },
+  "receipt-after": {
+    "exit": 1,
+    "stdout": "",
+    "stderr": "No receipt for 'dev.kuro.tun.disabled' found at '/'.\n"
+  },
+  "uninstall-result": {
+    "exit": 0,
+    "stdout": "Helper/App uninstall complete; diagnostic evidence, if any, is retained at /Library/Application Support/Clash Kuro/TunDiagnostics and was not deleted.\n",
+    "stderr": ""
+  }
+}

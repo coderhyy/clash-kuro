@@ -1,0 +1,15 @@
+{
+  "timeUTC": "2026-11-04T08:54:47.522710+00:00",
+  "targetsExist": {
+    "/Library/PrivilegedHelperTools/dev.kuro.tun.lifecycle-a": false,
+    "/Library/LaunchDaemons/dev.kuro.tun.lifecycle-a.plist": false,
+    "/Library/Application Support/Clash Kuro/TunLifecycleExperimentA": false
+  },
+  "launchctl": {
+    "returncode": 113,
+    "stdout": "",
+    "stderr": "Bad request.\nCould not find service \"dev.kuro.tun.lifecycle-a\" in domain for system\n"
+  },
+  "sharedParentPreserved": true,
+  "reviewPreserved": true
+}

@@ -2,7 +2,7 @@ import type { StreamHandle } from '@kuro/api'
 
 export interface StreamHub<T> {
   subscribe(listener: (value: T) => void): () => void
-  /** Call when Core may have (re)started; opens the stream if anyone is listening. */
+  /** Recheck Core ownership: pause while unavailable, reconnect existing listeners when usable. */
   wake(): void
   close(): void
 }
@@ -65,7 +65,7 @@ export function createStreamHub<T>(options: {
         if (!listeners.size) disconnect()
       }
     },
-    wake: connect,
+    wake() { if (options.shouldConnect()) connect(); else disconnect() },
     close() {
       listeners.clear()
       disconnect()

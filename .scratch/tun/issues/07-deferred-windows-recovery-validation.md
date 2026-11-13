@@ -2,7 +2,7 @@
 
 Status: needs-info
 Type: validation
-Blocked by: 主会话确认精确 Windows 产物与原 issue 08 整合状态；维护者选择本轮实验范围和系统状态时段
+Blocked by: 精确 Windows 产物及用户选择实验范围；真实系统操作等用户明确说“开始”（原 issue 08 已合入）
 Owner: Windows 验收 agent 准备；主会话协调用户执行
 
 ## 负责范围
@@ -21,3 +21,5 @@ Owner: Windows 验收 agent 准备；主会话协调用户执行
 ## Comments
 
 2026-11-03：`62505cc` 明确这些是延后至 TUN 的未验证风险，未授予新实验或改变 issue 08 合并限制。本票尚未执行真实实验。
+
+2026-11-04 更新：本票接续旧 Windows System Proxy 恢复，不属于 macOS 首版的前置条件；ADR-0015 的传统 macOS helper 路线不改变此 Windows 范围；Windows TUN 暂不实施。资料/隔离 fake 准备可并行，真实代理/登录项/路由/会话操作仍由主会话串行安排，须等用户说“开始”。

@@ -1,0 +1,17 @@
+{
+  "sourceCommit": "10fc6a8e5a598bb812da70a6a691714d42ec51d8",
+  "checks": {
+    "tun-routes.m": {
+      "sha256": "013fdcef254ac5c2b4f407af70b88d2247965b1d56d99229cfe2f43ffc8e368b",
+      "matchesReviewedCandidate": "kuro-route-observed-flags-candidate"
+    },
+    "tun-production-network.m": {
+      "sha256": "837f537e638555af4446b410c089744b0d3d5c443e6b5b96b4fea99bbb2ec6d6",
+      "matchesReviewedCandidate": "kuro-utun-multicast-candidate"
+    }
+  },
+  "requestFlagsUnchanged": true,
+  "expectedReadback": "exact PRCLONING for nonHOST, only DONE/IFREF ignored",
+  "multicast": "only exact held interface three forms with fresh unique link-local gateway check, no added delete authority",
+  "scope": "static source/build provenance, not reproducible build or actual kernel write proof"
+}

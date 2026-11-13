@@ -1,0 +1,36 @@
+{
+  "format": 1,
+  "mode": "finite-session",
+  "sourceCommit": "8a989ec9d40bc330d33f232ab8672fa0026bfc2b",
+  "sourceClean": true,
+  "fromSource": true,
+  "client": {
+    "format": 2,
+    "cdhash": "6f69d2bca33b010dd052ac258de4a9dae9fba5c8",
+    "executableSHA256": "80fef3f5470fc7a756eced64760555c9fcce1983988348ba9dafc314c79fd60f",
+    "infoSHA256": "4c14efc842289d0f859b80c0d34999d6af648c05b896d3db620464fa85af2667",
+    "asarSHA256": "fe4d56609a5eabf622a19133f16de5dfa18b56992b38ea5be72a9ea674f90be9"
+  },
+  "commands": [
+    [
+      "/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/node_modules/.bin/electron-vite",
+      [
+        "build"
+      ]
+    ],
+    [
+      "/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/node_modules/.bin/electron-builder",
+      [
+        "--mac",
+        "--dir",
+        "--arm64",
+        "-c.directories.output=/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/electron-finite-session-candidate-8a989ec9d40b",
+        "-c.extraMetadata.kuroSourceCommit=8a989ec9d40bc330d33f232ab8672fa0026bfc2b",
+        "-c.extraMetadata.kuroCandidateMode=finite-session",
+        "-c.extraMetadata.kuroAuthObservationOnly=false"
+      ]
+    ]
+  ],
+  "realTunAccepted": false,
+  "limitation": "Build and offline identity only; App/Core not launched. Sealed finite-session startup uses fixed appData/Clash Kuro TUN Candidate private data, retained across candidates and separate from normal product profiles. No arbitrary user-data-dir argument is enabled."
+}

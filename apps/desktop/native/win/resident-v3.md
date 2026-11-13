@@ -81,6 +81,9 @@ Core stop/confirmation offsets, the clear result, actual connection flags in
 null. `ok` additionally requires durable reset and confirmed Core exit. A blocked
 log/stdout path cannot extend the supervisor's original exit bound, but may prevent
 the final evidence record from being persisted.
+Failed shutdown reports go to stdout before the optional log; successful reports
+retain log-before-stdout ordering. Neither order guarantees log durability, and
+the reporter is marked complete only after both calls return.
 
 ## No RunOnce
 

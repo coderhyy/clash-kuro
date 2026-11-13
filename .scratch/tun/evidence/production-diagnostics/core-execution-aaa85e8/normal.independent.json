@@ -1,0 +1,21 @@
+{
+  "stage": "normal",
+  "processChecks": [
+    {
+      "pid": 50289,
+      "proc_pidpath": 0,
+      "errno": 3
+    },
+    {
+      "pid": 50286,
+      "proc_pidpath": 0,
+      "errno": 3
+    }
+  ],
+  "processGroupMembers": [],
+  "runtimeBaseAbsent": true,
+  "diagnosticsProtected": true,
+  "diagnosticsComplete": true,
+  "cacheOriginPreserved": true,
+  "passed": true
+}

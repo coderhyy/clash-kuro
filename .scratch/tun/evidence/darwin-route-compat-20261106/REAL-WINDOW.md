@@ -1,0 +1,11 @@
+# 10fc6a8 actual normal-window attempt
+
+User confirmed Clash Verge exit. Fresh root read-only snapshot after exit showed App/verge-mihomo absent, Global/scoped DNS192.168.0.1, Wi-Fi manual DNS Setup key absent, proxy unchanged and production stable routes equal original11902 baseline. Prior114 DNS snapshot retained separately, never silently accepted as baseline. Approved Profile bytes unchanged.
+
+Exact10fc package fresh installation, installed App seal/pin/inventory/source, helper/Core bytes, finite service and actual App authenticated ready/off passed. One UI TUN start reached fixed dual-stack utun6 and passed prior multicast check. Refusal: `fixed internal IPv4 DNS static-host probe was not confirmed`. Stage `process and network readback`; Core logged dual addresses at12:41:33.623 and shutdown12:41:33.642. No public test flow was sent; no on or normal on→off success claimed.
+
+Diagnostic `/Library/Application Support/Clash Kuro/TunDiagnostics/DCBA8F65-8B7D-4E0B-B1A0-2A652160E5CE`: SIGTERM request, observed exitCode0, captureComplete true, networkRecovery.restored true. State contained Inbox/client/installed/stopped only, no owner/work/network journals. App quit normally, exact job bootout and protected uninstall exit0, job absent113. Proxy/DNS/DNS-store byte-equal post-exit baseline; production preflight passed and stableBaselineMatches true. Exact receipt install-time1793939984 was verified and forgotten; receipt absent exit1, all fixed installation paths and App/helper/Core processes independently absent. Cleanup complete.
+
+Evidence `/private/tmp/kuro-10fc6a8-window-vtrjgsb5`; original changed baseline retained in before-verge-exit-preserved; after-verge-exit contains separately captured actual approved baseline. No third-party setting or Profile change.
+
+Follow-up: capture exact DNS syscall/reply rejection phase without weakening checks. Fixed template DNS mode disabled intentionally suppresses sing-tun OS DNS writes; fixed Core internally intercepts next-address port53 separately, so mode disabled is not established cause. About19ms startup-to-stop is inconsistent with consuming entire400ms poll deadline but does not establish which earlier check failed. Independent fixture startup timeout is unrelated/unresolved and retained separately.

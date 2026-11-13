@@ -1,0 +1,101 @@
+{
+  "baseCommit": "3728bc7e90c1f1ed8d0d7e6bfe7b5addd5809dc8",
+  "files": [
+    {
+      "path": "apps/desktop/native/mac/tun-session.m",
+      "baselineSHA256": "26024c108aec4c991fc146a88206203f8c4858149c89d11b864a321057d7811d",
+      "candidateSHA256": "df738412e8dc9a1949618df79d4f43642748ed0768137a1005f7232cec8b5016"
+    },
+    {
+      "path": "apps/desktop/native/mac/tun-session.test.m",
+      "baselineSHA256": "a05c1498c95ec1ed58ec3514b0b2f361c28344fb647f0fbf9b4649de17b99bfb",
+      "candidateSHA256": "ec106edb82f0c55296443a7255ddde1f505f624a28be46c70543060bd39c0080"
+    }
+  ],
+  "patchSHA256": "1329dfd0b003ea2b5b99eaf26845778e6a8900dd19ffbce467082b2998bbd5c7",
+  "verification": {
+    "checks": [
+      {
+        "name": "production-compile",
+        "command": [
+          "/usr/bin/clang",
+          "-arch",
+          "arm64",
+          "-fobjc-arc",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-O2",
+          "-framework",
+          "Foundation",
+          "-framework",
+          "Security",
+          "-framework",
+          "SystemConfiguration",
+          "-lbsm",
+          "/private/tmp/kuro-restart-cache-checkpoint-candidate/native/kuro-tun-helper.m",
+          "-o",
+          "/private/tmp/kuro-restart-cache-checkpoint-candidate/production-compile-only"
+        ],
+        "exit": 0,
+        "wallSeconds": 1.316
+      },
+      {
+        "name": "focused-compile",
+        "command": [
+          "/usr/bin/clang",
+          "-arch",
+          "arm64",
+          "-fobjc-arc",
+          "-Wall",
+          "-Wextra",
+          "-Werror",
+          "-O2",
+          "-framework",
+          "Foundation",
+          "-framework",
+          "Security",
+          "-framework",
+          "SystemConfiguration",
+          "-lbsm",
+          "-Wno-unused-function",
+          "/private/tmp/kuro-restart-cache-checkpoint-candidate/focused.m",
+          "-o",
+          "/private/tmp/kuro-restart-cache-checkpoint-candidate/focused"
+        ],
+        "exit": 0,
+        "wallSeconds": 2.463
+      },
+      {
+        "name": "focused-run",
+        "command": [
+          "/private/tmp/kuro-restart-cache-checkpoint-candidate/focused"
+        ],
+        "exit": 0,
+        "wallSeconds": 1.299
+      }
+    ],
+    "CoreExecuted": false,
+    "systemActions": false,
+    "scope": "strict compile plus ordinary-UID temporary files/injected libproc; no production validator claimed"
+  },
+  "verificationHashes": {
+    "verify.py": "d324e5320426dbf50a425f785f8887c318679f2ef8a7441936817ab0f959d996",
+    "focused.m": "ae0edc40d1d7d9f919f72f0178ad31e81f1c956983f6813ff16a6dfd724b3587",
+    "production-compile.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "production-compile.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "focused-compile.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "focused-compile.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "focused-run.stdout.log": "6de892470e5bccaf8792981f4cfc1fa7ec418d2c9fd0d554ce5d0f090dc412d2",
+    "focused-run.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "boundaries": [
+    "Only two session source/test files; shared tree untouched.",
+    "All installation-bearing recovery receipts require explicit internal writer validator on every stillAbsent, including cache absent/final-cache/owner-only; old nil entry is not authorized. Checkpoint marker retains this requirement across rename/fsync failure.",
+    "New installation provenance requires runtimeSHA256/work config binding and exact work.directory identity; admitted config hash is distinct.",
+    "Legacy held final-cache compatibility unchanged; checkpoint never records reap, never emits completedStopEvidence.",
+    "19 actual temporary-file chains use protected local approval validator and existing service compare-delete; real installed-model production validator is separate agent work.",
+    "No Core, -t, system network, launchctl, root install or running production helper.",
+    "Single combined full native verification remains with main after independent review."
+  ]
+}

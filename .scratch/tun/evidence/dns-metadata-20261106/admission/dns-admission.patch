@@ -1,0 +1,10 @@
+--- a/apps/desktop/native/mac/tun-admission.test.m
++++ b/apps/desktop/native/mac/tun-admission.test.m
+@@ -69,6 +69,7 @@
+   char temporary[]="/tmp/ka-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));NSString *base=@(canonical),*error=nil;
+   NSDictionary *installation=InstallationBindingFixtureAt(base,base,![mode isEqual:@"auth-only"]);NSString *state=At(base,State),*back=[base stringByAppendingPathComponent:@"b"],*front=[base stringByAppendingPathComponent:@"f"];
+   KuroFakeRouteStore *routes=[mode isEqual:@"fresh"]?[KuroAdmissionRouteStore new]:[KuroFakeRouteStore new];routes.directory=state;if(![mode isEqual:@"fresh"])routes.entries=[ProductionBaseline()mutableCopy];KuroFakeDNSStore *dns=[KuroFakeDNSStore new];dns.directory=state;
++  if([mode isEqual:@"fresh"])dns.records=[DarwinDNSMetadataFixture() mutableCopy];
+   NSDictionary *baselineDNS=[dns.records copy];
+   if([mode isEqual:@"residue"]||[mode isEqual:@"recovery-failed"]){KuroOwnedDNS *old=[[KuroOwnedDNS alloc]initWithDirectory:state owner:geteuid() backend:dns];CHECK([old installForSession:@"00112233-4455-6677-8899-AABBCCDDEEFF" error:&error]);dns.failRemove=[mode isEqual:@"recovery-failed"];}
+   __block KuroProductionNetwork *network=nil;__block KuroCoreInterface association={0};__block NSArray *interfaces=ProductionInterfaces(NO);__block KuroRouteOwnerState owner=KuroRouteOwnerLive;
