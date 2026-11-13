@@ -68,7 +68,7 @@ export async function buildMacosHelper(target, test = false) {
       })
       const admission = JSON.parse(await readFile(admissionReport, 'utf8')).testResults.flatMap(result => result.assertionResults)
         .filter(result => result.fullName.includes('authenticated native admission'))
-      if (admission.length !== 8 || admission.some(result => result.status !== 'passed')) throw new Error('All eight production admission chains must execute and pass')
+      if (admission.length !== 10 || admission.some(result => result.status !== 'passed')) throw new Error('All ten production admission chains must execute and pass')
       const outputTests = join(temporary, 'output-tests')
       execFileSync('/usr/bin/clang', [...flags, '-Wno-unused-function', join(source, 'tun-output.test.m'), '-o', outputTests], { stdio: 'inherit' })
       runNativeCheck('output-suite', outputTests, [], { stdio: 'inherit', timeout: 20_000 })

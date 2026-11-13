@@ -572,3 +572,244 @@ test('rejected recovery reason survives unchanged pending status but never overr
   current = off
   expect(await tun.inspect()).toEqual(off)
 })
+
+// Candidate timers bypass the store queue, but never authorize a global stop.
+test('candidate cancelled before start never opens or issues a global stop', async () => {
+  const controller = new AbortController()
+  controller.abort(new Error('collector exited before start'))
+  const request = vi.fn(async () => off), open = vi.fn()
+  const tun = createMacosTun({ endpointPresent: async () => true, request, open,
+    sessionDeadlineMs: 30000, sessionAbortSignal: controller.signal })
+  await expect(tun.start(config)).rejects.toThrow('collector exited before start')
+  expect(open).not.toHaveBeenCalled()
+  expect(request.mock.calls.flat()).toEqual(['status'])
+})
+
+test('candidate deadline aborts pending open without waiting for busy or the 15s transport budget', async () => {
+  vi.useFakeTimers()
+  try {
+    let entered!: () => void
+    const opening = new Promise<void>(resolve => { entered = resolve })
+    let signal: AbortSignal | undefined
+    const open = vi.fn((_config: TunSessionConfig, options?: { signal?: AbortSignal }) => {
+      signal = options?.signal
+      entered()
+      return new Promise<never>((_resolve, reject) => signal!.addEventListener('abort', () => reject(signal!.reason), { once: true }))
+    })
+    const request = vi.fn(async () => off)
+    const tun = createMacosTun({ endpointPresent: async () => true, request, open, sessionDeadlineMs: 50 })
+    const outcome = tun.start(config).catch(error => error as Error)
+    await opening
+    await vi.advanceTimersByTimeAsync(49)
+    expect(signal?.aborted).toBe(false)
+    await vi.advanceTimersByTimeAsync(1)
+    expect((await outcome as Error).message).toContain('deadline reached')
+    expect(signal?.aborted).toBe(true)
+    expect(request.mock.calls.flat()).toEqual(['status'])
+  } finally { vi.useRealTimers() }
+})
+
+test('candidate deadline stops captured owner once and independently confirms off', async () => {
+  vi.useFakeTimers()
+  try {
+    const owner = { stop: vi.fn(async () => off), error: () => undefined, disconnect: vi.fn() }
+    const request = vi.fn().mockResolvedValueOnce(off).mockResolvedValueOnce(on).mockResolvedValue(off)
+    const tun = createMacosTun({ endpointPresent: async () => true, request, open: async () => owner, sessionDeadlineMs: 50 })
+    expect(await tun.start(config)).toEqual(on)
+    await vi.advanceTimersByTimeAsync(50)
+    expect(owner.stop).toHaveBeenCalledOnce()
+    expect(owner.disconnect).toHaveBeenCalledOnce()
+    expect(request.mock.calls.flat()).toEqual(['status', 'status', 'status'])
+    expect(await tun.inspect()).toEqual(off)
+    await vi.advanceTimersByTimeAsync(50)
+    expect(owner.stop).toHaveBeenCalledOnce()
+  } finally { vi.useRealTimers() }
+})
+
+test('collector abort bypasses pending start readback and never accepts late on', async () => {
+  const controller = new AbortController()
+  let release!: (value: TunStatus) => void, entered!: () => void
+  const reading = new Promise<void>(resolve => { entered = resolve })
+  const owner = { stop: vi.fn(async () => off), error: () => undefined, disconnect: vi.fn() }
+  const request = vi.fn().mockResolvedValueOnce(off)
+    .mockImplementationOnce(() => { entered(); return new Promise<TunStatus>(resolve => { release = resolve }) })
+    .mockResolvedValue(off)
+  const tun = createMacosTun({ endpointPresent: async () => true, request, open: async () => owner,
+    sessionDeadlineMs: 30000, sessionAbortSignal: controller.signal })
+  const outcome = tun.start(config).catch(error => error as Error)
+  await reading
+  controller.abort(new Error('collector failed'))
+  await vi.waitFor(() => expect(owner.stop).toHaveBeenCalledOnce())
+  release(on)
+  expect((await outcome as Error).message).toBe('collector failed')
+  expect(owner.stop).toHaveBeenCalledOnce()
+  expect(request.mock.calls.flat()).toEqual(['status', 'status', 'status'])
+})
+
+test('candidate successful stop ACK cannot override unknown independent status', async () => {
+  const controller = new AbortController()
+  let failure: Error | undefined
+  const owner = { stop: vi.fn(async () => off), error: () => failure,
+    disconnect: vi.fn(() => { failure = new Error('socket closed; cleanup unconfirmed') }) }
+  const request = vi.fn().mockResolvedValueOnce(off).mockResolvedValueOnce(on)
+    .mockResolvedValue({ availability: 'blocked', state: 'unknown', error: 'retained journal' })
+  const tun = createMacosTun({ endpointPresent: async () => true, request, open: async () => owner,
+    sessionAbortSignal: controller.signal })
+  await tun.start(config)
+  controller.abort(new Error('collector failed'))
+  await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(3))
+  expect(await tun.inspect()).toMatchObject({ availability: 'blocked', state: 'unknown' })
+})
+
+test('old candidate timer cannot stop a replacement owner and completed owner removes abort listener', async () => {
+  vi.useFakeTimers()
+  try {
+    const controller = new AbortController()
+    const first = { stop: vi.fn(async () => off), error: () => undefined, disconnect: vi.fn() }
+    const second = { stop: vi.fn(async () => off), error: () => undefined, disconnect: vi.fn() }
+    const request = vi.fn().mockResolvedValueOnce(off).mockResolvedValueOnce(on).mockResolvedValueOnce(off)
+      .mockResolvedValueOnce(off).mockResolvedValueOnce(on).mockResolvedValue(off)
+    const open = vi.fn().mockResolvedValueOnce(first).mockResolvedValueOnce(second)
+    const tun = createMacosTun({ endpointPresent: async () => true, request, open,
+      sessionDeadlineMs: 50, sessionAbortSignal: controller.signal })
+    await tun.start(config)
+    await vi.advanceTimersByTimeAsync(40)
+    await tun.stop()
+    await tun.start(config)
+    await vi.advanceTimersByTimeAsync(10)
+    expect(first.stop).toHaveBeenCalledOnce()
+    expect(second.stop).not.toHaveBeenCalled()
+    await tun.stop()
+    controller.abort(new Error('old collector exit'))
+    await vi.advanceTimersByTimeAsync(50)
+    expect(second.stop).toHaveBeenCalledOnce()
+  } finally { vi.useRealTimers() }
+})
+
+test.skipIf(process.platform === 'win32')('candidate opening abort closes its real socket and rejects late ACK', async () => {
+  const controller = new AbortController()
+  let received!: () => void, closed!: () => void
+  const frameReceived = new Promise<void>(resolve => { received = resolve })
+  const peerClosed = new Promise<void>(resolve => { closed = resolve })
+  let socket!: Socket
+  const peer = await fixture((_frame, connection) => {
+    socket = connection
+    socket.once('close', closed)
+    received()
+  })
+  onTestFinished(peer.dispose)
+  const outcome = openTunHelperSession(config, peer.path, { signal: controller.signal }).catch(error => error as Error)
+  await frameReceived
+  controller.abort(new Error('collector exited during open'))
+  expect((await outcome as Error).message).toBe('collector exited during open')
+  await peerClosed
+  reply(socket, opened)
+  expect((await outcome as Error).message).toBe('collector exited during open')
+})
+
+test.skipIf(process.platform === 'win32')('simultaneous session stops share one exact sequenced wire stop', async () => {
+  const frames: Record<string, unknown>[] = []
+  const peer = await fixture((frame, socket) => {
+    frames.push(frame)
+    reply(socket, frame.operation === 'open' ? opened : { version: 2, ok: true, sequence: frame.sequence, status: off })
+  })
+  onTestFinished(peer.dispose)
+  const owner = await openTunHelperSession(config, peer.path)
+  const first = owner.stop(), second = owner.stop()
+  expect(first).toBe(second)
+  expect(await first).toEqual(off)
+  expect(await second).toEqual(off)
+  expect(frames.map(frame => frame.operation)).toEqual(['open', 'stop'])
+})
+
+test('candidate finished wire stop with native status still on is unknown, never confirmed on or off', async () => {
+  const controller = new AbortController()
+  const owner = { stop: vi.fn(async () => off), error: () => undefined, disconnect: vi.fn() }
+  const request = vi.fn().mockResolvedValueOnce(off).mockResolvedValue(on)
+  const tun = createMacosTun({ endpointPresent: async () => true, request, open: async () => owner,
+    sessionAbortSignal: controller.signal })
+  await tun.start(config)
+  controller.abort(new Error('collector exited; cleanup unconfirmed'))
+  await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(3))
+  expect(await tun.inspect()).toEqual({ availability: 'blocked', state: 'unknown', error: 'collector exited; cleanup unconfirmed' })
+})
+
+test('late open completion after cancellation stops and reads back its captured owner', async () => {
+  const controller = new AbortController()
+  let entered!: () => void, release!: (owner: Awaited<ReturnType<typeof openTunHelperSession>>) => void
+  const opening = new Promise<void>(resolve => { entered = resolve })
+  const owner = { stop: vi.fn(async () => off), error: () => undefined, disconnect: vi.fn() }
+  const request = vi.fn(async () => off)
+  const tun = createMacosTun({ endpointPresent: async () => true, request,
+    open: () => { entered(); return new Promise(resolve => { release = resolve }) }, sessionAbortSignal: controller.signal })
+  const outcome = tun.start(config).catch(error => error as Error)
+  await opening
+  controller.abort(new Error('cancel raced open ACK'))
+  release(owner)
+  expect((await outcome as Error).message).toBe('cancel raced open ACK')
+  expect(owner.stop).toHaveBeenCalledOnce()
+  expect(request.mock.calls.flat()).toEqual(['status', 'status'])
+})
+
+test('collector cancellation and an explicit stop merge while the exact owner stop is pending', async () => {
+  const controller = new AbortController()
+  let release!: (status: TunStatus) => void
+  const owner = { stop: vi.fn(() => new Promise<TunStatus>(resolve => { release = resolve })), error: () => undefined, disconnect: vi.fn() }
+  const request = vi.fn().mockResolvedValueOnce(off).mockResolvedValueOnce(on).mockResolvedValue(off)
+  const tun = createMacosTun({ endpointPresent: async () => true, request, open: async () => owner,
+    sessionAbortSignal: controller.signal })
+  await tun.start(config)
+  const stopping = tun.stop()
+  controller.abort(new Error('collector exit'))
+  expect(owner.stop).toHaveBeenCalledOnce()
+  release(off)
+  expect(await stopping).toEqual(off)
+  expect(owner.disconnect).toHaveBeenCalledOnce()
+})
+
+test('cancelled opening retains unknown while native is still on and clears only after independent off', async () => {
+  const controller = new AbortController()
+  let entered!: () => void
+  const opening = new Promise<void>(resolve => { entered = resolve })
+  let current = off
+  const request = vi.fn(async () => current)
+  const tun = createMacosTun({ endpointPresent: async () => true, request, sessionAbortSignal: controller.signal,
+    open: (_config, options) => {
+      entered()
+      return new Promise((_resolve, reject) => options!.signal!.addEventListener('abort', () => reject(options!.signal!.reason), { once: true }))
+    } })
+  const outcome = tun.start(config).catch(error => error as Error)
+  await opening
+  controller.abort(new Error('opening cancelled before native cleanup'))
+  expect((await outcome as Error).message).toBe('opening cancelled before native cleanup')
+  current = on
+  expect(await tun.inspect()).toEqual({ availability: 'blocked', state: 'unknown', error: 'opening cancelled before native cleanup' })
+  current = off
+  expect(await tun.inspect()).toEqual(off)
+  current = on
+  expect(await tun.inspect()).toEqual(on)
+  expect(request.mock.calls.flat().every(operation => operation === 'status')).toBe(true)
+})
+
+test('stale off inspection cannot clear a cancellation created after that inspection began', async () => {
+  const controller = new AbortController()
+  let releaseInspect!: (value: TunStatus) => void, entered!: () => void
+  const opening = new Promise<void>(resolve => { entered = resolve })
+  const request = vi.fn().mockResolvedValueOnce(off)
+    .mockImplementationOnce(() => new Promise<TunStatus>(resolve => { releaseInspect = resolve }))
+    .mockResolvedValue(on)
+  const tun = createMacosTun({ endpointPresent: async () => true, request, sessionAbortSignal: controller.signal,
+    open: (_config, options) => {
+      entered()
+      return new Promise((_resolve, reject) => options!.signal!.addEventListener('abort', () => reject(options!.signal!.reason), { once: true }))
+    } })
+  const outcome = tun.start(config).catch(error => error as Error)
+  await opening
+  const inspecting = tun.inspect()
+  await Promise.resolve()
+  controller.abort(new Error('cancel during stale status read'))
+  expect((await outcome as Error).message).toBe('cancel during stale status read')
+  releaseInspect(off)
+  expect(await inspecting).toEqual(off)
+  expect(await tun.inspect()).toEqual({ availability: 'blocked', state: 'unknown', error: 'cancel during stale status read' })
+})

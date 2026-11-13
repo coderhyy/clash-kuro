@@ -9,7 +9,7 @@ import { FakePlatform } from '@kuro/core/fake'
 import { FakeTransport } from '@kuro/api/fake'
 import { FakeTunPlatform, fakeSnapshot } from '@kuro/state/fake'
 import type { AppStore } from '@kuro/state'
-import type { Platform, TunPlatform, TunStatus } from '@kuro/core'
+import type { Platform, TunPlatform, TunStatus, TunSessionConfig } from '@kuro/core'
 
 
 const fixture = vi.hoisted(() => ({
@@ -19,6 +19,7 @@ const fixture = vi.hoisted(() => ({
     getAppPath: () => fixture.directory, getPath: vi.fn(), setPath: vi.fn(),
     getVersion: () => '0.1.0', getLocale: () => 'en', getLoginItemSettings: () => ({ wasOpenedAtLogin: false }),
     on: vi.fn(), exit: vi.fn(), dock: { show: vi.fn(), hide: vi.fn() } },
+  diagnosticCreate: vi.fn(), tunOptions: vi.fn(),
   window: vi.fn(), scheduler: { start: vi.fn(), stop: vi.fn() }, release: vi.fn(async () => null),
 }))
 vi.mock('electron', () => ({
@@ -38,7 +39,8 @@ vi.mock('@kuro/state', async original => ({
 }))
 vi.mock('./platform', () => ({ createDesktopPlatform: () => fixture.platform, createSocketTransport: () => new FakeTransport()
   .on('GET', '/proxies', { status: 200, body: { proxies: {} } }) }))
-vi.mock('./platform/macos-tun', () => ({ createMacosTun: () => fixture.platform!.tun }))
+vi.mock('./platform/macos-tun', () => ({ createMacosTun: (...options: unknown[]) => { fixture.tunOptions(...options); return fixture.platform!.tun } }))
+vi.mock('./tun-diagnostic-window', () => ({ createTunDiagnosticWindow: () => fixture.diagnosticCreate() }))
 vi.mock('./app/geo', () => ({ installGeoData: vi.fn() }))
 vi.mock('./app/resident-startup', () => ({ prepareResidentStartup: vi.fn() }))
 vi.mock('./app/profiles', async original => {
@@ -95,6 +97,8 @@ test.runIf(typeof process.getuid === 'function').each([
   expect(fixture.store!.store.getState().tun.state).toBe(blocked ? 'unknown' : 'off')
   expect(tunStart).not.toHaveBeenCalled()
   if (finite) {
+    expect(fixture.diagnosticCreate).not.toHaveBeenCalled()
+    expect(fixture.tunOptions).toHaveBeenCalledWith(undefined)
     expect(platform.cleanupStaleSystemProxy).not.toHaveBeenCalled()
     expect(start).not.toHaveBeenCalled(); expect(fetch).not.toHaveBeenCalled()
     expect(fixture.scheduler.start).not.toHaveBeenCalled(); expect(fixture.release).not.toHaveBeenCalled()
@@ -140,10 +144,49 @@ test.runIf(typeof process.getuid === 'function')('actual finite main recovers fr
 })
 
 
+
+test.runIf(typeof process.getuid === 'function')('sealed diagnostic main prepares before starting and passes the exact 30s deadline/signal', async () => {
+  vi.resetModules(); vi.clearAllMocks(); vi.stubEnv('KURO_SMOKE', '')
+  directory = realpathSync(mkdtempSync(join(tmpdir(), 'kuro-diagnostic-main-'))); chmodSync(directory, 0o700)
+  fixture.directory = directory; fixture.app.getPath.mockReturnValue(directory)
+  writeFileSync(join(directory, 'package.json'), JSON.stringify({ kuroCandidateMode: 'finite-session', kuroAuthObservationOnly: false, kuroSourceCommit: 'a'.repeat(40), kuroTunDiagnosticWindow: true }))
+  Object.defineProperty(process, 'platform', { value: 'darwin' })
+  Object.defineProperty(process, 'resourcesPath', { configurable: true, value: directory }); process.argv = ['kuro']
+  const controller = new AbortController()
+  let release!: () => void, preparing!: () => void
+  const entered = new Promise<void>(resolve => { preparing = resolve })
+  const prepare = vi.fn(() => { preparing(); return new Promise<void>(resolve => { release = resolve }) })
+  const cancel = vi.fn(async () => {})
+  fixture.diagnosticCreate.mockReturnValue({ signal: controller.signal, prepare, cancel })
+  const originalStart = vi.fn(async (_config: TunSessionConfig) => ({ availability: 'ready', state: 'on' } as const))
+  const tun: TunPlatform = new FakeTunPlatform({ availability: 'ready', state: 'off' })
+  tun.start = originalStart
+  const shutdown = vi.fn(async () => {})
+  const platform = Object.assign(new FakePlatform(), { tun, cleanupStaleSystemProxy: vi.fn(), shutdown })
+  fixture.platform = platform
+  await import('./index'); await vi.waitFor(() => expect(fixture.window).toHaveBeenCalledOnce())
+  expect(fixture.diagnosticCreate).toHaveBeenCalledOnce()
+  expect(fixture.tunOptions).toHaveBeenCalledWith({ sessionDeadlineMs: 30000, sessionAbortSignal: controller.signal })
+  const config: TunSessionConfig = { version: 1, template: 'macos-dual-stack-v1', mode: 'rule', proxies: [], groups: [],
+    rules: [{ type: 'MATCH', value: '', target: 'DIRECT', noResolve: false }],
+    dns: { nameservers: ['192.0.2.53'], bootstrap: ['192.0.2.53'], proxyNameservers: ['192.0.2.53'], policies: [] } }
+  const starting = platform.tun.start(config)
+  await entered
+  expect(originalStart).not.toHaveBeenCalled()
+  release()
+  await expect(starting).resolves.toEqual({ availability: 'ready', state: 'on' })
+  expect(originalStart).toHaveBeenCalledWith(config)
+  expect(cancel).not.toHaveBeenCalled()
+  fixture.app.on.mock.calls.find(([event]) => event === 'before-quit')![1]({ preventDefault: vi.fn() })
+  await vi.waitFor(() => expect(shutdown).toHaveBeenCalledOnce())
+  expect(cancel).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining('quitting') }))
+  expect(cancel.mock.invocationCallOrder[0]).toBeLessThan(shutdown.mock.invocationCallOrder[0]!)
+})
+
 // build-macos-helper.mjs supplies its freshly compiled ordinary-UID test binary.
 // The signed native relay tests the actual peer policy; it is not Electron/root acceptance.
 test.runIf(process.platform === 'darwin' && Boolean(process.env.KURO_ADMISSION_FIXTURE)).each([
-  'fresh', 'residue', 'recovery-failed', 'auth-only', 'identity', 'invalid-config', 'finalizing', 'start-failed',
+  'fresh', 'residue', 'recovery-failed', 'auth-only', 'identity', 'invalid-config', 'finalizing', 'start-failed', 'deadline', 'collector-cancel',
 ] as const)('authenticated native admission %s: installed identity -> startup recovery -> finite V2 dispatch', async mode => {
   vi.resetModules(); vi.clearAllMocks(); vi.stubEnv('KURO_SMOKE', '')
   directory = realpathSync(mkdtempSync(join(tmpdir(), 'kuro-candidate-start-'))); chmodSync(directory, 0o700)
@@ -151,7 +194,7 @@ test.runIf(process.platform === 'darwin' && Boolean(process.env.KURO_ADMISSION_F
   writeFileSync(join(directory, 'package.json'), JSON.stringify({ kuroCandidateMode: 'finite-session', kuroAuthObservationOnly: false, kuroSourceCommit: 'a'.repeat(40) }))
   Object.defineProperty(process, 'platform', { value: 'darwin' })
   Object.defineProperty(process, 'resourcesPath', { configurable: true, value: directory }); process.argv = ['kuro']
-  const child = spawn(process.env.KURO_ADMISSION_FIXTURE!, ['--admission-chain', mode], { stdio: ['pipe', 'pipe', 'pipe'] })
+  const child = spawn(process.env.KURO_ADMISSION_FIXTURE!, ['--admission-chain', mode === 'deadline' || mode === 'collector-cancel' ? 'fresh' : mode], { stdio: ['pipe', 'pipe', 'pipe'] })
   const exited = once(child, 'exit')
   let stderr = ''; child.stderr.on('data', bytes => { stderr += bytes.toString() })
   const lines = createInterface({ input: child.stdout }), output = lines[Symbol.asyncIterator]()
@@ -164,6 +207,7 @@ test.runIf(process.platform === 'darwin' && Boolean(process.env.KURO_ADMISSION_F
   let tun: ReturnType<typeof real.createMacosTun> | undefined
   let activated = false
   let rejection: string | undefined, recoveryRejection: string | undefined
+  let collectorExit: { code: number | null; signal: string | null } | undefined
   try {
     const endpoints = await next()
     expect(endpoints.initial).toMatchObject({ availability: 'blocked', state: ['residue', 'recovery-failed'].includes(mode) ? 'unknown' : 'off' })
@@ -173,8 +217,11 @@ test.runIf(process.platform === 'darwin' && Boolean(process.env.KURO_ADMISSION_F
         throw error
       }
     })
-    const open = vi.fn((config: Parameters<typeof real.openTunHelperSession>[0]) => real.openTunHelperSession(config, endpoints.front))
-    tun = real.createMacosTun({ endpointPresent: async () => true, request, open })
+    const controller = new AbortController()
+    const open = vi.fn((config: Parameters<typeof real.openTunHelperSession>[0], options?: { signal?: AbortSignal }) => real.openTunHelperSession(config, endpoints.front, options))
+    tun = real.createMacosTun({ endpointPresent: async () => true, request, open,
+      ...(mode === 'deadline' ? { sessionDeadlineMs: 1000 } : {}),
+      ...(mode === 'collector-cancel' ? { sessionAbortSignal: controller.signal } : {}) })
     const desktop = await vi.importActual<typeof import('./platform')>('./platform')
     const exec = vi.fn<import('./platform').Exec>(async (_file, args) => ({ stdout: args[0] === '-listallnetworkservices' ? 'Wi-Fi' : 'Enabled: No\nServer: \nPort: 0\nAuthenticated Proxy Enabled: 0', stderr: '' }))
     const platform = desktop.createDesktopPlatform({ os: 'darwin', dataDir: directory, corePath: join(directory, 'must-not-run'), mixedPort: 7890, tun, exec,
@@ -233,8 +280,25 @@ dns:
         expect(open.mock.calls[0]![0]).toMatchObject({ template: 'macos-dual-stack-v1', rules: [{ type: 'MATCH', target: 'DIRECT' }] })
         // Includes real V2 sequence/stop and independent V1 readback. The finalizing
         // fixture holds the owner worker after ACK, deterministically keeping busy true.
-        expect((await fixture.store!.run('recoverTun', {})).ok).toBe(true)
-        expect(fixture.store!.store.getState().tun).toEqual({ availability: 'ready', state: 'off' })
+        if (mode === 'deadline' || mode === 'collector-cancel') {
+          if (mode === 'collector-cancel') {
+            // Harmless local child models the owned collector failing; it performs no I/O.
+            const collector = spawn(process.execPath, ['-e', 'process.exit(7)'], { stdio: 'ignore' })
+            collector.once('exit', (code, signal) => {
+              collectorExit = { code, signal }
+              controller.abort(new Error(`local collector exited ${code}`))
+            })
+            await once(collector, 'exit')
+            expect(collectorExit).toEqual({ code: 7, signal: null })
+          }
+          // No off/recover command: the adapter must terminate the exact live native session.
+          await vi.waitFor(() => expect(fixture.store!.store.getState().tun).toEqual({ availability: 'ready', state: 'off' }), { timeout: 5000 })
+          expect(request.mock.calls.flat().every(operation => operation === 'status' || operation === 'recover')).toBe(true)
+          activated = false
+        } else {
+          expect((await fixture.store!.run('recoverTun', {})).ok).toBe(true)
+          expect(fixture.store!.store.getState().tun).toEqual({ availability: 'ready', state: 'off' })
+        }
         if (mode === 'finalizing') {
           const stats = await command('stats'); expect(stats.finalizing).toBe(true); expect(stats.recoverRefusals).toBe(0)
           await command('release')
@@ -242,7 +306,7 @@ dns:
       }
     }
     const stats = await command('stats')
-    expect(stats.starts).toBe(['fresh', 'residue', 'finalizing', 'start-failed'].includes(mode) ? 1 : 0)
+    expect(stats.starts).toBe(['fresh', 'residue', 'finalizing', 'start-failed', 'deadline', 'collector-cancel'].includes(mode) ? 1 : 0)
     expect(stats.applications).toBe(mode === 'start-failed' ? 0 : stats.starts)
     expect(stats.opens).toBe(['recovery-failed', 'auth-only'].includes(mode) ? 0 : 1)
     expect(stats.authorizations).toBeGreaterThanOrEqual(mode === 'auth-only' ? 0 : 1)
@@ -250,12 +314,16 @@ dns:
     expect(stats.ownerAbsent).toBe(true); expect(stats.workAbsent).toBe(true)
     expect(stats.routeWrites).toBe(0)
     if (stats.starts === 1) {
+      expect(stats.stoppedProofValid).toBe(true)
+      expect(stats.stoppedProofs).toBeGreaterThanOrEqual(1)
+      expect(stats.stoppedProofSession).toMatch(/^[0-9a-f-]{36}$/i)
+      expect(stats).toMatchObject({ childReaped: true, cleanupComplete: true, routesOff: true, dnsOff: true, routeJournalAbsent: true })
       expect(stats.networkPrepares).toBe(1)
       expect(stats.observedRouteCount).toBe(mode === 'start-failed' ? 0 : 5)
     }
     if (mode === 'start-failed') { expect(stats.probes).toBe(0); expect(stats.dnsAdds).toBe(0) }
     if (mode === 'residue') expect(stats.dnsRemovals).toBe(2)
-    process.stdout.write(`native-admission-evidence ${JSON.stringify({ mode, ...stats, rejection, recoveryRejection })}\n`)
+    process.stdout.write(`native-admission-evidence ${JSON.stringify({ mode, ...stats, rejection, recoveryRejection, collectorExit })}\n`)
     expect(ordinary).not.toHaveBeenCalled(); expect(proxy).not.toHaveBeenCalled(); expect(stale).not.toHaveBeenCalled()
     if (stats.starts === 1) {
       expect(stopped).toHaveBeenCalled(); expect(exec.mock.calls.some(([, args]) => args[0] === '-getwebproxy')).toBe(true)

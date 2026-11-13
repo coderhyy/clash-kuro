@@ -23,3 +23,8 @@ test('candidate rebuild refuses unspecified modes and non-fixed commit/target', 
   expect(() => candidateBuildPlan('darwin-arm64', 'finite-session', 'HEAD')).toThrow()
   expect(() => candidateBuildPlan('../../old.app', 'finite-session', commit)).toThrow()
 })
+test('local diagnostic window is explicit and only sealed into finite-session candidates', () => {
+  expect(candidateBuildPlan('darwin-arm64', 'finite-session', commit).commands[1][1]).toContain('-c.extraMetadata.kuroTunDiagnosticWindow=false')
+  expect(candidateBuildPlan('darwin-arm64', 'finite-session', commit, true).commands[1][1]).toContain('-c.extraMetadata.kuroTunDiagnosticWindow=true')
+  expect(() => candidateBuildPlan('darwin-arm64', 'auth-only', commit, true)).toThrow()
+})

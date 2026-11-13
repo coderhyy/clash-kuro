@@ -7,6 +7,7 @@ import { createMihomoClient } from '@kuro/api'
 import { buildTrayMenu, createAppStore, MAX_BACKUP_BYTES, type AppStore, type CommandName } from '@kuro/state'
 import { createDesktopPlatform, createSocketTransport } from './platform'
 import { createMacosTun } from './platform/macos-tun'
+import { createTunDiagnosticWindow } from './tun-diagnostic-window'
 import { createProfileSource } from './app/profiles'
 import { createUpdateScheduler } from './app/scheduler'
 import { checkForUpdate } from './app/release-check'
@@ -24,6 +25,7 @@ const SHUTDOWN_TIMEOUT_MS = 3_000
 let verificationDirectory: string | undefined
 let authenticationOnly = false
 let finiteSessionCandidate = false
+let diagnosticWindow = false
 let startupRefused = false
 if (app.isPackaged) {
   try {
@@ -42,6 +44,7 @@ if (app.isPackaged) {
       const paths = prepareSessionCandidateDirectory(sealedMetadata, app.getPath('appData'))
       if (paths) {
         finiteSessionCandidate = true
+        diagnosticWindow = 'kuroTunDiagnosticWindow' in (sealedMetadata as Record<string, unknown>) && (sealedMetadata as Record<string, unknown>).kuroTunDiagnosticWindow === true
         for (const [name, path] of Object.entries(paths)) app.setPath(name as 'userData' | 'sessionData' | 'crashDumps', path)
       }
     }
@@ -98,8 +101,18 @@ async function main(): Promise<void> {
   const userAgent = `ClashKuro/${app.getVersion()} (clash.meta)`
 
   let store: AppStore | undefined
+  const diagnostic = diagnosticWindow ? createTunDiagnosticWindow() : undefined
+  const tun = process.platform === 'darwin' ? createMacosTun(diagnostic ? { sessionDeadlineMs: 30_000, sessionAbortSignal: diagnostic.signal } : undefined) : undefined
+  if (tun && diagnostic) {
+    const start = tun.start.bind(tun)
+    tun.start = async config => {
+      await diagnostic.prepare()
+      try { return await start(config) }
+      catch (error) { await diagnostic.cancel(error instanceof Error ? error : new Error(String(error))); throw error }
+    }
+  }
   const platform = createDesktopPlatform({
-    tun: process.platform === 'darwin' ? createMacosTun() : undefined,
+    tun,
     dataDir, corePath, sysproxyHelperPath, userAgent, powerMonitor, loginItemApp: app, startResident,
     onResidentStopped: reason => store?.notifyCoreStopped(reason),
     mixedPort: () => store?.store.getState().settings.mixedPort ?? 7890
@@ -128,6 +141,7 @@ async function main(): Promise<void> {
     try {
       scheduler.stop()
       app_.dispose()
+      await diagnostic?.cancel(new Error('Candidate App is quitting; cancel the local comparison'))
       await platform.shutdown({ timeoutMs: SHUTDOWN_TIMEOUT_MS })
       logExit('cleanup completed')
     } catch (error) {

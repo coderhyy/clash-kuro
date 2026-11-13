@@ -132,6 +132,7 @@ export interface TunHelperSession {
 export async function openTunHelperSession(config: TunSessionConfig, path = socketPath, options: {
   timeoutMs?: number
   heartbeatMs?: number
+  signal?: AbortSignal
 } = {}): Promise<TunHelperSession> {
   const admitted = validateTunSessionConfig(config)
   const frame = `${JSON.stringify({ version: 2, operation: 'open', config: admitted })}\n`
@@ -144,12 +145,15 @@ export async function openTunHelperSession(config: TunSessionConfig, path = sock
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0 || !Number.isFinite(heartbeatMs) || heartbeatMs <= 0 || heartbeatMs > 5000) {
     throw new Error('Invalid TUN session timing')
   }
+  const abortError = () => options.signal?.reason instanceof Error ? options.signal.reason : new Error('TUN session opening cancelled; network state unknown')
+  if (options.signal?.aborted) throw abortError()
   const socket = createConnection(path)
   const listeners = new Set<() => void>()
   let bytes = Buffer.alloc(0)
   let failure: Error | undefined
   let finished = false
   let stopping = false
+  let stopFlight: Promise<TunStatus> | undefined
   let session = ''
   let sequence = 0
   let leaseDeadline = Infinity
@@ -200,6 +204,8 @@ export async function openTunHelperSession(config: TunSessionConfig, path = sock
   socket.on('error', fail)
   socket.on('end', () => fail(new Error('TUN session disconnected; network state unknown')))
   socket.on('close', () => fail(new Error('TUN session disconnected; network state unknown')))
+  const abortOpening = () => fail(abortError())
+  options.signal?.addEventListener('abort', abortOpening, { once: true })
   const response = (value: unknown, allowed: string[]): Record<string, unknown> => {
     if (!keys(value, allowed) || value.version !== 2 || typeof value.ok !== 'boolean') throw new Error('Invalid TUN session response')
     if (!value.ok) {
@@ -247,12 +253,12 @@ export async function openTunHelperSession(config: TunSessionConfig, path = sock
     renewLease(sentAt)
     scheduleHeartbeat()
   } catch (error) { fail(error as Error); throw error }
+  finally { options.signal?.removeEventListener('abort', abortOpening) }
   return {
     subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener) } },
     error: () => failure,
     disconnect: () => fail(new Error('TUN session disconnected; network state unknown')),
-    stop: async () => {
-      if (stopping) throw new Error('TUN session stop is already in progress')
+    stop: () => stopFlight ??= (async () => {
       stopping = true
       clearTimeout(heartbeatTimer)
       await heartbeatFlight
@@ -264,29 +270,53 @@ export async function openTunHelperSession(config: TunSessionConfig, path = sock
         socket.destroy()
         return result!
       } catch (error) { fail(error as Error); throw error }
-    },
+    })(),
   }
 }
 
 export function createMacosTun(options: {
   endpointPresent?: () => Promise<boolean>
   request?: (operation: Operation) => Promise<TunStatus>
-  open?: (config: TunSessionConfig) => Promise<TunHelperSession>
+  open?: (config: TunSessionConfig, options?: { signal?: AbortSignal }) => Promise<TunHelperSession>
+  /** Candidate only: one local attempt budget, armed before endpoint access/open. */
+  sessionDeadlineMs?: number
+  sessionAbortSignal?: AbortSignal
 } = {}): TunPlatform {
+  if (options.sessionDeadlineMs !== undefined && (!Number.isFinite(options.sessionDeadlineMs) || options.sessionDeadlineMs <= 0)) {
+    throw new Error('Invalid candidate TUN session deadline')
+  }
   const present = options.endpointPresent ?? endpointPresent
   const request = options.request ?? requestTunHelper
-  const open = options.open ?? openTunHelperSession
+  const open = options.open ?? ((config, opening) => openTunHelperSession(config, socketPath, opening))
   const missing: TunStatus = { availability: 'not-installed', state: 'off' }
   let session: TunHelperSession | undefined
   let detachSession: (() => void) | undefined
+  let disarmSession: (() => void) | undefined
   const listeners = new Set<() => void>()
   const clearSession = (owner: TunHelperSession) => {
     if (session !== owner) return
     detachSession?.()
     detachSession = undefined
+    disarmSession?.()
+    disarmSession = undefined
     session = undefined
   }
+  const stops = new WeakMap<TunHelperSession, Promise<void>>()
+  const cancellations = new WeakMap<TunHelperSession, Error>()
+  const stopOwner = (owner: TunHelperSession): Promise<void> => {
+    let flight = stops.get(owner)
+    if (!flight) {
+      flight = (async () => {
+        try { await owner.stop() }
+        catch { /* Lost ACK is not cleanup evidence; every caller still reads status. */ }
+        finally { owner.disconnect() }
+      })()
+      stops.set(owner, flight)
+    }
+    return flight
+  }
   let busy = false
+  let unownedCancellation: Error | undefined
   let recoveryFailure: { before: TunStatus; reason: string } | undefined
   const recoveredStatus = (status: TunStatus): TunStatus => {
     const prior = recoveryFailure
@@ -308,11 +338,13 @@ export function createMacosTun(options: {
   }
   const inspect = async (): Promise<TunStatus> => {
     const inspectingSession = session
+    const inspectingCancellation = unownedCancellation
     try {
       const installed = await present()
       if (!installed && inspectingSession) throw new Error('TUN helper disappeared; network state unknown')
       const observed = recoveredStatus(installed ? await request('status') : { ...missing })
-      const failure = inspectingSession?.error()
+      if (observed.state === 'off' && unownedCancellation === inspectingCancellation) unownedCancellation = undefined
+      const failure = (inspectingSession && (inspectingSession.error() ?? cancellations.get(inspectingSession))) ?? unownedCancellation
       if (failure && observed.state !== 'off') throw failure
       if (inspectingSession && session === inspectingSession && observed.state === 'off') {
         clearSession(inspectingSession)
@@ -326,13 +358,41 @@ export function createMacosTun(options: {
   const change = async (operation: 'start' | 'stop' | 'recover', config?: TunSessionConfig): Promise<TunStatus> => {
     if (busy) throw new Error('TUN operation is already in progress')
     busy = true
+    let disarmAttempt: (() => void) | undefined
+    let attemptOwner: TunHelperSession | undefined
+    let cancelled: Error | undefined
+    let opening: AbortController | undefined
+    let started = false
+    if (operation === 'start' && (options.sessionDeadlineMs !== undefined || options.sessionAbortSignal)) {
+      opening = new AbortController()
+      const cancel = (reason: unknown) => {
+        if (cancelled) return
+        cancelled = reason instanceof Error ? reason : new Error('Candidate TUN session cancelled; network state unknown')
+        if (!attemptOwner) { unownedCancellation = cancelled; opening!.abort(cancelled); return }
+        const owner = attemptOwner
+        cancellations.set(owner, cancelled)
+        // This captured owner bypasses the mutation queue; no global stop authority.
+        void stopOwner(owner).then(async () => {
+          const observed = await request('status')
+          if (observed.state === 'off') clearSession(owner)
+        }).catch(() => { /* inspect must retain unknown on read failure. */ }).finally(() => {
+          for (const listener of listeners) listener()
+        })
+      }
+      const abort = () => cancel(options.sessionAbortSignal?.reason)
+      const timer = options.sessionDeadlineMs === undefined ? undefined : setTimeout(() => {
+        cancel(new Error('Candidate TUN session deadline reached; network state unknown'))
+      }, options.sessionDeadlineMs)
+      timer?.unref()
+      options.sessionAbortSignal?.addEventListener('abort', abort, { once: true })
+      disarmAttempt = () => { clearTimeout(timer); options.sessionAbortSignal?.removeEventListener('abort', abort) }
+      if (options.sessionAbortSignal?.aborted) abort()
+    }
     try {
       const admitted = operation === 'start' ? validateTunSessionConfig(config) : undefined
       const ownedSession = session
       if (operation !== 'start' && ownedSession) {
-        try { await ownedSession.stop() }
-        catch { /* A lost acknowledgement is not evidence of failure or cleanup; read back independently. */ }
-        ownedSession.disconnect()
+        await stopOwner(ownedSession)
         let observed = await request('status')
         if (operation === 'recover' && (observed.state !== 'off' || observed.availability !== 'ready')) {
           const recovered = await recover(observed)
@@ -351,18 +411,35 @@ export function createMacosTun(options: {
       const before = await request('status')
       if (operation === 'start') {
         if (session || before.availability !== 'ready' || before.state !== 'off') throw new Error(recoveredStatus(before).error || 'TUN helper is not ready for a new session')
-        const openedSession = await open(admitted!)
+        if (cancelled) throw cancelled
+        const openedSession = opening ? await open(admitted!, { signal: opening.signal }) : await open(admitted!)
+        attemptOwner = openedSession
+        if (unownedCancellation === cancelled) unownedCancellation = undefined
         session = openedSession
+        disarmSession = disarmAttempt
         detachSession = openedSession.subscribe?.(() => {
           if (session === openedSession) for (const listener of listeners) listener()
         })
         try {
+          if (cancelled) {
+            cancellations.set(openedSession, cancelled)
+            await stopOwner(openedSession)
+            const observed = await request('status')
+            if (observed.state === 'off') clearSession(openedSession)
+            throw cancelled
+          }
           const observed = await request('status')
+          if (cancelled) throw cancelled
           if (session !== openedSession || openedSession.error() || observed.availability !== 'ready' || observed.state !== 'on') {
             throw new Error(observed.error || 'TUN helper state confirmation failed; network state unknown')
           }
+          started = true
           return observed
-        } catch (error) { openedSession.disconnect(); throw error }
+        } catch (error) {
+          if (cancelled) await stopOwner(openedSession)
+          else openedSession.disconnect()
+          throw error
+        }
       }
       if (before.state === 'off' && operation === 'stop') return before
       const result = operation === 'recover' ? await recover(before) : await request(operation)
@@ -370,7 +447,10 @@ export function createMacosTun(options: {
       const observed = await request('status')
       if (observed.state !== 'off') throw new Error(observed.error || 'TUN helper state confirmation failed')
       return observed
-    } finally { busy = false }
+    } finally {
+      if (!started) disarmAttempt?.()
+      busy = false
+    }
   }
   return { subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener) } },
     inspect, recover: () => change('recover'), start: config => change('start', config), stop: () => change('stop') }
