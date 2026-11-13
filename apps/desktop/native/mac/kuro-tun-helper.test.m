@@ -185,6 +185,8 @@ int main(int argc, const char **argv) {
     CHECK([Status(prefix, geteuid())[@"status"][@"state"] isEqual:@"unknown"]);
     CHECK([[NSFileManager defaultManager] removeItemAtPath:prefix error:NULL]);
     puts("PASS native protocol, audit-token identity rejection, protected paths/metadata and isolated install/uninstall");
-    return 0;
+    fputs("native-suite boundary: before final autorelease pool drain\n", stderr);
   }
+  fputs("native-suite boundary: after final autorelease pool drain, returning\n", stderr);
+  return 0;
 }

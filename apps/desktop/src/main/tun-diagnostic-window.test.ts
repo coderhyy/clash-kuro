@@ -89,15 +89,24 @@ test.each(['host', 'win32'] as const)('fixed launcher is pinned and latest exact
   expect(writes.get(join(evidence, 'cancel-requested.json'))).toMatchObject({ reason: 'fixture done', actualStop: false })
 })
 
-test('real child exit aborts before inherited output pipe closes; close later retains evidence', async () => {
-  script = "const {spawn}=require('node:child_process');process.stdout.write('ARMED\\n');setTimeout(()=>{spawn(process.execPath,['-e','setTimeout(()=>{},350)'],{stdio:['ignore','inherit','inherit']});process.exit(7)},100)"
+test('real child exit aborts synchronously before close retains evidence', async () => {
+  const actual = await vi.importActual<typeof import('node:child_process')>('node:child_process')
+  fake.spawn.mockImplementation(() => {
+    child = actual.spawn(process.execPath, ['-e', "process.stdout.write('ARMED\\n');process.stdin.resume();process.stdin.once('end',()=>process.exit(7))"], { stdio: ['pipe', 'pipe', 'pipe'] })
+    child.stdout!.on('data', bytes => { if (String(bytes).includes('ARMED')) ready = true })
+    return child
+  })
   const value = window()
   await value.prepare()
-  const exited = once(child!, 'exit')
+  let atExit: { aborted: boolean; reason: string | undefined; persisted: boolean } | undefined
+  // Observe inside exit: awaiting exit may resume after close on some hosts.
+  const exited = new Promise<void>(resolve => child!.once('exit', () => {
+    atExit = { aborted: value.signal.aborted, reason: value.signal.reason?.message, persisted: writes.has(join(evidence, 'app-collector-exit.json')) }
+    resolve()
+  }))
+  child!.stdin!.end()
   await exited
-  expect(value.signal.aborted).toBe(true)
-  expect(value.signal.reason.message).toContain('code=7')
-  expect(writes.has(join(evidence, 'app-collector-exit.json'))).toBe(false)
+  expect(atExit).toEqual({ aborted: true, reason: expect.stringContaining('code=7'), persisted: false })
   const result = await closedEvidence()
   expect(result).toMatchObject({ code: 7, signal: null, actualStop: false })
 })
