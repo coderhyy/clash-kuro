@@ -1,20 +1,30 @@
+import { win32 } from 'node:path'
 import type { LaunchAtLoginStatus, Platform } from '@kuro/core'
 
 /** The slice of Electron's `app` this needs. */
 export interface LoginItemApp {
   isPackaged: boolean
-  getLoginItemSettings(): { openAtLogin: boolean; status?: string }
-  setLoginItemSettings(settings: { openAtLogin: boolean }): void
+  getLoginItemSettings(options?: { args: string[] }): {
+    openAtLogin: boolean
+    status?: string
+    launchItems?: Array<{ path: string; args: string[]; enabled: boolean }>
+  }
+  setLoginItemSettings(settings: { openAtLogin: boolean; args?: string[] }): void
 }
 
 export type LaunchAtLogin = Pick<Platform, 'getLaunchAtLogin' | 'setLaunchAtLogin'>
 
-// shortcut: macOS only (SMAppService mainAppService); Windows waits for 08 to merge (.scratch/launch-at-login/issues/03).
 export function createLaunchAtLogin({ os, app }: { os: NodeJS.Platform; app?: LoginItemApp }): LaunchAtLogin {
   function status(): LaunchAtLoginStatus {
-    if (os !== 'darwin' || !app) return 'unsupported'
+    if ((os !== 'darwin' && os !== 'win32') || !app) return 'unsupported'
     if (!app.isPackaged) return 'unpackaged'
-    const settings = app.getLoginItemSettings()
+    const settings = os === 'win32' ? app.getLoginItemSettings({ args: ['--hidden'] }) : app.getLoginItemSettings()
+    if (os === 'win32') {
+      const enabled = settings.openAtLogin && settings.launchItems?.some(item => item.enabled
+        && win32.normalize(item.path).toLowerCase() === win32.normalize(process.execPath).toLowerCase()
+        && item.args.length === 1 && item.args[0] === '--hidden')
+      return enabled ? 'enabled' : 'disabled'
+    }
     if (settings.status === 'requires-approval') return 'requires-approval'
     // `not-registered` / `not-found` mean off; `status` is absent on macOS < 13.
     return (settings.status ?? (settings.openAtLogin ? 'enabled' : '')) === 'enabled' ? 'enabled' : 'disabled'
@@ -24,7 +34,7 @@ export function createLaunchAtLogin({ os, app }: { os: NodeJS.Platform; app?: Lo
     async setLaunchAtLogin(enabled) {
       const current = status()
       if (current === 'unsupported' || current === 'unpackaged') throw new Error(`Launch at Login is ${current}`)
-      app!.setLoginItemSettings({ openAtLogin: enabled })
+      app!.setLoginItemSettings(os === 'win32' ? { openAtLogin: enabled, args: ['--hidden'] } : { openAtLogin: enabled })
     },
   }
 }

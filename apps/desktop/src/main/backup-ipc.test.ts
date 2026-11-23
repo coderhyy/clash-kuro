@@ -42,6 +42,7 @@ vi.mock('./platform', () => ({
   createDesktopPlatform: () => mocks.platform, createSocketTransport: vi.fn(), createResumeHandler: vi.fn()
 }))
 vi.mock('./app/geo', () => ({ installGeoData: vi.fn() }))
+vi.mock('./app/resident-startup', () => ({ prepareResidentStartup: vi.fn(async () => vi.fn()) }))
 vi.mock('./app/profiles', () => ({ createProfileSource: vi.fn() }))
 vi.mock('./app/scheduler', () => ({ createUpdateScheduler: () => ({ start: vi.fn(), stop: vi.fn() }) }))
 vi.mock('./app/release-check', () => ({ checkForUpdate: async () => null }))
@@ -55,8 +56,13 @@ const invoke = (channel: string, event = trusted) => mocks.handlers.get(channel)
 beforeAll(async () => {
   directory = await mkdtemp(join(tmpdir(), 'kuro-backup-ipc-'))
   mocks.app.getPath.mockReturnValue(directory)
-  await import('./index')
-  await vi.waitFor(() => expect(mocks.app.on).toHaveBeenCalledWith('before-quit', expect.any(Function)))
+  const os = vi.spyOn(process, 'platform', 'get').mockReturnValue('win32')
+  try {
+    await import('./index')
+    await vi.waitFor(() => expect(mocks.app.on).toHaveBeenCalledWith('before-quit', expect.any(Function)))
+  } finally {
+    os.mockRestore()
+  }
 })
 beforeEach(async () => {
   vi.clearAllMocks()
@@ -87,7 +93,7 @@ test('export warns about secrets before offering a JSON save dialog and atomical
   expect(mocks.dialog.showMessageBox.mock.invocationCallOrder[0]).toBeLessThan(mocks.dialog.showSaveDialog.mock.invocationCallOrder[0]!)
   expect(mocks.dialog.showSaveDialog).toHaveBeenCalledWith(mocks.win, expect.objectContaining({ defaultPath: expect.stringMatching(/^clash-kuro-backup-\d{4}-\d{2}-\d{2}\.json$/) }))
   expect(await readFile(path, 'utf8')).toBe('exported secrets')
-  expect((await stat(path)).mode & 0o777).toBe(0o600)
+  if (process.platform !== 'win32') expect((await stat(path)).mode & 0o777).toBe(0o600)
 })
 
 test('Backup dialogs follow the resolved language', async () => {
