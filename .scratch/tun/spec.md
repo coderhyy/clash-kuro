@@ -4,7 +4,13 @@ Status: ready-for-agent（产品边界已批准；安全实现与真实验收未
 
 2026-11-03 建立草案，2026-11-04 记录维护者批准的首版产品行为；已接受的产品与生命周期边界以 [ADR-0014](../../docs/adr/0014-macos-tun-lifecycle.md) 为准。安装路线以 [ADR-0015](../../docs/adr/0015-macos-traditional-privileged-helper.md) 为准。任务入口见 `issues/`；正常重开策略见 [ADR-0016](../../docs/adr/0016-macos-tun-manual-start.md)，双栈固定模板见 [ADR-0017](../../docs/adr/0017-macos-tun-dual-stack.md)；LAN/DNS/DIRECT 与无 kill switch 边界见 [ADR-0018](../../docs/adr/0018-macos-tun-network-boundaries.md)，具体参数可技术选定并验证，人工系统操作须等维护者明确说“开始”。
 
-## 当前约束（2026-11-11）
+## 当前验收范围（2026-11-24）
+
+- [ADR-0017](../../docs/adr/0017-macos-tun-dual-stack.md#2026-11-24使用拆分的-ipv4-接管前缀) 记录当前固定计划。`641e9c1` 候选的实机结果确认固定 IPv4 DIRECT 请求经本会话 TUN 转发。`a35dd19` 候选的独立实机运行确认第一次正常停止即可回收准确 Core、清退 utun，恢复路由与 DNS，读回持久停止证明并通过独立卸载预检及精确卸载。两次运行分别验证流量与停止。
+- 停止核验只有在已校验的原会话账本、准确 utun 缺席及物理默认出口同时匹配时，才将固定内部 DNS 地址的特定 scoped host clone 识别为物理出口派生项。同一规则用于账本退役读回。此例外不授权删除，也不适用于无会话账本的独立卸载预检。本次实机未观察到该克隆；精确分支由隔离回归覆盖。
+- 以上为冻结候选证据。真实异常恢复、完整升级和公网 IPv6 转发仍待分别验收。
+
+## 历史约束（2026-11-11）
 
 740保留安装已完成受限恢复、format3持久证明及固定socket／原安装／receipt精确清理，本次授权结束。v2恢复保留安装／owner／writer退出绑定、原utun及固定地址池缺席、DNS连续读回和持久证明；外部路由差异仅报告，不取得修改权。正在准备新的可安装候选与固定IPv4目标对照，运行期基线门已按下述有限本地变化窄化实现并集成，完整验证与真实窗口仍待完成；IPv4 ENETUNREACH尚未定因。当前未获新网络实验授权。具体阻塞见[08](issues/08-tun-integration-acceptance.md)。
 
