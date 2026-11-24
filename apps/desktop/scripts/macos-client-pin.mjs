@@ -22,6 +22,9 @@ export async function inspectClientTree(bundle) {
       if (!path.startsWith(frameworks) || link.startsWith('/') || !(await realpath(path)).startsWith(frameworks)) throw new Error('client Framework link escapes the bundle')
     } else {
       if (info.mode & 0o6022) throw new Error(`writable client resource: ${path}`)
+      // Installer transfers ownership to root; the ordinary App user must still reach the sealed files.
+      const required = info.isDirectory() ? 0o005 : 0o004
+      if ((info.mode & required) !== required) throw new Error(`ordinary user cannot access client resource: ${path}`)
       if (info.isDirectory()) for (const name of await readdir(path)) await visit(join(path, name))
       else if (!info.isFile() || info.nlink !== 1) throw new Error(`unsupported client resource: ${path}`)
     }
