@@ -1,6 +1,6 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import type { MihomoClient } from '@kuro/api'
-import type { ControlChannel, Platform, Profile, Settings } from '@kuro/core'
+import type { ControlChannel, Platform, Profile, Settings, TunSessionConfig, TunStatus } from '@kuro/core'
 import { parseOverride } from '@kuro/core'
 import { LOG_BUFFER_SIZE, type CommandInput, type CommandName, type CommandOutput, type CommandResult, type Language, type LanguagePreference, type StateBridge, type StateSnapshot } from './index'
 import type { LogEntry, Traffic } from '@kuro/api'
@@ -13,6 +13,8 @@ export interface AppStoreDeps {
   systemLocale(): string
   /** Reads the Profile's original content; must not mutate it. */
   buildRuntimeConfig(input: { profile: Profile; settings: Settings; controlChannel: ControlChannel; override: string }): string | Promise<string>
+  /** Admit a restricted session before stopping the currently working mode. */
+  buildTunConfig?(input: { profile: Profile; settings: Settings; override: string }): TunSessionConfig | Promise<TunSessionConfig>
   /** Fetches/imports original content and returns updated metadata; rejects without destroying old content. */
   refreshProfile(profile: Profile): Promise<Profile>
   hooks?: {
@@ -28,6 +30,8 @@ export interface AppStore extends StateBridge {
   importBackup(json: string): Promise<void>
   /** Re-read Launch at Login from the OS; the user may change it in System Settings. */
   refreshLaunchAtLogin(): Promise<void>
+  /** Main-only: resume ordinary Core within the existing mode-transition queue. */
+  resumeCore(): Promise<void>
   /** Main-only: unexpected native owner exit. Immediately blocks Core/proxy writes until app restart. */
   notifyCoreStopped(reason: string): void
   /** Close live streams; call on shutdown. */
@@ -109,23 +113,106 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
     proxyGroups: [],
     proxies: {},
     systemProxy: { enabled: false },
+    tun: { availability: 'unsupported', state: 'off' },
     update: null,
     launchAtLogin,
     override
   }))
 
   let restartError: string | null = null
-  const coreUp = () => restartError === null && store.getState().core.status === 'running'
+  let tunError: string | null = null
+  let closing = false
+  let tunTransition = false
+  const coreUp = () => restartError === null && tunError === null && !closing && !tunTransition && store.getState().tun.state === 'off' && store.getState().core.status === 'running'
   const traffic = createStreamHub<Traffic>({ open: (onData, onClose) => client.traffic(onData, onClose), shouldConnect: coreUp })
   const logs = createStreamHub<LogEntry>({ open: (onData, onClose) => client.logs(onData, onClose), shouldConnect: coreUp, buffer: LOG_BUFFER_SIZE })
 
   function change(patch: Partial<StateSnapshot>): void {
     store.setState((state) => ({ ...patch, version: state.version + 1 }))
-    if (patch.core?.status === 'running') { traffic.wake(); logs.wake() }
+    if (patch.core || patch.tun) { traffic.wake(); logs.wake() }
+  }
+
+  function requireNativeSession(): void {
+    if (restartError !== null) throw new Error(restartError)
+    if (closing) throw new Error('Application is closing')
   }
 
   function requireSession(): void {
-    if (restartError !== null) throw new Error(restartError)
+    requireNativeSession()
+    if (tunError !== null) throw new Error(tunError)
+  }
+
+  function blockTun(error: unknown, status: TunStatus = { availability: 'blocked', state: 'unknown' }): void {
+    tunError = message(error)
+    traffic.wake()
+    logs.wake()
+    change({ tun: { ...status, availability: 'blocked', error: tunError }, systemProxy: { enabled: false, unknown: true } })
+  }
+
+  async function inspectTun(): Promise<TunStatus> {
+    if (!platform.tun) return store.getState().tun
+    const status = await platform.tun.inspect()
+    requireNativeSession()
+    change({ tun: { ...status } })
+    requireNativeSession()
+    if (status.state === 'unknown') blockTun(status.error ?? 'TUN state is unknown; recover before changing the network.', status)
+    return status
+  }
+
+  async function performTun(operation: 'start' | 'stop' | 'recover', config?: TunSessionConfig): Promise<TunStatus> {
+    requireNativeSession()
+    if (!platform.tun) throw new Error('TUN is unsupported')
+    if (operation === 'start' && !config) throw new Error('TUN configuration admission is unavailable')
+    let observed: TunStatus | undefined
+    tunTransition = true
+    try {
+      change({ tun: { availability: store.getState().tun.availability, state: 'unknown' } })
+      requireNativeSession()
+      const result = operation === 'start' ? await platform.tun.start(config!) : await platform.tun[operation]()
+      requireNativeSession()
+      observed = await inspectTun()
+      requireNativeSession()
+      const expected = operation === 'start' ? 'on' : 'off'
+      if (result.state !== expected || observed.state !== expected || (operation === 'start' && (result.availability !== 'ready' || observed.availability !== 'ready'))) {
+        throw new Error(result.error ?? observed.error ?? `TUN ${operation} was not confirmed ${expected}`)
+      }
+      if (operation !== 'start') tunError = null
+      return observed
+    } catch (error) {
+      requireNativeSession()
+      if (!observed) {
+        try { observed = await inspectTun() } catch { /* No readback means the network remains unknown. */ }
+        requireNativeSession()
+      }
+      if (observed?.state === 'off') {
+        tunError = null
+        change({ tun: { ...observed, error: message(error) } })
+      } else blockTun(error, observed)
+      throw error
+    } finally { tunTransition = false }
+  }
+
+  async function stopTunIfNeeded(beforeStop?: () => Promise<void>): Promise<boolean> {
+    requireSession()
+    let status: TunStatus
+    try { status = await inspectTun() } catch (error) {
+      requireNativeSession()
+      blockTun(error)
+      throw error
+    }
+    requireSession()
+    if (status.state === 'off') return false
+    await beforeStop?.()
+    requireSession()
+    await performTun('stop')
+    requireSession()
+    change({ core: { status: 'stopped', error: null }, proxyGroups: [], proxies: {} })
+    requireSession()
+    return true
+  }
+
+  function tunStoppedForReload(): void {
+    change({ tun: { ...store.getState().tun, error: 'TUN was stopped for configuration changes. Enable it manually.' } })
   }
 
   async function persist(patch: Partial<PersistedState>): Promise<void> {
@@ -159,6 +246,8 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
 
   async function start(): Promise<void> {
     requireSession()
+    await stopTunIfNeeded()
+    requireSession()
     change({ core: { status: 'starting', error: null } })
     try {
       requireSession()
@@ -174,6 +263,12 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
   }
 
   async function reloadIfRunning(): Promise<void> {
+    requireSession()
+    if (await stopTunIfNeeded()) {
+      await stop()
+      tunStoppedForReload()
+      return
+    }
     requireSession()
     const running = await platform.isCoreRunning()
     requireSession()
@@ -194,6 +289,13 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
       change({ systemProxy: { enabled: false } })
       return
     }
+    if (await stopTunIfNeeded(async () => {
+      const id = store.getState().activeProfileId
+      if (id === null) throw new Error('No Active Profile')
+      await prepareRuntime(profile(id))
+    })) {
+      await start()
+    }
     const running = await platform.isCoreRunning()
     requireSession()
     if (!running) throw new Error('Core is not running')
@@ -211,6 +313,9 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
 
   async function stop(): Promise<void> {
     if (restartError !== null) return
+    requireSession()
+    await stopTunIfNeeded()
+    requireSession()
     await platform.stopCore()
     requireSession()
     change({ core: { status: 'stopped', error: null }, systemProxy: { enabled: false }, proxyGroups: [], proxies: {} })
@@ -230,18 +335,60 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
       const settings = { ...store.getState().settings, mode }
       validateSettings(settings)
       await persist({ settings })
-      if (restartError !== null) return
+      if (restartError !== null || tunError !== null || closing) return
+      if (await stopTunIfNeeded()) {
+        await stop()
+        tunStoppedForReload()
+        return
+      }
       const running = await platform.isCoreRunning()
-      if (running && restartError === null) await client.setMode(mode)
+      if (running && restartError === null && tunError === null && !closing) await client.setMode(mode)
     },
     async selectProxy({ group, proxy }) {
       requireSession()
       if (typeof group !== 'string' || !group || typeof proxy !== 'string' || !proxy) throw new Error('Invalid Proxy selection')
+      if (store.getState().tun.state !== 'off') throw new Error('TUN proxy selection requires a validated broker')
       await client.selectProxy(group, proxy)
       await syncProxies()
     },
     async setSystemProxy({ enabled }) {
       await setSystemProxy(enabled)
+    },
+    async setTun({ enabled }) {
+      if (typeof enabled !== 'boolean') throw new Error('Invalid TUN toggle')
+      requireSession()
+      if (!enabled) { await stopTunIfNeeded(); return }
+      if (!platform.tun) throw new Error('TUN is unsupported')
+      let status: TunStatus
+      try { status = await inspectTun() } catch (error) {
+        requireNativeSession()
+        blockTun(error)
+        throw error
+      }
+      requireSession()
+      if (status.availability !== 'ready') throw new Error(status.error ?? `TUN is ${status.availability}`)
+      if (status.state === 'on') return
+      if (store.getState().activeProfileId === null) throw new Error('No Active Profile')
+      if (!deps.buildTunConfig) throw new Error('TUN configuration admission is unavailable')
+      const current = store.getState()
+      const config = await deps.buildTunConfig({ profile: profile(current.activeProfileId!), settings: current.settings, override: current.override })
+      requireSession()
+      await stop()
+      requireSession()
+      await performTun('start', config)
+      requireSession()
+      change({ core: { status: 'running', error: null }, proxyGroups: [], proxies: {} })
+      requireSession()
+    },
+    async recoverTun() {
+      requireNativeSession()
+      if (!platform.tun) return
+      await performTun('recover')
+      requireNativeSession()
+      const running = await platform.isCoreRunning()
+      requireNativeSession()
+      change({ core: { status: running ? 'running' : 'stopped', error: null } })
+      requireNativeSession()
     },
     async setLaunchAtLogin({ enabled }) {
       if (typeof enabled !== 'boolean') throw new Error('Invalid Launch at Login toggle')
@@ -312,12 +459,18 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
     },
     async startCore() {
       requireSession()
+      const prepared = await stopTunIfNeeded(async () => {
+        const id = store.getState().activeProfileId
+        if (id === null) throw new Error('No Active Profile')
+        await prepareRuntime(profile(id))
+      })
+      requireSession()
       const running = await platform.isCoreRunning()
       requireSession()
       if (running) return
       const id = store.getState().activeProfileId
       if (id === null) throw new Error('No Active Profile')
-      await prepareRuntime(profile(id))
+      if (!prepared) await prepareRuntime(profile(id))
       await start()
     },
     async stopCore() {
@@ -327,8 +480,19 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
       await deps.hooks?.onOpenWindow?.()
     },
     async quit() {
-      if (deps.hooks?.onQuit) await deps.hooks.onQuit()
-      else await stop()
+      if (deps.hooks?.onQuit) {
+        closing = true
+        traffic.close()
+        logs.close()
+        if (platform.tun && store.getState().tun.state !== 'off') {
+          change({ tun: { availability: 'blocked', state: 'unknown', error: 'Application is closing; network cleanup is pending.' } })
+        }
+        await deps.hooks.onQuit()
+      } else {
+        if (tunError !== null && restartError === null) await performTun('recover')
+        await stop()
+        closing = true
+      }
     },
     async setOverride({ yaml }) {
       if (typeof yaml !== 'string') throw new Error('Invalid Override YAML')
@@ -342,10 +506,21 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
     }
   }
 
+  if (platform.tun) {
+    try { await inspectTun() } catch (error) { blockTun(error) }
+    try {
+      if (store.getState().tun.state !== 'off' || store.getState().tun.availability === 'blocked') await performTun('recover')
+      const currentRunning = await platform.isCoreRunning()
+      change({ core: { status: currentRunning ? 'running' : 'stopped', error: null } })
+    } catch (error) {
+      if (store.getState().tun.state !== 'off') blockTun(error, store.getState().tun)
+    }
+  }
+
   // A blocked or failing System Proxy probe must not prevent the app from starting.
   const currentProxy = await platform.getSystemProxy().catch(() => null)
-  if (currentProxy?.host === '127.0.0.1' && currentProxy.port === initial.settings.mixedPort) change({ systemProxy: { enabled: true } })
-  if (running) await syncProxies()
+  if (tunError === null && currentProxy?.host === '127.0.0.1' && currentProxy.port === initial.settings.mixedPort) change({ systemProxy: { enabled: true } })
+  if (coreUp()) await syncProxies()
   let pending: Promise<unknown> = Promise.resolve()
   let restartRequired = false
   function assertNotImported(): void {
@@ -356,6 +531,24 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
     pending = result.catch(() => {})
     return result
   }
+
+  // Notifications invalidate the native observation; reconcile in the same queue
+  // as Commands. A disconnect never authorizes automatic recovery or a new writer.
+  const unsubscribeTun = platform.tun?.subscribe?.(() => {
+    if (closing) return
+    void enqueue(async () => {
+      if (closing) return
+      try {
+        const status = await inspectTun()
+        if (status.state === 'off') {
+          const running = await platform.isCoreRunning()
+          requireNativeSession()
+          change({ core: { status: running ? 'running' : 'stopped', error: null } })
+        }
+      }
+      catch (error) { if (!closing) blockTun(error) }
+    })
+  })
 
   async function exportBackup(): Promise<string> {
     assertNotImported()
@@ -387,9 +580,30 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
 
   return {
     store,
+    resumeCore: () => enqueue(async () => {
+      assertNotImported()
+      requireSession()
+      const snapshot = store.getState()
+      if (snapshot.core.status !== 'running' || snapshot.tun.state !== 'off') return
+      const restoreProxy = snapshot.systemProxy.enabled
+      const running = await platform.isCoreRunning()
+      requireSession()
+      if (running) {
+        try { await client.closeAllConnections() }
+        finally {
+          requireSession()
+          if (restoreProxy) await setSystemProxy(true)
+        }
+      } else {
+        await handlers.startCore({})
+        requireSession()
+        if (restoreProxy) await setSystemProxy(true)
+      }
+    }),
     exportBackup: () => enqueue(exportBackup),
     importBackup: (json) => enqueue(async () => {
       assertNotImported()
+      requireSession()
       const backup = parseBackup(json)
       const previous = store.getState().profiles
       const recoveryFile = `backups/pre-import-${new Date().toISOString().replace(/[:.]/g, '-')}.json`
@@ -398,6 +612,7 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
       // Restored as-is on failure, even if it would not pass parseBackup (e.g. a hand-edited override.yaml).
       const recovery = JSON.parse(current) as Backup
       await stop()
+      requireSession()
       // A partial write must not let queued Commands persist stale metadata over imported files.
       restartRequired = true
       try {
@@ -421,6 +636,7 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
       change({
         core: { status: 'stopped', error: restartError, restartRequired: true },
         systemProxy: { enabled: false, unknown: true },
+        ...(platform.tun ? { tun: { availability: 'blocked' as const, state: 'unknown' as const, error: restartError } } : {}),
         proxyGroups: [], proxies: {}
       })
     },
@@ -428,12 +644,12 @@ export async function createAppStore(deps: AppStoreDeps): Promise<AppStore> {
     refreshLaunchAtLogin: () => enqueue(readLaunchAtLogin),
     subscribeTraffic: (listener) => traffic.subscribe(listener),
     subscribeLogs: (listener) => logs.subscribe(listener),
-    dispose() { traffic.close(); logs.close() },
+    dispose() { closing = true; unsubscribeTun?.(); traffic.close(); logs.close() },
     subscribe: (listener) => store.subscribe(listener),
     run<K extends CommandName>(name: K, input: CommandInput<K>): Promise<CommandResult<K>> {
       const execute = async (): Promise<CommandResult<K>> => {
         try {
-          assertNotImported()
+          if (name !== 'quit') assertNotImported()
           if (!Object.hasOwn(handlers, name) || input === null || typeof input !== 'object' || Array.isArray(input)) throw new Error('Invalid command')
           return { ok: true, value: await handlers[name](input) }
         } catch (error) {

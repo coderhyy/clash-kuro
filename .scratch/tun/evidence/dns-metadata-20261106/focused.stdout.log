@@ -1,0 +1,10 @@
+DNS metadata: immutable raw Global default snapshot, known A/AAAA flags, typed metadata/alias binding; unsupported scope/service/unknown/incomplete metadata retained and refused
+Darwin route parser: four sanitized recorded wire shapes + nonlocal/nonhost/conflicting-zone/noncontiguous/truncation rejects PASS
+native route durability: 2 absence-only retirement/retry paths require successful directory sync, no route deletion
+native routes: bounded wire fixtures and 12 ownership/recovery scenarios passed; no PF_ROUTE/sysctl/network operation executed
+PASS 4 production DNS metadata cases: effective interface admission, preserved scoped path, exact journal/baseline and mutation refusal, UUID-only recovery
+PASS 8 recovered backend readback cases: complete current route/DNS observations, late marked/split/internal-pool/DNS/journal conflicts reject; no held history or network writes
+IPv4-only upstream: 18 admission/apply/recovery cases preserve dual-stack TUN, four routes, both DNS addresses and existing LAN/scoped DNS; unsafe literal paths and egress changes rejected (mock only)
+production network: inert construction, local-only DNS packets, baseline admission, dual-stack apply, partial failure, held-owner and restart absence fixtures passed (no system network calls)
+native DNS partial recovery: 5 fresh-object exact deletion, pre-remove value/journal changes, extra UUID and failed-unlink-sync retry cases passed
+native DNS ownership: 30 journal + 5 route-admission scenarios passed; no Darwin store or system network operation executed

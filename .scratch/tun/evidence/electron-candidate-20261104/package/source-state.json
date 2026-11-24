@@ -1,0 +1,5 @@
+{
+  "baseCommit": "edab263bd5165468e7c4f4073f8c60c41c91f524",
+  "workingTreeChanges": true,
+  "note": "Uncommitted integrated source snapshot; not a CI-tested release commit. Electron candidate was frozen before native-only final integration."
+}

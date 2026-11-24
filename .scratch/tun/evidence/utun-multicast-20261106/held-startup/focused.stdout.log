@@ -1,0 +1,14 @@
+held checkpoint 0: real reap, durable exact proof, fresh retry/absence gates and actual uninstall passed
+held checkpoint 1: real reap, durable exact proof, fresh retry/absence gates and actual uninstall passed
+held checkpoint 2: real reap, durable exact proof, fresh retry/absence gates and actual uninstall passed
+held checkpoint 3: real reap, durable exact proof, fresh retry/absence gates and actual uninstall passed
+held checkpoint 4: real reap, durable exact proof, fresh retry/absence gates and actual uninstall passed
+held checkpoint 5: real reap, durable exact proof, fresh retry/absence gates and actual uninstall passed
+held checkpoint 6: real reap, durable exact proof, fresh retry/absence gates and actual uninstall passed
+held checkpoint 7: real reap, durable exact proof, fresh retry/absence gates and actual uninstall passed
+held checkpoint 8: actual service checkpoint/retained retry; neverStarted=false preserved, exact uninstall passed
+held checkpoint 9: actual service checkpoint/retained retry; neverStarted=true preserved, exact uninstall passed
+held checkpoint 10: real reap, durable exact proof, fresh retry/absence gates and actual uninstall passed
+held checkpoint 11: real reap, durable exact proof, fresh retry/absence gates and actual uninstall passed
+held checkpoint 12: actual service checkpoint/retained retry; neverStarted=false preserved, exact uninstall passed
+PASS 13 held-stop checkpoint cases: proof write/file-sync/directory-sync, owner unlink/sync, changed proof/owner, both sticky histories, network failure and missing-proof refusal; no Core/launchd/network

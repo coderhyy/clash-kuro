@@ -1,0 +1,26 @@
+Executable=/private/tmp/kuro-offline-package-eb4beec05283/expanded/Payload/Library/Application Support/Clash Kuro/Privileged/Inbox/helper
+Identifier=helper-555549448b519513d6ea3540880d8052535d7c76
+Format=Mach-O thin (arm64)
+CodeDirectory v=20500 size=1232 flags=0x10002(adhoc,runtime) hashes=32+2 location=embedded
+VersionPlatform=1
+VersionMin=1769472
+VersionSDK=1769472
+Hash type=sha256 size=32
+CandidateCDHash sha256=a0e59495b02edb49ef1dfeacb6a612877ef516d5
+CandidateCDHashFull sha256=a0e59495b02edb49ef1dfeacb6a612877ef516d5b332c57130b2b919749e0f89
+Hash choices=sha256
+CMSDigest=a0e59495b02edb49ef1dfeacb6a612877ef516d5b332c57130b2b919749e0f89
+CMSDigestType=2
+Executable Segment base=0
+Executable Segment limit=360448
+Executable Segment flags=0x1
+Page size=16384
+CDHash=a0e59495b02edb49ef1dfeacb6a612877ef516d5
+Signature=adhoc
+Info.plist=not bound
+TeamIdentifier=not set
+Runtime Version=27.0.0
+Sealed Resources=none
+Internal requirements count=0 size=12
+Total signatures=1
+Chosen signature=1

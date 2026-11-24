@@ -6,6 +6,12 @@ Blocked by: 01
 
 对话框和 `app.relaunch()` 只能在真机上看。
 
+## 当前有效产物与人工入口
+
+- 使用 [CI 41671769227](https://github.com/coderhyy/clash-kuro/actions/runs/41671769227) 的 `2617cf9`、macOS／Windows 双绿产物：`/tmp/clash-kuro-acceptance-2617cf9/clash-kuro-0.1.0-arm64.dmg`。SHA256 为 `98db3afba40fedc24905877fe8d04ae6c10904142051ff4a37f0135388b0065f`，本轮只读 `hdiutil verify` 通过；下方旧包记录保留为历史。
+- 包校验、预计耗时、开始后保存清单和逐阶段停止条件统一见 [人工验收入口](../../phase2/manual-acceptance.md)。备份约 20–30 分钟；用户明确开始前只核对源码／包，不读取敏感基线、不安装启动 App 或改系统状态。
+- 开始后先核对其他工具的系统代理。当前 macOS clear 会关闭所有启用网络服务的 HTTP／HTTPS，未逐项校验归属；若发现其他工具代理或归属不明，先暂停退出／停止 Core／导入等可能清理代理的步骤，与用户协商隔离窗口和基线恢复，不自动覆盖。
+
 ## 负责范围与执行依赖
 
 - 本票负责原生保存／打开／确认对话框、真实 System Proxy 清理、Backup 导入后的 App 重启与数据恢复；01 已 resolved。
@@ -16,7 +22,7 @@ Blocked by: 01
 
 ## 步骤
 
-1. 使用下方 2026-11-04 记录且摘要核对一致的 CI 打包版，由主会话协调安装与系统状态操作窗口；导入两份受控 Profile，设一个 Active Profile，保存一份有效 Override、界面语言和 mixed-port 基准值；Core 正常运行后打开 System Proxy，并记录真实系统代理端点。开发版可辅助排错，最终结果记录实际验收产物。
+1. 用户明确开始后，按人工入口先保存基线并核对上方当前有效 CI 包，再由主会话协调安装与系统状态操作窗口；导入两份受控 Profile，设一个 Active Profile，保存一份有效 Override、界面语言和 mixed-port 基准值；Core 正常运行后打开 System Proxy，并记录真实系统代理端点。开发版可辅助排错，最终结果记录实际验收产物。
 2. 点“导出备份…”：先出现“请妥善保管”警告（切到 English 再看一次英文），再出现保存对话框；打开导出的 JSON 确认内容。
 3. 删掉一份 Profile、改 mixed-port。
 4. 点“导入备份…”选刚才的文件，确认对话框后：System Proxy 被关掉，App 自动重启，Profile 和 mixed-port 恢复，数据目录 `backups/` 下有 `pre-import-*.json`。
@@ -45,3 +51,10 @@ Blocked by: 01
 - 验收结果只适用于 `6ea3720`，不覆盖后续 Windows 自启与 fixture 修复。macOS job 成功和本轮 17/17、107/107 隔离测试不能写成跨平台 CI 全通过；同 run 的 Windows Backup IPC mock／权限故障注入失败由主会话处理。
 - 产物下载阻塞已解除，等待集中人工窗口。用户顺序为：记录原数据和真实代理基线 → 安装摘要一致的包 → 中英文导出与取消 → 导入有效备份并观察重启／真实代理清理／数据恢复 → 拒绝非法 JSON／Override → 恢复原数据及代理 → 再执行 macOS 自启 02。每一步的具体通过标准仍以上文为准。
 - 新包未挂载、安装或启动，磁盘镜像完整性检查不代替原生 UI、真实代理和重启验收；Status 保持 ready-for-human。
+
+### 2026-11-04 人工验收入口更新
+
+- 当前候选更新为上方 `2617cf9` 双绿 CI 包，SHA256 与预期一致，`hdiutil verify` checksum VALID、退出 0。`6ea3720` 包只作历史证据，不作为本轮当前包。
+- 已补齐统一人工入口；业务数据目录按源码确认是 `app.getPath('userData')/data`，macOS 默认 `~/Library/Application Support/Clash Kuro/data/`，实际路径等用户开始后核对。个人基线读取、安装、系统代理操作与真实 App 运行均未开始。
+
+2026-11-04 验收产物更新：使用源码`9990da69c565cef973e8560636fd2fb68fddbf15`的[CI 41774486923](https://github.com/coderhyy/clash-kuro/actions/runs/41774486923) App dmg，双平台绿，路径/摘要/只读核验及步骤见[人工验收入口](../../phase2/manual-acceptance.md)。原2617cf9产物留作历史，不再用于当前代码验收。先Backup导入与恢复、再登录项；不安装disabled helper候选。尚未获得“开始”授权，本票仍等待人工验收。

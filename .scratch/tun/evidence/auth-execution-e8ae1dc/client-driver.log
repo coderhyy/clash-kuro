@@ -1,0 +1,5 @@
+macOS App runtime/entitlements, seal, ASAR bytes and fuses verified (no launch; not privileged caller attestation)
+macOS App runtime/entitlements, seal, ASAR bytes and fuses verified (no launch; not privileged caller attestation)
+Evidence: /private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-auth-results-7ypAvm
+macOS App runtime/entitlements, seal, ASAR bytes and fuses verified (no launch; not privileged caller attestation)
+Observation passed; service exit and exact uninstall still required. /private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-auth-results-7ypAvm

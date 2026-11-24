@@ -1,0 +1,69 @@
+{
+  "scope": "admission-only: existing fresh mode uses complete sanitized DarwinDNSMetadataFixture dictionary; no shared edits",
+  "file": "apps/desktop/native/mac/tun-admission.test.m",
+  "baseSHA256": "fd18becdab13c35bddcdc62e1905c9a79e2aa539e400271c12ee982d23081f6a",
+  "sourceSHA256": "7b8e45ab632a0c0d0e7f95fbb6507cee9ad292eb478b7e4c1b93dcca2ceff2cd",
+  "patchSHA256": "19e4f8b25276a3dd920e35294c9bbfa8bd2aea4b16d065b879936d04251c3a3f",
+  "dependencyPatchSHA256": "b40be18e2b4627ec67c1934599c44f565625a444580490e7d5ac274c961c3593",
+  "dependencyFiles": {
+    "tun-network.m": "59afd8ae680798717f4045cc3a3b6cb67010147fd4639529492dfbb8c3b38eed",
+    "tun-network.test.m": "ea20770f8ad09f0f20415c4864bab0915ebb741240ef613f560b65eccb30c5eb",
+    "tun-production-network.m": "fabefc0da4c3b29a62aaead86bb3db7ec3b08ee63a6484165b14df89389216ac"
+  },
+  "green": {
+    "tests": 7,
+    "exit": 0,
+    "binarySHA256": "b31ebd50094ebe5d8bb9f096cd0a20fb0600dfaabc7b718baef5f30947ebd3e1",
+    "productionSourceSameAsFrozen": true,
+    "note": "production-network.test.m final four unit tests authored later; not exercised by admission mode; parent standard native run owns combined full suite"
+  },
+  "red": {
+    "exit": 0,
+    "binarySHA256": "dbc38799c7a5b94d5ad9526dcb21ae79f16f46e8aa85855dd1ed12e9651eefb3",
+    "result": {
+      "beforeStart": {
+        "availability": "ready",
+        "state": "off"
+      },
+      "error": "unsupported DNS resolver field __CONFIGURATION_ID__; preserving existing configuration",
+      "stats": {
+        "applications": 0,
+        "authorizations": 2,
+        "decodedBaselineRoutes": 4,
+        "dnsAdds": 0,
+        "dnsJournalAbsent": true,
+        "dnsRemovals": 0,
+        "finalizing": false,
+        "opens": 1,
+        "ownerAbsent": true,
+        "recoveries": 2,
+        "recoverRefusals": 0,
+        "routeAdds": 0,
+        "routeRemovals": 0,
+        "starts": 0,
+        "status": {
+          "availability": "ready",
+          "state": "off"
+        },
+        "workAbsent": true
+      }
+    },
+    "note": "real Profile builder, actual Node requestTunHelper/openTunHelperSession and same signed fixture dispatcher, baseline production DNS validators; startup recover succeeds, start preflight rejects before held child/network writes; Bun harness framing failed first and is retained separately"
+  },
+  "evidence": {
+    "green-seven.stdout.log": "f48fef781520315589ecbede196f20959512e964b37e7d23509d968e53f40a7c",
+    "green-seven.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "green-verification.json": "8753bc15ca264402ebdc4a9b49799ca88ac80978a876584980a8684e8546c68d",
+    "red-start.ts": "3c372d3afaec71469c21cc17140b73458546c672e513b160ca35118429fad12c",
+    "red-start.mjs": "0ab2348c305854fab4eaa6bcf5d89cf77553342ad21530d4bad2ed9bd1fb128b",
+    "red-start-node.stdout.log": "4942b166a3748a9f4a66bee024bf3e22d776635747e8715d2b924f20cd38fcec",
+    "red-start-node.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "red-start.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "red-start.stderr.log": "b0807e7a78496219b8f7b7ce1cdd6967e1e75ef019b29239df1563bdfa8dd9fd"
+  },
+  "limits": [
+    "No real Electron, ServicePeer listener, Core, root helper or system network; signed inert native relay and actual auth/activation/serveOpenFrame with fake writable route/DNS backends.",
+    "Fresh starts once, writes four fake routes and one fake DNS key; final ready/off, owner/work absent, complete initial DNS dictionary equal.",
+    "No source gate moved to recovery: old DNS validator fails at actual finite start preflight, not absence-only recover."
+  ]
+}

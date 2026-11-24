@@ -42,6 +42,15 @@ describe('interactive development bridge', () => {
     expect(bridge.snapshot.core.status).toBe('running')
     expect(bridge.snapshot.version).toBeGreaterThan(before.version)
   })
+  it('does not simulate native TUN installation, enabling or recovery', async () => {
+    const bridge = new DevBridge()
+    const before = bridge.snapshot
+    expect(before.tun).toEqual({ availability: 'not-installed', state: 'off' })
+    expect((await bridge.run('setTun', { enabled: true })).ok).toBe(false)
+    expect((await bridge.run('recoverTun', {})).ok).toBe(false)
+    expect(bridge.snapshot).toBe(before)
+  })
+
   it('returns command errors without publishing invalid state', async () => {
     const bridge = new DevBridge()
     expect(

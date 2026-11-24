@@ -1,0 +1,51 @@
+{
+  "sourceCommit": "69728e6abeb27f45f1bbea5b47b5e638d5f0ae9e",
+  "review": "/private/tmp/kuro-lifecycle-core-review-69728e6",
+  "supersedes": "822b7fb1e6d01dc167d3c3f4fb451264079b8bba",
+  "reason": "Execute pinned utility source bytes instead of cache-aware Python loader",
+  "sha256": {
+    "artifact.json": "eec5d7c6866a2e1eaa71ae44982bf23633d0613d630ab4fd1e5573b1c38b9c98",
+    "SHA256SUMS": "7168eec44544402a55e7ab59e782df0ed4fe672d5bef16f8f586c86fffde460e",
+    "approval.json": "3b29916ebe575c4679159b8241e89974e37779fd27aba330b62f8a9e8852902d",
+    "lifecycle-a": "3e3a2451cc553280bb91b4bb34a05eb7c79df9d90aa0768e04aabd7642054ea0",
+    "core-driver.py": "f7e17b2e8ac74ec3c377e1ef62c7dee3ab63bed435e9320ee0269ddbafad07e2",
+    "experiment-a.py": "4b1c05025816da23ffe702eaaaa7598c12d4663c0c8836c608f059479ee64953",
+    "cleanup.py": "216d1167c8a58b2b6d7ca2df8644af2c3883b37788d1b59560ff7253bdf9eb09",
+    "archive-root858.py": "2323babe884bde24150d24cbef301ca65dfeb0c10718227455adecb7e50b77c4",
+    "normal/mihomo": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+    "kill/mihomo": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9"
+  },
+  "epochs": {
+    "normalEpoch": "BF3DEB81-569D-41CF-8408-7666C64BD3BB",
+    "killEpoch": "76713027-6BD9-484C-B4AA-C1DE01BCB546"
+  },
+  "checks": {
+    "completeSHA256SUMS": true,
+    "actualCoreExecuted": false,
+    "systemActionsExecuted": false,
+    "ordinaryUIDHarmlessSelfTest": true,
+    "selfTestEvidence": "/private/tmp/kuro-core-lifecycle-QgaSq8",
+    "sandboxAttempt": {
+      "evidence": "/private/tmp/kuro-core-lifecycle-psSP0u",
+      "fixtureExit": 94,
+      "failureStage": "private-readiness",
+      "cause": "socket/listen branch; exact errno unavailable",
+      "childReaped": true,
+      "retained": true
+    },
+    "actualDriverReview": true,
+    "old858PinnedDependenciesUnchanged": true,
+    "committedSourceBlobsVerified": 27,
+    "independentReview": "offline-69728e6.json"
+  },
+  "ci": {
+    "runId": 42009377789,
+    "sourceCommit": "69728e6abeb27f45f1bbea5b47b5e638d5f0ae9e",
+    "conclusion": "success",
+    "jobs": [
+      "windows",
+      "macos"
+    ],
+    "url": "https://github.com/coderhyy/clash-kuro/actions/runs/42009377789"
+  }
+}

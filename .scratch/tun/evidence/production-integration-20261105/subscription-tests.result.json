@@ -1,0 +1,13 @@
+{
+  "command": [
+    "node_modules/.bin/vitest",
+    "run",
+    "packages/state/src/tun.test.ts",
+    "apps/desktop/src/main/platform/macos-tun.test.ts",
+    "apps/desktop/src/main/platform/platform.test.ts",
+    "apps/desktop/src/renderer/src/app.test.tsx",
+    "--maxWorkers=2"
+  ],
+  "exitCode": 0,
+  "elapsedSeconds": 2.097
+}

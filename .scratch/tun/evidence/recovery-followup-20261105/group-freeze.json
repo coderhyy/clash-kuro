@@ -1,0 +1,9 @@
+{
+  "files": {
+    "tun-session.m": "11de2e4fc5c0a76ff928fcf34e0d121f674175aa9fd50bb371a2fc4f373ecba1",
+    "tun-session.test.m": "7be1b92f74469fc8a769e012145e3358499f4333d9dd7b8ad9b3306d8ec21116",
+    "tun-service.test.m": "63740031fcd9b82b892dced099c9f5a94baf74e922de186fda86d92ade29df29"
+  },
+  "patchSHA256": "69e7544201e365af98c42ca21366da85b860d367b75b7b48bd06740bd2c711c3",
+  "scope": "Reject-only repeated old-PGID observation; no kill/adoption, no origin-only promotion, no descendant exit claim"
+}

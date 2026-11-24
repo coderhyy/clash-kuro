@@ -1,0 +1,67 @@
+{
+  "format": 1,
+  "patchSHA256": "4a27f859ca8df4b367b9404d60b52ac066a71d1dd5384dbb01159c7bf56cc3e6",
+  "baseSHA256": {
+    "tun-routes.m": "8751a49b894364961bed091c5ad439a5ad77460fcd9e0ccea05948d20a50b9f4",
+    "tun-routes.test.m": "541a97bd6f43b972f779d4bc8bb432c51183af901f23b91ae0096b1d6e04c08b"
+  },
+  "sourceSHA256": {
+    "tun-routes.m": "013fdcef254ac5c2b4f407af70b88d2247965b1d56d99229cfe2f43ffc8e368b",
+    "tun-routes.test.m": "f2b1a64231ae678a5a5da4b9442006276916287a4408a222d30fc59ca3480687"
+  },
+  "dependenciesSHA256": {
+    "tun-production-network.m": "837f537e638555af4446b410c089744b0d3d5c443e6b5b96b4fea99bbb2ec6d6",
+    "tun-production-network.test.m": "3b4a0dbf54b7ff342dee5f758b6b9eb65e26faf3be601259b6dfd0964df6b20b"
+  },
+  "verification": {
+    "green": {
+      "exit": 0,
+      "seconds": 2.4869951670989394
+    },
+    "red": {
+      "exit": 1,
+      "seconds": 0.6739064579596743
+    },
+    "strictCompile": {
+      "greenExit": 0,
+      "redExit": 0,
+      "arguments": [
+        "clang",
+        "-arch",
+        "arm64",
+        "-fobjc-arc",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-Wno-unused-function",
+        "-O2",
+        "-framework",
+        "Foundation",
+        "-framework",
+        "Security",
+        "-framework",
+        "SystemConfiguration",
+        "-lbsm"
+      ]
+    }
+  },
+  "evidenceSHA256": {
+    "focused.m": "2affcdadef1865d58b96e70baac7321eb5980e92f3ac3362f24c213113b63f5a",
+    "red.m": "c67d3f9da7f2bdc0da7078c1a7ecb731bbee758966d748ebd41548ebe0463d2d",
+    "focused": "8c08d7c8a9ae4ab2f9df3b81ef9f35eb3bb40d07fab4fffd60e97511789c27b7",
+    "red": "30f524fd143c0a858346f04f483f68773ddd74a9293eb084af50d73c65259632",
+    "focused.stdout.log": "10d993b3c8c266538d7dba2f2faa055c2ab21094e69e6b73dd344c954df25eda",
+    "focused.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "red.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "red.stderr.log": "20cb9d2449ea218b026c81d25afd1d14be69ccff8e776bbd2a5618ff02fb1a7e",
+    "focused-verification.json": "df6b9112360c17118476e00d31e940529d2cd6e4451734ce65ca45c854445bbd",
+    "red-verification.json": "16b4fc9571c93f75fdebc1cd0c87af81458f7e03bc491dfc30e7f30c11d246b5",
+    "red-native/tun-production-network.test.m": "e4c5c2f5b427d9d5d7a794fb34d92c2eb27eb01724d108b42b8740e8e3dec303"
+  },
+  "limits": [
+    "No real PF_ROUTE/sysctl/Core/system network execution.",
+    "Kernel-like fixture models pinned XNU flags; not evidence of actual route writes or kernel build equivalence.",
+    "RED uses baseline route source and candidate kernel-like fake; an extra diagnostic print in red-only coordinator test names the exact production apply refusal.",
+    "Only two route source/test files are in the patch; production coordinator files are unmodified dependencies."
+  ]
+}

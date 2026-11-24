@@ -1,0 +1,89 @@
+{
+  "sourceCommit": "e8ae1dc394ce59d447051d2a3fff4fdcd51a6492",
+  "packageSHA256": "98562290ab91af7372cf1d7d2c8d2145e6e1f0453adb6c1203710c3d319a6177",
+  "installedElectronPositive": {
+    "version": 1,
+    "mode": "authenticate-only",
+    "ok": true,
+    "authenticated": true,
+    "nativeRejected": false,
+    "endpoint": "/Library/PrivilegedHelperTools/dev.kuro.tun-run/auth.sock",
+    "executable": "/Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/MacOS/Clash Kuro",
+    "directory": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-jmvLq9",
+    "userData": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-jmvLq9/userData",
+    "sessionData": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-jmvLq9/sessionData",
+    "realPlatformCreated": false,
+    "realCoreStarted": false,
+    "systemNetworkWrites": false
+  },
+  "resignedClient": {
+    "version": 1,
+    "mode": "authenticate-only",
+    "ok": false,
+    "authenticated": false,
+    "nativeRejected": true,
+    "error": "client resources or exact approved identity are unavailable",
+    "endpoint": "/Library/PrivilegedHelperTools/dev.kuro.tun-run/auth.sock",
+    "executable": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-auth-negatives-z983ct/resigned.app/Contents/MacOS/Clash Kuro",
+    "directory": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-zCJcFd",
+    "userData": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-zCJcFd/userData",
+    "sessionData": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-zCJcFd/sessionData",
+    "realPlatformCreated": false,
+    "realCoreStarted": false,
+    "systemNetworkWrites": false
+  },
+  "externalReply": {
+    "error": "client hardening is insufficient",
+    "ok": false,
+    "version": 1
+  },
+  "nonObservationDenied": [
+    {
+      "operation": "start",
+      "reply": {
+        "error": "auth observation accepts only version-1 authenticate",
+        "ok": false,
+        "version": 1
+      }
+    },
+    {
+      "operation": "open",
+      "reply": {
+        "error": "auth observation accepts only version-1 authenticate",
+        "ok": false,
+        "version": 1
+      }
+    },
+    {
+      "operation": "stop",
+      "reply": {
+        "error": "auth observation accepts only version-1 authenticate",
+        "ok": false,
+        "version": 1
+      }
+    },
+    {
+      "operation": "recover",
+      "reply": {
+        "error": "auth observation accepts only version-1 authenticate",
+        "ok": false,
+        "version": 1
+      }
+    },
+    {
+      "operation": "exec",
+      "reply": {
+        "error": "auth observation accepts only version-1 authenticate",
+        "ok": false,
+        "version": 1
+      }
+    }
+  ],
+  "modifiedSeal": {
+    "status": 1,
+    "stderr": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-auth-negatives-z983ct/asar-mutated.app: a sealed resource is missing or invalid\n",
+    "launched": false
+  },
+  "cleanup": "complete; exact installation footprint and receipt absent, no matching processes; authorization ended",
+  "time": "2026-11-04T20:47:08.859210"
+}

@@ -1,0 +1,6 @@
+{
+  "status": 0,
+  "signal": null,
+  "stdout": "{\"nativeReply\":{\"error\":\"client hardening is insufficient\",\"ok\":false,\"version\":1}}\n",
+  "stderr": ""
+}

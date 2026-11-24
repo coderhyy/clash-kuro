@@ -545,3 +545,10 @@ Blocked by: 02, 07
 - Reproduced the IPC failure locally with Windows startup selected, then mocked resident preparation at the existing boundary. Reproduced the ineffective permission injection and replaced it with a one-time final settings write failure, verifying real on-disk rollback after Profile/Override changes. POSIX mode assertions remain only on supported hosts. Targeted tests 12 passed; desktop typecheck passed.
 - Draft follow-up [PR #2](https://github.com/coderhyy/clash-kuro/pull/2) carries these fixes and restored evidence; current CI must be checked against its actual head. No merge is performed by this session. The task remains `ready-for-human`; deferred cancellation/startup/manual recovery work continues under `.scratch/tun/issues/07-deferred-windows-recovery-validation.md`.
 - First follow-up CI [41670277615](https://github.com/coderhyy/clash-kuro/actions/runs/41670277615), head `7923c938bfe26ad2e53a2821502d4e4698db24f3`: Windows completed successfully, including desktop tests, native coordination and guarded real WinINet checks; macOS was still queued at this checkpoint. Subsequent Windows Launch at Login integration is commit `a21bb7a`; its combined final head needs its own CI result rather than inheriting this success.
+
+
+### 2026-11-10：74039f6 的 diagnostics-stall 测试语义修复
+
+CI 42819818021 macOS 通过；Windows 隔离 resident 的 diagnostics-stall 在 `durationMs >= 2000` 失败，实际1985，原report已为ok/cleanupReadbackVerified/coreGone，supervisor无rescue/残留。原真实Wait是信号或2000ms剩余预算的上限，不保证最低等待；旧artifact未记录其返回原因，不能确定是提前完成还是时钟测量，亦非344失败stdout路径。
+
+最小修改只在原fixture记录一次真实wait的参数/返回/同clock前后ticks及进程/Core/触发绑定，用独立小sidecar替代错误最低耗时断言。缺失或异常证据拒绝，只接受OBJECT_0或TIMEOUT；原产品2000/2100/2200ms预算、报告<2350、exit/ok/readback/CoreGone/16KiB/准确清退断言均不变，无人工sleep或阈值放宽。离线判定及新增C分支检查通过；实际WindowsGREEN须新CI确认。原始CI证据仅本地 `/private/tmp/kuro-740-windows-ci-7fpnr58o`。

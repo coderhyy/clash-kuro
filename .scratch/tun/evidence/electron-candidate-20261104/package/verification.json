@@ -1,0 +1,14 @@
+{
+  "package": "/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/kuro-tun-helper-client-disabled-0.1.0-arm64.pkg",
+  "packageSHA256": "c3cdf1af1f5bd9f7745171b55958c78589c564db53152de69e8d9f4ed6a5b6bf",
+  "bundleCount": 9,
+  "bomEntries": 1251,
+  "allIntendedUIDs": 0,
+  "fixedLocationAndStrictIdentifiers": true,
+  "versionSkippingDisabled": true,
+  "expandedClientPinMatches": true,
+  "helperCoreHashesMatch": true,
+  "serviceDisabled": true,
+  "installed": false,
+  "started": false
+}

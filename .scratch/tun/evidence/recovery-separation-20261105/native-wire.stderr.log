@@ -1,0 +1,21 @@
+test_attempt_unknown_file_blocks_start_before_launch (test_core_driver.CoreDriverTests) ... ok
+test_builder_reads_exact_committed_source_blobs (test_core_driver.CoreDriverTests) ... ok
+test_distinct_epochs_and_closed_approval (test_core_driver.CoreDriverTests) ... ok
+test_exact_plist_inherits_group_and_closed_cli (test_core_driver.CoreDriverTests) ... ok
+test_job_exact_stage_epoch_and_live_pid (test_core_driver.CoreDriverTests) ... ok
+test_kill_unknown_cannot_signal_persisted_pid (test_core_driver.CoreDriverTests) ... ok
+test_native_observer_serialization_preserves_boolean_wire_types (test_core_driver.CoreDriverTests) ... ok
+test_nonroot_system_entry_does_not_launch (test_core_driver.CoreDriverTests) ... ok
+test_normal_success_receipt_does_not_mask_job_exit_failure (test_core_driver.CoreDriverTests) ... ok
+test_prepare_kill_unknown_preserves_job_and_plist (test_core_driver.CoreDriverTests) ... ok
+test_protected_normal_success_closed_booleans_and_pins (test_core_driver.CoreDriverTests) ... ok
+test_reject_symlink_and_nonregular_read (test_core_driver.CoreDriverTests) ... ok
+test_result_can_precede_atomic_success_receipt (test_core_driver.CoreDriverTests) ... ok
+test_retire_unknown_cannot_bootout_or_delete (test_core_driver.CoreDriverTests) ... ok
+test_reused_source_has_no_group_or_environment_branch_in_session (test_core_driver.CoreDriverTests) ... ok
+test_unknown_reused_live_or_incomplete_group_never_absent (test_core_driver.CoreDriverTests) ... ok
+
+----------------------------------------------------------------------
+Ran 16 tests in 1.365s
+
+OK

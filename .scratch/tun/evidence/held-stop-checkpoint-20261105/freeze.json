@@ -1,0 +1,56 @@
+{
+  "baseCommit": "49f7dd6e610e18b2a4c59c85b92f2c29045b95d4",
+  "scope": "genuine held stop evidence durable before exact owner unlink; fresh only re-syncs existing real proof; neverStarted sticky; no recovered proof variant",
+  "files": {
+    "tun-session.m": {
+      "baseSHA256": "df738412e8dc9a1949618df79d4f43642748ed0768137a1005f7232cec8b5016",
+      "candidateSHA256": "67e6db59f89c4956c675bca0a25a35badd6d94460558c691caa932bd2210c7d1"
+    },
+    "tun-service.m": {
+      "baseSHA256": "12fca9e1ed603bec2a5a6ebbb2d75f8e5a4fa2d25b25937e08231929253cff6a",
+      "candidateSHA256": "0ba50e4f3988584de21329fde88d0b48ee95a9b9aad634e5600b366f31edea70"
+    },
+    "tun-install.m": {
+      "baseSHA256": "1d3e0a944258b12a3c61195725bacfcbc54588130528e134f4e80dfc92abcbff",
+      "candidateSHA256": "9d5a5bd941ac303bdb19d11d466791b9f90bd0abf04646ddc235c8fc31b24a8d"
+    },
+    "tun-service.test.m": {
+      "baseSHA256": "e4624e9e7defa70533c31beccd59e055bf3f5b1916b5140f60b7d31c49e9a57a",
+      "candidateSHA256": "46c8ec0fc5a15c5060fa4d2e7980e15256c86e963f37bba031d9ccd64d739d24"
+    }
+  },
+  "patch": {
+    "path": "/private/tmp/kuro-held-stop-checkpoint-candidate/held-stop-checkpoint.patch",
+    "sha256": "935d2b62c52ab059ca70320306628939d6853f0bdc62567fc2ee10815e0be739"
+  },
+  "verification": {
+    "path": "/private/tmp/kuro-held-stop-checkpoint-candidate/verification.json",
+    "sha256": "a37908f58c819962e3b3058f0a5e6a1667801f04aefa84ccdc797e207b41728c"
+  },
+  "logs": {
+    "focused-compile.command.json": "07b10a34195f002eb1921b14082f13f73665d7f06fcfeafcdfc247459fd877e6",
+    "focused-compile.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "focused-compile.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "focused.command.json": "6a33a7f4b6cbdc4184637c83e21b934ae174372e04b08cabc102703abe7982d0",
+    "focused.stderr.log": "ccdda416f5317f493cf8934de3bfb9adb703ddfc2f715b733fe8fb217a99d17e",
+    "focused.stdout.log": "f622963d7d9bb1dc6c6611e924cf804a5341951365eccb5ff184aa8e1c579a82",
+    "full-compile.command.json": "7a82a58eda28a5f2a8c393e2cd08869e48d682e1a2f376425b1d54c37362f27e",
+    "full-compile.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "full-compile.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "full-fixtures.command.json": "43501a621343e58f80669c5854d5ccf0166a0a0710a10fef5b8e40f57ca9d44d",
+    "full-fixtures.stderr.log": "9164230fbe18fbb3596ed1aa943b48bcd0fba5a8732e2fe891ca8ea9d4915928",
+    "full-fixtures.stdout.log": "33f504a32891661814bc657482bdb6f91d953328135a5dd31f3cb019db4b201a",
+    "production-compile.command.json": "8c220964436cb7248fec750c36e4bd82baa50df5b2e874c5465b8eeb638a95da",
+    "production-compile.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "production-compile.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "upgrade-fixtures.command.json": "85e081d0dacb9d3227a7052da9fb9356a895f71ff1441c300d8de654240034a4",
+    "upgrade-fixtures.stderr.log": "53c8a17c91a8eec81d0e76a73fa071b38fad366f31c5edb05f80a2c7dc463114",
+    "upgrade-fixtures.stdout.log": "921df3913befd7f79df71a416fbc291d6bdcfed9d6f4f80ffc9d7d45baa3ace3"
+  },
+  "limits": [
+    "No real Core, -t, root/system install, launchctl or network execution.",
+    "Process-group absence/network off are isolated fixtures in the new tests; proof itself comes from real held harmless child reaping.",
+    "No missing-proof restart fabrication: before complete proof bytes exist, fresh recovery cannot create stop authority. Partial or changed proof is preserved and not automatically replaced; a retryable original held context is still required when no proof file was created.",
+    "Does not fix beforeStart revocation failures or add recovered-origin stop proof; existing old-proof preservation semantics remain."
+  ]
+}

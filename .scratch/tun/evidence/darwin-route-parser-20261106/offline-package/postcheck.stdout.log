@@ -1,0 +1,16 @@
+{
+  "status": "no offline blocker",
+  "sourceCommit": "c138652131a6bf9035225b0ff93b74b9c360b21d",
+  "actualPackageSHA256": "f3b7fbdbb3fc7f49da44b9006418fc9cbc24cb6a1ebcd503f9adf0fed2c9f8d8",
+  "packageMetadataSHA256": "04fb97db51a53f247f8823698a6b487aac0953b34fdcda78fabffcd33a8b5013",
+  "bomEntries": 1253,
+  "fixedBundleCount": 9,
+  "inventoryEntries": 611,
+  "client": {
+    "format": 2,
+    "cdhash": "f1b230c0afda65da377a1ebfeac995395ef43dd4",
+    "executableSHA256": "129e0e92f6db763e6c16dc51970d0048ac418792c01a53431a6e918fe2eac318",
+    "infoSHA256": "800c398bc338e32a791481c1b973a0e50eb393b3735ced0d25eaed37b7dcc676",
+    "asarSHA256": "711b12381a4742a686164b10349691d90d6a7267dc143ccde98d1b492250f3e6"
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "format": 1,
+  "checks": [
+    {
+      "operation": "fresh",
+      "release": "v1.19.33-0.1.0-arm64-test-c50b6a1178125b02f6a98143eaf2ea3e7efc94e6fa33439741c7bb86f2c0e6b02",
+      "releaseBytes": 91,
+      "programBytes": 151,
+      "componentLimit": 255,
+      "nativeReleaseLimit": 120,
+      "socketPathUnaffected": true,
+      "plistFlags": {
+        "Disabled": true,
+        "RunAtLoad": false,
+        "KeepAlive": false,
+        "AbandonProcessGroup": false
+      },
+      "command": [
+        "/private/tmp/kuro-upgrade-candidate/tests",
+        "--upgrade-package-layout-fixture",
+        "/private/tmp/kuro-upgrade-package-app-release-2knlfy28/fresh/root",
+        "fresh"
+      ],
+      "exitCode": 0,
+      "stdout": "actual packager tree accepted by native UpgradeEntries/UpgradeTree; Inbox plist0600, exact resource hashes/modes and client inventory checked; layout only, not system install\n",
+      "stderr": ""
+    },
+    {
+      "operation": "upgrade",
+      "release": "v1.19.33-0.1.0-arm64-test-c50b6a1178125b02f6a98143eaf2ea3e7efc94e6fa33439741c7bb86f2c0e6b02",
+      "releaseBytes": 91,
+      "programBytes": 151,
+      "componentLimit": 255,
+      "nativeReleaseLimit": 120,
+      "socketPathUnaffected": true,
+      "plistFlags": {
+        "Disabled": true,
+        "RunAtLoad": false,
+        "KeepAlive": false,
+        "AbandonProcessGroup": false
+      },
+      "command": [
+        "/private/tmp/kuro-upgrade-candidate/tests",
+        "--upgrade-package-layout-fixture",
+        "/private/tmp/kuro-upgrade-package-app-release-2knlfy28/upgrade/root",
+        "upgrade"
+      ],
+      "exitCode": 0,
+      "stdout": "actual packager tree accepted by native UpgradeEntries/UpgradeTree; Inbox plist0600, exact resource hashes/modes and client inventory checked; layout only, not system install\n",
+      "stderr": ""
+    }
+  ],
+  "limitations": "Layout uses actual JS-generated tree but seal checks were injected and helper/Core are fixture bytes. Not MachO admission, actual installation or system upgrade validation.",
+  "currentPinnedBuildLengths": [
+    {
+      "arch": "arm64",
+      "releaseBytes": 103,
+      "helperProgramBytes": 163
+    },
+    {
+      "arch": "x64",
+      "releaseBytes": 101,
+      "helperProgramBytes": 161
+    }
+  ],
+  "reviewConclusion": {
+    "blockingFindings": [],
+    "deferred": [
+      "Actual Installer/LaunchDaemon and two real installed protocol-2 releases remain untested; layout fixture is not a system-upgrade acceptance.",
+      "Truncated or unknown staged bytes remain preserved and conservatively block recovery, as already tested."
+    ],
+    "nativeCompatibility": "ASCII release<=120 matches ValidManifest and previousRelease guards; version component<255; helper program independent of UNIX socket endpoint; exact release-selected uninstall/upgrade paths consume matching manifest/plist."
+  }
+}

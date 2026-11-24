@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process'
 import { EventEmitter } from 'node:events'
+import { createServer as createHttpServer } from 'node:http'
 import { createSocket } from 'node:dgram'
 import { lstat, mkdir, mkdtemp, readdir, readFile, rm, symlink } from 'node:fs/promises'
 import { createConnection, createServer, Socket } from 'node:net'
@@ -12,6 +13,66 @@ import { createAppStore, type Backup } from '@kuro/state'
 import { fakeSnapshot } from '@kuro/state/fake'
 import { assertMixedPortAvailable, createDesktopPlatform, type DesktopPlatform, type DesktopPlatformOptions, type Exec } from './index'
 import { reserveTestPort } from './test-ports'
+import type { TunPlatform, TunSessionConfig, TunStatus } from '@kuro/core'
+
+test.each(['on', 'unknown'] as const)('TUN %s blocks ordinary startup and proxy writes at the platform boundary', async state => {
+  const status: TunStatus = { availability: 'blocked', state, error: 'TUN cleanup unconfirmed' }
+  const tun: TunPlatform = { inspect: async () => status, recover: async () => status, start: async () => status, stop: async () => status }
+  const exec = vi.fn<Exec>()
+  const platform = createDesktopPlatform({ dataDir: '/tmp/kt-gate', corePath: '/tmp/no-core', mixedPort: 7890, tun, exec })
+  await expect(platform.startCore()).rejects.toThrow('TUN cleanup unconfirmed')
+  await expect(platform.setSystemProxy({ host: '127.0.0.1', port: 7890, bypass: [] })).rejects.toThrow('TUN cleanup unconfirmed')
+  await expect(platform.cleanupStaleSystemProxy(7890)).rejects.toThrow('TUN cleanup unconfirmed')
+  expect(exec).not.toHaveBeenCalled()
+})
+
+test('shutdown tries TUN cleanup before proxy writes and preserves its first deadline', async () => {
+  const dataDir = await mkdtemp(join(tmpdir(), 'kt-shutdown-'))
+  cleanups.push(() => rm(dataDir, { recursive: true, force: true }))
+  const tun: TunPlatform = {
+    inspect: async () => ({ availability: 'blocked', state: 'unknown', error: 'uncertain owner' }),
+    start: vi.fn(), recover: vi.fn(), stop: vi.fn(() => new Promise<TunStatus>(() => {})),
+  }
+  const exec = vi.fn<Exec>()
+  const platform = createDesktopPlatform({ dataDir, corePath: '/tmp/no-core', mixedPort: 7890, tun, exec })
+  const first = platform.shutdown({ timeoutMs: 60 })
+  expect(platform.shutdown({ timeoutMs: 2000 })).toBe(first)
+  await expect(first).rejects.toThrow(/TUN cleanup deadline exceeded/)
+  expect(tun.stop).toHaveBeenCalledOnce()
+  expect(exec).not.toHaveBeenCalled()
+})
+
+test('shutdown waits for an entered TUN start, then stops it; subsequent starts are closed', async () => {
+  const dataDir = await mkdtemp(join(tmpdir(), 'kt-start-shutdown-'))
+  cleanups.push(() => rm(dataDir, { recursive: true, force: true }))
+  let status: TunStatus = { availability: 'ready', state: 'off' }
+  let completeStart!: (value: TunStatus) => void
+  const tun: TunPlatform = {
+    inspect: async () => status, recover: vi.fn(),
+    start: vi.fn(() => new Promise<TunStatus>(resolve => { completeStart = resolve })),
+    stop: vi.fn(async () => { status = { availability: 'ready', state: 'off' }; return status }),
+  }
+  const exec = vi.fn<Exec>(async (_file, args) => ({ stdout: args[0] === '-listallnetworkservices' ? 'Wi-Fi' : 'Enabled: No\nServer: \nPort: 0\nAuthenticated Proxy Enabled: 0', stderr: '' }))
+  const platform = createDesktopPlatform({ os: 'darwin', dataDir, corePath: '/unused', mixedPort: 7890, tun, exec })
+  const config: TunSessionConfig = {
+    version: 1, template: 'macos-dual-stack-v1', mode: 'rule', proxies: [], groups: [],
+    rules: [{ type: 'MATCH', value: '', target: 'DIRECT', noResolve: false }],
+    dns: { nameservers: ['192.0.2.53'], bootstrap: ['192.0.2.53'], proxyNameservers: ['192.0.2.53'], policies: [] },
+  }
+  const starting = platform.tun!.start(config)
+  await vi.waitFor(() => expect(tun.start).toHaveBeenCalledOnce())
+  expect(tun.start).toHaveBeenCalledWith(config)
+  await expect(platform.setSystemProxy({ host: '127.0.0.1', port: 7890, bypass: [] })).rejects.toThrow('startup must settle')
+  const closing = platform.shutdown({ timeoutMs: 1000 })
+  await expect(platform.tun!.start(config)).rejects.toThrow('shutting down')
+  expect(exec.mock.calls.every(([, args]) => args[0]?.startsWith('-get') || args[0] === '-listallnetworkservices')).toBe(true)
+  status = { availability: 'ready', state: 'on' }
+  completeStart(status)
+  await starting
+  await closing
+  expect(tun.stop).toHaveBeenCalledOnce()
+  expect(status.state).toBe('off')
+})
 
 const cleanups: Array<() => Promise<void>> = []
 beforeAll(async () => {
@@ -178,12 +239,35 @@ test.each(['direct', 'resident'] as const)('%s rejects UDP-only occupancy before
 
 test('direct API-ready Core without a mixed listener fails readiness and is stopped', async () => {
   let platform: DesktopPlatform
-  let mixedPort: number
-  const result = await fixture({ spawn: fakeCore(() => platform, () => mixedPort, false, false), startTimeoutMs: 500 })
+  const requests: Array<{ method: string | undefined; path: string | undefined }> = []
+  let completedResponses = 0
+  let childClosed = false
+  const api = createHttpServer((request, response) => {
+    requests.push({ method: request.method, path: request.url })
+    response.once('finish', () => { completedResponses++ })
+    response.setHeader('connection', 'close')
+    response.end('{"version":"fake"}')
+  })
+  const result = await fixture({ startTimeoutMs: 500, spawn: (_file, _args, options) => {
+    const channel = platform.controlChannel()
+    // Bind after startCore removes the old endpoint; keep API readiness independent
+    // of a second Node process's cold-start scheduling within the shared deadline.
+    api.listen(channel.kind === 'unix' ? channel.path : channel.name)
+    const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], options)
+    child.once('close', () => { childClosed = true })
+    return child
+  } })
+  cleanups.push(() => new Promise<void>((resolve, reject) => {
+    if (!api.listening) return resolve()
+    api.close(error => error ? reject(error) : resolve())
+  }))
   platform = result.platform
-  mixedPort = result.mixedPort
   await platform.writeFileAtomic('runtime.yaml', 'mode: direct')
   await expect(platform.startCore()).rejects.toThrow(/readiness timed out.*mixed-port/s)
+  expect(requests.length).toBeGreaterThan(0)
+  expect(requests.every(request => request.method === 'GET' && request.path === '/version')).toBe(true)
+  expect(completedResponses).toBeGreaterThan(0)
+  expect(childClosed, 'readiness failure must await the exact owned child close').toBe(true)
   expect(await platform.isCoreRunning()).toBe(false)
   expect(await platform.readFile('core.pid')).toBeNull()
 })
@@ -370,7 +454,7 @@ test('stale or unrelated pid is removed without sending a signal', async () => {
   const pid = unrelated.pid
   cleanups.push(async () => { unrelated.kill('SIGKILL') })
   await platform.writeFileAtomic('core.pid', String(pid))
-  exec.mockResolvedValue({ stdout: '/bin/sh\n', stderr: '' })
+  exec.mockImplementation(async file => ({ stdout: file === '/bin/ps' ? '/bin/sh\n' : '', stderr: '' }))
   await expect(platform.startCore()).rejects.toThrow('No Runtime Config')
   expect(await platform.readFile('core.pid')).toBeNull()
   expect(() => process.kill(pid, 0)).not.toThrow()
@@ -383,7 +467,7 @@ test('an orphan with the same executable path is terminated before port detectio
   const pid = unrelated.pid
   cleanups.push(async () => { unrelated.kill('SIGKILL') })
   const { platform, exec } = await fixture({ os: 'darwin' })
-  exec.mockResolvedValue({ stdout: process.execPath, stderr: '' })
+  exec.mockImplementation(async file => ({ stdout: file === '/bin/ps' ? process.execPath : '', stderr: '' }))
   await platform.writeFileAtomic('core.pid', String(pid))
   await expect(platform.startCore()).rejects.toThrow('No Runtime Config')
   expect(() => process.kill(pid, 0)).toThrow()
@@ -474,4 +558,172 @@ test('a failed Backup import on real disk restores the pre-import data', async (
   const [recovery] = await readdir(join(dataDir, 'backups'))
   expect(JSON.parse(await readFile(join(dataDir, 'backups', recovery!), 'utf8'))).toMatchObject({ settings: saved, override: before.override })
   expect(await app.run('setMode', { mode: 'direct' })).toMatchObject({ ok: true })
+})
+
+
+test('desktop TUN wrapper preserves native observation subscriptions and unsubscribe', () => {
+  let notify: (() => void) | undefined
+  const unsubscribe = vi.fn(() => { notify = undefined })
+  const status: TunStatus = { availability: 'ready', state: 'off' }
+  const tun: TunPlatform = { inspect: async () => status, recover: async () => status, start: async () => status, stop: async () => status,
+    subscribe: listener => { notify = listener; return unsubscribe } }
+  const platform = createDesktopPlatform({ dataDir: '/tmp/kt-subscribe', corePath: '/tmp/unused', mixedPort: 7890, tun, exec: vi.fn() })
+  const changed = vi.fn()
+  const stop = platform.tun!.subscribe!(changed)
+  notify!()
+  expect(changed).toHaveBeenCalledOnce()
+  stop()
+  expect(unsubscribe).toHaveBeenCalledOnce()
+  expect(notify).toBeUndefined()
+})
+
+
+test.each(['active', 'unknown', 'unreadable', 'off'] as const)('TUN start independently requires all HTTP/HTTPS proxies off: %s', async mode => {
+  const off: TunStatus = { availability: 'ready', state: 'off' }
+  const tun: TunPlatform = { inspect: async () => off, stop: async () => off, recover: async () => off, start: vi.fn(async () => ({ ...off, state: 'on' as const })) }
+  const exec = vi.fn<Exec>(async (_file, args) => {
+    if (args[0] === '-listallnetworkservices') return { stdout: 'Wi-Fi', stderr: '' }
+    if (args[0] === '-getproxybypassdomains') return { stdout: "There aren't any bypass domains set on this service.", stderr: '' }
+    if (mode === 'unreadable') throw new Error('readback unavailable')
+    return { stdout: mode === 'unknown' ? 'Enabled: No' : `Enabled: ${mode === 'active' && args[0] === '-getsecurewebproxy' ? 'Yes' : 'No'}\nServer: corp.proxy\nPort: 8080\nAuthenticated Proxy Enabled: 0`, stderr: '' }
+  })
+  const platform = createDesktopPlatform({ os: 'darwin', dataDir: '/tmp/kuro-proxy-gate', corePath: '/unused', mixedPort: 7890, tun, exec })
+  const config: TunSessionConfig = {
+    version: 1, template: 'macos-dual-stack-v1', mode: 'rule', proxies: [], groups: [],
+    rules: [{ type: 'MATCH', value: '', target: 'DIRECT', noResolve: false }],
+    dns: { nameservers: ['192.0.2.53'], bootstrap: ['192.0.2.53'], proxyNameservers: ['192.0.2.53'], policies: [] },
+  }
+  if (mode === 'off') {
+    await expect(platform.tun!.start(config)).resolves.toMatchObject({ state: 'on' })
+    expect(tun.start).toHaveBeenCalledOnce()
+  } else {
+    await expect(platform.tun!.start(config)).rejects.toThrow()
+    expect(tun.start).not.toHaveBeenCalled()
+  }
+  expect(exec.mock.calls.some(([, args]) => args[0]?.startsWith('-set'))).toBe(false)
+})
+
+test('macOS stopCore still removes owned ordinary runtime evidence when proxy cleanup fails', async () => {
+  const dataDir = await mkdtemp(join(tmpdir(), 'kt-proxy-stop-'))
+  cleanups.push(() => rm(dataDir, { recursive: true, force: true }))
+  const enabled = new Map<string, boolean>()
+  let changed = false
+  const exec: Exec = async (_file, args) => {
+    if (args[0] === '-listallnetworkservices') return { stdout: 'Wi-Fi', stderr: '' }
+    if (args[0] === '-getproxybypassdomains') return { stdout: "There aren't any bypass domains set on this service.", stderr: '' }
+    const key = args[0]?.includes('secureweb') ? 'secure' : 'web'
+    if (args[0]?.startsWith('-set')) { enabled.set(key, args[2] !== 'off'); return { stdout: '', stderr: '' } }
+    return { stdout: `Enabled: ${enabled.get(key) ? 'Yes' : 'No'}\nServer: ${changed ? 'third.party' : '127.0.0.1'}\nPort: 7890\nAuthenticated Proxy Enabled: 0`, stderr: '' }
+  }
+  const platform = createDesktopPlatform({ os: 'darwin', dataDir, corePath: '/unused', mixedPort: 7890, exec })
+  await platform.setSystemProxy({ host: '127.0.0.1', port: 7890, bypass: [] })
+  await platform.writeFileAtomic('core.pid', '123')
+  changed = true
+  await expect(platform.stopCore()).rejects.toThrow('changed')
+  expect(await platform.readFile('core.pid')).toBeNull()
+})
+
+test.skipIf(process.platform === 'win32')('start rechecks unix socket mode after readiness can reset its permissions', async () => {
+  let platform: DesktopPlatform
+  let mixedPort: number
+  const result = await fixture({ spawn: (_file, _args, options) => {
+    const channel = platform.controlChannel()
+    if (channel.kind !== 'unix') throw new Error('Expected unix')
+    return spawn(process.execPath, ['-e', `
+      const fs = require('node:fs');
+      require('node:http').createServer((req, res) => {
+        fs.chmodSync(${JSON.stringify(channel.path)}, 0o666);
+        res.end('{"version":"fixture"}');
+      }).listen(${JSON.stringify(channel.path)});
+      require('node:net').createServer(socket => socket.once('data', () => socket.write(Buffer.from([5, 0])))).listen(${mixedPort}, '127.0.0.1');
+    `], options)
+  } })
+  platform = result.platform
+  mixedPort = result.mixedPort
+  await platform.writeFileAtomic('runtime.yaml', 'mode: direct')
+  await platform.startCore()
+  const channel = platform.controlChannel()
+  if (channel.kind !== 'unix') throw new Error('Expected unix')
+  expect((await lstat(channel.path)).mode & 0o777).toBe(0o600)
+})
+
+test.skipIf(process.platform === 'win32')('start refuses replacement control socket throughout the readiness handshake', async () => {
+  let platform: DesktopPlatform
+  let mixedPort: number
+  let evidencePath: string
+  let childClosed = false
+  const result = await fixture({ startTimeoutMs: 1000, spawn: (_file, _args, options) => {
+    const channel = platform.controlChannel()
+    if (channel.kind !== 'unix') throw new Error('Expected unix')
+    const child = spawn(process.execPath, ['-e', `
+      const fs = require('node:fs'), http = require('node:http');
+      const path = ${JSON.stringify(channel.path)}, evidencePath = ${JSON.stringify(evidencePath)};
+      const evidence = { replacements: 0, versionResponses: 0, mixedProbes: 0, original: null, replacement: null };
+      function save() { fs.writeFileSync(evidencePath, JSON.stringify(evidence), { mode: 0o600 }); }
+      function listen() {
+        http.createServer((req, res) => {
+          const before = fs.lstatSync(path);
+          fs.unlinkSync(path);
+          listen();
+          const after = fs.lstatSync(path);
+          evidence.replacements++;
+          evidence.original = { dev: before.dev, ino: before.ino };
+          evidence.replacement = { dev: after.dev, ino: after.ino };
+          res.once('finish', () => { evidence.versionResponses++; save(); });
+          res.end('{"version":"replacement"}');
+        }).listen(path);
+      }
+      listen();
+      require('node:net').createServer({ allowHalfOpen: true }, socket => {
+        socket.once('data', () => socket.write(Buffer.from([5, 0])));
+        socket.once('end', () => { evidence.mixedProbes++; save(); socket.end(); });
+      }).listen(${mixedPort}, '127.0.0.1');
+    `], options)
+    child.once('close', () => { childClosed = true })
+    return child
+  } })
+  platform = result.platform
+  mixedPort = result.mixedPort
+  evidencePath = join(result.dataDir, 'replacement-evidence.json')
+  await platform.writeFileAtomic('runtime.yaml', 'mode: direct')
+  // A later retry may time out at the shared deadline; the fixture independently
+  // proves replacement and a completed HTTP/SOCKS handshake before rejection.
+  await expect(platform.startCore()).rejects.toThrow('Core readiness timed out:')
+  const evidence = JSON.parse(await readFile(evidencePath, 'utf8'))
+  expect(evidence.replacements).toBeGreaterThan(0)
+  expect(evidence.versionResponses).toBeGreaterThan(0)
+  expect(evidence.mixedProbes).toBeGreaterThan(0)
+  expect(evidence.original.dev).toBe(evidence.replacement.dev)
+  expect(evidence.original.ino).not.toBe(evidence.replacement.ino)
+  expect(childClosed).toBe(true)
+  expect(await platform.isCoreRunning()).toBe(false)
+  expect(await platform.readFile('core.pid')).toBeNull()
+})
+
+test.skipIf(process.platform === 'win32')('readiness refuses a socket replaced by a symlink without chmoding its target', async () => {
+  let platform: DesktopPlatform
+  let mixedPort: number
+  let target: string
+  const result = await fixture({ startTimeoutMs: 250, spawn: (_file, _args, options) => {
+    const channel = platform.controlChannel()
+    if (channel.kind !== 'unix') throw new Error('Expected unix')
+    return spawn(process.execPath, ['-e', `
+      const fs = require('node:fs');
+      fs.writeFileSync(${JSON.stringify(target)}, 'preserve', {mode: 0o644});
+      require('node:http').createServer((req, res) => {
+        fs.unlinkSync(${JSON.stringify(channel.path)});
+        fs.symlinkSync(${JSON.stringify(target)}, ${JSON.stringify(channel.path)});
+        res.end('{"version":"symlink"}');
+      }).listen(${JSON.stringify(channel.path)});
+      require('node:net').createServer(socket => socket.once('data', () => socket.write(Buffer.from([5, 0])))).listen(${mixedPort}, '127.0.0.1');
+    `], options)
+  } })
+  platform = result.platform
+  mixedPort = result.mixedPort
+  target = join(result.dataDir, 'preserve-target')
+  await platform.writeFileAtomic('runtime.yaml', 'mode: direct')
+  await expect(platform.startCore()).rejects.toThrow(/readiness timed out: Core control socket identity/)
+  expect((await lstat(target)).mode & 0o777).toBe(0o644)
+  expect(await readFile(target, 'utf8')).toBe('preserve')
+  expect(await platform.isCoreRunning()).toBe(false)
 })

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>Label</key><string>dev.kuro.tun</string>
+<key>ProgramArguments</key><array><string>/Library/PrivilegedHelperTools/dev.kuro.tun/versions/v1.19.33-0.1.0-arm64-ba360907bb7f91f6/helper</string><string>--serve</string></array>
+<key>Disabled</key><true/>
+<key>RunAtLoad</key><false/>
+<key>KeepAlive</key><false/>
+<key>AbandonProcessGroup</key><false/>
+</dict></plist>

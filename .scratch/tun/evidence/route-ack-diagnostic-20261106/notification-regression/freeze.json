@@ -1,0 +1,26 @@
+{
+  "files": {
+    "tun-routes.m": {
+      "baseSHA256": "3e3dca3875eea0f9db2404aded3db72d55c53d88b7329834fdf5b6f4e4c8aac2",
+      "sourceSHA256": "4310ee9e50e718db3249856b46a80cf0062374de6e5a3ff5aa3249815a419982"
+    },
+    "tun-routes.test.m": {
+      "baseSHA256": "f580feeafa252b540bc5872ac4aa5f6de747a70c7633184d982119072ddbf6c6",
+      "sourceSHA256": "a9d221406383ea71da3a8d765a8f2bf962dfeb3d7f864bd1c0b3264672ffb45e"
+    }
+  },
+  "patchSHA256": "9c1cd9ced5314c973b2e0e4cf87476957d198d41b63ae50eb9edc89c897332f5",
+  "evidenceSHA256": {
+    "verification.json": "3d59eb385db7ee2fef7325cbdb8493207edcabfeab9a73f4cffd41d6c94a1fb9",
+    "baseline-red.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "baseline-red.stderr.log": "29d29f31602947f02f7974e234becd8acaec2f582679292778a82b9147e0ac1c",
+    "focused.stdout.log": "ef258b0b925f35bd37ae049bb473fc56b9bc8060f868b4113dc0ee5a3afa0ccc",
+    "focused.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "baseline-red": "9e5ba0c76fe018e1a95f65082b2f3d0ae7430d7de326746b7ad94e9248ff2dfb",
+    "focused": "f2ae5c9b1c4591809dad6d41b00986e8fd4e694bb68c444c3a8751ed00fafb8d"
+  },
+  "baselineAndGreenRegressionTestsSHA256": "a9d221406383ea71da3a8d765a8f2bf962dfeb3d7f864bd1c0b3264672ffb45e",
+  "scope": "known short RTM_NEWMADDR notification classification only; no ACK acceptance or deadline changes",
+  "observedPacketLimit": "only first 32 bytes + receive length 64 are real; test tail is synthetic",
+  "systemOperations": "none; injected route I/O only"
+}

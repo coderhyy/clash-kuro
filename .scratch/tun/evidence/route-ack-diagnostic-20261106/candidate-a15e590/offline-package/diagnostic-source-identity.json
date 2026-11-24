@@ -1,0 +1,38 @@
+{
+  "sourceCommit": "a15e590ec5d787025017021a275cb8bdedbedf48",
+  "checks": {
+    "tun-routes.m": {
+      "sha256": "4b7ee3f0d8d8567558389a5b732130c0f2a6b84bbafe0aa61b2bda3d958888e2",
+      "matchesReviewedCandidate": "kuro-route-ack-diagnostics-candidate"
+    },
+    "tun-routes.test.m": {
+      "sha256": "db1b8e07a5e6b25159290ac560121d7956fa991d2bb932f06650d7c5da571e5e",
+      "matchesReviewedCandidate": "kuro-route-ack-diagnostics-candidate"
+    },
+    "tun-production-network.m": {
+      "sha256": "783622c89abaf41dd508c759788f07613bbee5da36583ba6fa85d39120b9fff3",
+      "matchesReviewedCandidate": "kuro-staged-dns-coordinator-candidate"
+    },
+    "tun-production-network.test.m": {
+      "sha256": "fdf4ce56bc6548228fcf1bb6a41006ce938d34bbc9673c10c78a006e758aac7c",
+      "matchesReviewedCandidate": "kuro-staged-dns-coordinator-candidate"
+    }
+  },
+  "nativeDiagnosticLiterals": [
+    "route acknowledgement absent or rejected; ownership must be reconciled",
+    "routeExchange=%@",
+    "syscallErrno",
+    "matchingAck",
+    "shortHeaderPrefixHex",
+    "packet-limit",
+    "route continuation requires this actor's completed internal DNS preparation",
+    "network phase lacks its exact complete route receipt",
+    "SKIP_SYSTEM_IPV6_CHECK=true"
+  ],
+  "reviewedPatches": [
+    "30d2f831e82d5833c09f8f3273e616ae1904b6b695f27eae2e7aa6665ec139fd",
+    "3afcd439d385874e8879ab6a4ff0125eb52e302f591a2a14bf3aa655308ab3b8"
+  ],
+  "standardLogContains24WireLoopAndStagedAndSevenChains": true,
+  "scope": "static source/build identity and existing build evidence only; reviewer executed no PF_ROUTE, Core, install, App or product helper"
+}

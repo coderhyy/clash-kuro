@@ -1,0 +1,21 @@
+{
+  "commit": "3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8",
+  "files": {
+    "config/config.go": {
+      "blobSHA1": "cc8c1016703c21f502cfb4151f5f0131bbb3be81",
+      "url": "https://github.com/MetaCubeX/mihomo/blob/3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8/config/config.go"
+    },
+    "config/utils.go": {
+      "blobSHA1": "ed4605146cc8d5b3d6dc96d5e9b786cd68389fa2",
+      "url": "https://github.com/MetaCubeX/mihomo/blob/3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8/config/utils.go"
+    },
+    "listener/sing_tun/server.go": {
+      "blobSHA1": "5415b25e38530f0eeecacc08ff857350a991ec5f",
+      "url": "https://github.com/MetaCubeX/mihomo/blob/3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8/listener/sing_tun/server.go"
+    },
+    "listener/sing_tun/dns.go": {
+      "blobSHA1": "3ae3981d76acf16026524e7f7a9ab7b7f8bdc059",
+      "url": "https://github.com/MetaCubeX/mihomo/blob/3f27ef39f8c96bbfbc8b0b9bb10f5c9ef60149d8/listener/sing_tun/dns.go"
+    }
+  }
+}

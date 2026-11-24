@@ -1,0 +1,19 @@
+{
+  "scope": "upgrade approval unlink/parent-fsync retry only",
+  "files": {
+    "native/tun-install.m": "1d3e0a944258b12a3c61195725bacfcbc54588130528e134f4e80dfc92abcbff",
+    "native/tun-install.test.m": "ebf158c00d3e312ee7c3a9a1f7bcc51461fd9ea7f98c216960838845e70f8bbd",
+    "upgrade-retirement-sync.patch": "7997079cecdf56a6bed170a1722dc3a89d31ae18a15392afceb5697d9bbcceb0",
+    "compile-command.json": "f3fb338f7940d42c5d5ced21858a461fb25ee6ea9906e52c53028b2f4d842a76",
+    "compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "upgrade-result.json": "2ff95f44e699ff9a24a927bf4c6fcb1d49f2a897f34932f42d65c78624d5e8d0",
+    "upgrade.stdout.log": "921df3913befd7f79df71a416fbc291d6bdcfed9d6f4f80ffc9d7d45baa3ace3",
+    "upgrade.stderr.log": "8538b5a0c83f0b198b23e94af108c9afd5d3c47fab6bd41387af14f0678734e1"
+  },
+  "sharedBaseline": {
+    "tun-install.m": "61b405c0f6d7b1d7b66fe54fe860d25a799793a782c452eaf594f2d87f306746",
+    "tun-install.test.m": "d9af4431ca9ed84c7f14ed1d6fd914d362d2a3ba51dc800c9d80138df75ddc41"
+  },
+  "productionRebuild": false,
+  "realCoreOrSystemOperations": false
+}

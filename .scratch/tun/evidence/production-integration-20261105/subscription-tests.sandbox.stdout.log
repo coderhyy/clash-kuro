@@ -1,0 +1,33 @@
+
+ RUN  v5.0.5 /Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro
+
+ ❯ apps/desktop/src/main/platform/macos-tun.test.ts (46 tests | 22 failed) 15ms
+   × real local socket exchanges bounded versioned frames without starting a service 2ms
+   × hung peer has a deadline and cannot later publish success 0ms
+   × V2 sends the complete config, bounded heartbeats and exact monotonically sequenced stop 0ms
+   × rejects invalid or denied V2 open {"version":1,"ok":true,"session":"46c21f68-d929-4bf9-8adf-de4f27a33809","leaseMilliseconds":15000,"sequence":0,"status":{"availability":"ready","state":"on"}} without a V1 fallback 0ms
+   × rejects invalid or denied V2 open {"version":2,"ok":true,"session":"46c21f68-d929-4bf9-8adf-de4f27a33809","leaseMilliseconds":15000,"sequence":1,"status":{"availability":"ready","state":"on"}} without a V1 fallback 0ms
+   × rejects invalid or denied V2 open {"version":2,"ok":true,"session":"46c21f68-d929-4bf9-8adf-de4f27a33809","leaseMilliseconds":999999,"sequence":0,"status":{"availability":"ready","state":"on"}} without a V1 fallback 0ms
+   × rejects invalid or denied V2 open {"version":2,"ok":true,"session":"/bin/sh","leaseMilliseconds":15000,"sequence":0,"status":{"availability":"ready","state":"on"}} without a V1 fallback 0ms
+   × rejects invalid or denied V2 open {"version":2,"ok":true,"session":"46c21f68-d929-4bf9-8adf-de4f27a33809","leaseMilliseconds":15000,"sequence":0,"status":{"availability":"ready","state":"off"}} without a V1 fallback 0ms
+   × rejects invalid or denied V2 open {"version":2,"ok":true,"session":"46c21f68-d929-4bf9-8adf-de4f27a33809","leaseMilliseconds":15000,"sequence":0,"status":{"availability":"ready","state":"on"},"command":"start"} without a V1 fallback 0ms
+   × rejects invalid or denied V2 open {"version":2,"ok":false,"error":"root authorization gate denied"} without a V1 fallback 0ms
+   × rejects duplicate keys, pipelined frames and oversized replies 0ms
+   × rejects duplicate keys, pipelined frames and oversized replies 0ms
+   × rejects duplicate keys, pipelined frames and oversized replies 0ms
+   × invalid UTF-8 cannot be decoded into a successful session 0ms
+   × wrong heartbeat sequence disconnects the session and prevents further commands 0ms
+   × a hung heartbeat has one outstanding request and no stop is pipelined behind it 0ms
+   × EOF after open is unknown and an opening timeout cannot later become success 0ms
+   × a heartbeat lease expires independently of a longer reply timeout 1ms
+   × stop rejects a replayed acknowledgement and waits for proof of off 0ms
+   × live socket disconnect reconciles {"availability":"ready","state":"on"} to the store without another Command or automatic recovery 0ms
+   × live socket disconnect reconciles {"availability":"ready","state":"off"} to the store without another Command or automatic recovery 0ms
+   × session failure subscription notifies once and honors unsubscribe 0ms
+ ❯ apps/desktop/src/main/platform/platform.test.ts (41 tests | 41 skipped) 8ms
+
+ Test Files  2 failed | 2 passed (4)
+      Tests  22 failed | 85 passed | 41 skipped (148)
+   Start at  11:03:14
+   Duration  436ms (transform 43%, import 29%, tests 27%, worker 1%)
+

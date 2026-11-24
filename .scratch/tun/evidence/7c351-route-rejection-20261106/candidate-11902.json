@@ -1,0 +1,98 @@
+{
+  "format": 1,
+  "target": "darwin-arm64",
+  "version": "0.1.0",
+  "release": "v1.19.33-0.1.0-arm64-f46f6b09e8d8f726-c8d9983e350febb74382f758323b68d821e424995b504c192850c4f9d272d1dcf",
+  "operation": "fresh",
+  "installerProtocol": 2,
+  "sourceCommit": "11902bc18b6e552385829b3070591da4078fae0d",
+  "candidateMode": "finite-session",
+  "productionActivation": true,
+  "appBuild": {
+    "format": 1,
+    "mode": "finite-session",
+    "sourceCommit": "11902bc18b6e552385829b3070591da4078fae0d",
+    "sourceClean": true,
+    "fromSource": true,
+    "client": {
+      "format": 2,
+      "cdhash": "77527c2fa6c8aa179fde0ad90a39ac4c12b991fd",
+      "executableSHA256": "41dfeb9720b73e44773b6b9717f60c803499f8614b38dcb2abf4055c3d869cf2",
+      "infoSHA256": "7f36016d4f99a9ccd2915a8228930bec21557346acd29c4147a8727ea5c8078e",
+      "asarSHA256": "6d0c409a764c710ad3f6ac5e4ef06e9ee2cf81c41a822b7f6d754f5bd92ef0d3"
+    },
+    "commands": [
+      [
+        "/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/node_modules/.bin/electron-vite",
+        [
+          "build"
+        ]
+      ],
+      [
+        "/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/node_modules/.bin/electron-builder",
+        [
+          "--mac",
+          "--dir",
+          "--arm64",
+          "-c.directories.output=/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/electron-finite-session-candidate-11902bc18b6e",
+          "-c.extraMetadata.kuroSourceCommit=11902bc18b6e552385829b3070591da4078fae0d",
+          "-c.extraMetadata.kuroCandidateMode=finite-session",
+          "-c.extraMetadata.kuroAuthObservationOnly=false"
+        ]
+      ]
+    ],
+    "realTunAccepted": false,
+    "limitation": "Build and offline identity only; App/Core not launched. Sealed finite-session startup uses fixed appData/Clash Kuro TUN Candidate private data, retained across candidates and separate from normal product profiles. No arbitrary user-data-dir argument is enabled."
+  },
+  "buildParameters": {
+    "electronBuilder": "mac --dir --arm64",
+    "identity": "-",
+    "hardenedRuntime": true,
+    "sourceCommitInSealedASAR": true,
+    "nativeBuild": {
+      "sourceCommit": "11902bc18b6e552385829b3070591da4078fae0d",
+      "sourceClean": true,
+      "sha256": "ab5cd7b9619daf49448f85e84fa828e574ad9a26f8408280bde996234a7d0b21",
+      "installerProtocol": 2,
+      "flags": [
+        "-arch",
+        "arm64",
+        "-fobjc-arc",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-O2",
+        "-framework",
+        "Foundation",
+        "-framework",
+        "Security",
+        "-framework",
+        "SystemConfiguration",
+        "-lbsm"
+      ],
+      "tests": true,
+      "coreSyntaxSkipped": false
+    }
+  },
+  "disabled": true,
+  "serviceAutoStart": false,
+  "startAvailable": true,
+  "realTunAccepted": false,
+  "clientAttestationComplete": false,
+  "rootCoreConfigurationValidated": false,
+  "userDataPolicy": "Sealed finite-session builds use only appData/Clash Kuro TUN Candidate with private userData/sessionData/crash subdirectories and a fixed ownership marker. Candidate versions retain these test data; normal product profiles are not imported. No external user-data-dir argument is accepted. Uninstall does not delete ordinary-user candidate data.",
+  "packageSHA256": "0f1ab77ef06d1e800e3b838821f73d55584fa8790c3c8e30f0c70280bedec3a0",
+  "helperSHA256": "ab5cd7b9619daf49448f85e84fa828e574ad9a26f8408280bde996234a7d0b21",
+  "coreSHA256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+  "client": {
+    "format": 2,
+    "cdhash": "77527c2fa6c8aa179fde0ad90a39ac4c12b991fd",
+    "executableSHA256": "41dfeb9720b73e44773b6b9717f60c803499f8614b38dcb2abf4055c3d869cf2",
+    "infoSHA256": "7f36016d4f99a9ccd2915a8228930bec21557346acd29c4147a8727ea5c8078e",
+    "asarSHA256": "6d0c409a764c710ad3f6ac5e4ef06e9ee2cf81c41a822b7f6d754f5bd92ef0d3"
+  },
+  "clientInventorySHA256": "8d9983e350febb74382f758323b68d821e424995b504c192850c4f9d272d1dcf",
+  "clientInstallPath": "/Library/Application Support/Clash Kuro/Client/Clash Kuro.app",
+  "clientRemoval": "Protected install/upgrade receipts permit exact removal of the approved installed App and helper only; modified or unknown content is preserved.",
+  "limitation": "Fresh install only; finite sessions require dynamic authentication and protected installation admission. Service remains disabled until explicitly operated. Runtime uninstall, network recovery and upgrades need their own real acceptance; this package is not a TUN test pass."
+}

@@ -1,0 +1,2 @@
+Package "kuro-tun-finite-session-0.1.0-arm64-95a88084518f.pkg":
+   Status: no signature

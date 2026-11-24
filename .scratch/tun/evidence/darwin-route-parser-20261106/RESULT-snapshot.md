@@ -1,0 +1,9 @@
+# Route snapshot admission regression — final
+
+The sole current patch is `route-admission-snapshot.patch` against the existing `tun-admission.test.m`. It requires parser patch7c591b8753. Earlier e234 init-only patch/logs are retained as incomplete history and must not be integrated.
+
+Fresh mode uses a test-only KuroFakeRouteStore subclass. Each `routes:error:` snapshot calls the actual decoder on four sanitized recorded Darwin RTM_GET byte packets; failure returns nil with the real error to the production network recovery. Successful decode maps only interface names through fixed fixture indexes, retains original local-v6 destination zone and independent lo0 egress index, adds the existing two default dictionaries, and combines that baseline with the fake writer's overlay entries. Other six modes are unchanged. No current-machine sysctl/interface or private captured raw file dependency.
+
+Both strict binaries compile0. With the original decoder, this exact fresh chain fails at the real store ready assertion with **blocked/unknown, `routes: invalid route mask`**, not fixture process exit; no EPIPE or unhandled error. With the fixed decoder all seven existing admission chains pass (four unrelated main cases skipped), stderr empty. Fresh counts: decodedBaselineRoutes4, starts/applications/opens1, routeAdds4, DNS add/removal1, no owner/work, independently observed ready/off. Native successful parser and local-host scope assertions remain in the snapshot helper; parser-level negatives remain in the dependent route patch.
+
+No TS changes, new modes, weaker deadlines/assertions or production API. The existing mandatory seven-case build invocation automatically executes this path. No real App/Core/-t, root job, installation or system-network operations. The actual signed fixture/private transport/recovery/service/typed dispatch remain as before; writable kernel/network backends are substituted and the relay is not Electron.

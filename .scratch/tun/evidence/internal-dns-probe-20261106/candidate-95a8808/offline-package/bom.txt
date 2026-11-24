@@ -1,0 +1,1253 @@
+.	40755	0	0
+./._Library	40755	0	0
+./Library	40755	0	0
+./Library/._Application Support	40755	0	0
+./Library/._PrivilegedHelperTools	40755	0	0
+./Library/Application Support	40755	0	0
+./Library/Application Support/._Clash Kuro	40755	0	0
+./Library/Application Support/Clash Kuro	40755	0	0
+./Library/Application Support/Clash Kuro/._Client	40755	0	0
+./Library/Application Support/Clash Kuro/._Privileged	40700	0	0
+./Library/Application Support/Clash Kuro/Client	40755	0	0
+./Library/Application Support/Clash Kuro/Client/._Clash Kuro.app	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/._Contents	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/._Frameworks	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/._Info.plist	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/._MacOS	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/._PkgInfo	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/._Resources	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/.__CodeSignature	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/._Clash Kuro Helper (GPU).app	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/._Clash Kuro Helper (Plugin).app	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/._Clash Kuro Helper (Renderer).app	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/._Clash Kuro Helper.app	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/._Electron Framework.framework	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/._Mantle.framework	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/._ReactiveObjC.framework	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/._Squirrel.framework	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (GPU).app	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (GPU).app/._Contents	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (GPU).app/Contents	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (GPU).app/Contents/._Info.plist	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (GPU).app/Contents/._MacOS	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (GPU).app/Contents/._PkgInfo	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (GPU).app/Contents/.__CodeSignature	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (GPU).app/Contents/Info.plist	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (GPU).app/Contents/MacOS	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (GPU).app/Contents/MacOS/._Clash Kuro Helper (GPU)	100755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (GPU).app/Contents/MacOS/Clash Kuro Helper (GPU)	100755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (GPU).app/Contents/PkgInfo	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (GPU).app/Contents/_CodeSignature	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (GPU).app/Contents/_CodeSignature/._CodeResources	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (GPU).app/Contents/_CodeSignature/CodeResources	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (Plugin).app	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (Plugin).app/._Contents	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (Plugin).app/Contents	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (Plugin).app/Contents/._Info.plist	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (Plugin).app/Contents/._MacOS	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (Plugin).app/Contents/._PkgInfo	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (Plugin).app/Contents/.__CodeSignature	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (Plugin).app/Contents/Info.plist	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (Plugin).app/Contents/MacOS	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (Plugin).app/Contents/MacOS/._Clash Kuro Helper (Plugin)	100755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (Plugin).app/Contents/MacOS/Clash Kuro Helper (Plugin)	100755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (Plugin).app/Contents/PkgInfo	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (Plugin).app/Contents/_CodeSignature	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (Plugin).app/Contents/_CodeSignature/._CodeResources	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (Plugin).app/Contents/_CodeSignature/CodeResources	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (Renderer).app	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (Renderer).app/._Contents	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (Renderer).app/Contents	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (Renderer).app/Contents/._Info.plist	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (Renderer).app/Contents/._MacOS	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (Renderer).app/Contents/._PkgInfo	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (Renderer).app/Contents/.__CodeSignature	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (Renderer).app/Contents/Info.plist	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (Renderer).app/Contents/MacOS	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (Renderer).app/Contents/MacOS/._Clash Kuro Helper (Renderer)	100755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (Renderer).app/Contents/MacOS/Clash Kuro Helper (Renderer)	100755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (Renderer).app/Contents/PkgInfo	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (Renderer).app/Contents/_CodeSignature	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (Renderer).app/Contents/_CodeSignature/._CodeResources	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper (Renderer).app/Contents/_CodeSignature/CodeResources	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper.app	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper.app/._Contents	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper.app/Contents	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper.app/Contents/._Info.plist	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper.app/Contents/._MacOS	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper.app/Contents/._PkgInfo	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper.app/Contents/.__CodeSignature	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper.app/Contents/Info.plist	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper.app/Contents/MacOS	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper.app/Contents/MacOS/._Clash Kuro Helper	100755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper.app/Contents/MacOS/Clash Kuro Helper	100755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper.app/Contents/PkgInfo	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper.app/Contents/_CodeSignature	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper.app/Contents/_CodeSignature/._CodeResources	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Clash Kuro Helper.app/Contents/_CodeSignature/CodeResources	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/._Electron Framework	120755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/._Helpers	120755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/._Libraries	120755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/._Resources	120755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/._Versions	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Electron Framework	120755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Helpers	120755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Libraries	120755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Resources	120755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/._A	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/._Current	120755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/._Electron Framework	100755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/._Helpers	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/._Libraries	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/._Resources	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/.__CodeSignature	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Electron Framework	100755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Helpers	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Helpers/._app_shim_loader	100755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Helpers/._chrome_crashpad_handler	100755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Helpers/app_shim_loader	100755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Helpers/chrome_crashpad_handler	100755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Libraries	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Libraries/._libffmpeg.dylib	100755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Libraries/._libvk_swiftshader.dylib	100755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Libraries/._vk_swiftshader_icd.json	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Libraries/libffmpeg.dylib	100755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Libraries/libvk_swiftshader.dylib	100755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Libraries/vk_swiftshader_icd.json	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._Info.plist	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._MainMenu.nib	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._af.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._af_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._af_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._af_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._am.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._am_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._am_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._am_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ar.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ar_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ar_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ar_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._bg.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._bg_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._bg_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._bg_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._bn.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._bn_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._bn_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._bn_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ca.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ca_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ca_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ca_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._chrome_100_percent.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._chrome_200_percent.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._cs.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._cs_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._cs_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._cs_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._da.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._da_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._da_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._da_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._de.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._de_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._de_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._de_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._el.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._el_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._el_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._el_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._en.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._en_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._en_GB.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._en_GB_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._en_GB_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._en_GB_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._en_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._en_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._es.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._es_419.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._es_419_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._es_419_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._es_419_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._es_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._es_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._es_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._et.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._et_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._et_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._et_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._fa.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._fa_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._fa_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._fa_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._fi.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._fi_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._fi_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._fi_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._fil.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._fil_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._fil_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._fil_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._fr.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._fr_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._fr_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._fr_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._gu.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._gu_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._gu_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._gu_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._he.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._he_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._he_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._he_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._hi.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._hi_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._hi_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._hi_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._hr.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._hr_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._hr_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._hr_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._hu.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._hu_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._hu_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._hu_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._icudtl.dat	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._id.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._id_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._id_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._id_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._it.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._it_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._it_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._it_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ja.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ja_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ja_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ja_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._kn.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._kn_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._kn_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._kn_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ko.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ko_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ko_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ko_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._lt.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._lt_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._lt_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._lt_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._lv.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._lv_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._lv_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._lv_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ml.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ml_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ml_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ml_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._mr.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._mr_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._mr_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._mr_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ms.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ms_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ms_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ms_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._nb.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._nb_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._nb_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._nb_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._nl.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._nl_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._nl_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._nl_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._pl.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._pl_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._pl_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._pl_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._pt_BR.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._pt_BR_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._pt_BR_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._pt_BR_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._pt_PT.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._pt_PT_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._pt_PT_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._pt_PT_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._resources.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ro.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ro_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ro_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ro_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ru.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ru_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ru_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ru_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._sk.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._sk_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._sk_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._sk_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._sl.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._sl_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._sl_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._sl_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._sr.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._sr_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._sr_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._sr_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._sv.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._sv_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._sv_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._sv_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._sw.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._sw_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._sw_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._sw_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ta.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ta_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ta_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ta_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._te.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._te_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._te_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._te_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._th.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._th_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._th_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._th_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._tr.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._tr_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._tr_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._tr_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._uk.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._uk_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._uk_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._uk_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ur.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ur_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ur_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._ur_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._v8_context_snapshot.arm64.bin	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._vi.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._vi_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._vi_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._vi_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._zh_CN.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._zh_CN_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._zh_CN_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._zh_CN_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._zh_TW.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._zh_TW_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._zh_TW_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/._zh_TW_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/Info.plist	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/MainMenu.nib	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/af.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/af.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/af.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/af_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/af_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/af_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/af_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/af_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/af_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/af_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/af_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/af_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/am.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/am.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/am.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/am_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/am_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/am_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/am_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/am_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/am_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/am_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/am_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/am_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ar.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ar.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ar.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ar_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ar_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ar_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ar_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ar_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ar_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ar_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ar_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ar_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/bg.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/bg.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/bg.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/bg_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/bg_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/bg_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/bg_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/bg_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/bg_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/bg_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/bg_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/bg_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/bn.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/bn.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/bn.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/bn_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/bn_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/bn_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/bn_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/bn_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/bn_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/bn_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/bn_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/bn_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ca.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ca.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ca.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ca_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ca_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ca_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ca_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ca_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ca_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ca_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ca_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ca_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/chrome_100_percent.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/chrome_200_percent.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/cs.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/cs.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/cs.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/cs_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/cs_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/cs_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/cs_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/cs_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/cs_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/cs_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/cs_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/cs_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/da.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/da.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/da.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/da_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/da_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/da_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/da_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/da_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/da_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/da_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/da_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/da_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/de.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/de.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/de.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/de_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/de_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/de_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/de_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/de_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/de_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/de_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/de_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/de_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/el.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/el.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/el.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/el_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/el_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/el_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/el_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/el_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/el_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/el_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/el_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/el_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/en.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/en.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/en.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/en_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/en_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/en_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/en_GB.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/en_GB.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/en_GB.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/en_GB_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/en_GB_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/en_GB_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/en_GB_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/en_GB_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/en_GB_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/en_GB_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/en_GB_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/en_GB_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/en_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/en_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/en_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/en_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/en_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/en_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/es.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/es.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/es.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/es_419.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/es_419.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/es_419.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/es_419_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/es_419_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/es_419_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/es_419_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/es_419_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/es_419_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/es_419_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/es_419_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/es_419_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/es_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/es_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/es_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/es_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/es_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/es_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/es_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/es_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/es_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/et.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/et.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/et.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/et_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/et_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/et_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/et_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/et_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/et_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/et_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/et_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/et_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fa.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fa.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fa.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fa_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fa_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fa_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fa_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fa_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fa_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fa_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fa_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fa_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fi.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fi.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fi.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fi_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fi_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fi_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fi_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fi_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fi_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fi_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fi_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fi_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fil.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fil.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fil.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fil_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fil_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fil_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fil_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fil_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fil_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fil_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fil_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fil_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fr.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fr.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fr.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fr_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fr_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fr_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fr_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fr_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fr_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fr_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fr_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/fr_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/gu.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/gu.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/gu.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/gu_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/gu_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/gu_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/gu_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/gu_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/gu_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/gu_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/gu_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/gu_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/he.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/he.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/he.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/he_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/he_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/he_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/he_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/he_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/he_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/he_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/he_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/he_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hi.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hi.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hi.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hi_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hi_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hi_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hi_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hi_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hi_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hi_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hi_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hi_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hr.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hr.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hr.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hr_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hr_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hr_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hr_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hr_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hr_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hr_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hr_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hr_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hu.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hu.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hu.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hu_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hu_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hu_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hu_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hu_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hu_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hu_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hu_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/hu_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/icudtl.dat	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/id.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/id.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/id.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/id_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/id_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/id_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/id_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/id_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/id_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/id_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/id_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/id_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/it.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/it.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/it.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/it_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/it_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/it_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/it_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/it_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/it_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/it_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/it_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/it_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ja.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ja.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ja.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ja_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ja_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ja_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ja_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ja_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ja_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ja_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ja_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ja_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/kn.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/kn.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/kn.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/kn_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/kn_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/kn_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/kn_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/kn_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/kn_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/kn_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/kn_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/kn_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ko.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ko.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ko.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ko_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ko_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ko_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ko_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ko_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ko_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ko_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ko_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ko_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/lt.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/lt.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/lt.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/lt_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/lt_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/lt_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/lt_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/lt_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/lt_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/lt_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/lt_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/lt_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/lv.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/lv.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/lv.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/lv_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/lv_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/lv_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/lv_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/lv_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/lv_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/lv_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/lv_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/lv_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ml.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ml.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ml.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ml_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ml_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ml_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ml_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ml_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ml_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ml_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ml_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ml_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/mr.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/mr.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/mr.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/mr_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/mr_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/mr_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/mr_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/mr_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/mr_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/mr_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/mr_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/mr_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ms.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ms.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ms.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ms_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ms_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ms_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ms_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ms_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ms_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ms_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ms_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ms_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/nb.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/nb.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/nb.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/nb_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/nb_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/nb_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/nb_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/nb_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/nb_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/nb_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/nb_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/nb_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/nl.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/nl.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/nl.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/nl_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/nl_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/nl_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/nl_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/nl_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/nl_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/nl_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/nl_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/nl_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pl.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pl.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pl.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pl_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pl_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pl_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pl_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pl_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pl_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pl_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pl_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pl_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pt_BR.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pt_BR.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pt_BR.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pt_BR_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pt_BR_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pt_BR_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pt_BR_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pt_BR_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pt_BR_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pt_BR_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pt_BR_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pt_BR_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pt_PT.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pt_PT.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pt_PT.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pt_PT_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pt_PT_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pt_PT_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pt_PT_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pt_PT_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pt_PT_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pt_PT_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pt_PT_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/pt_PT_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/resources.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ro.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ro.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ro.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ro_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ro_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ro_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ro_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ro_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ro_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ro_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ro_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ro_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ru.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ru.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ru.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ru_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ru_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ru_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ru_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ru_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ru_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ru_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ru_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ru_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sk.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sk.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sk.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sk_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sk_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sk_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sk_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sk_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sk_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sk_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sk_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sk_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sl.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sl.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sl.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sl_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sl_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sl_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sl_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sl_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sl_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sl_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sl_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sl_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sr.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sr.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sr.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sr_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sr_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sr_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sr_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sr_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sr_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sr_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sr_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sr_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sv.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sv.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sv.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sv_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sv_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sv_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sv_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sv_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sv_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sv_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sv_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sv_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sw.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sw.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sw.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sw_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sw_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sw_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sw_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sw_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sw_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sw_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sw_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/sw_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ta.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ta.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ta.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ta_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ta_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ta_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ta_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ta_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ta_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ta_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ta_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ta_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/te.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/te.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/te.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/te_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/te_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/te_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/te_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/te_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/te_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/te_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/te_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/te_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/th.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/th.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/th.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/th_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/th_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/th_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/th_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/th_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/th_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/th_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/th_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/th_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/tr.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/tr.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/tr.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/tr_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/tr_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/tr_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/tr_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/tr_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/tr_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/tr_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/tr_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/tr_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/uk.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/uk.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/uk.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/uk_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/uk_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/uk_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/uk_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/uk_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/uk_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/uk_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/uk_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/uk_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ur.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ur.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ur.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ur_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ur_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ur_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ur_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ur_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ur_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ur_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ur_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/ur_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/v8_context_snapshot.arm64.bin	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/vi.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/vi.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/vi.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/vi_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/vi_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/vi_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/vi_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/vi_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/vi_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/vi_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/vi_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/vi_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/zh_CN.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/zh_CN.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/zh_CN.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/zh_CN_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/zh_CN_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/zh_CN_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/zh_CN_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/zh_CN_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/zh_CN_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/zh_CN_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/zh_CN_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/zh_CN_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/zh_TW.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/zh_TW.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/zh_TW.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/zh_TW_FEMININE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/zh_TW_FEMININE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/zh_TW_FEMININE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/zh_TW_MASCULINE.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/zh_TW_MASCULINE.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/zh_TW_MASCULINE.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/zh_TW_NEUTER.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/zh_TW_NEUTER.lproj/._locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/Resources/zh_TW_NEUTER.lproj/locale.pak	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/_CodeSignature	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/_CodeSignature/._CodeResources	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/A/_CodeSignature/CodeResources	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Electron Framework.framework/Versions/Current	120755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Mantle.framework	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Mantle.framework/._Mantle	120755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Mantle.framework/._Resources	120755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Mantle.framework/._Versions	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Mantle.framework/Mantle	120755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Mantle.framework/Resources	120755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Mantle.framework/Versions	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Mantle.framework/Versions/._A	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Mantle.framework/Versions/._Current	120755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Mantle.framework/Versions/A	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Mantle.framework/Versions/A/._Mantle	100755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Mantle.framework/Versions/A/._Resources	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Mantle.framework/Versions/A/.__CodeSignature	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Mantle.framework/Versions/A/Mantle	100755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Mantle.framework/Versions/A/Resources	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Mantle.framework/Versions/A/Resources/._Info.plist	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Mantle.framework/Versions/A/Resources/Info.plist	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Mantle.framework/Versions/A/_CodeSignature	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Mantle.framework/Versions/A/_CodeSignature/._CodeResources	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Mantle.framework/Versions/A/_CodeSignature/CodeResources	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Mantle.framework/Versions/Current	120755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/ReactiveObjC.framework	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/ReactiveObjC.framework/._ReactiveObjC	120755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/ReactiveObjC.framework/._Resources	120755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/ReactiveObjC.framework/._Versions	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/ReactiveObjC.framework/ReactiveObjC	120755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/ReactiveObjC.framework/Resources	120755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/ReactiveObjC.framework/Versions	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/ReactiveObjC.framework/Versions/._A	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/ReactiveObjC.framework/Versions/._Current	120755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/ReactiveObjC.framework/Versions/A	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/ReactiveObjC.framework/Versions/A/._ReactiveObjC	100755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/ReactiveObjC.framework/Versions/A/._Resources	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/ReactiveObjC.framework/Versions/A/.__CodeSignature	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/ReactiveObjC.framework/Versions/A/ReactiveObjC	100755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/ReactiveObjC.framework/Versions/A/Resources	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/ReactiveObjC.framework/Versions/A/Resources/._Info.plist	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/ReactiveObjC.framework/Versions/A/Resources/Info.plist	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/ReactiveObjC.framework/Versions/A/_CodeSignature	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/ReactiveObjC.framework/Versions/A/_CodeSignature/._CodeResources	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/ReactiveObjC.framework/Versions/A/_CodeSignature/CodeResources	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/ReactiveObjC.framework/Versions/Current	120755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Squirrel.framework	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Squirrel.framework/._Resources	120755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Squirrel.framework/._Squirrel	120755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Squirrel.framework/._Versions	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Squirrel.framework/Resources	120755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Squirrel.framework/Squirrel	120755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Squirrel.framework/Versions	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Squirrel.framework/Versions/._A	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Squirrel.framework/Versions/._Current	120755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Squirrel.framework/Versions/A	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Squirrel.framework/Versions/A/._Resources	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Squirrel.framework/Versions/A/._Squirrel	100755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Squirrel.framework/Versions/A/.__CodeSignature	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Squirrel.framework/Versions/A/Resources	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Squirrel.framework/Versions/A/Resources/._Info.plist	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Squirrel.framework/Versions/A/Resources/._ShipIt	100755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Squirrel.framework/Versions/A/Resources/Info.plist	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Squirrel.framework/Versions/A/Resources/ShipIt	100755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Squirrel.framework/Versions/A/Squirrel	100755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Squirrel.framework/Versions/A/_CodeSignature	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Squirrel.framework/Versions/A/_CodeSignature/._CodeResources	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Squirrel.framework/Versions/A/_CodeSignature/CodeResources	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Frameworks/Squirrel.framework/Versions/Current	120755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Info.plist	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/MacOS	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/MacOS/._Clash Kuro	100755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/MacOS/Clash Kuro	100755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/PkgInfo	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._LICENSE.electron.txt	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._LICENSES.chromium.html	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._af.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._am.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._app.asar	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._ar.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._bg.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._bn.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._ca.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._core	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._cs.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._da.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._de.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._el.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._en.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._en_GB.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._es.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._es_419.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._et.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._fa.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._fi.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._fil.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._fr.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._gu.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._he.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._hi.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._hr.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._hu.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._icon.icns	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._id.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._it.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._ja.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._kn.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._ko.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._licenses	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._lt.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._lv.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._ml.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._mr.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._ms.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._nb.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._nl.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._pl.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._pt_BR.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._pt_PT.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._ro.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._ru.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._sk.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._sl.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._sr.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._sv.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._sw.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._ta.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._te.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._th.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._tr.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._uk.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._ur.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._vi.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._zh_CN.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/._zh_TW.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/LICENSE.electron.txt	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/LICENSES.chromium.html	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/af.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/am.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/app.asar	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/ar.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/bg.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/bn.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/ca.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/core	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/core/._core.lock.json	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/core/._geo	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/core/._mihomo	100755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/core/core.lock.json	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/core/geo	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/core/geo/._ASN.mmdb	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/core/geo/._Country.mmdb	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/core/geo/._GeoSite.dat	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/core/geo/._VERSION	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/core/geo/ASN.mmdb	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/core/geo/Country.mmdb	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/core/geo/GeoSite.dat	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/core/geo/VERSION	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/core/mihomo	100755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/cs.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/da.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/de.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/el.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/en.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/en_GB.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/es.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/es_419.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/et.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/fa.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/fi.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/fil.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/fr.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/gu.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/he.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/hi.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/hr.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/hu.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/icon.icns	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/id.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/it.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/ja.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/kn.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/ko.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/licenses	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/licenses/._mihomo-LICENSE.txt	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/licenses/mihomo-LICENSE.txt	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/lt.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/lv.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/ml.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/mr.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/ms.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/nb.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/nl.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/pl.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/pt_BR.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/pt_PT.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/ro.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/ru.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/sk.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/sl.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/sr.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/sv.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/sw.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/ta.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/te.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/th.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/tr.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/uk.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/ur.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/vi.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/zh_CN.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/Resources/zh_TW.lproj	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/_CodeSignature	40755	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/_CodeSignature/._CodeResources	100644	0	0
+./Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/_CodeSignature/CodeResources	100644	0	0
+./Library/Application Support/Clash Kuro/Privileged	40700	0	0
+./Library/Application Support/Clash Kuro/Privileged/._Inbox	40700	0	0
+./Library/Application Support/Clash Kuro/Privileged/Inbox	40700	0	0
+./Library/Application Support/Clash Kuro/Privileged/Inbox/._client-inventory.json	100600	0	0
+./Library/Application Support/Clash Kuro/Privileged/Inbox/._dev.kuro.tun.plist	100600	0	0
+./Library/Application Support/Clash Kuro/Privileged/Inbox/._helper	100755	0	0
+./Library/Application Support/Clash Kuro/Privileged/Inbox/._manifest.json	100600	0	0
+./Library/Application Support/Clash Kuro/Privileged/Inbox/._mihomo	100755	0	0
+./Library/Application Support/Clash Kuro/Privileged/Inbox/client-inventory.json	100600	0	0
+./Library/Application Support/Clash Kuro/Privileged/Inbox/dev.kuro.tun.plist	100600	0	0
+./Library/Application Support/Clash Kuro/Privileged/Inbox/helper	100755	0	0
+./Library/Application Support/Clash Kuro/Privileged/Inbox/manifest.json	100600	0	0
+./Library/Application Support/Clash Kuro/Privileged/Inbox/mihomo	100755	0	0
+./Library/PrivilegedHelperTools	40755	0	0
+./Library/PrivilegedHelperTools/._dev.kuro.tun	40755	0	0
+./Library/PrivilegedHelperTools/._dev.kuro.tun-uninstall	100755	0	0
+./Library/PrivilegedHelperTools/dev.kuro.tun	40755	0	0
+./Library/PrivilegedHelperTools/dev.kuro.tun/._installer	100755	0	0
+./Library/PrivilegedHelperTools/dev.kuro.tun/installer	100755	0	0
+./Library/PrivilegedHelperTools/dev.kuro.tun-uninstall	100755	0	0

@@ -1,0 +1,47 @@
+{
+  "cache": {
+    "error": "",
+    "final": {
+      "ctimeNanos": 512453011,
+      "ctimeSeconds": 1793855239,
+      "device": 16777230,
+      "inode": 172557416,
+      "mode": 384,
+      "mtimeNanos": 504571431,
+      "mtimeSeconds": 1793855239,
+      "owner": 501,
+      "sha256": "654deaeb880b95c8aa835e2315528c8ef0970afac770dcc9ee807b4e406588ed",
+      "size": 65536
+    },
+    "format": 1,
+    "initial": {
+      "ctimeNanos": 72958312,
+      "ctimeSeconds": 1793855238,
+      "device": 16777230,
+      "inode": 172557416,
+      "mode": 384,
+      "mtimeNanos": 72936771,
+      "mtimeSeconds": 1793855238,
+      "owner": 501,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    "reaped": true,
+    "sameInode": true,
+    "sameMode": true,
+    "sameOwner": true
+  },
+  "runtimeBaseAbsent": true,
+  "processAbsence": [
+    {
+      "pid": 88628,
+      "proc_pidpath": 0,
+      "errno": 3
+    },
+    {
+      "pid": 88627,
+      "proc_pidpath": 0,
+      "errno": 3
+    }
+  ]
+}

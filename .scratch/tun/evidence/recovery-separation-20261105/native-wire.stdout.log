@@ -1,0 +1,12 @@
+PRESERVE normal job status: program = /Library/PrivilegedHelperTools/dev.kuro.tun.lifecycle-a
+arguments = {
+/Library/PrivilegedHelperTools/dev.kuro.tun.lifecycle-a
+--core-supervisor
+normal
+9913EF14-7359-4007-A87D-D0C396905221
+}
+state = not running
+runs = 1
+last exit code = 0
+
+NORMAL-PASS; main must independently verify these identities and paths before authorizing the distinct kill epoch.

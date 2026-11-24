@@ -1,0 +1,44 @@
+{
+  "baseline-red": {
+    "command": [
+      "/private/tmp/kuro-route-multicast-notification-candidate/baseline-red"
+    ],
+    "exit": 1,
+    "elapsedSeconds": 0.562
+  },
+  "focused": {
+    "command": [
+      "/private/tmp/kuro-route-multicast-notification-candidate/focused"
+    ],
+    "exit": 0,
+    "elapsedSeconds": 0.373
+  },
+  "compile": {
+    "commandPrefix": [
+      "/usr/bin/clang",
+      "-arch",
+      "arm64",
+      "-fobjc-arc",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-Wno-unused-function",
+      "-O2",
+      "-framework",
+      "Foundation",
+      "-framework",
+      "Security",
+      "-framework",
+      "SystemConfiguration",
+      "-lbsm"
+    ],
+    "inputs": [
+      "baseline-red.m",
+      "focused.m"
+    ],
+    "exits": [
+      0,
+      0
+    ]
+  }
+}

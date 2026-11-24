@@ -1,0 +1,21 @@
+{
+  "stage": "eof",
+  "processChecks": [
+    {
+      "pid": 52845,
+      "proc_pidpath": 0,
+      "errno": 3
+    },
+    {
+      "pid": 52844,
+      "proc_pidpath": 0,
+      "errno": 3
+    }
+  ],
+  "processGroupMembers": [],
+  "runtimeBaseAbsent": true,
+  "diagnosticsProtected": true,
+  "diagnosticsComplete": true,
+  "cacheOriginPreserved": true,
+  "passed": true
+}

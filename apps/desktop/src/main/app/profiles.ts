@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { isAbsolute } from 'node:path'
-import { applyProfileUpdate, buildRuntimeConfig, type ControlChannel, type Platform, type Profile, type Settings } from '@kuro/core'
+import { applyProfileUpdate, buildRuntimeConfig, createTunSessionConfig, type ControlChannel, type Platform, type Profile, type Settings } from '@kuro/core'
 
 /** Original content of each Profile lives at `profiles/<id>.yaml`; only refresh ever replaces it (ADR-0003). */
 export const contentFile = (id: string) => `profiles/${id}.yaml`
@@ -52,6 +52,12 @@ export function createProfileSource(deps: {
       if (!update.ok) throw new Error(update.profile.lastError ?? 'Profile update failed')
       await deps.platform.writeFileAtomic(contentFile(profile.id), update.content)
       return update.profile
+    },
+
+    async buildTunConfig(input: { profile: Profile; settings: Settings; override: string }) {
+      const content = await deps.platform.readFile(contentFile(input.profile.id))
+      if (content === null) throw new Error('Profile content is missing; update the Profile first')
+      return createTunSessionConfig(content, input.settings.mode, input.override)
     },
 
     async buildRuntimeConfig(input: { profile: Profile; settings: Settings; controlChannel: ControlChannel; override: string }) {

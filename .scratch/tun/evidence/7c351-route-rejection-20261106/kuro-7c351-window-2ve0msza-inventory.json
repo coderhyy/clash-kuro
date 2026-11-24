@@ -1,0 +1,337 @@
+{
+  "directory": "/private/tmp/kuro-7c351-window-2ve0msza",
+  "files": [
+    {
+      "file": "actual-app-recovered-status.json",
+      "sha256": "aeac2852dcf8ebd889afda89026ad41c046bec2f3565735eb29edfef4843381d"
+    },
+    {
+      "file": "after-open-status.json",
+      "sha256": "aeac2852dcf8ebd889afda89026ad41c046bec2f3565735eb29edfef4843381d"
+    },
+    {
+      "file": "baseline-command-spec.json",
+      "sha256": "a8833bf177839397da5ceb6f7a6cddc3f364d2d29d2623665f7851a657f597ec"
+    },
+    {
+      "file": "baseline-default4.json",
+      "sha256": "40b77a2423480ff84336c9dd91e74d6dc9d2fbb661f51d5ca09803ab8142250e"
+    },
+    {
+      "file": "baseline-default6.json",
+      "sha256": "efeb2cfb825a61ad0dde7dcee595017279bb3a7d636859686f5bc4667adf45b9"
+    },
+    {
+      "file": "baseline-disabled.json",
+      "sha256": "dbe42c4fdce22c2a46bcc7ac46cd324fecdb83669b6e7955329b77abff5885bb"
+    },
+    {
+      "file": "baseline-dns-keys.json",
+      "sha256": "f2829ae81e1d6c92e6e5d89b3f479556691b018470d6d2118c8dae725a639b6b"
+    },
+    {
+      "file": "baseline-dns-store.json",
+      "sha256": "5784aa24a4d4711b07098e0c73c96cfe7ac2c2ead2f7ec7ebf190a70cf37d542"
+    },
+    {
+      "file": "baseline-dns.json",
+      "sha256": "16b2a84b663b83653a214b545d3c369a6283ebb2f284bb141aa5c637f11c2bfc"
+    },
+    {
+      "file": "baseline-interfaces.json",
+      "sha256": "08a4f6b229d91f595e67332a4a68b0cfb2eec6dbc993e50fdd97902e7fbc88f8"
+    },
+    {
+      "file": "baseline-job.json",
+      "sha256": "ebe86c5096e3ff0464cf71ae4d865fb79071ead383eab1d4508071f33f17cb03"
+    },
+    {
+      "file": "baseline-nwi.json",
+      "sha256": "8a9b376f06925edb7652406afb4a547e1561c11bfd2de3a3d1110137cea6eb27"
+    },
+    {
+      "file": "baseline-proxy.json",
+      "sha256": "542d32fee8a0efa422435354dea9a3b8c27c852c5422b0b37a3843df535ae07e"
+    },
+    {
+      "file": "baseline-receipts.json",
+      "sha256": "27554a0c4a66c88d9e465a3f56395d60f45f48263999b5993001f6c34a03c3a2"
+    },
+    {
+      "file": "baseline-routes4.json",
+      "sha256": "2809d2c9c83cb5e511529f8ba76549fe7cc32f6b27dacece60d8daff8035390a"
+    },
+    {
+      "file": "baseline-routes6.json",
+      "sha256": "e40a788a5b54ef84f69190dfc4c9952f30d78b2050ed18ddecc93096abcd3dff"
+    },
+    {
+      "file": "baseline-service-0-getdnsservers.json",
+      "sha256": "8d0474aa5b5bf257ca2564b0e11ad83274c25c731ac0990e11b3c8a82532c56e"
+    },
+    {
+      "file": "baseline-service-0-getproxybypassdomains.json",
+      "sha256": "c0dc8f94db01fc0b004bd7014b251f4fa5c0070c65d76fa98e1f3a53cc79de19"
+    },
+    {
+      "file": "baseline-service-0-getsecurewebproxy.json",
+      "sha256": "f6466b3bc8de7ea3662964dde888d55d2f187188c8182ffbaa52b70b70cc53f0"
+    },
+    {
+      "file": "baseline-service-0-getsocksfirewallproxy.json",
+      "sha256": "9fe7235045f27d2ecf5facf3f98c90d01f447fcbebf629dc6db45213d5ac4f22"
+    },
+    {
+      "file": "baseline-service-0-getwebproxy.json",
+      "sha256": "ed30a136afcd42a571694da1dc3378436417af95c49c7f0356957e9589aa328d"
+    },
+    {
+      "file": "baseline-service-1-getdnsservers.json",
+      "sha256": "e2b8d5f3a1ca04a81a3d2d1f3f02700799055e19b5ea05465674697676bb317f"
+    },
+    {
+      "file": "baseline-service-1-getproxybypassdomains.json",
+      "sha256": "f925153bbb85d85c4f841e652631a426379b921a9ab651b55767acd460a53d44"
+    },
+    {
+      "file": "baseline-service-1-getsecurewebproxy.json",
+      "sha256": "9d079b9986d20743cf5bd2c112e8998e3a6036904f98d426d4271aace7bc5623"
+    },
+    {
+      "file": "baseline-service-1-getsocksfirewallproxy.json",
+      "sha256": "99f6d106f0592f47bcac8c194bd0caf1838179d5050e706be98219267c31c9ef"
+    },
+    {
+      "file": "baseline-service-1-getwebproxy.json",
+      "sha256": "e68e557f234232ff751f36d5fa97eb52eacfe24b87e20d0276cccaf01ccd8eb8"
+    },
+    {
+      "file": "baseline-service-2-getdnsservers.json",
+      "sha256": "d81773c5f677b15cdb4d01d7e032a71d6687bc2b08f50e79fbc9a43f49fd9a66"
+    },
+    {
+      "file": "baseline-service-2-getproxybypassdomains.json",
+      "sha256": "3849d68aee2b733eda9c5f464833ec21c008ec58ef0b40dd979f57a7c5044ea8"
+    },
+    {
+      "file": "baseline-service-2-getsecurewebproxy.json",
+      "sha256": "8eaa0cc73e204afad3aac4b9f269e1a3c41276ef496a44ac377c8c7456b3fd43"
+    },
+    {
+      "file": "baseline-service-2-getsocksfirewallproxy.json",
+      "sha256": "18bda6d4c81f182008ec38293bd63fcada3c2ac02613728d44450a8bc59c5ee3"
+    },
+    {
+      "file": "baseline-service-2-getwebproxy.json",
+      "sha256": "60938e1d58fd12c52bad4118ff2a8367c63954fa503a87b4d0dbee7cb153e828"
+    },
+    {
+      "file": "baseline-services.json",
+      "sha256": "047f66c03c81666efa90e2906afb604b35f3238ca69fe0a9094071b8c6fc269f"
+    },
+    {
+      "file": "bootout.json",
+      "sha256": "598605456dc9651f85e4cd82c15f23bea4aafc89571f4844f0b7b586f2092f39"
+    },
+    {
+      "file": "candidate.json",
+      "sha256": "51a3d75175f1c4034f5292c84cca78e7e7debbad67dfa3ad1e0b15735d760426"
+    },
+    {
+      "file": "cleanup-dns-comparison.json",
+      "sha256": "3b0c67355942fd80f7abb46055b6f091095fc54de63b58346ee43b7c9d26fae9"
+    },
+    {
+      "file": "cleanup-dns-store-comparison.json",
+      "sha256": "3b0c67355942fd80f7abb46055b6f091095fc54de63b58346ee43b7c9d26fae9"
+    },
+    {
+      "file": "cleanup-dns-store.json",
+      "sha256": "7e6aa4065348a2dfd98ef83b0f304366203db2684606f837669e9527e893597c"
+    },
+    {
+      "file": "cleanup-dns.json",
+      "sha256": "35fb55e98b22adad5ce5d8aaf1c075d024953277d97fb29b42e98d01cba09481"
+    },
+    {
+      "file": "cleanup-production-preflight.json",
+      "sha256": "775d7cd973d85af38a4a861fe73cde0814ce614e5bda27e160ecfe1ced73f9fe"
+    },
+    {
+      "file": "cleanup-proxy-comparison.json",
+      "sha256": "3b0c67355942fd80f7abb46055b6f091095fc54de63b58346ee43b7c9d26fae9"
+    },
+    {
+      "file": "cleanup-proxy.json",
+      "sha256": "d44a23ab899513ae4a228a8403bfd6558ec3ab095fdb699372ecb7844f904059"
+    },
+    {
+      "file": "cleanup-routes4-comparison.json",
+      "sha256": "5df4767b8801d3a8c1012358fa3ccd7d3f430df721900d1b45f9ed0b90bc1195"
+    },
+    {
+      "file": "cleanup-routes4.json",
+      "sha256": "f7290c67a172d67b1e9ccdab9b05f9b9aa9fc7e99e076a207f86bc8eb4e8a49e"
+    },
+    {
+      "file": "cleanup-routes6-comparison.json",
+      "sha256": "5df4767b8801d3a8c1012358fa3ccd7d3f430df721900d1b45f9ed0b90bc1195"
+    },
+    {
+      "file": "cleanup-routes6.json",
+      "sha256": "1a2df6700a86848f9beb9d48a9c2939a50c4152e573ef8d4dac8ccad42a7ec0c"
+    },
+    {
+      "file": "diagnostics.json",
+      "sha256": "23d5e49ff69adebde7c36df8fdc6cf85fae8777b6932c33524c7394da80ba409"
+    },
+    {
+      "file": "final-job.json",
+      "sha256": "569f3d4eaff8b437d092bc73b37616bdb3090c5117d170b2e31298daee5664d0"
+    },
+    {
+      "file": "final-processes.json",
+      "sha256": "13b7704164de13c65e9d07336d903289b00ec92a6962695f909bab7e83dac11a"
+    },
+    {
+      "file": "held-cleanup-before.json",
+      "sha256": "3d2e2fbb34c3ec25fa9e35c16664f8d86f8ef6d77791082a5b20beaadf7a2742"
+    },
+    {
+      "file": "held-cleanup.py",
+      "sha256": "bea2b226e623515c16e3a762a5be2558874b5bff96fcf47e6621a823925c5294"
+    },
+    {
+      "file": "inspect-state.py",
+      "sha256": "c74ae46ed7baff67a77d2057e93a80e61675394307b7b64049f3776aa2d08439"
+    },
+    {
+      "file": "install.py",
+      "sha256": "423b681f5d804b2d53d2643d9996fba8678067b35526b86b46ac3a1d94d179eb"
+    },
+    {
+      "file": "installation.json",
+      "sha256": "ce582c5eae95236f8c99bb4a8c01ea037e81e6f073174c5df0f417ecce4a6af8"
+    },
+    {
+      "file": "installed-app.json",
+      "sha256": "4ad28628774d68e4f761f6fc5479c2d2656ae56690a6a0c88494767488357f30"
+    },
+    {
+      "file": "installed-readback.json",
+      "sha256": "140966a96a6fb3d3e5675a3ce4b2f87d9bf543da2ae7f0f35a70ab1dd50b0ddf"
+    },
+    {
+      "file": "job-after.json",
+      "sha256": "569f3d4eaff8b437d092bc73b37616bdb3090c5117d170b2e31298daee5664d0"
+    },
+    {
+      "file": "job-before-load.json",
+      "sha256": "569f3d4eaff8b437d092bc73b37616bdb3090c5117d170b2e31298daee5664d0"
+    },
+    {
+      "file": "job-loaded.json",
+      "sha256": "6c6886dacbc98cdd8adf333c9105577c4c3ed7f273a17b8517be8ab5dc63a9a3"
+    },
+    {
+      "file": "kickstart.json",
+      "sha256": "598605456dc9651f85e4cd82c15f23bea4aafc89571f4844f0b7b586f2092f39"
+    },
+    {
+      "file": "load-helper.py",
+      "sha256": "72e94eaac74e5312fa939960dd82ada2412641a1a948f599985814e7ca589fca"
+    },
+    {
+      "file": "load.json",
+      "sha256": "598605456dc9651f85e4cd82c15f23bea4aafc89571f4844f0b7b586f2092f39"
+    },
+    {
+      "file": "observe-test-flow.py",
+      "sha256": "b41f560537510e41387d78a0f452cac0391a2711acfbaac33277bfc1a9727062"
+    },
+    {
+      "file": "paths-after.json",
+      "sha256": "ecc967aaca8787f5c1ccc8a864c3fb9264a3e4b1fcc3c338e38acd06b664eca2"
+    },
+    {
+      "file": "paths-before.json",
+      "sha256": "ecc967aaca8787f5c1ccc8a864c3fb9264a3e4b1fcc3c338e38acd06b664eca2"
+    },
+    {
+      "file": "preflight.py",
+      "sha256": "074a622536384ca8bc09a428b37a27231b6ea1e4c5a1d1d4c948d9e030070b9c"
+    },
+    {
+      "file": "preinstall-dns-store.json",
+      "sha256": "7e6aa4065348a2dfd98ef83b0f304366203db2684606f837669e9527e893597c"
+    },
+    {
+      "file": "preinstall-dns.json",
+      "sha256": "35fb55e98b22adad5ce5d8aaf1c075d024953277d97fb29b42e98d01cba09481"
+    },
+    {
+      "file": "preinstall-production-preflight-stable.json",
+      "sha256": "37317646bb3bcf2651aa2b20ae8bd5032091b06227f2f289705b9843edee6b93"
+    },
+    {
+      "file": "preinstall-production-preflight.json",
+      "sha256": "af8951014b07c6d423d76ef9f50978a09653af8afaecbf152b3c7fc4b8a49602"
+    },
+    {
+      "file": "preinstall-proxy.json",
+      "sha256": "d44a23ab899513ae4a228a8403bfd6558ec3ab095fdb699372ecb7844f904059"
+    },
+    {
+      "file": "processes-before.json",
+      "sha256": "4cf6264fd4145f5982f8f797c2947d38efaf3a805f9544cbaa0cf599f44b682f"
+    },
+    {
+      "file": "production-preflight.json",
+      "sha256": "0796cb59617867bb28e4421a17c92d50628c6da31838fa9d2f01a10c9fead2b9"
+    },
+    {
+      "file": "read-diagnostics.py",
+      "sha256": "1d33cee338786ff4794802b547443dbdfc8f94794f50b9e28ec052a3bb756e67"
+    },
+    {
+      "file": "receipt-after.json",
+      "sha256": "e34e0b695dea0ee384ee71e7ede3b3f9c14c815470a9ad3ac6a0c8df5808a46a"
+    },
+    {
+      "file": "receipt-before-forget.json",
+      "sha256": "3cb23ae4e25e0af5029d569aecfed54b548b7b08c741b0f60bbc0a98b927c80f"
+    },
+    {
+      "file": "receipt-cleanup.py",
+      "sha256": "86f46e92cbcfce402ce0427fe0e8deb328d76b8390eb28bce692414c18eaab35"
+    },
+    {
+      "file": "receipt-forget.json",
+      "sha256": "0c5347ff1659ad3be2b5f5af3840902b302f22a68cc7b737acf3e1599d7652bf"
+    },
+    {
+      "file": "router-path.json",
+      "sha256": "7ce606aae9e136509f93c3107190e6899cbdeb0ce6cce719bc9345346771a2cb"
+    },
+    {
+      "file": "timeout-state.json",
+      "sha256": "588331d14acee7e79279690e6cecf79fe2722233b3c77770d1ffb2b78258f269"
+    },
+    {
+      "file": "uninstall-result.json",
+      "sha256": "ef94c6eb5afe9f00a3e734a8edb604eb4c363d9d7f662c6f7c1cc9ceb7f2fd93"
+    },
+    {
+      "file": "verify-app.mjs",
+      "sha256": "6c2f3c1abd4bd3232277cfee1e3551d5dc748e2e1177a4671cfeb68328709a23"
+    },
+    {
+      "file": "verify-installed-result.json",
+      "sha256": "1e273e5bd75723a141fe7a9564bb071c9f7653afea1ee8a8fb1cb29716f3aec9"
+    },
+    {
+      "file": "verify-installed.py",
+      "sha256": "d44a8b38964fd68887a63d064f5cac8ff01b8610af405cf3549d09c9b598c321"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "sourceCommit": "95a88084518f5162bb4af434b9429ab5b18e98e5",
+  "checks": {
+    "tun-routes.m": {
+      "sha256": "3bbf104cdbaf236d894326758e6fb61cca701195e9727627d41317923145d3bc",
+      "matchesReviewedCandidate": "kuro-internal-dns-host-routes-candidate"
+    },
+    "tun-routes.test.m": {
+      "sha256": "42ea27dfcff5b33de8c1e02539425116553d125b528c3073c283071ab16746f6",
+      "matchesReviewedCandidate": "kuro-internal-dns-host-routes-candidate"
+    },
+    "tun-production-network.m": {
+      "sha256": "783622c89abaf41dd508c759788f07613bbee5da36583ba6fa85d39120b9fff3",
+      "matchesReviewedCandidate": "kuro-staged-dns-coordinator-candidate"
+    },
+    "tun-production-network.test.m": {
+      "sha256": "fdf4ce56bc6548228fcf1bb6a41006ce938d34bbc9673c10c78a006e758aac7c",
+      "matchesReviewedCandidate": "kuro-staged-dns-coordinator-candidate"
+    }
+  },
+  "nativeStagedLiterals": [
+    "route continuation requires this actor's completed internal DNS preparation",
+    "route continuation does not match the exact completed host prefix",
+    "network phase lacks its exact complete route receipt",
+    "same internally DNS-ready held Core and unchanged host-route phase required before network activation",
+    "continued route differs from admitted plan; journal retained",
+    "fixed internal IPv%@ DNS static-host probe was not confirmed; stage=%@; elapsedMs=%llu; errno=%d; poll=%d; revents=0x%x; sent=%lld/%lu; received=%lld; header=%@; reason=%@"
+  ],
+  "reviewedPatches": [
+    "08dd1d1406485d1f23507e6f40472e6d7011bed0e5d7bca8039b673446c12441",
+    "3afcd439d385874e8879ab6a4ff0125eb52e302f591a2a14bf3aa655308ab3b8"
+  ],
+  "standardLogContainsStagedAndSevenChains": true,
+  "scope": "static source/build identity and read-only existing build evidence; no real route write/probe/Core executed by offline reviewer"
+}

@@ -1,0 +1,7 @@
+# 实际完整生产只读预检
+
+同c138生产源码加冻结DNS补丁b40be18，源tun-network SHA59afd8ae680798717f4045cc3a3b6cb67010147fd4639529492dfbb8c3b38eed / tun-production-network SHA fabefc0da4c3b29a62aaead86bb3db7ec3b08ee63a6484165b14df89389216ac；wrapper沿用已审阅production main，只stdout读报告、不调recover/write/Core。
+
+实际root运行exit0，config/routes/DNS/interfaces及完整preflight全部通过，physicalInterface=en0。保留原批准Profile和生产TS配置SHA23e050864b7070f77e400fbe08904757276ebaf549ff7d258f473b41698f74de。原始现场/private/tmp/kuro-c138-window-lauz6lg8/dns-candidate-preflight.json，工具/private/tmp/kuro-dns-readonly-candidate。未安装/启用服务/Core/TUN，未改网络。
+
+两名未参与DNS实现的agent核验最终补丁、已知字段语义/flags/index、完整journal及变更拒绝，无blocking。需七链组合、整合及提交CI后冻结新安装包；只读准入不代表真实App鉴权/Core/utun/网络恢复通过。

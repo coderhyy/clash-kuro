@@ -1,0 +1,157 @@
+[
+  {
+    "mode": "fresh",
+    "applications": 1,
+    "authorizations": 2,
+    "dnsAdds": 1,
+    "dnsJournalAbsent": true,
+    "dnsRemovals": 1,
+    "finalizing": false,
+    "opens": 1,
+    "ownerAbsent": true,
+    "recoveries": 2,
+    "recoverRefusals": 0,
+    "routeAdds": 4,
+    "routeRemovals": 0,
+    "starts": 1,
+    "status": {
+      "availability": "ready",
+      "state": "off"
+    },
+    "workAbsent": true
+  },
+  {
+    "mode": "residue",
+    "applications": 1,
+    "authorizations": 2,
+    "dnsAdds": 2,
+    "dnsJournalAbsent": true,
+    "dnsRemovals": 2,
+    "finalizing": false,
+    "opens": 1,
+    "ownerAbsent": true,
+    "recoveries": 2,
+    "recoverRefusals": 0,
+    "routeAdds": 4,
+    "routeRemovals": 0,
+    "starts": 1,
+    "status": {
+      "availability": "ready",
+      "state": "off"
+    },
+    "workAbsent": true
+  },
+  {
+    "mode": "recovery-failed",
+    "applications": 0,
+    "authorizations": 1,
+    "dnsAdds": 1,
+    "dnsJournalAbsent": false,
+    "dnsRemovals": 1,
+    "finalizing": false,
+    "opens": 0,
+    "ownerAbsent": true,
+    "recoveries": 1,
+    "recoverRefusals": 1,
+    "routeAdds": 0,
+    "routeRemovals": 0,
+    "starts": 0,
+    "status": {
+      "availability": "blocked",
+      "error": "DNS: remove failed",
+      "state": "unknown"
+    },
+    "workAbsent": true,
+    "rejection": "DNS: remove failed",
+    "recoveryRejection": "DNS: remove failed"
+  },
+  {
+    "mode": "auth-only",
+    "applications": 0,
+    "authorizations": 0,
+    "dnsAdds": 0,
+    "dnsJournalAbsent": true,
+    "dnsRemovals": 0,
+    "finalizing": false,
+    "opens": 0,
+    "ownerAbsent": true,
+    "recoveries": 0,
+    "recoverRefusals": 0,
+    "routeAdds": 0,
+    "routeRemovals": 0,
+    "starts": 0,
+    "status": {
+      "availability": "blocked",
+      "error": "authenticated recovery is required before a new TUN session",
+      "state": "off"
+    },
+    "workAbsent": true,
+    "rejection": "authenticated recovery is required before a new TUN session; Recovery failed: installed manifest does not explicitly permit finite TUN sessions",
+    "recoveryRejection": "installed manifest does not explicitly permit finite TUN sessions"
+  },
+  {
+    "mode": "identity",
+    "applications": 0,
+    "authorizations": 1,
+    "dnsAdds": 0,
+    "dnsJournalAbsent": true,
+    "dnsRemovals": 0,
+    "finalizing": false,
+    "opens": 1,
+    "ownerAbsent": true,
+    "recoveries": 2,
+    "recoverRefusals": 0,
+    "routeAdds": 0,
+    "routeRemovals": 0,
+    "starts": 0,
+    "status": {
+      "availability": "ready",
+      "state": "off"
+    },
+    "workAbsent": true,
+    "rejection": "client hardening is insufficient"
+  },
+  {
+    "mode": "invalid-config",
+    "applications": 0,
+    "authorizations": 1,
+    "dnsAdds": 0,
+    "dnsJournalAbsent": true,
+    "dnsRemovals": 0,
+    "finalizing": false,
+    "opens": 1,
+    "ownerAbsent": true,
+    "recoveries": 2,
+    "recoverRefusals": 0,
+    "routeAdds": 0,
+    "routeRemovals": 0,
+    "starts": 0,
+    "status": {
+      "availability": "ready",
+      "state": "off"
+    },
+    "workAbsent": true,
+    "rejection": "unsupported TUN session envelope"
+  },
+  {
+    "mode": "finalizing",
+    "applications": 1,
+    "authorizations": 2,
+    "dnsAdds": 1,
+    "dnsJournalAbsent": true,
+    "dnsRemovals": 1,
+    "finalizing": true,
+    "opens": 1,
+    "ownerAbsent": true,
+    "recoveries": 2,
+    "recoverRefusals": 0,
+    "routeAdds": 4,
+    "routeRemovals": 0,
+    "starts": 1,
+    "status": {
+      "availability": "ready",
+      "state": "off"
+    },
+    "workAbsent": true
+  }
+]

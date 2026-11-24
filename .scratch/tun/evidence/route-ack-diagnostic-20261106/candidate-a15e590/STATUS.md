@@ -1,0 +1,7 @@
+# a15e590 candidate status
+
+Source a15e590ec5d787025017021a275cb8bdedbedf48. Package `apps/desktop/dist/kuro-tun-finite-session-0.1.0-arm64-a15e590ec5d7.pkg`, SHA256 `029d3f8029d76654a5c9291b4f1975881da5290f8474d6b2b2313e75d23e4a65`. Native standard/7 actual admission chains, App build, independent actual expanded package identity and CI42169503552 macOS+Windows first attempt passed.
+
+Exact-source readonly preflight compiled at `/private/tmp/kuro-production-preflight-a15e590/preflight`; production source bytes checked against this commit, no test/experiment macros, original main renamed and never called. Window `/private/tmp/kuro-a15e590-window-7h8os_lk`. Root readonly preflight completed successfully (tool session60077): approved95 stable route baseline matches; DNS/DNS-store/proxy byte-equal; router192.168.0.1 routes via en0; third-party App/Core absent. No a15 installation or Core/TUN start has occurred. The prior95 window has fully cleaned job/processes/install/receipt and restored approved baseline. Before install, user requested failure-time target-route existence evidence. a15 lacks that pre-rollback snapshot; add bounded exact-key readback while preserving primary ACK error and failure, then freeze a new candidate before retry. a15 is not installed or retried. Same continuous normal authorization remains valid; do not expand to abnormal shutdown or upgrade.
+
+This candidate adds failure evidence only; real route ACK cause remains unproven. Prior isolated child timeout remains separate and unresolved (see original evidence FOLLOWUP.md).

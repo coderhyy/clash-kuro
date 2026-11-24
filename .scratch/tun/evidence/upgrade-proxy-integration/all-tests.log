@@ -1,0 +1,133 @@
+$ turbo test
+
+   • turbo 2.11.10
+   • Packages in scope: @kuro/api, @kuro/core, @kuro/desktop, @kuro/state
+   • Running test in 4 packages
+   • Remote caching disabled, using shared worktree cache
+
+@kuro/core:test: cache miss, executing 65d146b57799fd8a
+@kuro/core:typecheck: cache hit, replaying logs 563f3a301b13ef17
+@kuro/core:typecheck: $ tsc -p tsconfig.json
+@kuro/api:test: cache miss, executing 772f7f97a5519657
+@kuro/api:typecheck: cache hit, replaying logs 7cb3311e9152bc59
+@kuro/api:typecheck: $ tsc -p tsconfig.json
+@kuro/state:test: cache miss, executing 4d45c0feba8d261d
+@kuro/state:typecheck: cache hit, replaying logs b6bff7236fb8d2a1
+@kuro/state:typecheck: $ tsc -p tsconfig.json
+@kuro/desktop:test: cache miss, executing 4e8f4846296ee398
+@kuro/core:test: $ vitest run
+@kuro/api:test: $ vitest run
+@kuro/state:test: $ vitest run
+@kuro/desktop:test: $ vitest run --passWithNoTests --maxWorkers=2
+@kuro/desktop:test: 
+@kuro/core:test: 
+@kuro/desktop:test:  RUN  v5.0.5 /Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop
+@kuro/core:test:  RUN  v5.0.5 /Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/packages/core
+@kuro/core:test: 
+@kuro/state:test: 
+@kuro/desktop:test: 
+@kuro/api:test: 
+@kuro/state:test:  RUN  v5.0.5 /Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/packages/state
+@kuro/state:test: 
+@kuro/api:test:  RUN  v5.0.5 /Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/packages/api
+@kuro/api:test: 
+@kuro/api:test:  ✓ src/fake.test.ts (2 tests) 2ms
+@kuro/core:test:  ✓ src/fake.test.ts (4 tests) 4ms
+@kuro/api:test:  ✓ src/client.test.ts (10 tests) 5ms
+@kuro/api:test: 
+@kuro/api:test:  Test Files  2 passed (2)
+@kuro/api:test:       Tests  12 passed (12)
+@kuro/api:test:    Start at  12:23:26
+@kuro/api:test:    Duration  206ms (transform 71%, import 17%, tests 8%, worker 4%)
+@kuro/api:test: 
+@kuro/state:test:  ✓ src/fake.test.ts (1 test) 2ms
+@kuro/state:test:  ✓ src/streams.test.ts (3 tests) 3ms
+@kuro/core:test:  ✓ src/profile-update.test.ts (58 tests) 9ms
+@kuro/core:test:  ✓ src/config.test.ts (76 tests) 29ms
+@kuro/state:test:  ✓ src/snapshot.test.ts (4 tests) 3ms
+@kuro/state:test:  ✓ src/tray.test.ts (7 tests) 3ms
+@kuro/state:test:  ✓ src/store.test.ts (77 tests) 31ms
+@kuro/core:test:  ✓ src/tun-config.test.ts (80 tests) 87ms
+@kuro/core:test: 
+@kuro/core:test:  Test Files  4 passed (4)
+@kuro/core:test:       Tests  218 passed (218)
+@kuro/core:test:    Start at  12:23:26
+@kuro/core:test:    Duration  312ms (transform 47%, tests 28%, import 23%, worker 2%)
+@kuro/core:test: 
+@kuro/state:test:  ✓ src/tun.test.ts (44 tests) 73ms
+@kuro/state:test:  ✓ src/backup.test.ts (35 tests) 390ms
+@kuro/state:test:    ✓ rejects Backup files over 50 MB, counting UTF-8 rather than UTF-16 units 380ms
+@kuro/state:test: 
+@kuro/state:test:  Test Files  7 passed (7)
+@kuro/state:test:       Tests  171 passed (171)
+@kuro/state:test:    Start at  12:23:26
+@kuro/state:test:    Duration  662ms (transform 44%, tests 40%, import 15%, worker 1%)
+@kuro/state:test: 
+@kuro/desktop:test:  ✓ src/main/platform/mihomo.integration.test.ts (1 test) 2175ms
+@kuro/desktop:test:    ✓ bundled mihomo validates config, streams traffic/logs and reconnects after channel rotation 2174ms
+@kuro/desktop:test:  ✓ src/main/platform/resident-client.test.ts (20 tests) 2897ms
+@kuro/desktop:test:    ✓ fixture bootstrap does not consume the protocol deadline 722ms
+@kuro/desktop:test:    ✓ failed channel stays closed and waits for real exit: hang 558ms
+@kuro/desktop:test:    ✓ startup deadline closes an unready child instead of allowing requests 557ms
+@kuro/desktop:test:  ✓ src/main/platform/platform.test.ts (46 tests) 1773ms
+@kuro/desktop:test:    ✓ direct API-ready Core without a mixed listener fails readiness and is stopped 507ms
+@kuro/desktop:test:    ✓ greeting without peer FIN cannot escape the existing readiness deadline 517ms
+@kuro/desktop:test:  ✓ src/main/platform/resident-platform.test.ts (15 tests) 1624ms
+@kuro/desktop:test:    ✓ resident API-ready Core without a mixed listener fails readiness and closes its owner 506ms
+@kuro/desktop:test:    ✓ resident API and silent TCP listener without SOCKS5 readiness cannot report startup success 512ms
+@kuro/desktop:test:    ✓ resident API and invalid TCP listener without SOCKS5 readiness cannot report startup success 509ms
+@kuro/desktop:test:  ✓ src/main/runtime-auth-verification.test.ts (24 tests) 423ms
+@kuro/desktop:test:  ✓ src/main/launch-at-login.test.ts (6 tests) 352ms
+@kuro/desktop:test:  ✓ src/main/platform/transport.test.ts (11 tests) 394ms
+@kuro/desktop:test:  ✓ src/main/platform/system-proxy.test.ts (48 tests) 83ms
+@kuro/desktop:test:  ✓ src/main/platform/fetch.test.ts (7 tests) 81ms
+@kuro/desktop:test:  ✓ scripts/prepare-macos-helper.test.mjs (25 tests) 80ms
+@kuro/desktop:test:  ✓ src/main/platform/macos-tun.test.ts (46 tests) 398ms
+@kuro/desktop:test:  ✓ src/main/backup-ipc.test.ts (10 tests) 66ms
+@kuro/desktop:test:  ✓ src/main/platform/recovery-helper.test.ts (3 tests) 32ms
+@kuro/desktop:test:  ✓ src/renderer/src/app.test.tsx (17 tests) 80ms
+@kuro/desktop:test:  ✓ src/main/platform/test-ports.test.ts (6 tests) 31ms
+@kuro/desktop:test:  ✓ scripts/package-macos-helper.test.mjs (23 tests) 68ms
+@kuro/desktop:test:  ✓ src/main/runtime-verification.test.ts (17 tests | 1 skipped) 9ms
+@kuro/desktop:test:  ✓ src/main/cat-glyph.test.ts (4 tests) 48ms
+@kuro/desktop:test:  ✓ src/main/platform/resident-recovery.test.ts (6 tests) 40ms
+@kuro/desktop:test: stderr | src/main/candidate-startup.test.ts > actual main finite=false with recovery blocked=false preserves TUN admission and gates only automatic product actions
+@kuro/desktop:test: Resume recovery failed: Error: fake: no handler for DELETE /connections
+@kuro/desktop:test:     at request (/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/packages/api/src/client.ts:29:13)
+@kuro/desktop:test:     at Object.closeAllConnections (/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/packages/api/src/client.ts:67:7)
+@kuro/desktop:test:     at /Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/packages/state/src/store.ts:592:15
+@kuro/desktop:test: 
+@kuro/desktop:test:  ✓ src/main/candidate-startup.test.ts (3 tests) 186ms
+@kuro/desktop:test:  ✓ src/main/app/app.test.ts (7 tests) 22ms
+@kuro/desktop:test:  ✓ src/renderer/src/display.test.ts (3 tests) 11ms
+@kuro/desktop:test:  ✓ scripts/macos-client-pin.test.mjs (2 tests) 11ms
+@kuro/desktop:test:  ✓ src/main/app/profiles.test.ts (2 tests) 6ms
+@kuro/desktop:test:  ✓ src/main/platform/migration-boot.test.ts (42 tests | 1 skipped) 10ms
+@kuro/desktop:test:  ✓ src/renderer/src/dev-bridge.test.ts (5 tests) 9ms
+@kuro/desktop:test:  ✓ src/main/platform/websocket.test.ts (22 tests) 6ms
+@kuro/desktop:test:  ✓ src/main/tun-endpoints.test.ts (38 tests) 6ms
+@kuro/desktop:test:  ✓ src/main/platform/resident-session.test.ts (10 tests) 5ms
+@kuro/desktop:test:  ✓ src/main/platform/resident-environment.test.ts (33 tests) 5ms
+@kuro/desktop:test:  ✓ src/main/platform/login-item.test.ts (4 tests) 3ms
+@kuro/desktop:test:  ✓ src/shared/i18n/zh-CN.test.ts (5 tests) 3ms
+@kuro/desktop:test:  ✓ src/main/platform/resume.test.ts (6 tests) 3ms
+@kuro/desktop:test:  ✓ src/main/app/resident-startup.test.ts (4 tests) 3ms
+@kuro/desktop:test:  ↓ src/main/platform/sysproxy-helper.integration.test.ts (15 tests | 15 skipped)
+@kuro/desktop:test:  ✓ scripts/build-electron-runtime-candidate.test.mjs (2 tests) 2ms
+@kuro/desktop:test:  ✓ src/renderer/src/use-snapshot.test.ts (2 tests) 3ms
+@kuro/desktop:test:  ✓ scripts/fetch-core.test.ts (3 tests) 2ms
+@kuro/desktop:test:  ✓ src/main/platform/resident-protocol.test.ts (2 tests) 2ms
+@kuro/desktop:test: 
+@kuro/desktop:test:  Test Files  38 passed | 1 skipped (39)
+@kuro/desktop:test:       Tests  528 passed | 17 skipped (545)
+@kuro/desktop:test:    Start at  12:23:27
+@kuro/desktop:test:    Duration  7.02s (tests 92%, import 5%, transform 3%, worker 1%)
+@kuro/desktop:test: 
+@kuro/desktop:test:     Isolate  39 workers spawned · ~50ms startup each (spawn + environment, per file)
+@kuro/desktop:test:              at least ~929ms faster with isolate: false — reuses workers across files instead of one per file
+@kuro/desktop:test: 
+
+ Tasks:    7 successful, 7 total
+Cached:    3 cached, 7 total
+  Time:    7.407s 
+

@@ -1,0 +1,7 @@
+# 独立只读审查
+
+macos_acceptance与windows_login均未参与route实现，分别核验源码、匿名wire测试、本地Go x/net一手实现与原始采样证据，未发现blocking。mask例外仅NETMASK，族来自DST，长度/连续性/canonical保留；LOCAL|HOST zone仅目的只读元数据，explicit/KAME冲突仍拒，gateway、实际interfaceIndex不改。写入schema与held/journal/精确归属权限不变。
+
+完整11004字节现场raw留在0700私人目录，不提交；本目录补丁只含匿名固定packet。尚待admission组合整合与CI；不等于新候选实机TUN通过。
+
+最终snapshot组合由macos_acceptance独审通过：精确patch2d5890bd、shared及9证据摘要匹配。每次backend快照实际decode，nil经production recover传播；red/green admission相同，仅red旧decoder，真实blockedunknown/error断言发生于setTun/open之前，不是fixture退出。主integrated七链绿。Core/kernel读写仍fixture，不作实机证明。

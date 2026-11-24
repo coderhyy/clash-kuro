@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "mode": "authenticate-only",
+  "ok": true,
+  "authenticated": true,
+  "nativeRejected": false,
+  "endpoint": "/Library/PrivilegedHelperTools/dev.kuro.tun-run/auth.sock",
+  "executable": "/Library/Application Support/Clash Kuro/Client/Clash Kuro.app/Contents/MacOS/Clash Kuro",
+  "directory": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-jmvLq9",
+  "userData": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-jmvLq9/userData",
+  "sessionData": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-electron-runtime-jmvLq9/sessionData",
+  "realPlatformCreated": false,
+  "realCoreStarted": false,
+  "systemNetworkWrites": false
+}

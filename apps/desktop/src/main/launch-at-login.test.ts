@@ -17,13 +17,13 @@ const mocks = vi.hoisted(() => {
   }
   const snapshot = {
     resolvedLanguage: 'en', settings: { mixedPort: 7890 }, core: { status: 'stopped' },
-    profiles: [], activeProfileId: 'p1'
+    profiles: [], activeProfileId: 'p1', tun: { availability: 'not-installed', state: 'off' }
   }
   const store = {
     store: { getState: () => snapshot, subscribe: vi.fn() },
-    run: vi.fn(), refreshLaunchAtLogin: vi.fn()
+    run: vi.fn(), refreshLaunchAtLogin: vi.fn(), resumeCore: vi.fn()
   }
-  return { win, app, store, scheduler: { start: vi.fn(), stop: vi.fn() }, window: vi.fn() }
+  return { win, app, store, snapshot, cleanup: vi.fn(), resume: vi.fn(), scheduler: { start: vi.fn(), stop: vi.fn() }, window: vi.fn() }
 })
 
 vi.mock('electron', () => ({
@@ -39,7 +39,7 @@ vi.mock('@kuro/state', () => ({
   MAX_BACKUP_BYTES: 50 * 1024 * 1024, createAppStore: async () => mocks.store, buildTrayMenu: () => []
 }))
 vi.mock('./platform', () => ({
-  createDesktopPlatform: () => ({ readFile: async () => null, cleanupStaleSystemProxy: vi.fn(), onResume: vi.fn() }),
+  createDesktopPlatform: () => ({ readFile: async () => null, cleanupStaleSystemProxy: mocks.cleanup, onResume: mocks.resume }),
   createSocketTransport: vi.fn(), createResumeHandler: vi.fn()
 }))
 vi.mock('./app/resident-startup', () => ({ prepareResidentStartup: async () => vi.fn() }))
@@ -60,6 +60,8 @@ beforeEach(async () => {
   mocks.app.getPath.mockReturnValue(directory)
   mocks.app.getLoginItemSettings.mockReturnValue({ wasOpenedAtLogin: false })
   mocks.store.run.mockResolvedValue({ ok: true })
+  mocks.store.resumeCore.mockResolvedValue(undefined)
+  mocks.snapshot.tun.state = 'off'
 })
 afterEach(async () => {
   Object.defineProperty(process, 'platform', platformDescriptor)
@@ -98,4 +100,12 @@ test('Windows hidden second-instance preserves Tray Mode and ordinary second-ins
   listener({}, ['kuro', '--hidden'])
   expect(mocks.win.show).not.toHaveBeenCalled()
   expect(mocks.win.focus).not.toHaveBeenCalled()
+})
+
+test('unknown TUN ownership skips stale proxy cleanup and resume enters the store queue', async () => {
+  mocks.snapshot.tun.state = 'unknown'
+  await start('darwin')
+  expect(mocks.cleanup).not.toHaveBeenCalled()
+  mocks.resume.mock.calls[0]![0]()
+  expect(mocks.store.resumeCore).toHaveBeenCalledOnce()
 })

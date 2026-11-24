@@ -1,0 +1,17 @@
+{
+  "entry": "out/main/index.js",
+  "sha256": "9e9221b8b15e6434240dfad2b03371da63bfea1cf13206b9c7384feb0730b8cc",
+  "markers": [
+    "Clash Kuro TUN Candidate",
+    "kuroCandidateMode",
+    "kuroAuthObservationOnly",
+    "/Library/PrivilegedHelperTools/dev.kuro.tun-run/auth.sock",
+    "/Library/PrivilegedHelperTools/dev.kuro.tun-run/control.sock"
+  ],
+  "sealed": {
+    "kuroSourceCommit": "49f7dd6e610e18b2a4c59c85b92f2c29045b95d4",
+    "kuroCandidateMode": "finite-session",
+    "kuroAuthObservationOnly": false
+  },
+  "executed": false
+}

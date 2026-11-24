@@ -1,0 +1,58 @@
+{
+  "sourceCommit": "4a8c7acff81f1c52e9dfab221363638161e952bd",
+  "artifactDirectory": "/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/core-control-experiment-4a8c7acff81f1c52e9dfab221363638161e952bd",
+  "result": "PASS",
+  "checkedAtUTC": "2026-11-05T06:28:44.351888+00:00",
+  "checks": {
+    "sha256sums": [
+      "artifact.json",
+      "core-experiment",
+      "core.lock.json",
+      "experiment.json",
+      "inventory.json",
+      "mihomo"
+    ],
+    "inventoryFiles": 4,
+    "frozenSourceBlobs": 19,
+    "manifestInventoryCoreRunnerEpochPins": true,
+    "staticConfigAndCapture": {
+      "tunDisabled": true,
+      "dnsDisabled": true,
+      "ipPortsZero": true,
+      "onlyPrivateUnixController": true,
+      "noProvidersListenersTunnels": true,
+      "sharedCapture": true
+    }
+  },
+  "pins": {
+    "runnerSHA256": "fb1b5d17f9a6bb7d32d78b2d5bbbac79a384ae7353b9bfa638141135d8620bef",
+    "coreSHA256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+    "epoch": "804990BC-7BF7-4658-8EE2-5AB3A686B00C"
+  },
+  "scope": {
+    "readFilesAndGitBlobs": true,
+    "coreExecutedByReviewer": false,
+    "selfTestExecutedByReviewer": false,
+    "systemMutationsByReviewer": false
+  },
+  "inspect": {
+    "status": "PASS",
+    "exitCode": 0,
+    "stdout": {
+      "normalPassed": false,
+      "receipt": {
+        "coreArchiveSHA256": "060b64b0f2c9a310831db0fe4adb2878de67bfa606c311813c1f13966aa504b6",
+        "coreSHA256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+        "coreVersion": "v1.19.33",
+        "epoch": "804990BC-7BF7-4658-8EE2-5AB3A686B00C",
+        "format": 1,
+        "protocol": 1,
+        "runnerSHA256": "fb1b5d17f9a6bb7d32d78b2d5bbbac79a384ae7353b9bfa638141135d8620bef",
+        "target": "darwin-arm64"
+      },
+      "stage3": "not implemented or authorized",
+      "status": "prepared"
+    },
+    "stderr": ""
+  }
+}

@@ -1,0 +1,13 @@
+$ vitest run --passWithNoTests --maxWorkers=2
+
+ RUN  v5.0.5 /Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop
+
+
+ Test Files  35 passed | 1 skipped (36)
+      Tests  446 passed | 16 skipped (462)
+   Start at  19:28:33
+   Duration  6.53s (tests 95%, import 4%, transform 1%)
+
+    Isolate  36 workers spawned · ~50ms startup each (spawn + environment, per file)
+             at least ~842ms faster with isolate: false — reuses workers across files instead of one per file
+

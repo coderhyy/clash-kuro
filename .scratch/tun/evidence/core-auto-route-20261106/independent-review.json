@@ -1,0 +1,33 @@
+{
+  "reviewer": "macos_acceptance (not an implementation author)",
+  "verdict": "no identified source-delivery blocker",
+  "checks": [
+    "no helper route writer or fallback",
+    "closed fixed Core plan and real readonly readiness",
+    "typed missing-only bounded wait cannot mask conflict/identity loss",
+    "durable pre-CONT binding",
+    "fresh record retirement behind existing full writer-exit closure and matching owner",
+    "narrow no-owner stopped-proof replay performs current absence only",
+    "production eight-chain integration, partial-route startup failure, live-writer intent preservation",
+    "existing HOST/LLINFO filtering avoids broad lo0 permission"
+  ],
+  "limitations": [
+    "route request/source and fixture model are not real route installation evidence",
+    "real TUN normal traffic, cleanup and later fault/upgrade acceptance remain unverified"
+  ],
+  "sourceSHA256": {
+    "tun-routes.m": "a9e032c22508dda2abdea61af875f3446c111358febd98cfdac3344ed968f225",
+    "tun-routes.test.m": "37fdadc9640a85ce95108cfb960783d4c31e31f8fcf8b0248e3a20d62b98ffc6",
+    "tun-production-network.m": "f97f7923c11f97d10bf348eb271e302dbc9d5c4f0e1f59c8471b6f72e8a641bd",
+    "tun-production-network.test.m": "41a094904c21f0586aa064d60fee49bd304bbb17a75980af4c2b950d22612c66",
+    "tun-admission.test.m": "2704054e9ee179f2ffc32576b8f074f3269c447c96e0c299e9fa04d11b743d1d",
+    "tun-service.m": "6724deef7f8741cb948dd05e5cb704d7f6971e8c3be4859a2b77aed0b7e8aebd",
+    "tun-service.test.m": "901e4bdb128ba32ce8cd284a5a4e399437a61c9e473ff30cc7746948abcb7736",
+    "tun-session.m": "660b62f48740d81cacfa57da5d28b4179ea6554a884168c5db84e856e3d1e595",
+    "kuro-tun-helper.m": "2d15d44c190411ec5513d5aef9fd6142857f4810da7a71e631e726237293b76b",
+    "tun-config.m": "6c914e1648ac6875b4957072e99563737062fc86bc21b0db84244207485f7d97",
+    "tun-config.test.m": "4c858463847e15c8812166bb3aa2da8b930560c2f335e2298ce640e8a284447d",
+    "tun-network.m": "8ca5bfef455cd4992d28b7fa9257a78d70d6209de734611a826b54cc0733c77f",
+    "tun-network.test.m": "bc3189c1d0cdd7e3d56457a62a90dee6c2a31af517a2e43f7422b74ce3896f63"
+  }
+}

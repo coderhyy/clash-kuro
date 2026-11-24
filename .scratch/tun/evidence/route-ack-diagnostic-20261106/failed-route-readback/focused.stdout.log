@@ -1,0 +1,7 @@
+native failed route readback: absent/present/changed/duplicate/snapshot-error/bounded-match evidence + success-no-snapshot PASS; original ACK/NO preserved, no route writes
+native route exchange: 24 actual wire-loop syscall/ACK/short-NEWADDR/timeout/packet-cap fixtures PASS; unchanged acceptance and 1000ms/256 bounds, no socket execution
+native staged routes: 20 continuation + 4 host-preparation failure cases + old4/host2/combined6 absence-only recovery PASS; no network operations
+Darwin route parser: four sanitized recorded wire shapes + nonlocal/nonhost/conflicting-zone/noncontiguous/truncation rejects PASS
+native route durability: 2 absence-only retirement/retry paths require successful directory sync, no route deletion
+native kernel flags: both IPv4/IPv6 /1 readbacks require PRCLONING, host routes do not; scope/material flag negatives preserved
+native routes: bounded wire fixtures and 12 ownership/recovery scenarios passed; no PF_ROUTE/sysctl/network operation executed

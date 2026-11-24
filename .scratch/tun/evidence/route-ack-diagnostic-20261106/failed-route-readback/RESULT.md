@@ -1,0 +1,3 @@
+# Failure-time route evidence
+
+After a failed production route exchange, perform one readonly production snapshot before rollback and preserve exact-key matches (family/destination/prefix), total count and bounded entries; failed snapshot is unavailable, never absent. Primary ACK evidence remains the unchanged prefix and result remains failure even when route exists. No snapshot on success, no extra writes or cleanup authority. Nine same-wrapper/syscall fixture cases passed alongside existing route tests. Actual failure sample still needed; no root/network experiment was run for this addition.

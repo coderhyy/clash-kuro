@@ -155,6 +155,27 @@ dns: {enable: true, nameserver: [new]}`
     })
   })
 
+  test.each(['', 'tun: {enable: true}'])('disables TUN after Profile/Override merging without changing source data (%j)', override => {
+    const source = 'rules: []\ntun: {enable: true, stack: gvisor, auto-route: true, dns-hijack: [any:53]}'
+    const parsed = parseProfile(source)
+    const original = JSON.parse(JSON.stringify(parsed))
+    const yaml = buildRuntimeConfig(parsed, settings, unix, override)
+    expect(parse(yaml).tun).toEqual({ enable: false, stack: 'gvisor', 'auto-route': true, 'dns-hijack': ['any:53'] })
+    expect(parsed).toEqual(original)
+    expect(buildRuntimeConfig(source, settings, unix, override)).toBe(yaml)
+  })
+
+  test('does not introduce TUN or defaults when absent or deleted by Override', () => {
+    const ordinary = buildRuntimeConfig('rules: []', settings, unix)
+    expect(parse(ordinary)).not.toHaveProperty('tun')
+    expect(buildRuntimeConfig('rules: []\ntun: {enable: true, auto-route: true}', settings, unix, 'tun: null')).toBe(ordinary)
+  })
+
+  test.each(['null', 'true', 'untrusted', '[true]'])('safely disables non-mapping TUN %j from Profile or replacement Override', value => {
+    expect(parse(buildRuntimeConfig(`rules: []\ntun: ${value}`, settings, unix)).tun).toEqual({ enable: false })
+    expect(parse(buildRuntimeConfig('rules: []\ntun: {enable: true}', settings, unix, `tun!: ${value}`)).tun).toEqual({ enable: false })
+  })
+
   test('empty Override leaves Runtime Config unchanged and invalid Override is rejected', () => {
     const base = 'proxies: []'
     expect(buildRuntimeConfig(base, settings, unix, '# none')).toBe(buildRuntimeConfig(base, settings, unix))

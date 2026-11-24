@@ -1,0 +1,15 @@
+Base source: 4a8c7acff81f1c52e9dfab221363638161e952bd
+Temporary candidate root: /private/tmp/kuro-platform-readiness-candidate
+No shared source modifications, real Core, network settings, App, service or Git writes.
+
+Focused command (ordinary fixture sockets explicitly permitted outside sandbox):
+./node_modules/.bin/vitest run /private/tmp/kuro-platform-readiness-candidate/apps/desktop/src/main/platform/platform.test.ts -t 'direct API-ready Core without a mixed listener' --maxWorkers=1 --root /private/tmp/kuro-platform-readiness-candidate
+Result: Test Files 1 passed; Tests 1 passed |45 skipped; duration625ms.
+
+Final candidate entire nearby platform suite:
+./node_modules/.bin/vitest run /private/tmp/kuro-platform-readiness-candidate/apps/desktop/src/main/platform/platform.test.ts --maxWorkers=1 --root /private/tmp/kuro-platform-readiness-candidate
+Result: Test Files 1 passed; Tests46 passed; duration1.97s.
+
+Initial sandbox-only command refused loopback listen with EPERM; no test assertion ran. Same isolated fixture test rerun with permission passed. Existing system-proxy calls remain mocked in suite.
+
+Diagnosis: existing test placed the API server in a newly spawned Node process but asserted API-ready/missing mixed-port without observing whether API was handled. Production retries each GET /version then mixed probe under the shared500ms deadline and reports last error, so a final API timeout can replace a mixed-port error. CI reported precisely that API error; exact historical scheduling sequence is unobserved. Test-only change hosts real API fixture in test worker after endpoint unlink, verifies GET /version and finished response, retains real owned Node child and cleanup. No timeout bump, fallback regex or production semantic change.

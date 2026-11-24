@@ -1,0 +1,38 @@
+{
+  "sourceCommit": "822b7fb1e6d01dc167d3c3f4fb451264079b8bba",
+  "review": "/private/tmp/kuro-lifecycle-core-review-822b7fb",
+  "sha256": {
+    "artifact.json": "d6189e6a2b7a888631da9df548f4afed43d2fb4a53a6cb7f820711e6dda0749a",
+    "SHA256SUMS": "3caaeba2df224ce06212fa4fc3162e3ea2ffb8eaaaf7f0bfaa72db1c73e27360",
+    "approval.json": "807b607cb7a2d6c984d0726584b73a56367902a1a2f9fc9f5a032c546e37fe8a",
+    "lifecycle-a": "f35b171e3dabb75394309f049421c289ca7b7dda65acd7ab7f05d7db05a79bfb",
+    "core-driver.py": "2294d4407eab9c3364343a3e9c0ac424cf8df92faf5fb2a0f3284dc70c984865",
+    "cleanup.py": "e5c5ee990e329e09f68a28b9c3ef026539b440e02311995d119c3905b145dce6",
+    "archive-root858.py": "2323babe884bde24150d24cbef301ca65dfeb0c10718227455adecb7e50b77c4",
+    "normal/mihomo": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+    "kill/mihomo": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9"
+  },
+  "epochs": {
+    "killEpoch": "68A25B4D-C2CE-4583-A306-3098F558505C",
+    "normalEpoch": "099232A1-4214-4FE9-B414-A31F47DB26C2"
+  },
+  "checks": {
+    "completeSHA256SUMS": true,
+    "actualDriverReview": true,
+    "old858PinnedDependenciesUnchanged": true,
+    "ordinaryUIDHarmlessSelfTest": true,
+    "selfTestEvidence": "/private/tmp/kuro-core-lifecycle-RdpPgf",
+    "actualCoreExecuted": false,
+    "systemActionsExecuted": false
+  },
+  "ci": {
+    "runId": 42000887679,
+    "sourceCommit": "822b7fb1e6d01dc167d3c3f4fb451264079b8bba",
+    "conclusion": "success",
+    "jobs": [
+      "macos",
+      "windows"
+    ],
+    "url": "https://github.com/coderhyy/clash-kuro/actions/runs/42000887679"
+  }
+}

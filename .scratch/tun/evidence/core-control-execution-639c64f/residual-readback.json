@@ -1,0 +1,33 @@
+{
+  "normalRunnerExitCode": 2,
+  "eofExecuted": false,
+  "processReadback": [
+    {
+      "pid": 12122,
+      "count": 0,
+      "errno": 3,
+      "explicitESRCH": true
+    },
+    {
+      "pid": 12121,
+      "count": 0,
+      "errno": 3,
+      "explicitESRCH": true
+    }
+  ],
+  "retainedBase": "/private/tmp/kuro-core-0jowSi",
+  "files": [
+    {
+      "name": "mihomo",
+      "mode": "0o100755",
+      "uid": 501,
+      "size": 56810034,
+      "sha256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9"
+    }
+  ],
+  "ownerAbsent": true,
+  "workAbsent": true,
+  "normalSuccessAbsent": true,
+  "eofReceiptsAbsent": true,
+  "additionalSignalsOrDeletions": false
+}

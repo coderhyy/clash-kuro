@@ -1,0 +1,45 @@
+{
+  "red": {
+    "command": [
+      "node",
+      "/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/node_modules/vitest/vitest.mjs",
+      "run",
+      "platform/platform.test.ts",
+      "--root",
+      "/private/tmp/kuro-socket-ready-candidate",
+      "-t",
+      "start rechecks unix",
+      "--maxWorkers=1",
+      "--no-cache"
+    ],
+    "exit": 1,
+    "result": "expected438 to be384"
+  },
+  "greenTargeted": {
+    "exit": 0,
+    "tests": 2
+  },
+  "full": {
+    "command": [
+      "node",
+      "/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/node_modules/vitest/vitest.mjs",
+      "run",
+      "platform/platform.test.ts",
+      "--root",
+      "/private/tmp/kuro-socket-ready-candidate",
+      "--maxWorkers=1",
+      "--no-cache"
+    ],
+    "exit": 0,
+    "tests": 49,
+    "wallReportedSeconds": 2.5
+  },
+  "typecheck": {
+    "command": [
+      "/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/node_modules/.bin/tsc",
+      "-p",
+      "/private/tmp/kuro-socket-ready-candidate/tsconfig.json"
+    ],
+    "exit": 0
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "scope": "offline production code and ordinary-user fixture validation; no TUN/system install",
+  "commands": [
+    {
+      "command": "bun run --cwd packages/core test",
+      "exit": 0,
+      "testsPassed": 218
+    },
+    {
+      "command": "bun run --cwd packages/core typecheck",
+      "exit": 0
+    },
+    {
+      "command": "bun run --cwd apps/desktop typecheck",
+      "exit": 0
+    },
+    {
+      "command": "bun run --cwd apps/desktop test",
+      "exit": 0,
+      "testsPassed": 543,
+      "skipped": 25,
+      "note": "Sandbox socket EPERM first; ordinary-user unsandboxed run passed. Native admission independently required in native build."
+    },
+    {
+      "command": "KURO_REQUIRE_CORE=1 node apps/desktop/scripts/build-macos-helper.mjs --test darwin-arm64",
+      "exit": 0,
+      "nativeAdmissionPassed": 8,
+      "log": "native-attempt2.log"
+    }
+  ],
+  "sourceSHA256": {
+    "apps/desktop/native/mac/tun-routes.m": "a9e032c22508dda2abdea61af875f3446c111358febd98cfdac3344ed968f225",
+    "apps/desktop/native/mac/tun-production-network.m": "f97f7923c11f97d10bf348eb271e302dbc9d5c4f0e1f59c8471b6f72e8a641bd",
+    "apps/desktop/native/mac/tun-config.m": "6c914e1648ac6875b4957072e99563737062fc86bc21b0db84244207485f7d97",
+    "apps/desktop/native/mac/tun-service.m": "6724deef7f8741cb948dd05e5cb704d7f6971e8c3be4859a2b77aed0b7e8aebd",
+    "apps/desktop/native/mac/tun-session.m": "660b62f48740d81cacfa57da5d28b4179ea6554a884168c5db84e856e3d1e595"
+  }
+}

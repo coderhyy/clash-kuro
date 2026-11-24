@@ -1,0 +1,13 @@
+test_live_unknown_wrong_epoch_and_changed_record_never_retire (test_retire.RecoverySeparationTests) ... ok
+test_numeric_observer_rejects_acceptance_but_independent_recovery_retires (test_retire.RecoverySeparationTests) ... ok
+test_actual_normal_evidence_wire_shape_and_strict_receipt (test_retire.RetireTests) ... ok
+test_evidence_change_or_bootout_failure_stops_without_other_action (test_retire.RetireTests) ... ok
+test_exact_normal_bootout_only_and_absent_retry (test_retire.RetireTests) ... ok
+test_failed_wrong_live_or_missing_job_status_refused (test_retire.RetireTests) ... ok
+test_live_reused_unknown_process_or_partial_install_never_bootout (test_retire.RetireTests) ... ok
+test_modified_module_pin_rejected_before_import (test_retire.RetireTests) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.055s
+
+OK

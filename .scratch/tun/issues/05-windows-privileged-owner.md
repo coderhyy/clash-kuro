@@ -2,12 +2,12 @@
 
 Status: needs-info
 Type: task
-Blocked by: 03；D1 纳入 Windows；01/02 后选定权限机制（02 资料研究已完成）
+Blocked by: macOS 首版范围外；等待维护者另排 Windows TUN 及其权限机制
 Owner: Windows 平台 agent
 
 ## 负责范围
 
-03 划定的 Windows 权限/owner 适配、native helper/协议及 Windows 资源构建测试。现有 `resident-*`、Platform 公共入口和 CI 修改由主会话协调；不改 State/UI。
+未来 03 划定的 Windows 权限/owner 适配、native helper/协议及 Windows 资源构建测试。现有 `resident-*`、Platform 公共入口和 CI 修改由主会话协调；不改 State/UI。
 
 ## 验收标准
 
@@ -19,4 +19,6 @@ Owner: Windows 平台 agent
 
 ## Comments
 
-2026-11-04：主会话已核实 issue 08 合入 `origin/main 6ea3720`、PR #1 MERGED，原主线整合依赖满足；最终集成 CI 由主会话核验。共享契约与权限选择仍待决定，本票尚未实现。
+2026-11-04：主会话已核实 issue 08 合入 `origin/main 6ea3720`、PR #1 MERGED，原主线整合依赖满足；最终集成 CI 由主会话核验。未来 Windows 共享契约与权限选择仍待决定，本票尚未实现。
+
+2026-11-04 更新：ADR-0014 明确 macOS 首版，本票暂不实施。macOS 依 ADR-0015 选择传统管理员安装小型 helper，不批准 Windows 管理员服务；07 旧代理恢复独立保留，不阻塞 macOS 首版。

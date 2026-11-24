@@ -1,0 +1,17 @@
+test_changed_approval_unknown_record_or_evidence_block (test_cleanup.CleanupTests) ... ok
+test_durable_approval_precedes_any_unlink (test_cleanup.CleanupTests) ... ok
+test_interrupted_each_unlink_retries_with_fresh_absence_checks (test_cleanup.CleanupTests) ... ok
+test_libproc_empty_group_padding_negative_and_overflow (test_cleanup.CleanupTests) ... ok
+test_live_job_process_unknown_or_reused_blocks_before_record (test_cleanup.CleanupTests) ... ok
+test_no_fallback_or_partial_kill_proof_accepted (test_cleanup.CleanupTests) ... ok
+test_partial_install_without_record_rejected_no_deletion (test_cleanup.CleanupTests) ... ok
+test_real_libproc_self_pid_never_absent (test_cleanup.CleanupTests) ... ok
+test_same_bytes_replacement_and_changed_mode_rejected (test_cleanup.CleanupTests) ... ok
+test_success_removes_only_four_preserves_unknown_and_idempotent (test_cleanup.CleanupTests) ... ok
+test_symlink_core_preserved_never_followed (test_cleanup.CleanupTests) ... ok
+test_target_mode_and_acl_rejected (test_cleanup.CleanupTests) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 0.124s
+
+OK

@@ -1,0 +1,23 @@
+{
+  "sourceCommit": "8a989ec9d40bc330d33f232ab8672fa0026bfc2b",
+  "sourceClean": true,
+  "sha256": "ee9624aba0607c58075ef4fc5d554bcffcfb9280fb299ff12e9a08a411f4ca0a",
+  "flags": [
+    "-arch",
+    "arm64",
+    "-fobjc-arc",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-O2",
+    "-framework",
+    "Foundation",
+    "-framework",
+    "Security",
+    "-framework",
+    "SystemConfiguration",
+    "-lbsm"
+  ],
+  "tests": true,
+  "coreSyntaxSkipped": false
+}

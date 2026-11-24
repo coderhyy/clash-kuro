@@ -90,6 +90,12 @@ retires properties of the deleted migration/registration design:
   fail with exit 42. Failure-only `*.state.json` snapshots record cleanup/event
   state and final log/stdout WriteFile entry/return stages in `*.failure.json`;
   they do not prove filesystem flush durability or identify a blocked log close.
+- `replay-clear-hung-log-after-write-hung` combines failed replay cleanup with a
+  final log call that writes then blocks. Failed shutdown JSON reaches stdout
+  first, but `reported` stays unsignaled and the helper still exits 42 within the
+  original hard deadline, retaining the exact recovery journal. Successful
+  reports retain log-before-stdout ordering, including the preceding negative
+  case. Neither stdout publication nor optional log bytes prove durable flush.
 
 The guarded WinINet `serve.c` fixture uses the same current engine. CI's `recover`
 cycle in `replay.c` launches the actual content-addressed retained executable with

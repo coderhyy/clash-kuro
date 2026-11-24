@@ -1,0 +1,22 @@
+{
+  "stage": "normal",
+  "processChecks": [
+    {
+      "pid": 82257,
+      "proc_pidpath": 0,
+      "errno": 3
+    },
+    {
+      "pid": 82256,
+      "proc_pidpath": 0,
+      "errno": 3
+    }
+  ],
+  "processGroupMembers": [],
+  "runtimeBaseAbsent": true,
+  "diagnosticsDirectory": "/private/tmp/kuro-core-evidence-eIui64",
+  "diagnosticsProtected": true,
+  "diagnosticsComplete": true,
+  "cacheOriginPreserved": true,
+  "passed": true
+}

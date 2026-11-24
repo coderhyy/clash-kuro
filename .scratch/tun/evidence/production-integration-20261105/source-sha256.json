@@ -1,0 +1,10 @@
+{
+  "packages/core/src/index.ts": "b2d3088b1900b97be02c136282c7a3613b9968196e3618d66a95e01cd59848fb",
+  "packages/state/src/store.ts": "1ab7dc87e714e553d6e7bd981857cf39c46b0735e666ac025107bbd907124363",
+  "packages/state/src/tun.test.ts": "a090334a4f9e480b23d7a8c4e17e88674e05b5600b14f26c035c39b9daf3dd4c",
+  "apps/desktop/src/main/platform/macos-tun.ts": "652ac962a78eebde33afec9f74a680da563bbc05708021cd361318c28ad0b919",
+  "apps/desktop/src/main/platform/macos-tun.test.ts": "a7a1de81ce67fab0312172ad2c1a7c9f4c901ec020cb3d9ab2205f02c8f2f059",
+  "apps/desktop/src/main/platform/index.ts": "5427b69519c77e242bd1da5f1ae80e4a5ef9971640052ac7c6523576ef2eb760",
+  "apps/desktop/src/main/platform/platform.test.ts": "c7cd715c8c3241ce5e61218324cf2d799eeb6b7de65965efd41529590955c941",
+  "apps/desktop/src/renderer/src/app.test.tsx": "cf8bf7cb36bbb79f0b0e901ec2538f055c01ee77b6e348f708a78949c9816b4b"
+}

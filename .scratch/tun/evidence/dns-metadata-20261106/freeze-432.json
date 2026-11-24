@@ -1,0 +1,16 @@
+{
+  "sourceCommit": "432d134b8ecd244483126795be850b64782c2209",
+  "package": "/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/kuro-tun-finite-session-0.1.0-arm64-432d134b8ecd.pkg",
+  "packageSHA256": "14f42dfae56ed09faae2e22df1181981bf3044b10fb90999fa1d35ab6dc33ad9",
+  "offlinePackageReview": "passed",
+  "ciRun": 42152178401,
+  "ci": "success",
+  "installedOrLaunched": false,
+  "authorization": "continuous normal-only window; evidence-based repairs and retries permitted; prior attempt must be restored and clean",
+  "ciJobs": {
+    "macos": "success",
+    "windows": "success"
+  },
+  "readonlyProductionPreflight": "passed: en0; exact committed source",
+  "windowEvidence": "/private/tmp/kuro-432-window-35jf6tax"
+}

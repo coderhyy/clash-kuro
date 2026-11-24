@@ -1,0 +1,37 @@
+COMPILE ["/usr/bin/clang", "-arch", "arm64", "-fobjc-arc", "-Wall", "-Wextra", "-Werror", "-Wno-unused-function", "-O2", "-framework", "Foundation", "-framework", "Security", "-framework", "SystemConfiguration", "-lbsm", "apps/desktop/native/mac/kuro-tun-helper.test.m", "-o", "/private/tmp/kuro-retained-fixture"]
+exit 0
+stdout:
+
+stderr:
+
+FIXTURE KURO_SKIP_CORE_SYNTAX=1 ["/private/tmp/kuro-retained-fixture"]
+exit 0
+stdout:
+native restart owner: strict/legacy receipts, present/reused/denied/incomplete PID observations, changing observation and retained DNS preserve ownership; ESRCH never proves descendants exited
+native owner/session: EOF, lease, heartbeat, replay, peer exit, cleanup retry, stop, preparation refusal passed
+SKIP Core syntax execution: explicitly disabled for this validation run
+native TUN config: closed schema, references, DNS, duplicate keys, limits and JSON candidate passed
+native peer identity: kernel audit identity observed, passed FD cannot survive original peer exit
+native routes: bounded wire fixtures and 12 ownership/recovery scenarios passed; no PF_ROUTE/sysctl/network operation executed
+production network: inert construction, local-only DNS packets, baseline admission, dual-stack apply, partial failure, held-owner and restart absence fixtures passed (no system network calls)
+native DNS ownership: 30 journal + 5 route-admission scenarios passed; no Darwin store or system network operation executed
+native Core/interface association: 21 injected snapshots and real self-identity rejection passed; no Core spawn, utun creation or network mutation
+native client pin: real ad-hoc runtime seal, internal Framework links, escape/writable/tamper rejection, install record and exact removal passed (temporary ordinary-user fixture)
+native stopped uninstall: 11 held harmless child fixtures cover complete proof, missing/false/mismatched/changed/active preservation, sticky history, durable revocation and partial cleanup retry; network proofs mocked
+native finite activation: explicit boolean/client/inventory, completed protected install, fixed helper identity, receipt binding and temporary auth-observer refusal passed; no service/Core/network
+native installer ACL: production /private/tmp accepted (NULL ACL absence fallback); no system mutation
+native socket host: old ancestor uid=0 gid=1 mode=0775; new fixed ancestors pass strict ACL/metadata/search policy (read only)
+native socket migration: legacy metadata/path rejection, public 0700 ancestor/run refusal, fixed/prefixed/overlong addresses and two protected ordinary-user endpoint connections passed; no system service
+native fresh install: 7 inventory rejection checks + 19 receipt, partial-copy, unknown/changed identity, active lock and exact auth socket recovery cases passed; no system install
+native auth: shared production policy accepts real signed live fixture, rejects impostor/pin/resource changes and every non-observation operation; no root/Core/network
+native retained recovery: 8 harmless held-child cases; original pthread retained, second-socket explicit recovery, owner mismatch, expiry/cancellation, concurrent/open/write rejection, EOF and shutdown preservation; no Core/network
+native restart work: exact runtime/socket cleanup, mismatch/unknown/symlink/unsafe reread rejection and partial cleanup retry passed (temporary sockets only)
+native production cache: closed durable receipt, legacy refusal, changed/symlink/writable/unknown preservation, exact removal and partial cleanup retry passed; no Core/network
+native service: 27 fixture cases cover closed open, preflight gates, private HTTP, typed control, concurrent status, single owner, stop, bounded network-only receipt recovery, Core-owner refusal and work preservation
+PASS native protocol, audit-token identity rejection, protected paths/metadata and isolated install/uninstall
+
+stderr:
+/private/tmp/kuro-client-pin-KLLhpJ/Library/Application Support/Clash Kuro/Client/Clash Kuro.app: replacing existing signature
+/private/tmp/kuro-act-uQMmQ2/source/fixture.app: replacing existing signature
+/private/tmp/kuro-auth-policy-CqQ5rP/Library/Application Support/Clash Kuro/Client/Clash Kuro.app: replacing existing signature
+

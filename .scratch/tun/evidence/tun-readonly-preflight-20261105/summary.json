@@ -1,0 +1,21 @@
+{
+  "defaultInterface4": "en0",
+  "splitDefaultRoutes4": [
+    {
+      "destination": "128.0/1",
+      "interface": "utun1024"
+    }
+  ],
+  "defaultInterface6": null,
+  "splitDefaultRoutes6": [],
+  "commonPhysicalDefault": false,
+  "existingUtunCount": 7,
+  "resolverBlocks": 8,
+  "nameserverEntries": 2,
+  "supplementalResolverFlags": 0,
+  "scopedResolverFlags": 1,
+  "scope": "Read-only preparation snapshot; not TUN acceptance or a baseline for later mutations. Original commands retained0700/0600 locally.",
+  "proxyState": "not established; initial sandbox read is not accepted as host baseline",
+  "ipv6DefaultObservation": "host route get reported not in table despite exit0; no usable default inferred",
+  "productionAdmission": "blocked by existing IPv4 /1 route and missing common physical dual-stack default; no TUN attempted"
+}

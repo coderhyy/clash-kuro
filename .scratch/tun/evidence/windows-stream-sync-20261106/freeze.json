@@ -1,0 +1,48 @@
+{
+  "format": 1,
+  "purpose": "test-only actual HTTP200/body ordering within unchanged5s stream deadline",
+  "createdAt": "2026-11-06T03:41:16.117812+00:00",
+  "productFiles": [
+    "apps/desktop/src/main/platform/mihomo.integration.test.ts"
+  ],
+  "patchSHA256": "1d771b1dd3539be2836e5e50d1d2c7a0882cf0a9a66b8d6d19773091c070e45c",
+  "baselineSHA256": "055e8c4d91f327defbe36c345ae4eff7f57c9244069f2268bb194ee19519ca61",
+  "candidateSHA256": "778eadbae6dc1799847dd7a553ff8c5e3454748b90a2765934c6eeff2f746457",
+  "verification": {
+    "differential": {
+      "exitCode": 1,
+      "baselineFailed": 1,
+      "candidatePassed": 2,
+      "reason": "baseline resolves after frame before real HTTP body completes"
+    },
+    "candidateOnly": {
+      "exitCode": 0,
+      "passed": 2,
+      "skippedBaseline": 1
+    },
+    "mainTypecheck": {
+      "command": "node ../../node_modules/typescript/bin/tsc -p tsconfig.node.json --noEmit",
+      "exitCode": 0
+    }
+  },
+  "limits": [
+    "ordinary UID loopback HTTP only",
+    "Stream frame delivery is supplied by the fixture.",
+    "actual extracted stream closure is evaluated without importing real-Core integration module",
+    "no actual Core/Windows/CI execution",
+    "collector untouched",
+    "rerun success does not establish root cause of previous502 responses"
+  ],
+  "sha256": {
+    "stream-origin-sync.patch": "1d771b1dd3539be2836e5e50d1d2c7a0882cf0a9a66b8d6d19773091c070e45c",
+    "candidate/apps/desktop/src/main/platform/mihomo.integration.test.ts": "778eadbae6dc1799847dd7a553ff8c5e3454748b90a2765934c6eeff2f746457",
+    "baseline/mihomo.integration.test.ts": "055e8c4d91f327defbe36c345ae4eff7f57c9244069f2268bb194ee19519ca61",
+    "candidate/apps/desktop/src/main/platform/stream-proof.fixture.test.ts": "f2900eb750fc29962d0c3fa16d4e0badcaa035b5d208cee4d252d7faf619b809",
+    "proof-differential.stdout.log": "639dd15d85a19701e3a17b94d05a0fa4b6e04466fbcd865d5354beda5fed2b43",
+    "proof-differential.stderr.log": "550a5eb692df741d22ad82fb80b2afe97b4c724513528ba58ad64d0185ac0da3",
+    "green.stdout.log": "a83992efe5b774c18d8634c2cf21467350b20eb43efc0bffe6b5f54ca9de3ddd",
+    "green.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "typecheck.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "typecheck.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

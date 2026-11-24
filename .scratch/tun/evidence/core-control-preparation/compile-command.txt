@@ -1,0 +1,2 @@
+/usr/bin/clang -arch arm64 -fobjc-arc -Wall -Wextra -Werror -O2 -framework Foundation -framework Security -framework SystemConfiguration -lbsm -Wno-unused-function apps/desktop/native/mac/kuro-tun-helper.test.m -o /private/tmp/kuro-final-native-fixture/kuro-native-tests
+KURO_SKIP_CORE_SYNTAX=1 /private/tmp/kuro-final-native-fixture/kuro-native-tests > /private/tmp/kuro-final-native-fixture/stdout.log 2> /private/tmp/kuro-final-native-fixture/stderr.log

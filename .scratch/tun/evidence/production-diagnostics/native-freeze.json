@@ -1,0 +1,28 @@
+{
+  "patchSHA256": "0dd1afce05f549a3bc5716c7c79a530f1b080c6ad0470b61857d442230375afb",
+  "files": {
+    "tun-session.m": "194b291a498756a188d519ef885ea4cf0ebd52094c183fe928da8b662f4a6011",
+    "tun-session.test.m": "d62db45291dcf6ccc3131372a6f5091528bc7b390756618a98b574b717a83dd4",
+    "tun-service.m": "a1dca1eeddc25ca48df16a2a09c369fd8f8bc5ca15dc15bc2997bea15555a2db",
+    "tun-service.test.m": "b49112c12b25c1b81634890f09b743cefecba9abedb9aa43901d909cf518c5c3",
+    "kuro-tun-helper.m": "cde6458fa587391bcfc53b7f1e6c2167f7c9f8f3632a548c40c8b41f793a4033"
+  },
+  "validation": {
+    "exitCode": 0,
+    "wallSeconds": 18.814,
+    "environment": {
+      "KURO_SKIP_CORE_SYNTAX": "1",
+      "KURO_REQUIRE_CORE": "unset"
+    },
+    "realCoreExecuted": false
+  },
+  "diagnosticsFiles": [
+    "config.redacted.json",
+    "launch.json",
+    "stdout.log",
+    "stderr.log",
+    "diagnostics.json"
+  ],
+  "fixtureCases": 8,
+  "productionCompileOnly": true
+}

@@ -1,0 +1,10 @@
+{
+  "sourceCommit": "3728bc7e90c1f1ed8d0d7e6bfe7b5addd5809dc8",
+  "runId": 42012891941,
+  "conclusion": "success",
+  "jobs": [
+    "macos",
+    "windows"
+  ],
+  "url": "https://github.com/coderhyy/clash-kuro/actions/runs/42012891941"
+}

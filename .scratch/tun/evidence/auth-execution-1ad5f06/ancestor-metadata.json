@@ -1,0 +1,65 @@
+[
+  {
+    "path": "/",
+    "uid": 0,
+    "gid": 0,
+    "mode": "0o755",
+    "passesSafeMetadataDirectory": true
+  },
+  {
+    "path": "/Library",
+    "uid": 0,
+    "gid": 0,
+    "mode": "0o755",
+    "passesSafeMetadataDirectory": true
+  },
+  {
+    "path": "/Library/PrivilegedHelperTools",
+    "uid": 0,
+    "gid": 0,
+    "mode": "0o755",
+    "passesSafeMetadataDirectory": true
+  },
+  {
+    "path": "/Library/Application Support",
+    "uid": 0,
+    "gid": 80,
+    "mode": "0o755",
+    "passesSafeMetadataDirectory": true
+  },
+  {
+    "path": "/Library/Application Support/Clash Kuro",
+    "uid": 0,
+    "gid": 80,
+    "mode": "0o755",
+    "passesSafeMetadataDirectory": true
+  },
+  {
+    "path": "/private",
+    "uid": 0,
+    "gid": 0,
+    "mode": "0o755",
+    "passesSafeMetadataDirectory": true
+  },
+  {
+    "path": "/private/var",
+    "uid": 0,
+    "gid": 0,
+    "mode": "0o755",
+    "passesSafeMetadataDirectory": true
+  },
+  {
+    "path": "/private/var/run",
+    "uid": 0,
+    "gid": 1,
+    "mode": "0o775",
+    "passesSafeMetadataDirectory": false
+  },
+  {
+    "path": "/Library/LaunchDaemons",
+    "uid": 0,
+    "gid": 0,
+    "mode": "0o755",
+    "passesSafeMetadataDirectory": true
+  }
+]

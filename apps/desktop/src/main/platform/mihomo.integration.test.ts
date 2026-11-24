@@ -82,6 +82,7 @@ test.skipIf(!existsSync(corePath) && process.env.KURO_REQUIRE_CORE !== '1')('bun
   const trafficEvidence: string[] = []
   const record = (value: string) => { trafficEvidence.push(value); if (trafficEvidence.length > 5) trafficEvidence.shift() }
   let originResponses = 0
+  const originChecks = new Set<() => void>()
   const stimulate = () => {
     // Core routes by Host, which must name the origin even when connecting to the proxy.
     const req = request({ host: '127.0.0.1', port: mixedPort, path: `http://127.0.0.1:${originAddress.port}/`, headers: { host: `127.0.0.1:${originAddress.port}` }, agent: false }, res => {
@@ -89,7 +90,10 @@ test.skipIf(!existsSync(corePath) && process.env.KURO_REQUIRE_CORE !== '1')('bun
       res.on('data', chunk => { body = (body + String(chunk)).slice(0, 256) })
       res.once('end', () => {
         record(`HTTP ${res.statusCode}: ${body}`)
-        if (res.statusCode === 200 && body === 'local test origin') originResponses++
+        if (res.statusCode === 200 && body === 'local test origin') {
+          originResponses++
+          for (const check of [...originChecks]) check()
+        }
       })
     })
     req.setTimeout(500, () => req.destroy())
@@ -98,13 +102,17 @@ test.skipIf(!existsSync(corePath) && process.env.KURO_REQUIRE_CORE !== '1')('bun
   }
   const transport = createSocketTransport(() => platform.controlChannel())
   const stream = async (path: string, keys: string[]) => new Promise<void>((resolve, reject) => {
-    const clear = () => { clearTimeout(timer); clearInterval(traffic); handle.close() }
+    const previousResponses = originResponses
+    let frameReceived = false
+    const clear = () => { clearTimeout(timer); clearInterval(traffic); handle.close(); originChecks.delete(checkOrigin) }
+    const checkOrigin = () => { if (frameReceived && originResponses > previousResponses) { clear(); resolve() } }
     const timer = setTimeout(() => { clear(); reject(new Error(`${path} stream timed out; originHits=${originHits}; traffic=${trafficEvidence.join(', ')}`)) }, 5_000)
     const traffic = setInterval(stimulate, 100)
     const handle = transport.stream(path, (data) => {
-      try { for (const key of keys) expect(data).toHaveProperty(key); clear(); resolve() }
+      try { for (const key of keys) expect(data).toHaveProperty(key); frameReceived = true; checkOrigin() }
       catch (error) { clear(); reject(error) }
     }, (error) => { if (error) { clear(); reject(error) } })
+    originChecks.add(checkOrigin)
   })
   let failure: unknown
   let phase = 'config'

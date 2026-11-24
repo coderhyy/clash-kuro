@@ -1,0 +1,1 @@
+0:218: execution error: installer: Package name is kuro-tun-auth-observation-0.1.0-arm64-1ad5f06ad174installer: Installing at base path /installer: The install failed. (安装器遇到了一个错误，导致安装失败。请联系软件生产企业以获得帮助。 运行软件包“kuro-tun-auth-observation-0.1.0-arm64-1ad5f06ad174.pkg”的脚本时出错。) (1)

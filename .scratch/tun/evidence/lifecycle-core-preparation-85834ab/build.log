@@ -1,0 +1,10 @@
+/private/tmp/kuro-lifecycle-core-review-85834ab/lifecycle-a: replacing existing signature
+{
+  "review": "/private/tmp/kuro-lifecycle-core-review-85834ab",
+  "approvalSHA256": "c20eb39a0032b73a4b6b5b229377642f2504aac30b77fe9ae592b3bb5ed29ec1",
+  "fixtureSHA256": "e5c949f29785297b8ba8ac5a5be76f8483dea17d0bf7daf20860cbd33daeb1f1",
+  "artifactSHA256": "cda70df87fd0b2c4dae1890547f313d31d845aba04a29bad5be2f570c8da68e5",
+  "normalEpoch": "91EE2723-A085-485F-A9E9-E24155642B5B",
+  "killEpoch": "2F6D8E0A-F1A4-445C-A123-44D86B1CE2E3",
+  "coreExecuted": false
+}

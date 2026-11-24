@@ -1,0 +1,135 @@
+{
+  "result": "PASS",
+  "sourceCommit": "d62675f583c3794fa4c75dcdf4c2e514d2db74d8",
+  "expanded": "/private/tmp/kuro-offline-d62675f-6aeab482",
+  "checks": [
+    "two exact package SHA256 values match sidecars and remain unchanged",
+    "both complete extracted App seals/runtime/entitlements/ASAR integrity/fuses and exact source metadata verified without launch",
+    "actual full client inventory byte digest and pin match manifests, package and fresh source build",
+    "helper copies exact build hash and valid signature; fixed Core exact verified archive bytes and arm64 executable",
+    "App-bound release, fixed --serve path and all disabled launchd flags consistent",
+    "fresh exact protected targets versus upgrade Payload-only layout; no old Tools/Client/Recovery overwrite in upgrade payload",
+    "native script CLI bytes and all scripts/Inbox sidecars match; BOM root UID/GID and no unsafe modes",
+    "same clean source helper/App build records with mandatory tests and Core syntax validation recorded",
+    "actual helper hardened-runtime signature display and fixed per-path BOM modes match extracted layout"
+  ],
+  "packages": [
+    {
+      "operation": "fresh",
+      "path": "/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/kuro-tun-finite-session-0.1.0-arm64-d62675f583c3.pkg",
+      "packageSHA256": "3e574cbf1d432c70dda45d4774c40c62ebabb74441abcd9b9f46182a506e5169",
+      "release": "v1.19.33-0.1.0-arm64-dac57e1bef75e44f-c74a08bb54976755de092666c08a5ce37cf53b9a6da53900bcf9264b549ff5ff4",
+      "installerProtocol": 2,
+      "helperSHA256": "cfe03d38d1cb2ea6d90fc64bcc04d09f4cc45e8e99690789e271354b0f643416",
+      "helperCopies": 4,
+      "coreSHA256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+      "client": {
+        "format": 2,
+        "cdhash": "e045b6d156fd6992d5ef35312308b1fbe0fdf279",
+        "executableSHA256": "76cd14f8b5a2ebaede4942cc53d34015bae8d50a70a72089dbc101cbf54a2a7b",
+        "infoSHA256": "1b381807513b19173fdfe08e83af1d88284584ace68a530d42cb68be5f8e06ff",
+        "asarSHA256": "fc246e4c228b8234bdf5153908150eaedbc8744e04e79679ba87ea0626b234eb"
+      },
+      "inventorySHA256": "74a08bb54976755de092666c08a5ce37cf53b9a6da53900bcf9264b549ff5ff4",
+      "sealedSourceCommit": "d62675f583c3794fa4c75dcdf4c2e514d2db74d8",
+      "plist": {
+        "ProgramArguments": [
+          "/Library/PrivilegedHelperTools/dev.kuro.tun/versions/v1.19.33-0.1.0-arm64-dac57e1bef75e44f-c74a08bb54976755de092666c08a5ce37cf53b9a6da53900bcf9264b549ff5ff4/helper",
+          "--serve"
+        ],
+        "KeepAlive": false,
+        "Label": "dev.kuro.tun",
+        "Disabled": true,
+        "RunAtLoad": false,
+        "AbandonProcessGroup": false
+      },
+      "preinstall": "#!/bin/sh\nset -eu\nexec \"${0%/*}/preflight-native\" --begin-client-install\n",
+      "postinstall": "#!/bin/sh\nset -eu\nexec \"/Library/PrivilegedHelperTools/dev.kuro.tun/installer\" --install\n",
+      "payloadEntries": 626,
+      "bomEntries": 1253,
+      "bomRootOwned": true,
+      "bomAppleDoubleMetadataEntries": 626,
+      "actualAppleDoubleFiles": 0,
+      "fixedFootprint": true,
+      "noPrebuiltRuntimeReceipts": true,
+      "packageUnchanged": true,
+      "helperRuntimeSignature": "Executable=/private/tmp/kuro-offline-d62675f-6aeab482/fresh/Scripts/preflight-native\nIdentifier=helper-5555494441afa7f360413fa3b87caf5634732279\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20500 size=1040 flags=0x10002(adhoc,runtime) hashes=26+2 location=embedded\nVersionPlatform=1\nVersionMin=1769472\nVersionSDK=1769472\nHash type=sha256 size=32\nCandidateCDHash sha256=2ca8e816e367c900fbe759077e77db8a8f82417e\nCandidateCDHashFull sha256=2ca8e816e367c900fbe759077e77db8a8f82417ec52318b53f7f5a80fef4099d\nHash choices=sha256\nCMSDigest=2ca8e816e367c900fbe759077e77db8a8f82417ec52318b53f7f5a80fef4099d\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=294912\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=2ca8e816e367c900fbe759077e77db8a8f82417e\nSignature=adhoc\nInfo.plist=not bound\nTeamIdentifier=not set\nRuntime Version=27.0.0\nSealed Resources=none\nInternal requirements count=0 size=12\nTotal signatures=1\nChosen signature=1\n",
+      "bomFixedModes": {
+        "Library/Application Support/Clash Kuro/Privileged": "0o700",
+        "Library/Application Support/Clash Kuro/Privileged/Inbox": "0o700",
+        "Library/Application Support/Clash Kuro/Privileged/Inbox/helper": "0o755",
+        "Library/Application Support/Clash Kuro/Privileged/Inbox/mihomo": "0o755",
+        "Library/Application Support/Clash Kuro/Privileged/Inbox/manifest.json": "0o600",
+        "Library/Application Support/Clash Kuro/Privileged/Inbox/client-inventory.json": "0o600",
+        "Library/Application Support/Clash Kuro/Privileged/Inbox/dev.kuro.tun.plist": "0o600",
+        "Library/PrivilegedHelperTools/dev.kuro.tun": "0o755",
+        "Library/PrivilegedHelperTools/dev.kuro.tun/installer": "0o755",
+        "Library/PrivilegedHelperTools/dev.kuro.tun-uninstall": "0o755"
+      },
+      "packageInfoRelocationDisabled": true,
+      "packageInfoBundleUpgradeIdentifier": "dev.kuro.desktop"
+    },
+    {
+      "operation": "upgrade",
+      "path": "/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/kuro-tun-finite-session-upgrade-0.1.0-arm64-d62675f583c3.pkg",
+      "packageSHA256": "8bda0e8a6d486e4ce938dd66f2bc8e22113e207b7ac446b9328c1b6711c2b907",
+      "release": "v1.19.33-0.1.0-arm64-dac57e1bef75e44f-c74a08bb54976755de092666c08a5ce37cf53b9a6da53900bcf9264b549ff5ff4",
+      "installerProtocol": 2,
+      "helperSHA256": "cfe03d38d1cb2ea6d90fc64bcc04d09f4cc45e8e99690789e271354b0f643416",
+      "helperCopies": 2,
+      "coreSHA256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+      "client": {
+        "format": 2,
+        "cdhash": "e045b6d156fd6992d5ef35312308b1fbe0fdf279",
+        "executableSHA256": "76cd14f8b5a2ebaede4942cc53d34015bae8d50a70a72089dbc101cbf54a2a7b",
+        "infoSHA256": "1b381807513b19173fdfe08e83af1d88284584ace68a530d42cb68be5f8e06ff",
+        "asarSHA256": "fc246e4c228b8234bdf5153908150eaedbc8744e04e79679ba87ea0626b234eb"
+      },
+      "inventorySHA256": "74a08bb54976755de092666c08a5ce37cf53b9a6da53900bcf9264b549ff5ff4",
+      "sealedSourceCommit": "d62675f583c3794fa4c75dcdf4c2e514d2db74d8",
+      "plist": {
+        "ProgramArguments": [
+          "/Library/PrivilegedHelperTools/dev.kuro.tun/versions/v1.19.33-0.1.0-arm64-dac57e1bef75e44f-c74a08bb54976755de092666c08a5ce37cf53b9a6da53900bcf9264b549ff5ff4/helper",
+          "--serve"
+        ],
+        "KeepAlive": false,
+        "Label": "dev.kuro.tun",
+        "Disabled": true,
+        "RunAtLoad": false,
+        "AbandonProcessGroup": false
+      },
+      "preinstall": "#!/bin/sh\nset -eu\nexec \"${0%/*}/preflight-native\" --begin-client-upgrade\n",
+      "postinstall": "#!/bin/sh\nset -eu\nexec \"${0%/*}/preflight-native\" --complete-client-upgrade\n",
+      "payloadEntries": 623,
+      "bomEntries": 1247,
+      "bomRootOwned": true,
+      "bomAppleDoubleMetadataEntries": 623,
+      "actualAppleDoubleFiles": 0,
+      "fixedFootprint": true,
+      "noPrebuiltRuntimeReceipts": true,
+      "packageUnchanged": true,
+      "helperRuntimeSignature": "Executable=/private/tmp/kuro-offline-d62675f-6aeab482/upgrade/Scripts/preflight-native\nIdentifier=helper-5555494441afa7f360413fa3b87caf5634732279\nFormat=Mach-O thin (arm64)\nCodeDirectory v=20500 size=1040 flags=0x10002(adhoc,runtime) hashes=26+2 location=embedded\nVersionPlatform=1\nVersionMin=1769472\nVersionSDK=1769472\nHash type=sha256 size=32\nCandidateCDHash sha256=2ca8e816e367c900fbe759077e77db8a8f82417e\nCandidateCDHashFull sha256=2ca8e816e367c900fbe759077e77db8a8f82417ec52318b53f7f5a80fef4099d\nHash choices=sha256\nCMSDigest=2ca8e816e367c900fbe759077e77db8a8f82417ec52318b53f7f5a80fef4099d\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=294912\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=2ca8e816e367c900fbe759077e77db8a8f82417e\nSignature=adhoc\nInfo.plist=not bound\nTeamIdentifier=not set\nRuntime Version=27.0.0\nSealed Resources=none\nInternal requirements count=0 size=12\nTotal signatures=1\nChosen signature=1\n",
+      "bomFixedModes": {
+        "Library/Application Support/Clash Kuro/Privileged": "0o700",
+        "Library/Application Support/Clash Kuro/Privileged/Upgrade/Payload/Inbox": "0o700",
+        "Library/Application Support/Clash Kuro/Privileged/Upgrade/Payload/Inbox/helper": "0o755",
+        "Library/Application Support/Clash Kuro/Privileged/Upgrade/Payload/Inbox/mihomo": "0o755",
+        "Library/Application Support/Clash Kuro/Privileged/Upgrade/Payload/Inbox/manifest.json": "0o600",
+        "Library/Application Support/Clash Kuro/Privileged/Upgrade/Payload/Inbox/client-inventory.json": "0o600",
+        "Library/Application Support/Clash Kuro/Privileged/Upgrade/Payload/Inbox/dev.kuro.tun.plist": "0o600",
+        "Library/Application Support/Clash Kuro/Privileged/Upgrade": "0o700",
+        "Library/Application Support/Clash Kuro/Privileged/Upgrade/Payload": "0o700"
+      },
+      "packageInfoRelocationDisabled": true,
+      "packageInfoBundleUpgradeIdentifier": "dev.kuro.desktop"
+    }
+  ],
+  "limits": [
+    "Offline extraction/read-only seal and byte checks only; no package scripts, App, helper or Core executed; no installation, service or network changes.",
+    "Build records establish recorded same-clean-source provenance, not runtime root caller attestation.",
+    "Finite activation is explicit; disabled service is not real TUN acceptance. Real install, runtime uninstall, upgrade/rollback, LAN/DNS and root network recovery remain unverified.",
+    "Upgrade requires an existing distinct protocol-2 installation with exact protected off proof; old legacy/no-protocol installations remain ineligible.",
+    "Fresh and upgrade packages here intentionally target the same new release; they cannot demonstrate upgrading one into the other.",
+    "PackageInfo retains Installer bundle-upgrade metadata for dev.kuro.desktop with an empty relocate list and fixed staging path; safe actual Installer transaction behavior still needs controlled real upgrade acceptance, not inferred from extraction."
+  ]
+}

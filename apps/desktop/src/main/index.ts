@@ -1,10 +1,13 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, powerMonitor, shell, Tray, type IpcMainEvent, type IpcMainInvokeEvent } from 'electron'
 import { join } from 'node:path'
+import { readFileSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import { appendFile, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { createMihomoClient } from '@kuro/api'
 import { buildTrayMenu, createAppStore, MAX_BACKUP_BYTES, type AppStore, type CommandName } from '@kuro/state'
-import { createDesktopPlatform, createResumeHandler, createSocketTransport } from './platform'
+import { createDesktopPlatform, createSocketTransport } from './platform'
+import { createMacosTun } from './platform/macos-tun'
+import { createTunDiagnosticWindow } from './tun-diagnostic-window'
 import { createProfileSource } from './app/profiles'
 import { createUpdateScheduler } from './app/scheduler'
 import { checkForUpdate } from './app/release-check'
@@ -13,12 +16,59 @@ import { prepareResidentStartup } from './app/resident-startup'
 import { IPC, type BackupResult, type StreamKind } from './ipc-channels'
 import { trayIcon } from './tray-icon'
 import { t } from '../shared/i18n'
+import { assertObservationCandidateLaunch, inspectPackagedArguments, prepareSessionCandidateDirectory, prepareVerificationDirectory, runAuthenticationVerification, runRuntimeVerification, safeWebPreferences } from './runtime-verification'
 
 // KURO_RELEASE_REPO=owner/name overrides the release source (e.g. for forks).
 const RELEASE_REPO = process.env.KURO_RELEASE_REPO ?? 'coderhyy/clash-kuro'
 const SHUTDOWN_TIMEOUT_MS = 3_000
 
-if (!app.requestSingleInstanceLock()) {
+let verificationDirectory: string | undefined
+let authenticationOnly = false
+let finiteSessionCandidate = false
+let diagnosticWindow = false
+let startupRefused = false
+if (app.isPackaged) {
+  try {
+    const launch = inspectPackagedArguments(process.argv.slice(1))
+    // Chromium may parse switches before JS. Dynamic CDP negatives must also pass.
+    if (launch.error) throw new Error(launch.error)
+    const sealedMetadata: unknown = JSON.parse(readFileSync(join(app.getAppPath(), 'package.json'), 'utf8'))
+    assertObservationCandidateLaunch(sealedMetadata, launch.directory)
+    verificationDirectory = launch.directory
+    authenticationOnly = launch.authenticate === true
+    if (verificationDirectory) {
+      const paths = prepareVerificationDirectory(verificationDirectory)
+      for (const [name, path] of Object.entries(paths)) app.setPath(name as 'userData' | 'sessionData' | 'crashDumps', path)
+      app.disableHardwareAcceleration()
+    } else {
+      const paths = prepareSessionCandidateDirectory(sealedMetadata, app.getPath('appData'))
+      if (paths) {
+        finiteSessionCandidate = true
+        diagnosticWindow = 'kuroTunDiagnosticWindow' in (sealedMetadata as Record<string, unknown>) && (sealedMetadata as Record<string, unknown>).kuroTunDiagnosticWindow === true
+        for (const [name, path] of Object.entries(paths)) app.setPath(name as 'userData' | 'sessionData' | 'crashDumps', path)
+      }
+    }
+  } catch (error) {
+    startupRefused = true
+    console.error(error instanceof Error ? error.message : String(error))
+    app.exit(64)
+  }
+}
+
+if (startupRefused) {
+  // No production platform, profiles or Core are created on a refused launch.
+} else if (verificationDirectory) {
+  const directory = verificationDirectory
+  void app.whenReady().then(async () => {
+    if (authenticationOnly) {
+      await runAuthenticationVerification({ app, directory })
+      return
+    }
+    const window = new BrowserWindow({ show: false, width: 960, height: 640,
+      webPreferences: safeWebPreferences(join(__dirname, '../preload/index.js')) })
+    await runRuntimeVerification({ app, window, ipc: ipcMain, directory, renderer: join(__dirname, '../renderer/index.html') })
+  }).catch(error => { console.error(error); app.exit(1) })
+} else if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
   void main()
@@ -51,7 +101,18 @@ async function main(): Promise<void> {
   const userAgent = `ClashKuro/${app.getVersion()} (clash.meta)`
 
   let store: AppStore | undefined
+  const diagnostic = diagnosticWindow ? createTunDiagnosticWindow() : undefined
+  const tun = process.platform === 'darwin' ? createMacosTun(diagnostic ? { sessionDeadlineMs: 30_000, sessionAbortSignal: diagnostic.signal } : undefined) : undefined
+  if (tun && diagnostic) {
+    const start = tun.start.bind(tun)
+    tun.start = async config => {
+      await diagnostic.prepare()
+      try { return await start(config) }
+      catch (error) { await diagnostic.cancel(error instanceof Error ? error : new Error(String(error))); throw error }
+    }
+  }
   const platform = createDesktopPlatform({
+    tun,
     dataDir, corePath, sysproxyHelperPath, userAgent, powerMonitor, loginItemApp: app, startResident,
     onResidentStopped: reason => store?.notifyCoreStopped(reason),
     mixedPort: () => store?.store.getState().settings.mixedPort ?? 7890
@@ -60,11 +121,6 @@ async function main(): Promise<void> {
   const profiles = createProfileSource({ platform, userAgent, isCoreRunning: () => platform.isCoreRunning() })
 
   await installGeoData(geoDir, dataDir)
-  // A fresh process has no Core yet, so any System Proxy still pointing at our port is stale.
-  if (!startResident) try {
-    const saved = JSON.parse((await platform.readFile('settings.json')) ?? '{}') as { settings?: { mixedPort?: number } }
-    await platform.cleanupStaleSystemProxy(saved.settings?.mixedPort ?? 7890)
-  } catch (error) { console.warn('Stale System Proxy cleanup failed:', error) }
 
   let win: BrowserWindow | null = null
   let tray: Tray | null = null
@@ -85,6 +141,7 @@ async function main(): Promise<void> {
     try {
       scheduler.stop()
       app_.dispose()
+      await diagnostic?.cancel(new Error('Candidate App is quitting; cancel the local comparison'))
       await platform.shutdown({ timeoutMs: SHUTDOWN_TIMEOUT_MS })
       logExit('cleanup completed')
     } catch (error) {
@@ -107,7 +164,7 @@ async function main(): Promise<void> {
     win = new BrowserWindow({
       width: 960, height: 640, minWidth: 720, minHeight: 520, title: 'Clash Kuro', show: false,
       backgroundColor: nativeTheme.shouldUseDarkColors ? '#1f2430' : '#f8f9fa',
-      webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: true, contextIsolation: true }
+      webPreferences: safeWebPreferences(join(__dirname, '../preload/index.js'))
     })
     win.once('ready-to-show', () => win?.show())
     // The user may toggle the login item in System Settings while we run.
@@ -122,7 +179,7 @@ async function main(): Promise<void> {
       return { action: 'deny' }
     })
     win.webContents.on('will-navigate', (event) => event.preventDefault())
-    if (process.env.ELECTRON_RENDERER_URL) void win.loadURL(process.env.ELECTRON_RENDERER_URL)
+    if (!app.isPackaged && process.env.ELECTRON_RENDERER_URL) void win.loadURL(process.env.ELECTRON_RENDERER_URL)
     else void win.loadFile(join(__dirname, '../renderer/index.html'))
   }
 
@@ -130,10 +187,16 @@ async function main(): Promise<void> {
     platform, client,
     systemLocale: () => app.getLocale(),
     buildRuntimeConfig: (input) => profiles.buildRuntimeConfig(input),
+    buildTunConfig: (input) => profiles.buildTunConfig(input),
     refreshProfile: (profile) => profiles.refreshProfile(profile),
     hooks: { onOpenWindow: showWindow, onQuit: () => void exit() }
   })
   store = app_
+
+  // Store startup reconciles TUN first, including with no active Profile. Unknown ownership forbids new proxy writes.
+  if (!finiteSessionCandidate && !startResident && app_.store.getState().tun.state === 'off') try {
+    await platform.cleanupStaleSystemProxy(app_.store.getState().settings.mixedPort)
+  } catch (error) { console.warn('Stale System Proxy cleanup failed:', error) }
 
   const scheduler = createUpdateScheduler({
     profiles: () => app_.store.getState().profiles,
@@ -254,25 +317,9 @@ async function main(): Promise<void> {
   tray = new Tray(trayClosed)
   renderTray()
 
-  const onResume = createResumeHandler({
-    platform: {
-      isCoreRunning: () => platform.isCoreRunning(),
-      startCore: async () => {
-        const result = await app_.run('startCore', {})
-        if (!result.ok) throw new Error(result.error)
-      }
-    },
-    client,
-    reapplySystemProxy: async () => {
-      if (!app_.store.getState().systemProxy.enabled) return
-      const result = await app_.run('setSystemProxy', { enabled: true })
-      if (!result.ok) throw new Error(result.error)
-    }
-  })
   platform.onResume(() => {
-    // Only recover a Core the user wanted running.
-    if (app_.store.getState().core.status !== 'running') return
-    onResume().catch((error) => console.warn('Resume recovery failed:', error))
+    // Check ownership inside the same queue as mode changes, not before entering it.
+    if (!finiteSessionCandidate) void app_.resumeCore().catch((error) => console.warn('Resume recovery failed:', error))
   })
 
   app.on('second-instance', (_event, argv) => {
@@ -291,12 +338,15 @@ async function main(): Promise<void> {
   // Launch at Login starts straight in Tray Mode (CONTEXT.md: 开机自启).
   if (process.platform === 'darwin' && app.getLoginItemSettings().wasOpenedAtLogin) app.dock?.hide()
   else if (process.platform !== 'win32' || !process.argv.includes('--hidden')) showWindow()
-  if (app_.store.getState().activeProfileId) {
-    const result = await app_.run('startCore', {})
-    if (!result.ok) console.warn('Core did not start:', result.error)
+  // The sealed candidate retains real TUN admission/recovery, but starts modes and fetches only on explicit UI actions.
+  if (!finiteSessionCandidate) {
+    if (app_.store.getState().activeProfileId) {
+      const result = await app_.run('startCore', {})
+      if (!result.ok) console.warn('Core did not start:', result.error)
+    }
+    scheduler.start()
+    void checkForUpdate({ repo: RELEASE_REPO, currentVersion: app.getVersion() }).then((update) => {
+      if (update) app_.store.setState((s) => ({ ...s, update, version: s.version + 1 }))
+    })
   }
-  scheduler.start()
-  void checkForUpdate({ repo: RELEASE_REPO, currentVersion: app.getVersion() }).then((update) => {
-    if (update) app_.store.setState((s) => ({ ...s, update, version: s.version + 1 }))
-  })
 }

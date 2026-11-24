@@ -1,0 +1,9 @@
+{
+  "command": [
+    "node_modules/.bin/tsc",
+    "-p",
+    "packages/state/tsconfig.json"
+  ],
+  "exitCode": 0,
+  "elapsedSeconds": 0.136
+}

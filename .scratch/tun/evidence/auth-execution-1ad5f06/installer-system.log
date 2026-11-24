@@ -1,0 +1,49 @@
+2026-11-04 20:04:04+08 hyyMacBook-Pro-14 installer[31290]: -[IFDInstallController(Private) _buildInstallPlanReturningError:]: location = file://localhost
+2026-11-04 20:04:04+08 hyyMacBook-Pro-14 installer[31290]: -[IFDInstallController(Private) _buildInstallPlanReturningError:]: file://localhost/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/kuro-tun-auth-observation-0.1.0-arm64-1ad5f06ad174.pkg
+2026-11-04 20:04:04+08 hyyMacBook-Pro-14 installer[31290]: Set authorization level to root for session
+2026-11-04 20:04:04+08 hyyMacBook-Pro-14 installer[31290]: Authorization is being checked, waiting until authorization arrives.
+2026-11-04 20:04:04+08 hyyMacBook-Pro-14 installer[31290]: Administrator authorization granted.
+2026-11-04 20:04:04+08 hyyMacBook-Pro-14 installer[31290]: Packages have been authorized for installation.
+2026-11-04 20:04:04+08 hyyMacBook-Pro-14 installer[31290]: Will use PK session
+2026-11-04 20:04:04+08 hyyMacBook-Pro-14 installer[31290]: Using authorization level of root for IFPKInstallElement
+2026-11-04 20:04:04+08 hyyMacBook-Pro-14 installer[31290]: Starting installation:
+2026-11-04 20:04:04+08 hyyMacBook-Pro-14 installer[31290]: Configuring volume "Macintosh HD"
+2026-11-04 20:04:04+08 hyyMacBook-Pro-14 installer[31290]: Preparing disk for local booted install.
+2026-11-04 20:04:04+08 hyyMacBook-Pro-14 installer[31290]: Free space on "Macintosh HD": 152.14 GB (152139472896 bytes).
+2026-11-04 20:04:04+08 hyyMacBook-Pro-14 installer[31290]: Create temporary directory "/var/folders/zz/zyxvpxvq6csfxvn_n0000000000000/T//Install.312904LjEws"
+2026-11-04 20:04:04+08 hyyMacBook-Pro-14 installer[31290]: IFPKInstallElement (1 packages)
+2026-11-04 20:04:06+08 hyyMacBook-Pro-14 installer[31290]: Current Path: /usr/sbin/installer
+2026-11-04 20:04:06+08 hyyMacBook-Pro-14 installer[31290]: Current Path: /System/Library/Frameworks/Security.framework/authtrampoline
+2026-11-04 20:04:06+08 hyyMacBook-Pro-14 installd[49425]: PackageKit: Adding client PKInstallDaemonClient pid=31290, uid=0 (/usr/sbin/installer)
+2026-11-04 20:04:06+08 hyyMacBook-Pro-14 installer[31290]: PackageKit: Enqueuing install with framework-specified quality of service (utility)
+2026-11-04 20:04:06+08 hyyMacBook-Pro-14 installd[49425]: PackageKit: Set reponsibility for install to 31277
+2026-11-04 20:04:06+08 hyyMacBook-Pro-14 installd[49425]: PackageKit: ----- Begin install -----
+2026-11-04 20:04:06+08 hyyMacBook-Pro-14 installd[49425]: PackageKit: request=PKInstallRequest <1 packages, destination=/>
+2026-11-04 20:04:06+08 hyyMacBook-Pro-14 installd[49425]: PackageKit: packages=(
+	    "PKLeopardPackage <id=dev.kuro.tun.disabled, version=0.1.0, url=file://localhost/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/kuro-tun-auth-observation-0.1.0-arm64-1ad5f06ad174.pkg>"
+	)
+2026-11-04 20:04:06+08 hyyMacBook-Pro-14 installd[49425]: PackageKit: Extracting file://localhost/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/kuro-tun-auth-observation-0.1.0-arm64-1ad5f06ad174.pkg (destination=/Library/InstallerSandboxes/.PKInstallSandboxManager/64FF99AA-FB9C-48B2-9AED-85B0CF3C4B0D.activeSandbox/Root, uid=0)
+2026-11-04 20:04:08+08 hyyMacBook-Pro-14 installd[49425]: PackageKit: prevent user idle system sleep
+2026-11-04 20:04:08+08 hyyMacBook-Pro-14 installd[49425]: PackageKit: suspending backupd
+2026-11-04 20:04:08+08 hyyMacBook-Pro-14 installd[49425]: PackageKit (package_script_service): Preparing to execute script "./preinstall" in /private/tmp/PKInstallSandbox.URe5Zo/Scripts/dev.kuro.tun.disabled.abcM86
+2026-11-04 20:04:08+08 hyyMacBook-Pro-14 install_monitor[31381]: Temporarily excluding: /Applications, /Library, /System, /bin, /private, /sbin, /usr
+2026-11-04 20:04:08+08 hyyMacBook-Pro-14 package_script_service[31382]: PackageKit: Preparing to execute script "preinstall" in /tmp/PKInstallSandbox.URe5Zo/Scripts/dev.kuro.tun.disabled.abcM86
+2026-11-04 20:04:08+08 hyyMacBook-Pro-14 package_script_service[31382]: Set responsibility to pid: 31277, responsible_path: /System/Library/Frameworks/Security.framework/authtrampoline
+2026-11-04 20:04:08+08 hyyMacBook-Pro-14 package_script_service[31382]: PackageKit: Executing script "preinstall" in /tmp/PKInstallSandbox.URe5Zo/Scripts/dev.kuro.tun.disabled.abcM86
+2026-11-04 20:04:09+08 hyyMacBook-Pro-14 package_script_service[31382]: ./preinstall: unprotected path, permissions, owner or file type
+2026-11-04 20:04:09+08 hyyMacBook-Pro-14 package_script_service[31382]: Responsibility set back to self.
+2026-11-04 20:04:09+08 hyyMacBook-Pro-14 install_monitor[31381]: Re-included: /Applications, /Library, /System, /bin, /private, /sbin, /usr
+2026-11-04 20:04:09+08 hyyMacBook-Pro-14 installd[49425]: PackageKit: releasing backupd
+2026-11-04 20:04:09+08 hyyMacBook-Pro-14 installd[49425]: PackageKit: allow user idle system sleep
+2026-11-04 20:04:09+08 hyyMacBook-Pro-14 installd[49425]: PackageKit: Install Failed: Error Domain=PKInstallErrorDomain Code=112 "运行软件包“kuro-tun-auth-observation-0.1.0-arm64-1ad5f06ad174.pkg”的脚本时出错。" UserInfo={NSFilePath=./preinstall, NSURL=file://localhost/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/kuro-tun-auth-observation-0.1.0-arm64-1ad5f06ad174.pkg, PKInstallPackageIdentifier=dev.kuro.tun.disabled, NSLocalizedDescription=运行软件包“kuro-tun-auth-observation-0.1.0-arm64-1ad5f06ad174.pkg”的脚本时出错。} {
+	    NSFilePath = "./preinstall";
+	    NSLocalizedDescription = "\U8fd0\U884c\U8f6f\U4ef6\U5305\U201ckuro-tun-auth-observation-0.1.0-arm64-1ad5f06ad174.pkg\U201d\U7684\U811a\U672c\U65f6\U51fa\U9519\U3002";
+	    NSURL = "file://localhost/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/kuro-tun-auth-observation-0.1.0-arm64-1ad5f06ad174.pkg";
+	    PKInstallPackageIdentifier = "dev.kuro.tun.disabled";
+	}
+2026-11-04 20:04:09+08 hyyMacBook-Pro-14 installd[49425]: PackageKit: Cleared responsibility for install from 31290.
+2026-11-04 20:04:09+08 hyyMacBook-Pro-14 installd[49425]: PackageKit: Running idle tasks
+2026-11-04 20:04:09+08 hyyMacBook-Pro-14 installer[31290]: install:didFailWithError:Error Domain=PKInstallErrorDomain Code=112 "运行软件包“kuro-tun-auth-observation-0.1.0-arm64-1ad5f06ad174.pkg”的脚本时出错。" UserInfo={NSFilePath=./preinstall, NSURL=file://localhost/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/kuro-tun-auth-observation-0.1.0-arm64-1ad5f06ad174.pkg, PKInstallPackageIdentifier=dev.kuro.tun.disabled, NSLocalizedDescription=运行软件包“kuro-tun-auth-observation-0.1.0-arm64-1ad5f06ad174.pkg”的脚本时出错。}
+2026-11-04 20:04:09+08 hyyMacBook-Pro-14 installd[49425]: PackageKit: Removing client PKInstallDaemonClient pid=31290, uid=0 (/usr/sbin/installer)
+2026-11-04 20:04:09+08 hyyMacBook-Pro-14 installd[49425]: PackageKit: Done with sandbox removals
+2026-11-04 20:04:10+08 hyyMacBook-Pro-14 installer[31290]: Install failed: 安装器遇到了一个错误，导致安装失败。请联系软件生产企业以获得帮助。

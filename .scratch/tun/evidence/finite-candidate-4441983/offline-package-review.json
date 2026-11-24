@@ -1,0 +1,51 @@
+{
+  "result": "PASS",
+  "sourceCommit": "4441983abd114cae2d4febea1422182408eaf3ad",
+  "packageSHA256": "f42e960970c497942141330790a7a23a9669109f6dccee140f48864545f51d8b",
+  "helperSHA256": "a39d5c8ada62cbc6a457adf712be87412040c5c303ac0b2e3268a25b9940f87c",
+  "coreSHA256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+  "client": {
+    "format": 2,
+    "cdhash": "52dc32211b764da25a4254672a0bf3919e57719b",
+    "executableSHA256": "85b6161613285c61b48c8dedca62e2a9f62a04127374e59e00cb434ae3e530f3",
+    "infoSHA256": "eb7593e1249b4099e1f6b28c16a72ed9381325981983b5ad183f35fb739c2991",
+    "asarSHA256": "b54e7b73b29d4214baca559dd62b8a8e68ea9479dd7fbb4ddbd6e0c2d86f13eb"
+  },
+  "inventorySHA256": "fc09b456efd629ef085f22c5026a18cac89826b58e71e0256aed61a27f1d0c52",
+  "sealedMode": "finite-session",
+  "authObservationOnly": false,
+  "bomEntries": 1253,
+  "bomUID": 0,
+  "bomGID": 0,
+  "bomNoUnsafeWritableOrSpecialModes": true,
+  "verifiedNativeReceiptPolicyMarkers": [
+    "--begin-client-install",
+    "--install",
+    "neverStarted",
+    "stopped.json",
+    "uninstallJSON",
+    "held owner journal changed; network cleanup refused",
+    "no matching retained owner or recovery already pending/shutting down",
+    "cleanup confirmed, uninstall checkpoint failed: "
+  ],
+  "expanded": "/private/tmp/kuro-finite-offline-review-ifHUzh/expanded",
+  "checks": [
+    "actual extracted App hardened runtime/entitlements/deep seal/ASAR integrity/fuses",
+    "actual extracted App pin equals App build record, package sidecar and both manifests",
+    "sealed App full source commit/mode/auth boolean",
+    "four helper copies exact same SHA256 and actual arm64 Mach-O",
+    "Core exact SHA256 and arm64 Mach-O",
+    "actual extracted full client inventory equals pinned byte digest",
+    "scripts and Inbox sidecars byte identical",
+    "only preinstall fixed native --begin-client-install and postinstall fixed installer --install",
+    "fixed root layout; disabled launchd plist, no RunAtLoad/KeepAlive",
+    "no prebuilt installed/stopped/client/owner/runtime receipts",
+    "package bytes unchanged after review"
+  ],
+  "limits": [
+    "offline extraction only; no scripts/App/helper/Core/job/network execution",
+    "native source commit and test provenance checked against build sidecar; no runtime root attestation",
+    "activationAllowed true is explicit finite capability; disabled service is not a TUN acceptance pass",
+    "upgrade remains unimplemented; root install/uninstall/network recovery require separate actual acceptance"
+  ]
+}

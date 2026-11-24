@@ -1,0 +1,53 @@
+fixture result {
+    base = "/private/tmp/kuro-core-QJmFSR";
+    coreIdentity =     {
+        pid = 80520;
+        processGroup = 80519;
+        startMicros = 978169;
+        startSeconds = 1793860116;
+    };
+    coreSHA256 = fb1b5d17f9a6bb7d32d78b2d5bbbac79a384ae7353b9bfa638141135d8620bef;
+    coreStdIO = "bounded-redacted-capture";
+    diagnosticsDirectory = "/private/tmp/kuro-core-evidence-fSMSvU";
+    epoch = "00000000-0000-4000-8000-000000000001";
+    error = "";
+    format = 1;
+    groupAbsent = 1;
+    guardianLimit = "live guardian only; SIGKILL of guardian or detached processes is not covered";
+    runnerSHA256 = fb1b5d17f9a6bb7d32d78b2d5bbbac79a384ae7353b9bfa638141135d8620bef;
+    stage = normal;
+    status = blocked;
+    worker =     {
+        configSHA256 = 3a2409bbf9ca186b7a3b4616889b8b54be562b51b818e9886a418a12803f03bd;
+        coreAbsent = 1;
+        coreVersion = unconfirmed;
+        diagnosticError = "";
+        diagnosticsDirectory = "/private/tmp/kuro-core-evidence-fSMSvU";
+        error = "direct identity unavailable pid=80520 read=0 errno=3 uid=0 parent=0 expected=80519 group=0 expected=80519";
+        event = done;
+        failureStage = "private-version-readiness";
+        inventory =         (
+                        {
+                mode = 493;
+                name = mihomo;
+                size = 423296;
+                type = file;
+            }
+        );
+        ownerAbsent = 1;
+        session = "9E2CBC39-7FF8-477F-BFB8-0603DDADCDFC";
+        stopProof =         {
+            acknowledged = 0;
+            trigger = unexpected;
+        };
+        success = 0;
+        termination =         {
+            exitCode = 94;
+            observed = 1;
+            request = none;
+            signal = "<null>";
+        };
+        workAbsent = 1;
+    };
+} error (null)
+experiment fixture failed line 93: [result[@"status"]isEqual:@"passed"]

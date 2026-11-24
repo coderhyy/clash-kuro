@@ -1,0 +1,4 @@
+Darwin route parser: four sanitized recorded wire shapes + nonlocal/nonhost/conflicting-zone/noncontiguous/truncation rejects PASS
+native route durability: 2 absence-only retirement/retry paths require successful directory sync, no route deletion
+native routes: bounded wire fixtures and 12 ownership/recovery scenarios passed; no PF_ROUTE/sysctl/network operation executed
+Recorded full NET_RT_DUMP: 11004 bytes, 62 routes PASS

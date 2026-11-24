@@ -181,14 +181,24 @@ async function scenario(name, base) {
   if (/^(header-|flush-)/.test(name)) writeFileSync(path, '')
   const p = launch(root, name === 'repeated-close' ? 'shutdown-clear-hung' : mode, autonomous ? retained : helper, autonomous, pending.length ? pending[0] : '')
   if (replay) {
+    const blockedFailureLog = name === 'replay-clear-hung-log-after-write-hung'
     if (name === 'close-replay' || name === 'close-hung') {
       await p.until(() => p.trace().includes('clear-enter'))
       await new Promise(resolve => setTimeout(resolve, name === 'close-hung' ? 800 : 200)); p.send(close)
-    } else if (!autonomous && !replayFaults.includes(fault)) { await p.ready(); p.send(close) }
-    const failed = replayFaults.includes(fault) || name === 'close-hung'
+    } else if (!autonomous && !replayFaults.includes(fault) && !blockedFailureLog) { await p.ready(); p.send(close) }
+    const failed = replayFaults.includes(fault) || name === 'close-hung' || blockedFailureLog
     const report = await finish(p, failed ? 42 : 0, { timedOut: /hung|late/.test(fault) })
     if (failed) { assert.deepEqual(readFileSync(path), original); assert(!p.trace().includes('core-create')) }
     else assert.deepEqual(readFileSync(path), header)
+    if (blockedFailureLog) {
+      const state = JSON.parse(readFileSync(p.log + '.state.json', 'utf8'))
+      assert.equal(state.code, 42); assert.equal(state.clearOk, false); assert.equal(state.timedOut, true)
+      assert.equal(state.report, 0); assert.equal(state.reported, 258)
+      assert.equal(state.finalStdoutWriteEntered, true); assert.equal(state.finalStdoutWriteReturned, true)
+      assert.equal(state.finalLogWriteEntered, true); assert.equal(state.finalLogWriteReturned, true)
+      assert(!p.lines().some(x => x.ready)); assert.equal(report.ok, false)
+      writeFileSync(join(out, `${name}.state.json`), JSON.stringify(state, null, 2))
+    }
     assert.equal(p.trace().split('clear:127.0.0.1:7891\n').length - 1, pending.length ? 1 : 0)
     if (autonomous) assert(!p.lines().some(x => x.ready) && report.corePid === 0)
     return
@@ -275,7 +285,7 @@ if (process.argv[2] === '--child') {
     'root-junction', 'retained-changed', 'header-only', 'endpoint-bound', 'recovery-missing', 'recovery-empty', 'recovery-source',
     'reject-sid', 'reject-helper', 'reject-corrupt', 'reject-legacy', 'reject-v2',
     'update-empty', 'update-pending', 'update-empty-missing', 'update-pending-missing', 'update-pending-changed', 'update-pending-readback-fail',
-    ...replayFaults.map(x => `replay-${x}`), 'replay-success', 'close-replay', 'close-hung',
+    ...replayFaults.map(x => `replay-${x}`), 'replay-clear-hung-log-after-write-hung', 'replay-success', 'close-replay', 'close-hung',
     'autonomous-success', ...['clear-fail', 'clear-hung', 'readback-fail', 'readback-hung', 'readback-reenabled', 'reset-fail'].map(x => `autonomous-${x}`),
     'header-fail', 'header-short', 'header-hung', 'header-crash', 'flush-fail', 'flush-hung', 'core-fail', 'core-hung', 'core-late',
     'append-fail', 'append-fail-reset-fail', 'append-flush-fail', 'append-short', 'append-hung', 'set-hung', 'set-late', 'set-slow',

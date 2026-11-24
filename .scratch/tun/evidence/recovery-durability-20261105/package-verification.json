@@ -1,0 +1,81 @@
+{
+  "status": "no offline blocker",
+  "sourceCommit": "4a8c7acff81f1c52e9dfab221363638161e952bd",
+  "packageSHA256": "06e67370180d243c414ce471b3c0b7af66f44feb88959b9d1bcaf54c44bd2d5f",
+  "helperSHA256": "28f7d71bbf34587d289ff4c19095f1f779e2bdfba79b011f6380069d8b570391",
+  "coreSHA256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+  "coreArchiveSHA256": "060b64b0f2c9a310831db0fe4adb2878de67bfa606c311813c1f13966aa504b6",
+  "release": "v1.19.33-0.1.0-arm64-3bf7947e1441d86d-cea0120a62bb086badd9b0e6313c1453325089a026c28e151faad5ddd32ae6d59",
+  "releaseLength": 103,
+  "programPathBytes": 163,
+  "client": {
+    "format": 2,
+    "cdhash": "0f3cf2df9964865849c2e010f1308ff5b9ed4bd6",
+    "executableSHA256": "ffa8aafaf464e877c2708aed9ad18752ddc12f01ae82bf13a919e5ae7669efb5",
+    "infoSHA256": "0d19fc5804455d16f1b144bb1b3eec6aa7e859e039c03439d4d69f6a1551c42f",
+    "asarSHA256": "f186704def46bc32fe7b00c8fc39937d543083011a8cbeccb170ee92976f711c"
+  },
+  "inventorySHA256": "ea0120a62bb086badd9b0e6313c1453325089a026c28e151faad5ddd32ae6d59",
+  "inventoryEntries": 611,
+  "sealedSource": "4a8c7acff81f1c52e9dfab221363638161e952bd",
+  "sealedMode": "finite-session",
+  "installerProtocol": 2,
+  "disabledPlist": {
+    "ProgramArguments": [
+      "/Library/PrivilegedHelperTools/dev.kuro.tun/versions/v1.19.33-0.1.0-arm64-3bf7947e1441d86d-cea0120a62bb086badd9b0e6313c1453325089a026c28e151faad5ddd32ae6d59/helper",
+      "--serve"
+    ],
+    "KeepAlive": false,
+    "Label": "dev.kuro.tun",
+    "Disabled": true,
+    "RunAtLoad": false,
+    "AbandonProcessGroup": false
+  },
+  "nativeBuild": {
+    "sourceCommit": "4a8c7acff81f1c52e9dfab221363638161e952bd",
+    "sourceClean": true,
+    "sha256": "28f7d71bbf34587d289ff4c19095f1f779e2bdfba79b011f6380069d8b570391",
+    "installerProtocol": 2,
+    "flags": [
+      "-arch",
+      "arm64",
+      "-fobjc-arc",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-O2",
+      "-framework",
+      "Foundation",
+      "-framework",
+      "Security",
+      "-framework",
+      "SystemConfiguration",
+      "-lbsm"
+    ],
+    "tests": true,
+    "coreSyntaxSkipped": false
+  },
+  "diagnostics": "not included in payload; native retained-path literal present; source uninstall only removes exact recorded install targets, leaving sibling TunDiagnostics",
+  "limitations": [
+    "Offline extraction, static identity/build admission only; not installed or launched",
+    "BOM ownership is intended root metadata, not a real installed filesystem proof",
+    "No claim of real TUN, writer-exit, network recovery, upgrade or uninstall acceptance"
+  ],
+  "packageBytes": 171726433,
+  "packageMetadataSHA256": "a8405233eef418314160665f35d8f1bcdfa5e464e91dcafed3201381cbc43cfb",
+  "bomEntries": 1253,
+  "bomAllIntendedUID": 0,
+  "bomAllIntendedGID": 0,
+  "fixedBundleCount": 9,
+  "relocatable": false,
+  "packageSignature": "unsigned (expected ad-hoc/local candidate; no paid signing/notarization claim)",
+  "machoArchitecture": "arm64 for actual helper and Core",
+  "archivePinMatchesCoreLock": true,
+  "scriptsExecuted": false,
+  "diagnosticsPayloadEntries": 0,
+  "sourceRetentionReview": {
+    "file": "apps/desktop/native/mac/tun-install.m",
+    "freshUninstall": "UninstallFresh deletes exact approved Client/Tools/State/socket/recovery entries; common Clash Kuro parent retained",
+    "legacyUninstall": "Uninstall deletes exact Tools/State/socket/recovery; never recursively removes sibling TunDiagnostics"
+  }
+}

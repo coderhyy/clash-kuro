@@ -1,0 +1,30 @@
+{
+  "base": "/private/tmp/kuro-yaml-differential-w0k8gotn",
+  "coreSHA256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+  "results": [
+    {
+      "case": "original",
+      "exit": 1,
+      "configSHA256": "b7ce9bab89199e6c5410856c4831407049f701942a8b19c9f07ab64f0af9ef79",
+      "stdout": "time=\"2026-11-05T10:40:59.983479000+08:00\" level=error msg=\"yaml: found unknown escape character\"\nconfiguration file /private/tmp/kuro-yaml-differential-w0k8gotn/original/config.json test failed\n",
+      "stderr": "",
+      "files": [
+        "config.json",
+        "stderr.log",
+        "stdout.log"
+      ]
+    },
+    {
+      "case": "unescaped-slash",
+      "exit": 0,
+      "configSHA256": "9299b129b84eb3d60c60dcfac2c77f36df351f749654da86503ecb7c11564872",
+      "stdout": "time=\"2026-11-05T10:40:59.999196000+08:00\" level=info msg=\"Start initial configuration in progress\"\ntime=\"2026-11-05T10:40:59.999356000+08:00\" level=info msg=\"Geodata Loader mode: memconservative\"\ntime=\"2026-11-05T10:40:59.999362000+08:00\" level=info msg=\"Geosite Matcher implementation: succinct\"\ntime=\"2026-11-05T10:40:59.999567000+08:00\" level=info msg=\"Initial configuration complete, total time: 0ms\"\nconfiguration file /private/tmp/kuro-yaml-differential-w0k8gotn/unescaped-slash/config.json test is successful\n",
+      "stderr": "",
+      "files": [
+        "config.json",
+        "stderr.log",
+        "stdout.log"
+      ]
+    }
+  ]
+}

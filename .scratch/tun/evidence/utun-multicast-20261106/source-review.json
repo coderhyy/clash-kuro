@@ -1,0 +1,151 @@
+{
+  "format": 1,
+  "task": "Read-only independent utun IPv6 multicast route provenance",
+  "source": {
+    "repository": "https://github.com/apple-oss-distributions/xnu",
+    "commit": "f6217f891ac0bb64f3d375211650a4c1ff8ca1ea",
+    "sourceBuildMatchesRunningKernel": false,
+    "sha256": {
+      "in6_ifattach.c": "adc118b98d07063e2967e49174455ce0a08d6aa1900b1c57d77676307b3c442e",
+      "route.c": "545b38848eac8c417c9e20ba82c445ef0cc0631e0c1592b009841fc10d815304",
+      "in6_rmx.c": "d4c604fce1fd46d4abf9dcc6327e9eeafb09618a9c07035c1ce35529df769483",
+      "in6.c": "3c2dec42688ee898d7f2deb16862d8c438594e9f3b631d1c2ed2d614b17a37ca"
+    }
+  },
+  "evidence": {
+    "reportedRoute": {
+      "destination": "ff00::%25",
+      "prefix": 8,
+      "family": 6,
+      "flags": 25166081,
+      "flagsHex": "0x01800101",
+      "interfaceIndex": 25,
+      "interfaceName": "utun6"
+    },
+    "flags": [
+      "RTF_UP",
+      "RTF_CLONING",
+      "RTF_MULTICAST",
+      "RTF_IFSCOPE"
+    ],
+    "baselineInterfaces": {
+      "utun0": {
+        "threeForms": true,
+        "prefixes": [
+          "ff00::/8",
+          "ff01::/32",
+          "ff02::/32"
+        ],
+        "flags": [
+          "UmCI",
+          "UmCI",
+          "UmCI"
+        ],
+        "oneCommonGateway": true,
+        "gatewayMatchesInterfaceLinkLocal": true,
+        "retainedExactly": true
+      },
+      "utun1": {
+        "threeForms": true,
+        "prefixes": [
+          "ff00::/8",
+          "ff01::/32",
+          "ff02::/32"
+        ],
+        "flags": [
+          "UmCI",
+          "UmCI",
+          "UmCI"
+        ],
+        "oneCommonGateway": true,
+        "gatewayMatchesInterfaceLinkLocal": true,
+        "retainedExactly": true
+      },
+      "utun2": {
+        "threeForms": true,
+        "prefixes": [
+          "ff00::/8",
+          "ff01::/32",
+          "ff02::/32"
+        ],
+        "flags": [
+          "UmCI",
+          "UmCI",
+          "UmCI"
+        ],
+        "oneCommonGateway": true,
+        "gatewayMatchesInterfaceLinkLocal": true,
+        "retainedExactly": true
+      },
+      "utun3": {
+        "threeForms": true,
+        "prefixes": [
+          "ff00::/8",
+          "ff01::/32",
+          "ff02::/32"
+        ],
+        "flags": [
+          "UmCI",
+          "UmCI",
+          "UmCI"
+        ],
+        "oneCommonGateway": true,
+        "gatewayMatchesInterfaceLinkLocal": true,
+        "retainedExactly": true
+      },
+      "utun4": {
+        "threeForms": true,
+        "prefixes": [
+          "ff00::/8",
+          "ff01::/32",
+          "ff02::/32"
+        ],
+        "flags": [
+          "UmCI",
+          "UmCI",
+          "UmCI"
+        ],
+        "oneCommonGateway": true,
+        "gatewayMatchesInterfaceLinkLocal": true,
+        "retainedExactly": true
+      },
+      "utun5": {
+        "threeForms": true,
+        "prefixes": [
+          "ff00::/8",
+          "ff01::/32",
+          "ff02::/32"
+        ],
+        "flags": [
+          "UmCI",
+          "UmCI",
+          "UmCI"
+        ],
+        "oneCommonGateway": true,
+        "gatewayMatchesInterfaceLinkLocal": true,
+        "retainedExactly": true
+      }
+    },
+    "cleanupHasUtun6Multicast": false
+  },
+  "sourceLinks": {
+    "addressConfigurationMulticastCondition": "https://github.com/apple-oss-distributions/xnu/blob/f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/bsd/netinet6/in6.c#L2085",
+    "multicastInterfaceCondition": "https://github.com/apple-oss-distributions/xnu/blob/f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/bsd/netinet6/in6.c#L2137",
+    "automaticLinkLocalRoute": "https://github.com/apple-oss-distributions/xnu/blob/f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/bsd/netinet6/in6.c#L2194",
+    "automaticInterfaceLocalRoute": "https://github.com/apple-oss-distributions/xnu/blob/f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/bsd/netinet6/in6.c#L2268",
+    "automaticAllMulticastRoute": "https://github.com/apple-oss-distributions/xnu/blob/f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/bsd/netinet6/in6.c#L2313",
+    "multicastFlag": "https://github.com/apple-oss-distributions/xnu/blob/f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/bsd/netinet6/in6_rmx.c#L188",
+    "scopeFlag": "https://github.com/apple-oss-distributions/xnu/blob/f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/bsd/net/route.c#L1886"
+  },
+  "conclusion": [
+    "The source creates exact ff02/32, ff01/32, ff00/8 scoped routes while configuring IPv6 on multicast-capable interfaces; destination route flags acquire MULTICAST and scope adds IFSCOPE.",
+    "The routes use the configured interface address as gateway and the same interface index. Current baseline utun0..5 use their own link-local address. Source itself does not universally require a link-local gateway.",
+    "Exact forms, exact flags, held Core association and matching fresh interface identity/address are a narrow compatibility allowance for readback; route appearance alone is not exclusive ownership or removal authorization."
+  ],
+  "limits": [
+    "No system commands, services, Core, or network state changes were run. Only saved snapshots/local SDK and read-only official source acquisition were used.",
+    "Only ff00/8 was observed in the current failure diagnostic; ff01/ff02 on this specific utun were not independently dumped.",
+    "Apple repository source is pinned, but is not asserted byte-identical to the installed kernel build.",
+    "Does not authorize ignoring other multicast routes, deleting these routes, or claiming recovery across helper restart."
+  ]
+}

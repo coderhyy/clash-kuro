@@ -1,0 +1,42 @@
+{
+  "format": 1,
+  "patch": {
+    "path": "/private/tmp/kuro-internal-dns-host-routes-candidate/internal-dns-host-routes.patch",
+    "sha256": "08dd1d1406485d1f23507e6f40472e6d7011bed0e5d7bca8039b673446c12441"
+  },
+  "files": {
+    "tun-routes.m": {
+      "baseSHA256": "013fdcef254ac5c2b4f407af70b88d2247965b1d56d99229cfe2f43ffc8e368b",
+      "sourceSHA256": "3bbf104cdbaf236d894326758e6fb61cca701195e9727627d41317923145d3bc",
+      "sharedStillMatchesBase": true
+    },
+    "tun-routes.test.m": {
+      "baseSHA256": "f2b1a64231ae678a5a5da4b9442006276916287a4408a222d30fc59ca3480687",
+      "sourceSHA256": "42ea27dfcff5b33de8c1e02539425116553d125b528c3073c283071ab16746f6",
+      "sharedStillMatchesBase": true
+    }
+  },
+  "evidenceSHA256": {
+    "verification.json": "85de745efaa5d259f721d823b49427ae44780296cbbe272e4ac5dc6f994a7b57",
+    "compile.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "compile.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "focused.stdout.log": "bbfd9b899f10f533630e01a2b0c266a6548f659e806fcaf2b0bcf043f574f89a",
+    "focused.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "production-compile.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "production-compile.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "durability-red.m": "e3f1e2253b9327add9c78dc58ae254358fa245fde858d68e5fd125f2bcddd59d",
+    "durability-red.stdout.log": "eee298337d94839776e1b1f76c6ec4a5224edcd30c784125c2a64da0ed20acfd",
+    "durability-red.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "durability-green.m": "ec989e0c0ffd579e5cbd2b0f12fb1bba190f0421fe65324f929920e624de6f6e",
+    "durability-green.stdout.log": "7b1ea687c57f47e3e3eba4bd4ad428ef4682305574f1c1bd430234f1c80ee3b6",
+    "durability-green.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "focused.m": "bba78373c22142f3b6ad9e5615392e173d2a2ef2e0270c6b8b46d746b4f5166e",
+    "verify.py": "6201286729e89d0085daf5731571a4a2f841d7bdf0d357fb3b1af04566c82cfb",
+    "RESULT.md": "e10d4abc0bc32ec29ac2de6aac5886ee2f8fdd6ff0cfbfe8d96f9bb451c672a3"
+  },
+  "limits": [
+    "No real Core, App, service, root, system networking or installation",
+    "Coordinator and actual socket admission chain tested separately by owner agents",
+    "Real Darwin route behavior and DNS response still require authorized window"
+  ]
+}

@@ -1,0 +1,385 @@
+{
+  "filesAbsent": {
+    "/Library/PrivilegedHelperTools/dev.kuro.tun.lifecycle-a": true,
+    "/Library/LaunchDaemons/dev.kuro.tun.lifecycle-a.plist": true,
+    "/Library/Application Support/Clash Kuro/TunLifecycleExperimentA/normal/mihomo": true,
+    "/Library/Application Support/Clash Kuro/TunLifecycleExperimentA/kill/mihomo": true,
+    "/Library/Application Support/Clash Kuro/TunLifecycleExperimentA/kill/result.json": true,
+    "/Library/Application Support/Clash Kuro/TunLifecycleExperimentA/kill/reaped.json": true
+  },
+  "retained": {
+    "/Library/Application Support/Clash Kuro/TunLifecycleExperimentA": {
+      "mode": "0o700",
+      "uid": 0,
+      "entries": [
+        "approval.json",
+        "cleanup-approved-window.json",
+        "kill",
+        "normal"
+      ]
+    },
+    "/Library/Application Support/Clash Kuro/TunLifecycleExperimentA-root858-preserved": {
+      "mode": "0o700",
+      "uid": 0,
+      "entries": [
+        "approval.json",
+        "archive-approved-root858.json",
+        "kill",
+        "normal"
+      ]
+    },
+    "/Library/Application Support/Clash Kuro/TunLifecycleExperimentA/kill/session-work": {
+      "mode": "0o700",
+      "uid": 0,
+      "entries": [
+        "config.json",
+        "core.sock"
+      ]
+    }
+  },
+  "hashes": {
+    "/Library/Application Support/Clash Kuro/TunLifecycleExperimentA/approval.json": {
+      "sha256": "3b29916ebe575c4679159b8241e89974e37779fd27aba330b62f8a9e8852902d",
+      "size": 574,
+      "mode": "0o600",
+      "uid": 0
+    },
+    "/Library/Application Support/Clash Kuro/TunLifecycleExperimentA/cleanup-approved-window.json": {
+      "sha256": "0f4a90e64603a20dcfdf7c0c0d68b12c3add47210f30bdb11d43e15c8a3b424e",
+      "size": 1858,
+      "mode": "0o600",
+      "uid": 0
+    },
+    "/Library/Application Support/Clash Kuro/TunLifecycleExperimentA/normal/evidence.json": {
+      "sha256": "354fcdb73143c80c7839e5fdc5fa4ae6650aa2ec1fc4149c75d508e0f2bd9503",
+      "size": 629,
+      "mode": "0o600",
+      "uid": 0
+    },
+    "/Library/Application Support/Clash Kuro/TunLifecycleExperimentA/normal/result.json": {
+      "sha256": "2a783c692c7c83368a63be6610d670ea55b58dcdf5a83ad59d83d4e50a2a4486",
+      "size": 487,
+      "mode": "0o600",
+      "uid": 0
+    },
+    "/Library/Application Support/Clash Kuro/TunLifecycleExperimentA/normal/reaped.json": {
+      "sha256": "55f3e54654589372f80dcc780c61aba8fa8985363f153a69eb578378700023d6",
+      "size": 404,
+      "mode": "0o600",
+      "uid": 0
+    },
+    "/Library/Application Support/Clash Kuro/TunLifecycleExperimentA/normal/normal-success.json": {
+      "sha256": "2a783c692c7c83368a63be6610d670ea55b58dcdf5a83ad59d83d4e50a2a4486",
+      "size": 487,
+      "mode": "0o600",
+      "uid": 0
+    },
+    "/Library/Application Support/Clash Kuro/TunLifecycleExperimentA/kill/evidence.json": {
+      "sha256": "ee163c72d0ed7a25c33cfcf7f0853a114a715e064dc4c827596b873c6e31edfd",
+      "size": 625,
+      "mode": "0o600",
+      "uid": 0
+    },
+    "/Library/Application Support/Clash Kuro/TunLifecycleExperimentA/kill/group-observation.json": {
+      "sha256": "a6849d455c9c4c2561eeec6cd465abe1291c49f20e5ef2ec8e85075573f23439",
+      "size": 248,
+      "mode": "0o600",
+      "uid": 0
+    },
+    "/Library/Application Support/Clash Kuro/TunLifecycleExperimentA/kill/owner.json": {
+      "sha256": "f52344a9fb9ee713591f55526ba8610aaec4786c7662fe72fa54bb52ebe21757",
+      "size": 612,
+      "mode": "0o600",
+      "uid": 0
+    },
+    "/private/tmp/kuro-root697-window-lxtuhxeu/archive-old.log": {
+      "sha256": "f9f1ba4039746fb3d5dbb32aec62409132f6cf9bc040a990a57d027e4b3e87bc",
+      "size": 245,
+      "mode": "0o600",
+      "uid": 0
+    },
+    "/private/tmp/kuro-root697-window-lxtuhxeu/install.log": {
+      "sha256": "c426dfc493d961cc418ae41fb1d95fd1e6aeeda64777e35fbf67108a56d4cd39",
+      "size": 82,
+      "mode": "0o600",
+      "uid": 0
+    },
+    "/private/tmp/kuro-root697-window-lxtuhxeu/normal.log": {
+      "sha256": "4849b81c51ce16728c630cceada351abce939c4959f1cac83a3efde9dd73dd06",
+      "size": 2067,
+      "mode": "0o600",
+      "uid": 0
+    },
+    "/private/tmp/kuro-root697-window-lxtuhxeu/prepare-kill.log": {
+      "sha256": "408efc8d7825553041d515d320a3d23da10b8ce1563172ed9d8d374f22f7ebbb",
+      "size": 575,
+      "mode": "0o600",
+      "uid": 0
+    },
+    "/private/tmp/kuro-root697-window-lxtuhxeu/kill-test.log": {
+      "sha256": "6c415e2df4268c71bd02926d2c4fc9a779ec3d969c3f2f50ecdf0cb683781491",
+      "size": 962,
+      "mode": "0o600",
+      "uid": 0
+    },
+    "/private/tmp/kuro-root697-window-lxtuhxeu/kill-job-before-retire.log": {
+      "sha256": "3f9d7b8bb31528d186b1195865b569366ec23ff9d17c03713d19e09c42bc9fcc",
+      "size": 1162,
+      "mode": "0o600",
+      "uid": 0
+    },
+    "/private/tmp/kuro-root697-window-lxtuhxeu/retire-kill.log": {
+      "sha256": "ec73c43515c05d6be17a40fec07de747cc6921647bc7eecb19b264804001825e",
+      "size": 644,
+      "mode": "0o600",
+      "uid": 0
+    },
+    "/private/tmp/kuro-root697-window-lxtuhxeu/cleanup.log": {
+      "sha256": "150de19a9a54e785ceeef1cea4d70a1354aa0bf900fc992a2a88f9c3f1d38cd5",
+      "size": 156,
+      "mode": "0o600",
+      "uid": 0
+    }
+  },
+  "records": {
+    "approval.json": {
+      "coreArchiveSHA256": "060b64b0f2c9a310831db0fe4adb2878de67bfa606c311813c1f13966aa504b6",
+      "coreSHA256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+      "fixtureSHA256": "3e3a2451cc553280bb91b4bb34a05eb7c79df9d90aa0768e04aabd7642054ea0",
+      "format": 1,
+      "killConfigSHA256": "10bae2b8fb6a0169b71845e4a99297dda751c5a2ad6e6113d6761312c304087c",
+      "killEpoch": "76713027-6BD9-484C-B4AA-C1DE01BCB546",
+      "normalConfigSHA256": "6ae28b53360138fb3d7dc3dc880a5003d416464637fc947622f380386b415760",
+      "normalEpoch": "BF3DEB81-569D-41CF-8408-7666C64BD3BB"
+    },
+    "cleanup-approved-window.json": {
+      "approvalSHA256": "3b29916ebe575c4679159b8241e89974e37779fd27aba330b62f8a9e8852902d",
+      "evidenceSHA256": {
+        "approval.json": "3b29916ebe575c4679159b8241e89974e37779fd27aba330b62f8a9e8852902d",
+        "kill/evidence.json": "ee163c72d0ed7a25c33cfcf7f0853a114a715e064dc4c827596b873c6e31edfd",
+        "kill/group-observation.json": "a6849d455c9c4c2561eeec6cd465abe1291c49f20e5ef2ec8e85075573f23439",
+        "normal/evidence.json": "354fcdb73143c80c7839e5fdc5fa4ae6650aa2ec1fc4149c75d508e0f2bd9503",
+        "normal/normal-success.json": "2a783c692c7c83368a63be6610d670ea55b58dcdf5a83ad59d83d4e50a2a4486"
+      },
+      "format": 1,
+      "sourceCommit": "69728e6abeb27f45f1bbea5b47b5e638d5f0ae9e",
+      "targets": [
+        {
+          "ctimeNS": 1793874609145534213,
+          "device": 16777230,
+          "group": 0,
+          "inode": 172871945,
+          "links": 1,
+          "mode": 420,
+          "mtimeNS": 1793874609145244630,
+          "owner": 0,
+          "path": "/Library/LaunchDaemons/dev.kuro.tun.lifecycle-a.plist",
+          "sha256": "795a80826cc25a696d6f541c9109b66afb7f72fd11addb6af4e62d3fac72f352",
+          "size": 595
+        },
+        {
+          "ctimeNS": 1793874504326920046,
+          "device": 16777230,
+          "group": 80,
+          "inode": 172870948,
+          "links": 1,
+          "mode": 493,
+          "mtimeNS": 1793874504326830171,
+          "owner": 0,
+          "path": "/Library/Application Support/Clash Kuro/TunLifecycleExperimentA/normal/mihomo",
+          "sha256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+          "size": 56810034
+        },
+        {
+          "ctimeNS": 1793874504345845955,
+          "device": 16777230,
+          "group": 80,
+          "inode": 172870951,
+          "links": 1,
+          "mode": 493,
+          "mtimeNS": 1793874504345754497,
+          "owner": 0,
+          "path": "/Library/Application Support/Clash Kuro/TunLifecycleExperimentA/kill/mihomo",
+          "sha256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+          "size": 56810034
+        },
+        {
+          "ctimeNS": 1793874504348252663,
+          "device": 16777230,
+          "group": 0,
+          "inode": 172870952,
+          "links": 1,
+          "mode": 493,
+          "mtimeNS": 1793874504348221705,
+          "owner": 0,
+          "path": "/Library/PrivilegedHelperTools/dev.kuro.tun.lifecycle-a",
+          "sha256": "3e3a2451cc553280bb91b4bb34a05eb7c79df9d90aa0768e04aabd7642054ea0",
+          "size": 457968
+        }
+      ]
+    },
+    "normal/evidence.json": {
+      "child": {
+        "executable": "/Library/Application Support/Clash Kuro/TunLifecycleExperimentA/normal/mihomo",
+        "pid": 33630,
+        "processGroup": 33616,
+        "startMicros": 715438,
+        "startSeconds": 1793874550
+      },
+      "coreSHA256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+      "epoch": "BF3DEB81-569D-41CF-8408-7666C64BD3BB",
+      "fixtureSHA256": "3e3a2451cc553280bb91b4bb34a05eb7c79df9d90aa0768e04aabd7642054ea0",
+      "format": 1,
+      "stage": "normal",
+      "startedMilliseconds": 612113224,
+      "supervisor": {
+        "executable": "/Library/PrivilegedHelperTools/dev.kuro.tun.lifecycle-a",
+        "pid": 33616,
+        "processGroup": 33616,
+        "startMicros": 566634,
+        "startSeconds": 1793874549
+      }
+    },
+    "normal/result.json": {
+      "approvalSHA256": "d02876cfbf3b19527fa0e4a04ad569f77e16a01350f68c72480ccb6efa02fc74",
+      "childReaped": true,
+      "coreSHA256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+      "epoch": "BF3DEB81-569D-41CF-8408-7666C64BD3BB",
+      "error": "",
+      "fixtureSHA256": "3e3a2451cc553280bb91b4bb34a05eb7c79df9d90aa0768e04aabd7642054ea0",
+      "format": 1,
+      "ownerAbsent": true,
+      "stage": "normal",
+      "status": "passed",
+      "termination": {
+        "exitCode": 0,
+        "observed": true,
+        "request": "SIGTERM",
+        "signal": null
+      },
+      "workAbsent": true
+    },
+    "normal/reaped.json": {
+      "cacheIdentity": null,
+      "cleanupAllowed": true,
+      "epoch": "BF3DEB81-569D-41CF-8408-7666C64BD3BB",
+      "failureStage": "held-stop",
+      "format": 1,
+      "output": {
+        "stderr": {
+          "bytesRead": 0,
+          "eof": true,
+          "readErrno": 0,
+          "retainedBytes": 0,
+          "truncated": 0
+        },
+        "stdout": {
+          "bytesRead": 490,
+          "eof": true,
+          "readErrno": 0,
+          "retainedBytes": 490,
+          "truncated": 0
+        }
+      },
+      "stage": "normal",
+      "termination": {
+        "exitCode": 0,
+        "observed": true,
+        "request": "SIGTERM",
+        "signal": null
+      }
+    },
+    "normal/normal-success.json": {
+      "approvalSHA256": "d02876cfbf3b19527fa0e4a04ad569f77e16a01350f68c72480ccb6efa02fc74",
+      "childReaped": true,
+      "coreSHA256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+      "epoch": "BF3DEB81-569D-41CF-8408-7666C64BD3BB",
+      "error": "",
+      "fixtureSHA256": "3e3a2451cc553280bb91b4bb34a05eb7c79df9d90aa0768e04aabd7642054ea0",
+      "format": 1,
+      "ownerAbsent": true,
+      "stage": "normal",
+      "status": "passed",
+      "termination": {
+        "exitCode": 0,
+        "observed": true,
+        "request": "SIGTERM",
+        "signal": null
+      },
+      "workAbsent": true
+    },
+    "kill/evidence.json": {
+      "child": {
+        "executable": "/Library/Application Support/Clash Kuro/TunLifecycleExperimentA/kill/mihomo",
+        "pid": 35089,
+        "processGroup": 35088,
+        "startMicros": 650186,
+        "startSeconds": 1793874635
+      },
+      "coreSHA256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+      "epoch": "76713027-6BD9-484C-B4AA-C1DE01BCB546",
+      "fixtureSHA256": "3e3a2451cc553280bb91b4bb34a05eb7c79df9d90aa0768e04aabd7642054ea0",
+      "format": 1,
+      "stage": "kill",
+      "startedMilliseconds": 612199096,
+      "supervisor": {
+        "executable": "/Library/PrivilegedHelperTools/dev.kuro.tun.lifecycle-a",
+        "pid": 35088,
+        "processGroup": 35088,
+        "startMicros": 569006,
+        "startSeconds": 1793874635
+      }
+    },
+    "kill/group-observation.json": {
+      "child": {
+        "state": "absent"
+      },
+      "elapsedMilliseconds": 5256,
+      "epoch": "76713027-6BD9-484C-B4AA-C1DE01BCB546",
+      "error": "",
+      "groupMembers": [],
+      "groupObservationKnown": true,
+      "ownerExists": true,
+      "supervisor": {
+        "state": "absent"
+      },
+      "workExists": true
+    },
+    "kill/owner.json": {
+      "executableSHA256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+      "format": 2,
+      "launch": {
+        "configSHA256": "10bae2b8fb6a0169b71845e4a99297dda751c5a2ad6e6113d6761312c304087c",
+        "coreSHA256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+        "template": "core-control-experiment-v1"
+      },
+      "parent": 35088,
+      "phase": "prepared",
+      "pid": 35089,
+      "processGroup": 35088,
+      "session": "5F83DBCA-0CFB-4FFB-AFF2-36028C10CBA6",
+      "startMicros": 650186,
+      "startSeconds": 1793874635,
+      "work": {
+        "configSHA256": "10bae2b8fb6a0169b71845e4a99297dda751c5a2ad6e6113d6761312c304087c",
+        "socket": {
+          "device": 16777230,
+          "inode": 172872144
+        }
+      }
+    },
+    "archive-old.log": "OLD858-ARCHIVED: four exact installation files absent; original evidence preserved at /Library/Application Support/Clash Kuro/TunLifecycleExperimentA-root858-preserved. No job start, bootout, signal, recursive deletion or acceptance conversion.\n",
+    "install.log": "Installed fixed experiment only; not bootstrapped. Partial failures are retained.\n",
+    "normal.log": "{\"child\": {\"state\": \"absent\"}, \"elapsedMilliseconds\": 152, \"epoch\": \"BF3DEB81-569D-41CF-8408-7666C64BD3BB\", \"error\": \"\", \"groupMembers\": [], \"groupObservationKnown\": true, \"ownerExists\": false, \"supervisor\": {\"state\": \"absent\"}, \"workExists\": false}\n{\"child\": {\"state\": \"absent\"}, \"elapsedMilliseconds\": 211, \"epoch\": \"BF3DEB81-569D-41CF-8408-7666C64BD3BB\", \"error\": \"\", \"groupMembers\": [], \"groupObservationKnown\": true, \"ownerExists\": false, \"supervisor\": {\"state\": \"absent\"}, \"workExists\": false}\n{\"child\": {\"state\": \"absent\"}, \"elapsedMilliseconds\": 399, \"epoch\": \"BF3DEB81-569D-41CF-8408-7666C64BD3BB\", \"error\": \"\", \"groupMembers\": [], \"groupObservationKnown\": true, \"ownerExists\": false, \"supervisor\": {\"state\": \"absent\"}, \"workExists\": false}\nPRESERVE normal job status: system/dev.kuro.tun.lifecycle-a = {\n\tactive count = 0\n\tpath = /Library/LaunchDaemons/dev.kuro.tun.lifecycle-a.plist\n\ttype = LaunchDaemon\n\tstate = not running\n\n\tprogram = /Library/PrivilegedHelperTools/dev.kuro.tun.lifecycle-a\n\targuments = {\n\t\t/Library/PrivilegedHelperTools/dev.kuro.tun.lifecycle-a\n\t\t--core-supervisor\n\t\tnormal\n\t\tBF3DEB81-569D-41CF-8408-7666C64BD3BB\n\t}\n\n\tdefault environment = {\n\t\tPATH => /usr/bin:/bin:/usr/sbin:/sbin\n\t}\n\n\tenvironment = {\n\t\tOSLogRateLimit => 64\n\t\tXPC_SERVICE_NAME => dev.kuro.tun.lifecycle-a\n\t}\n\n\tdomain = system\n\tminimum runtime = 10\n\texit timeout = 5\n\truns = 1\n\tlast exit code = 0\n\n\tresource coalition = {\n\t\tID = 81652\n\t\ttype = resource\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = dev.kuro.tun.lifecycle-a\n\t}\n\n\tjetsam coalition = {\n\t\tID = 81653\n\t\ttype = jetsam\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = dev.kuro.tun.lifecycle-a\n\t}\n\n\tspawn type = daemon (3)\n\tjetsam priority = 40\n\tjetsam memory limit (active) = (unlimited)\n\tjetsam memory limit (inactive) = (unlimited)\n\tjetsamproperties category = daemon\n\tjetsam thread limit = 32\n\tcpumon = default\n\tsanitizer flags = 0x0\n\n\tproperties = inferred program\n}\n\nNORMAL-PASS; main must independently verify these identities and paths before continuing the distinct kill epoch within the approved window.\n",
+    "prepare-kill.log": "{\"child\": {\"state\": \"absent\"}, \"elapsedMilliseconds\": 57700, \"epoch\": \"BF3DEB81-569D-41CF-8408-7666C64BD3BB\", \"error\": \"\", \"groupMembers\": [], \"groupObservationKnown\": true, \"ownerExists\": false, \"supervisor\": {\"state\": \"absent\"}, \"workExists\": false}\n{\"child\": {\"state\": \"absent\"}, \"elapsedMilliseconds\": 57773, \"epoch\": \"BF3DEB81-569D-41CF-8408-7666C64BD3BB\", \"error\": \"\", \"groupMembers\": [], \"groupObservationKnown\": true, \"ownerExists\": false, \"supervisor\": {\"state\": \"absent\"}, \"workExists\": false}\nDistinct kill epoch prepared, not started. No attempt can be repeated.\n",
+    "kill-test.log": "{\"child\": {\"state\": \"same-instance-live\"}, \"elapsedMilliseconds\": 80, \"epoch\": \"76713027-6BD9-484C-B4AA-C1DE01BCB546\", \"error\": \"\", \"groupMembers\": [35089, 35088], \"groupObservationKnown\": true, \"ownerExists\": true, \"supervisor\": {\"state\": \"same-instance-live\"}, \"workExists\": true}\n{\"child\": {\"state\": \"absent\"}, \"elapsedMilliseconds\": 1179, \"epoch\": \"76713027-6BD9-484C-B4AA-C1DE01BCB546\", \"error\": \"\", \"groupMembers\": [], \"groupObservationKnown\": true, \"ownerExists\": true, \"supervisor\": {\"state\": \"absent\"}, \"workExists\": true}\n{\"child\": {\"state\": \"absent\"}, \"elapsedMilliseconds\": 5256, \"epoch\": \"76713027-6BD9-484C-B4AA-C1DE01BCB546\", \"error\": \"\", \"groupMembers\": [], \"groupObservationKnown\": true, \"ownerExists\": true, \"supervisor\": {\"state\": \"absent\"}, \"workExists\": true}\nGROUP-CLEANUP-PASS (1s/5s observations only). Owner/work intentionally retained after supervisor death; main independently checks identity/path absence, then reviews exact cleanup.\n",
+    "kill-job-before-retire.log": "system/dev.kuro.tun.lifecycle-a = {\n\tactive count = 0\n\tpath = /Library/LaunchDaemons/dev.kuro.tun.lifecycle-a.plist\n\ttype = LaunchDaemon\n\tstate = not running\n\n\tprogram = /Library/PrivilegedHelperTools/dev.kuro.tun.lifecycle-a\n\targuments = {\n\t\t/Library/PrivilegedHelperTools/dev.kuro.tun.lifecycle-a\n\t\t--core-supervisor\n\t\tkill\n\t\t76713027-6BD9-484C-B4AA-C1DE01BCB546\n\t}\n\n\tdefault environment = {\n\t\tPATH => /usr/bin:/bin:/usr/sbin:/sbin\n\t}\n\n\tenvironment = {\n\t\tOSLogRateLimit => 64\n\t\tXPC_SERVICE_NAME => dev.kuro.tun.lifecycle-a\n\t}\n\n\tdomain = system\n\tminimum runtime = 10\n\texit timeout = 5\n\truns = 1\n\tlast terminating signal = Killed: 9\n\n\tresource coalition = {\n\t\tID = 81664\n\t\ttype = resource\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = dev.kuro.tun.lifecycle-a\n\t}\n\n\tjetsam coalition = {\n\t\tID = 81665\n\t\ttype = jetsam\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = dev.kuro.tun.lifecycle-a\n\t}\n\n\tspawn type = daemon (3)\n\tjetsam priority = 40\n\tjetsam memory limit (active) = (unlimited)\n\tjetsam memory limit (inactive) = (unlimited)\n\tjetsamproperties category = daemon\n\tjetsam thread limit = 32\n\tcpumon = default\n\tsanitizer flags = 0x0\n\n\tproperties = inferred program\n}\n",
+    "retire-kill.log": "{\"child\": {\"state\": \"absent\"}, \"elapsedMilliseconds\": 69477, \"epoch\": \"76713027-6BD9-484C-B4AA-C1DE01BCB546\", \"error\": \"\", \"groupMembers\": [], \"groupObservationKnown\": true, \"ownerExists\": true, \"supervisor\": {\"state\": \"absent\"}, \"workExists\": true}\n{\"child\": {\"state\": \"absent\"}, \"elapsedMilliseconds\": 69537, \"epoch\": \"76713027-6BD9-484C-B4AA-C1DE01BCB546\", \"error\": \"\", \"groupMembers\": [], \"groupObservationKnown\": true, \"ownerExists\": true, \"supervisor\": {\"state\": \"absent\"}, \"workExists\": true}\nJob absent; root files/evidence retained. No recursive cleanup or persisted-PID adoption. Main must review exact known-file removal separately.\n",
+    "cleanup.log": "CLEANUP-PASS: four exact installation files absent; approval/logs/owner/work/cache and all directories retained. No PID/group signal or recursive deletion.\n"
+  },
+  "job": {
+    "exit": 113,
+    "stdout": "",
+    "stderr": "Bad request.\nCould not find service \"dev.kuro.tun.lifecycle-a\" in domain for system\n"
+  }
+}

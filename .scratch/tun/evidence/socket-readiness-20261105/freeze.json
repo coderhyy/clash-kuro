@@ -1,0 +1,29 @@
+{
+  "files": [
+    {
+      "file": "index.ts",
+      "baselineSHA256": "b1542f8beead9ac1f1195cfbfd4f1990787883dcdda095a29dfb90828f8461cd",
+      "candidateSHA256": "cea97d210e0e55e41c2124cc8fd8f63ceed1d82ec431b7b69f2e543dfa76c4fb"
+    },
+    {
+      "file": "platform.test.ts",
+      "baselineSHA256": "fdd51d0e35e876a3843ce6a59567ff9dc185b9ad65aeff068b5188f3994ca79d",
+      "candidateSHA256": "be47e6d232bcb43af2f1bc5f3998a7b553cd7ad92954e6613f67c8a3a4c82bce"
+    }
+  ],
+  "patchSHA256": "759fa24d5132c921db2213803f30c34f0234d7dc553031d54b222580ec07504f",
+  "evidence": {
+    "RESULT.md": "c39f702590a65131eeff655fa4948e9e0bb045a5d1d68a97027efe689cdf1ca1",
+    "fixed-core-server.go.evidence": "01724bd82002cf80b85448ef664ca53a7cb82f529ccf2b7f4a6383282768d256",
+    "green.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "green.stdout.log": "d0a305253da2c661d97089439396ee9dd17577da17429cb354c1efb61119af4e",
+    "platform.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "platform.stdout.log": "9ef211ec4aa13585f3a54413a41d58f9f72da79d099dbaac8ede1463b7da3a0f",
+    "red.stderr.log": "ab2ee0fe60b6e125542ec18cbdf3c784a80815724ae52e55d720486df38ff8fa",
+    "red.stdout.log": "7da42c37c94da137274be18061e30add2acb74d4599dab9a5dae66f3560d4928",
+    "tsconfig.json": "7c730e6fcd9f7350a87bd40b84f40ecad7ee6d2811bfca95e5c6c0bf7a19ed1d",
+    "typecheck.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "typecheck.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "verification.json": "3e9c3d8dcccbdb9aa355ff46d5fd3ce60b93482141d4aad5b9bfb64bea1f9cb9"
+  }
+}

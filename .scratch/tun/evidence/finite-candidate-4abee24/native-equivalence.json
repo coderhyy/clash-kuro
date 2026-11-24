@@ -1,0 +1,7 @@
+{
+  "validatedSource": "4a8c7acff81f1c52e9dfab221363638161e952bd",
+  "currentSource": "4abee2431de852244e43bf5ecab86cfcf91fb259",
+  "identicalFrozenExperimentSourceFiles": 19,
+  "helperSHA256": "28f7d71bbf34587d289ff4c19095f1f779e2bdfba79b011f6380069d8b570391",
+  "result": "same production native and experiment code; test/docs-only later commit, no new real execution claimed"
+}

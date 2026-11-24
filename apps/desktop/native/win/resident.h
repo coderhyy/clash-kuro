@@ -411,10 +411,11 @@ static DWORD WINAPI resident_report(void *unused) {
   ULONGLONG completed = (ULONGLONG)InterlockedCompareExchange64((LONG64 *)&resident.cleanup_completed, 0, 0);
   char cleanup_duration[32] = "null";
   if (completed) snprintf(cleanup_duration, sizeof cleanup_duration, "%llu", completed - resident.start);
+  int ok = resident_load(&resident.clear_ok) && !resident.timed_out && resident.core_gone;
   putf(&report, "{\"command\":\"shutdown\",\"ok\":%s,\"timedOut\":%s,\"coreGone\":%s,\"corePid\":%lu,\"durationMs\":%llu,\"cleanupDurationMs\":%s,"
     "\"pid\":%lu,\"timestamp\":\"%04u-%02u-%02uT%02u:%02u:%02u.%03uZ\","
     "\"triggerMask\":%lu,\"queryEvents\":%lu,\"endEvents\":%lu,\"sessionFlags\":%lu",
-    resident_load(&resident.clear_ok) && !resident.timed_out && resident.core_gone ? "true" : "false",
+    ok ? "true" : "false",
     resident.timed_out ? "true" : "false", resident.core_gone ? "true" : "false",
     (unsigned long)resident_load(&resident.core_pid), GetTickCount64() - resident.start, cleanup_duration,
     GetCurrentProcessId(), time.wYear, time.wMonth, time.wDay, time.wHour, time.wMinute, time.wSecond, time.wMilliseconds,
@@ -446,8 +447,10 @@ static DWORD WINAPI resident_report(void *unused) {
   if (readback_end && check->readback.len) put(&report, check->readback.data, check->readback.len - 1);
   else puts_(&report, "null");
   puts_(&report, "}\n");
+  // A failed report grants no cleanup success; publish it before the optional log can block.
+  if (!ok) resident_write(report.data, report.len);
   log_append(report.data, report.len);
-  resident_write(report.data, report.len);
+  if (ok) resident_write(report.data, report.len);
   free(report.data);
   SetEvent(resident.reported);
   return 0;

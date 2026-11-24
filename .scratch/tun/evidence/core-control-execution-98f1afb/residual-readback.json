@@ -1,0 +1,40 @@
+[
+  {
+    "stage": "normal",
+    "base": "/private/tmp/kuro-core-idaqUY",
+    "baseAbsent": true,
+    "processReadback": [
+      {
+        "pid": 25909,
+        "bytes": 0,
+        "errno": 3
+      },
+      {
+        "pid": 25908,
+        "bytes": 0,
+        "errno": 3
+      }
+    ],
+    "diagnosticsDirectory": "/private/tmp/kuro-core-evidence-vSXPvl",
+    "diagnosticsRetained": true
+  },
+  {
+    "stage": "eof",
+    "base": "/private/tmp/kuro-core-T4fT0r",
+    "baseAbsent": true,
+    "processReadback": [
+      {
+        "pid": 25945,
+        "bytes": 0,
+        "errno": 3
+      },
+      {
+        "pid": 25944,
+        "bytes": 0,
+        "errno": 3
+      }
+    ],
+    "diagnosticsDirectory": "/private/tmp/kuro-core-evidence-9TLzGE",
+    "diagnosticsRetained": true
+  }
+]

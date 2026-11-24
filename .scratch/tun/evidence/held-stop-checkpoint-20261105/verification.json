@@ -1,0 +1,32 @@
+[
+  {
+    "name": "production-compile",
+    "exitCode": 0,
+    "wallSeconds": 1.384
+  },
+  {
+    "name": "focused-compile",
+    "exitCode": 0,
+    "wallSeconds": 2.571
+  },
+  {
+    "name": "focused",
+    "exitCode": 0,
+    "wallSeconds": 2.477
+  },
+  {
+    "name": "full-compile",
+    "exitCode": 0,
+    "wallSeconds": 2.496
+  },
+  {
+    "name": "full-fixtures",
+    "exitCode": 0,
+    "wallSeconds": 20.7
+  },
+  {
+    "name": "upgrade-fixtures",
+    "exitCode": 0,
+    "wallSeconds": 41.495
+  }
+]

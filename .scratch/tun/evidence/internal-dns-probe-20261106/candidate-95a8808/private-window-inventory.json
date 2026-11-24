@@ -1,0 +1,462 @@
+[
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/active-dns-store.json",
+    "sha256": "7e6aa4065348a2dfd98ef83b0f304366203db2684606f837669e9527e893597c",
+    "size": 485
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/active-dns.json",
+    "sha256": "35fb55e98b22adad5ce5d8aaf1c075d024953277d97fb29b42e98d01cba09481",
+    "size": 1481
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/active-interfaces.json",
+    "sha256": "8fa063a0aef369bc20342e5460ba7fe7ccb5e185750ebf8e4cd2d3ec691da467",
+    "size": 5341
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/active-proxy.json",
+    "sha256": "d44a23ab899513ae4a228a8403bfd6558ec3ab095fdb699372ecb7844f904059",
+    "size": 201
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/active-routes4.json",
+    "sha256": "5da6c71a214af4f23187dfc0ec2eb83383ba758678c650396716aea358d3aa2b",
+    "size": 2884
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/active-routes6.json",
+    "sha256": "1b36a1f48981569808d9c1af2544066a2e1b0503052cac4e488ce44a11e59e51",
+    "size": 8741
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/active-state.json",
+    "sha256": "7dc10ab4388bfb9d8c6fd178aba8dc67e42f0028dbed21ff1e5efe035ddbbcad",
+    "size": 7649
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/app-ready-status.json",
+    "sha256": "48a8b425812be661d0bd59b9799ea157407c4a6a15313be32351abe66645c590",
+    "size": 72
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/baseline-command-spec.json",
+    "sha256": "ef91fef19e8a6adc33f0fe2e58387b2d25edc6bea4d0eddfb8adce0d9c37f420",
+    "size": 4506
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/baseline-default4.json",
+    "sha256": "40b77a2423480ff84336c9dd91e74d6dc9d2fbb661f51d5ca09803ab8142250e",
+    "size": 463
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/baseline-default6.json",
+    "sha256": "efeb2cfb825a61ad0dde7dcee595017279bb3a7d636859686f5bc4667adf45b9",
+    "size": 197
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/baseline-disabled.json",
+    "sha256": "dbe42c4fdce22c2a46bcc7ac46cd324fecdb83669b6e7955329b77abff5885bb",
+    "size": 913
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/baseline-dns-keys.json",
+    "sha256": "f2829ae81e1d6c92e6e5d89b3f479556691b018470d6d2118c8dae725a639b6b",
+    "size": 328
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/baseline-dns-store.json",
+    "sha256": "5784aa24a4d4711b07098e0c73c96cfe7ac2c2ead2f7ec7ebf190a70cf37d542",
+    "size": 714
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/baseline-dns.json",
+    "sha256": "16b2a84b663b83653a214b545d3c369a6283ebb2f284bb141aa5c637f11c2bfc",
+    "size": 1551
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/baseline-interfaces.json",
+    "sha256": "b19e59c4c226eeecee4551506d6c7279c5dfa704a7a85bd8bb9777dc428182ae",
+    "size": 5406
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/baseline-job.json",
+    "sha256": "ebe86c5096e3ff0464cf71ae4d865fb79071ead383eab1d4508071f33f17cb03",
+    "size": 220
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/baseline-nwi.json",
+    "sha256": "8a9b376f06925edb7652406afb4a547e1561c11bfd2de3a3d1110137cea6eb27",
+    "size": 484
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/baseline-proxy.json",
+    "sha256": "542d32fee8a0efa422435354dea9a3b8c27c852c5422b0b37a3843df535ae07e",
+    "size": 273
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/baseline-receipts.json",
+    "sha256": "27554a0c4a66c88d9e465a3f56395d60f45f48263999b5993001f6c34a03c3a2",
+    "size": 1610
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/baseline-routes4.json",
+    "sha256": "eb074bd3c7299465378871c071f922eb0f3d815f7e51b46abc7afc75f5f68e17",
+    "size": 2903
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/baseline-routes6.json",
+    "sha256": "62035ba121cd9d5ee8ed057e3d0d2f276f6fc18c620e3cca0845b5c6890b9399",
+    "size": 8947
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/baseline-service-0-getdnsservers.json",
+    "sha256": "8d0474aa5b5bf257ca2564b0e11ad83274c25c731ac0990e11b3c8a82532c56e",
+    "size": 215
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/baseline-service-0-getproxybypassdomains.json",
+    "sha256": "c0dc8f94db01fc0b004bd7014b251f4fa5c0070c65d76fa98e1f3a53cc79de19",
+    "size": 193
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/baseline-service-0-getsecurewebproxy.json",
+    "sha256": "f6466b3bc8de7ea3662964dde888d55d2f187188c8182ffbaa52b70b70cc53f0",
+    "size": 238
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/baseline-service-0-getsocksfirewallproxy.json",
+    "sha256": "9fe7235045f27d2ecf5facf3f98c90d01f447fcbebf629dc6db45213d5ac4f22",
+    "size": 242
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/baseline-service-0-getwebproxy.json",
+    "sha256": "ed30a136afcd42a571694da1dc3378436417af95c49c7f0356957e9589aa328d",
+    "size": 232
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/baseline-service-1-getdnsservers.json",
+    "sha256": "e2b8d5f3a1ca04a81a3d2d1f3f02700799055e19b5ea05465674697676bb317f",
+    "size": 189
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/baseline-service-1-getproxybypassdomains.json",
+    "sha256": "f925153bbb85d85c4f841e652631a426379b921a9ab651b55767acd460a53d44",
+    "size": 200
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/baseline-service-1-getsecurewebproxy.json",
+    "sha256": "9d079b9986d20743cf5bd2c112e8998e3a6036904f98d426d4271aace7bc5623",
+    "size": 213
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/baseline-service-1-getsocksfirewallproxy.json",
+    "sha256": "99f6d106f0592f47bcac8c194bd0caf1838179d5050e706be98219267c31c9ef",
+    "size": 217
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/baseline-service-1-getwebproxy.json",
+    "sha256": "e68e557f234232ff751f36d5fa97eb52eacfe24b87e20d0276cccaf01ccd8eb8",
+    "size": 207
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/baseline-service-2-getdnsservers.json",
+    "sha256": "d81773c5f677b15cdb4d01d7e032a71d6687bc2b08f50e79fbc9a43f49fd9a66",
+    "size": 199
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/baseline-service-2-getproxybypassdomains.json",
+    "sha256": "3849d68aee2b733eda9c5f464833ec21c008ec58ef0b40dd979f57a7c5044ea8",
+    "size": 185
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/baseline-service-2-getsecurewebproxy.json",
+    "sha256": "8eaa0cc73e204afad3aac4b9f269e1a3c41276ef496a44ac377c8c7456b3fd43",
+    "size": 230
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/baseline-service-2-getsocksfirewallproxy.json",
+    "sha256": "18bda6d4c81f182008ec38293bd63fcada3c2ac02613728d44450a8bc59c5ee3",
+    "size": 222
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/baseline-service-2-getwebproxy.json",
+    "sha256": "60938e1d58fd12c52bad4118ff2a8367c63954fa503a87b4d0dbee7cb153e828",
+    "size": 224
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/baseline-services.json",
+    "sha256": "047f66c03c81666efa90e2906afb604b35f3238ca69fe0a9094071b8c6fc269f",
+    "size": 241
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/bootout.json",
+    "sha256": "598605456dc9651f85e4cd82c15f23bea4aafc89571f4844f0b7b586f2092f39",
+    "size": 47
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/candidate.json",
+    "sha256": "97485f2c0e24432669527591c490e4ccdbaaf057f3d7f0784a0d7a5e23fd5203",
+    "size": 4586
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/capture-active.py",
+    "sha256": "ede9cb30a88855b1276a95c793ddc9a93b57cc3f6f50bc820565c9a9e3042c02",
+    "size": 811
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/cleanup-dns-comparison.json",
+    "sha256": "3b0c67355942fd80f7abb46055b6f091095fc54de63b58346ee43b7c9d26fae9",
+    "size": 29
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/cleanup-dns-store-comparison.json",
+    "sha256": "3b0c67355942fd80f7abb46055b6f091095fc54de63b58346ee43b7c9d26fae9",
+    "size": 29
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/cleanup-dns-store.json",
+    "sha256": "7e6aa4065348a2dfd98ef83b0f304366203db2684606f837669e9527e893597c",
+    "size": 485
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/cleanup-dns.json",
+    "sha256": "35fb55e98b22adad5ce5d8aaf1c075d024953277d97fb29b42e98d01cba09481",
+    "size": 1481
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/cleanup-production-preflight.json",
+    "sha256": "b8c8c680b92fa4a2eabfe495e181cd7faadfbbc6979ff82eb6ac061ad31df554",
+    "size": 69959
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/cleanup-proxy-comparison.json",
+    "sha256": "3b0c67355942fd80f7abb46055b6f091095fc54de63b58346ee43b7c9d26fae9",
+    "size": 29
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/cleanup-proxy.json",
+    "sha256": "d44a23ab899513ae4a228a8403bfd6558ec3ab095fdb699372ecb7844f904059",
+    "size": 201
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/cleanup-routes4-comparison.json",
+    "sha256": "5df4767b8801d3a8c1012358fa3ccd7d3f430df721900d1b45f9ed0b90bc1195",
+    "size": 30
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/cleanup-routes4.json",
+    "sha256": "501219f576d230ce1b30888e27d694a8b97800c671e322af98fb7a640f31d21b",
+    "size": 2884
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/cleanup-routes6-comparison.json",
+    "sha256": "5df4767b8801d3a8c1012358fa3ccd7d3f430df721900d1b45f9ed0b90bc1195",
+    "size": 30
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/cleanup-routes6.json",
+    "sha256": "13d3cc8d6e39029f830c16ecf1d5a3845ef54cf873e8cd9fb69430a78b09eff5",
+    "size": 8627
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/diagnostics.json",
+    "sha256": "24583ab2e555a3421df8ceec2bfd583dee3d7fe436f2c2b4baafcfafde76962d",
+    "size": 31942
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/expected-absent-paths.json",
+    "sha256": "ecc967aaca8787f5c1ccc8a864c3fb9264a3e4b1fcc3c338e38acd06b664eca2",
+    "size": 695
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/final-job.json",
+    "sha256": "569f3d4eaff8b437d092bc73b37616bdb3090c5117d170b2e31298daee5664d0",
+    "size": 125
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/final-processes.json",
+    "sha256": "90d6a368f7463cb60b3a5b285e6ed296318d1b8e79e2c222c560e8f451634ac1",
+    "size": 158096
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/held-cleanup-before.json",
+    "sha256": "ce7bd90108ec81750348c1848ff2b3d599669c8aadae21be4299501cdd7d9c5d",
+    "size": 164491
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/held-cleanup.py",
+    "sha256": "8510ebde34260c32ae7a118238c8a4a9214fdece82ba68f290a1d6d6fb684e37",
+    "size": 3146
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/inspect-state.py",
+    "sha256": "8598a4c54bea2227f903a9993e9caac36b15c1cd294c2169b17a459e10f53938",
+    "size": 947
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/install.py",
+    "sha256": "b56c48ee5fde68126b003584d83a320d03584cfb89a092a2c058634ee3bb2612",
+    "size": 2097
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/installation.json",
+    "sha256": "6294b2b2cb765ca794f80324ee2da2afb7090a964a4a4fd94f6df57fd6e86239",
+    "size": 202
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/installed-app.json",
+    "sha256": "7fef3eb9ba37f674a330b9769d86641d5211e26b62a33c1c8f0aa30b300a6cf4",
+    "size": 516
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/installed-readback.json",
+    "sha256": "8a9bdc8b925509aebb9855bf3f46e2ed58bca475f47fed780ad0ac2e974e7519",
+    "size": 91932
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/installed-receipt.plist",
+    "sha256": "16c1d950af56c6e3d6553573e3dd1d1dc7820c2d2a3bcd60236ac59ad72e83ab",
+    "size": 488
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/job-after.json",
+    "sha256": "569f3d4eaff8b437d092bc73b37616bdb3090c5117d170b2e31298daee5664d0",
+    "size": 125
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/job-before-load.json",
+    "sha256": "569f3d4eaff8b437d092bc73b37616bdb3090c5117d170b2e31298daee5664d0",
+    "size": 125
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/job-loaded.json",
+    "sha256": "12e33c87820ac61dbeeb493e6a10cd4f7dfc23fa0cf08ed26e34c538b9fd8127",
+    "size": 1189
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/kickstart.json",
+    "sha256": "598605456dc9651f85e4cd82c15f23bea4aafc89571f4844f0b7b586f2092f39",
+    "size": 47
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/load-helper.py",
+    "sha256": "b9d7db2d1f5813f4590a9712c1c50ac74b5d2606866e0ee19a4ba702000917c0",
+    "size": 1079
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/load.json",
+    "sha256": "598605456dc9651f85e4cd82c15f23bea4aafc89571f4844f0b7b586f2092f39",
+    "size": 47
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/observe-test-flow.py",
+    "sha256": "ca09f03a1e6f1456527cc010688c7a43c3f0747d86fbc73423fe755d0fbe70b3",
+    "size": 2443
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/paths-after.json",
+    "sha256": "ecc967aaca8787f5c1ccc8a864c3fb9264a3e4b1fcc3c338e38acd06b664eca2",
+    "size": 695
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/paths-before.json",
+    "sha256": "ecc967aaca8787f5c1ccc8a864c3fb9264a3e4b1fcc3c338e38acd06b664eca2",
+    "size": 695
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/pre-execution-hashes.json",
+    "sha256": "68924a90302c1aa75d0af03c8c53c4e31a038e6f08ae291ee94b8ed1be5509fb",
+    "size": 1853
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/preflight.py",
+    "sha256": "b772ac714be8887959bb87662696cb44db031cc41088dd4609448d64772ef6a7",
+    "size": 2082
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/preinstall-dns-store.json",
+    "sha256": "7e6aa4065348a2dfd98ef83b0f304366203db2684606f837669e9527e893597c",
+    "size": 485
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/preinstall-dns.json",
+    "sha256": "35fb55e98b22adad5ce5d8aaf1c075d024953277d97fb29b42e98d01cba09481",
+    "size": 1481
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/preinstall-production-preflight-stable.json",
+    "sha256": "d2c21662f4d45e526ab912ff4ec2b24ef4d79c61c9a4116c1420fc38e4d0be4e",
+    "size": 69245
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/preinstall-proxy.json",
+    "sha256": "d44a23ab899513ae4a228a8403bfd6558ec3ab095fdb699372ecb7844f904059",
+    "size": 201
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/processes-before.json",
+    "sha256": "774901175a95babe85780a3e7a3272de22a7132c5d0114463d858ea5d5df9294",
+    "size": 156677
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/production-preflight.json",
+    "sha256": "b23e98b59efe618906486204ce3aadb32038bc6cd4ea7eaaa96877caab3b52df",
+    "size": 75708
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/read-diagnostics.py",
+    "sha256": "f1f43fa2c922ca1ee3e384d05a4d91087b48f2ffe8302e4b60bbd69ba648ee38",
+    "size": 549
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/receipt-after.json",
+    "sha256": "e34e0b695dea0ee384ee71e7ede3b3f9c14c815470a9ad3ac6a0c8df5808a46a",
+    "size": 101
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/receipt-before-forget.json",
+    "sha256": "bcef6d3fb507b2a1e1b5f7e42ab3bb6b1babd3909171db5acc6667854013b764",
+    "size": 576
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/receipt-cleanup.py",
+    "sha256": "d39f5ad2bf9ca9fd7da2fa50762c557b8e249d7c4af171d3352829a671e1ea24",
+    "size": 1633
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/receipt-forget.json",
+    "sha256": "0c5347ff1659ad3be2b5f5af3840902b302f22a68cc7b737acf3e1599d7652bf",
+    "size": 95
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/router-path.json",
+    "sha256": "612892ff23d3d04ce0ae32e818805069e28ed60d5098e3019e4634f684072932",
+    "size": 438
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/timeout-state.json",
+    "sha256": "7dc10ab4388bfb9d8c6fd178aba8dc67e42f0028dbed21ff1e5efe035ddbbcad",
+    "size": 7649
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/uninstall-result.json",
+    "sha256": "ef94c6eb5afe9f00a3e734a8edb604eb4c363d9d7f662c6f7c1cc9ceb7f2fd93",
+    "size": 199
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/verify-app.mjs",
+    "sha256": "3a976f13c893aea9eae782ca26e6b5abd77a5dcd2cab118d228644898ce718f1",
+    "size": 1176
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/verify-installed-result.json",
+    "sha256": "1e273e5bd75723a141fe7a9564bb071c9f7653afea1ee8a8fb1cb29716f3aec9",
+    "size": 95
+  },
+  {
+    "path": "/private/tmp/kuro-95a8808-window-t_dp13rl/verify-installed.py",
+    "sha256": "1e7b245bc5ecd19d27b27e0f1fc7f86254eb797ef06800b50ed1924ccf8b19b4",
+    "size": 1346
+  }
+]

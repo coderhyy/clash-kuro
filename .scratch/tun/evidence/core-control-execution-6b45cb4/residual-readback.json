@@ -1,0 +1,17 @@
+{
+  "baseAbsent": true,
+  "processes": [
+    {
+      "pid": 25284,
+      "bytes": 0,
+      "errno": 3
+    },
+    {
+      "pid": 25283,
+      "bytes": 0,
+      "errno": 3
+    }
+  ],
+  "normalSuccessAbsent": true,
+  "eofAttemptAbsent": true
+}

@@ -1,0 +1,316 @@
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/desktop/src/main/platform/platform.test.ts [ apps/desktop/src/main/platform/platform.test.ts ]
+Error: listen EPERM: operation not permitted 127.0.0.1:38474
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/23]⎯
+
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 22 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/desktop/src/main/platform/macos-tun.test.ts > real local socket exchanges bounded versioned frames without starting a service
+Error: listen EPERM: operation not permitted /tmp/kuro-tun-wire-KyQSVR/s
+ ❯ apps/desktop/src/main/platform/macos-tun.test.ts:92:87
+     90|     socket.on('end', () => socket.end(`${JSON.stringify({ version: 1, …
+     91|   })
+     92|   await new Promise<void>((resolve, reject) => { server.once('error', …
+       |                                                                                       ^
+     93|   onTestFinished(async () => { await new Promise<void>(resolve => serv…
+     94|   expect(await requestTunHelper('status', path)).toEqual(off)
+ ❯ apps/desktop/src/main/platform/macos-tun.test.ts:92:9
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/23]⎯
+
+ FAIL  apps/desktop/src/main/platform/macos-tun.test.ts > hung peer has a deadline and cannot later publish success
+Error: listen EPERM: operation not permitted /tmp/kt-timeout-amoamP/s
+ ❯ apps/desktop/src/main/platform/macos-tun.test.ts:103:87
+    101|   const sockets = new Set<import('node:net').Socket>()
+    102|   const server = createServer({ allowHalfOpen: true }, socket => { soc…
+    103|   await new Promise<void>((resolve, reject) => { server.once('error', …
+       |                                                                                       ^
+    104|   onTestFinished(async () => { for (const socket of sockets) socket.de…
+    105|   await expect(requestTunHelper('status', path, 30)).rejects.toThrow('…
+ ❯ apps/desktop/src/main/platform/macos-tun.test.ts:103:9
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/23]⎯
+
+ FAIL  apps/desktop/src/main/platform/macos-tun.test.ts > V2 sends the complete config, bounded heartbeats and exact monotonically sequenced stop
+Error: listen EPERM: operation not permitted /tmp/kt-v2-QkafkG/s
+ ❯ path.path apps/desktop/src/main/platform/macos-tun.test.ts:173:87
+    171|     socket.on('error', () => {})
+    172|   })
+    173|   await new Promise<void>((resolve, reject) => { server.once('error', …
+       |                                                                                       ^
+    174|   return { path, dispose: async () => {
+    175|     for (const socket of sockets) socket.destroy()
+ ❯ fixture apps/desktop/src/main/platform/macos-tun.test.ts:173:9
+ ❯ apps/desktop/src/main/platform/macos-tun.test.ts:186:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/23]⎯
+
+ FAIL  apps/desktop/src/main/platform/macos-tun.test.ts > rejects invalid or denied V2 open {"version":1,"ok":true,"session":"46c21f68-d929-4bf9-8adf-de4f27a33809","leaseMilliseconds":15000,"sequence":0,"status":{"availability":"ready","state":"on"}} without a V1 fallback
+Error: listen EPERM: operation not permitted /tmp/kt-v2-nPc26b/s
+ ❯ path.path apps/desktop/src/main/platform/macos-tun.test.ts:173:87
+    171|     socket.on('error', () => {})
+    172|   })
+    173|   await new Promise<void>((resolve, reject) => { server.once('error', …
+       |                                                                                       ^
+    174|   return { path, dispose: async () => {
+    175|     for (const socket of sockets) socket.destroy()
+ ❯ fixture apps/desktop/src/main/platform/macos-tun.test.ts:173:9
+ ❯ apps/desktop/src/main/platform/macos-tun.test.ts:213:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/23]⎯
+
+ FAIL  apps/desktop/src/main/platform/macos-tun.test.ts > rejects invalid or denied V2 open {"version":2,"ok":true,"session":"46c21f68-d929-4bf9-8adf-de4f27a33809","leaseMilliseconds":15000,"sequence":1,"status":{"availability":"ready","state":"on"}} without a V1 fallback
+Error: listen EPERM: operation not permitted /tmp/kt-v2-w7ZBvJ/s
+ ❯ path.path apps/desktop/src/main/platform/macos-tun.test.ts:173:87
+    171|     socket.on('error', () => {})
+    172|   })
+    173|   await new Promise<void>((resolve, reject) => { server.once('error', …
+       |                                                                                       ^
+    174|   return { path, dispose: async () => {
+    175|     for (const socket of sockets) socket.destroy()
+ ❯ fixture apps/desktop/src/main/platform/macos-tun.test.ts:173:9
+ ❯ apps/desktop/src/main/platform/macos-tun.test.ts:213:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/23]⎯
+
+ FAIL  apps/desktop/src/main/platform/macos-tun.test.ts > rejects invalid or denied V2 open {"version":2,"ok":true,"session":"46c21f68-d929-4bf9-8adf-de4f27a33809","leaseMilliseconds":999999,"sequence":0,"status":{"availability":"ready","state":"on"}} without a V1 fallback
+Error: listen EPERM: operation not permitted /tmp/kt-v2-zY1c03/s
+ ❯ path.path apps/desktop/src/main/platform/macos-tun.test.ts:173:87
+    171|     socket.on('error', () => {})
+    172|   })
+    173|   await new Promise<void>((resolve, reject) => { server.once('error', …
+       |                                                                                       ^
+    174|   return { path, dispose: async () => {
+    175|     for (const socket of sockets) socket.destroy()
+ ❯ fixture apps/desktop/src/main/platform/macos-tun.test.ts:173:9
+ ❯ apps/desktop/src/main/platform/macos-tun.test.ts:213:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/23]⎯
+
+ FAIL  apps/desktop/src/main/platform/macos-tun.test.ts > rejects invalid or denied V2 open {"version":2,"ok":true,"session":"/bin/sh","leaseMilliseconds":15000,"sequence":0,"status":{"availability":"ready","state":"on"}} without a V1 fallback
+Error: listen EPERM: operation not permitted /tmp/kt-v2-0Cx8hH/s
+ ❯ path.path apps/desktop/src/main/platform/macos-tun.test.ts:173:87
+    171|     socket.on('error', () => {})
+    172|   })
+    173|   await new Promise<void>((resolve, reject) => { server.once('error', …
+       |                                                                                       ^
+    174|   return { path, dispose: async () => {
+    175|     for (const socket of sockets) socket.destroy()
+ ❯ fixture apps/desktop/src/main/platform/macos-tun.test.ts:173:9
+ ❯ apps/desktop/src/main/platform/macos-tun.test.ts:213:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/23]⎯
+
+ FAIL  apps/desktop/src/main/platform/macos-tun.test.ts > rejects invalid or denied V2 open {"version":2,"ok":true,"session":"46c21f68-d929-4bf9-8adf-de4f27a33809","leaseMilliseconds":15000,"sequence":0,"status":{"availability":"ready","state":"off"}} without a V1 fallback
+Error: listen EPERM: operation not permitted /tmp/kt-v2-mX1rTz/s
+ ❯ path.path apps/desktop/src/main/platform/macos-tun.test.ts:173:87
+    171|     socket.on('error', () => {})
+    172|   })
+    173|   await new Promise<void>((resolve, reject) => { server.once('error', …
+       |                                                                                       ^
+    174|   return { path, dispose: async () => {
+    175|     for (const socket of sockets) socket.destroy()
+ ❯ fixture apps/desktop/src/main/platform/macos-tun.test.ts:173:9
+ ❯ apps/desktop/src/main/platform/macos-tun.test.ts:213:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/23]⎯
+
+ FAIL  apps/desktop/src/main/platform/macos-tun.test.ts > rejects invalid or denied V2 open {"version":2,"ok":true,"session":"46c21f68-d929-4bf9-8adf-de4f27a33809","leaseMilliseconds":15000,"sequence":0,"status":{"availability":"ready","state":"on"},"command":"start"} without a V1 fallback
+Error: listen EPERM: operation not permitted /tmp/kt-v2-oJBD6L/s
+ ❯ path.path apps/desktop/src/main/platform/macos-tun.test.ts:173:87
+    171|     socket.on('error', () => {})
+    172|   })
+    173|   await new Promise<void>((resolve, reject) => { server.once('error', …
+       |                                                                                       ^
+    174|   return { path, dispose: async () => {
+    175|     for (const socket of sockets) socket.destroy()
+ ❯ fixture apps/desktop/src/main/platform/macos-tun.test.ts:173:9
+ ❯ apps/desktop/src/main/platform/macos-tun.test.ts:213:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/23]⎯
+
+ FAIL  apps/desktop/src/main/platform/macos-tun.test.ts > rejects invalid or denied V2 open {"version":2,"ok":false,"error":"root authorization gate denied"} without a V1 fallback
+Error: listen EPERM: operation not permitted /tmp/kt-v2-gUO5hb/s
+ ❯ path.path apps/desktop/src/main/platform/macos-tun.test.ts:173:87
+    171|     socket.on('error', () => {})
+    172|   })
+    173|   await new Promise<void>((resolve, reject) => { server.once('error', …
+       |                                                                                       ^
+    174|   return { path, dispose: async () => {
+    175|     for (const socket of sockets) socket.destroy()
+ ❯ fixture apps/desktop/src/main/platform/macos-tun.test.ts:173:9
+ ❯ apps/desktop/src/main/platform/macos-tun.test.ts:213:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/23]⎯
+
+ FAIL  apps/desktop/src/main/platform/macos-tun.test.ts > rejects duplicate keys, pipelined frames and oversized replies
+Error: listen EPERM: operation not permitted /tmp/kt-v2-LjsBiu/s
+ ❯ path.path apps/desktop/src/main/platform/macos-tun.test.ts:173:87
+    171|     socket.on('error', () => {})
+    172|   })
+    173|   await new Promise<void>((resolve, reject) => { server.once('error', …
+       |                                                                                       ^
+    174|   return { path, dispose: async () => {
+    175|     for (const socket of sockets) socket.destroy()
+ ❯ fixture apps/desktop/src/main/platform/macos-tun.test.ts:173:9
+ ❯ apps/desktop/src/main/platform/macos-tun.test.ts:225:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/23]⎯
+
+ FAIL  apps/desktop/src/main/platform/macos-tun.test.ts > rejects duplicate keys, pipelined frames and oversized replies
+Error: listen EPERM: operation not permitted /tmp/kt-v2-sOKrPf/s
+ ❯ path.path apps/desktop/src/main/platform/macos-tun.test.ts:173:87
+    171|     socket.on('error', () => {})
+    172|   })
+    173|   await new Promise<void>((resolve, reject) => { server.once('error', …
+       |                                                                                       ^
+    174|   return { path, dispose: async () => {
+    175|     for (const socket of sockets) socket.destroy()
+ ❯ fixture apps/desktop/src/main/platform/macos-tun.test.ts:173:9
+ ❯ apps/desktop/src/main/platform/macos-tun.test.ts:225:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/23]⎯
+
+ FAIL  apps/desktop/src/main/platform/macos-tun.test.ts > rejects duplicate keys, pipelined frames and oversized replies
+Error: listen EPERM: operation not permitted /tmp/kt-v2-ZNouHE/s
+ ❯ path.path apps/desktop/src/main/platform/macos-tun.test.ts:173:87
+    171|     socket.on('error', () => {})
+    172|   })
+    173|   await new Promise<void>((resolve, reject) => { server.once('error', …
+       |                                                                                       ^
+    174|   return { path, dispose: async () => {
+    175|     for (const socket of sockets) socket.destroy()
+ ❯ fixture apps/desktop/src/main/platform/macos-tun.test.ts:173:9
+ ❯ apps/desktop/src/main/platform/macos-tun.test.ts:225:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/23]⎯
+
+ FAIL  apps/desktop/src/main/platform/macos-tun.test.ts > invalid UTF-8 cannot be decoded into a successful session
+Error: listen EPERM: operation not permitted /tmp/kt-v2-YE4XCz/s
+ ❯ path.path apps/desktop/src/main/platform/macos-tun.test.ts:173:87
+    171|     socket.on('error', () => {})
+    172|   })
+    173|   await new Promise<void>((resolve, reject) => { server.once('error', …
+       |                                                                                       ^
+    174|   return { path, dispose: async () => {
+    175|     for (const socket of sockets) socket.destroy()
+ ❯ fixture apps/desktop/src/main/platform/macos-tun.test.ts:173:9
+ ❯ apps/desktop/src/main/platform/macos-tun.test.ts:231:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/23]⎯
+
+ FAIL  apps/desktop/src/main/platform/macos-tun.test.ts > wrong heartbeat sequence disconnects the session and prevents further commands
+Error: listen EPERM: operation not permitted /tmp/kt-v2-nUPmED/s
+ ❯ path.path apps/desktop/src/main/platform/macos-tun.test.ts:173:87
+    171|     socket.on('error', () => {})
+    172|   })
+    173|   await new Promise<void>((resolve, reject) => { server.once('error', …
+       |                                                                                       ^
+    174|   return { path, dispose: async () => {
+    175|     for (const socket of sockets) socket.destroy()
+ ❯ fixture apps/desktop/src/main/platform/macos-tun.test.ts:173:9
+ ❯ apps/desktop/src/main/platform/macos-tun.test.ts:240:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/23]⎯
+
+ FAIL  apps/desktop/src/main/platform/macos-tun.test.ts > a hung heartbeat has one outstanding request and no stop is pipelined behind it
+Error: listen EPERM: operation not permitted /tmp/kt-v2-6Y6kAN/s
+ ❯ path.path apps/desktop/src/main/platform/macos-tun.test.ts:173:87
+    171|     socket.on('error', () => {})
+    172|   })
+    173|   await new Promise<void>((resolve, reject) => { server.once('error', …
+       |                                                                                       ^
+    174|   return { path, dispose: async () => {
+    175|     for (const socket of sockets) socket.destroy()
+ ❯ fixture apps/desktop/src/main/platform/macos-tun.test.ts:173:9
+ ❯ apps/desktop/src/main/platform/macos-tun.test.ts:258:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/23]⎯
+
+ FAIL  apps/desktop/src/main/platform/macos-tun.test.ts > EOF after open is unknown and an opening timeout cannot later become success
+Error: listen EPERM: operation not permitted /tmp/kt-v2-4u0YxM/s
+ ❯ path.path apps/desktop/src/main/platform/macos-tun.test.ts:173:87
+    171|     socket.on('error', () => {})
+    172|   })
+    173|   await new Promise<void>((resolve, reject) => { server.once('error', …
+       |                                                                                       ^
+    174|   return { path, dispose: async () => {
+    175|     for (const socket of sockets) socket.destroy()
+ ❯ fixture apps/desktop/src/main/platform/macos-tun.test.ts:173:9
+ ❯ apps/desktop/src/main/platform/macos-tun.test.ts:273:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/23]⎯
+
+ FAIL  apps/desktop/src/main/platform/macos-tun.test.ts > a heartbeat lease expires independently of a longer reply timeout
+Error: listen EPERM: operation not permitted /tmp/kt-v2-JAhKLm/s
+ ❯ path.path apps/desktop/src/main/platform/macos-tun.test.ts:173:87
+    171|     socket.on('error', () => {})
+    172|   })
+    173|   await new Promise<void>((resolve, reject) => { server.once('error', …
+       |                                                                                       ^
+    174|   return { path, dispose: async () => {
+    175|     for (const socket of sockets) socket.destroy()
+ ❯ fixture apps/desktop/src/main/platform/macos-tun.test.ts:173:9
+ ❯ apps/desktop/src/main/platform/macos-tun.test.ts:286:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/23]⎯
+
+ FAIL  apps/desktop/src/main/platform/macos-tun.test.ts > stop rejects a replayed acknowledgement and waits for proof of off
+Error: listen EPERM: operation not permitted /tmp/kt-v2-3zhYK1/s
+ ❯ path.path apps/desktop/src/main/platform/macos-tun.test.ts:173:87
+    171|     socket.on('error', () => {})
+    172|   })
+    173|   await new Promise<void>((resolve, reject) => { server.once('error', …
+       |                                                                                       ^
+    174|   return { path, dispose: async () => {
+    175|     for (const socket of sockets) socket.destroy()
+ ❯ fixture apps/desktop/src/main/platform/macos-tun.test.ts:173:9
+ ❯ apps/desktop/src/main/platform/macos-tun.test.ts:300:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/23]⎯
+
+ FAIL  apps/desktop/src/main/platform/macos-tun.test.ts > live socket disconnect reconciles {"availability":"ready","state":"on"} to the store without another Command or automatic recovery
+Error: listen EPERM: operation not permitted /tmp/kt-v2-ntudA6/s
+ ❯ path.path apps/desktop/src/main/platform/macos-tun.test.ts:173:87
+    171|     socket.on('error', () => {})
+    172|   })
+    173|   await new Promise<void>((resolve, reject) => { server.once('error', …
+       |                                                                                       ^
+    174|   return { path, dispose: async () => {
+    175|     for (const socket of sockets) socket.destroy()
+ ❯ fixture apps/desktop/src/main/platform/macos-tun.test.ts:173:9
+ ❯ apps/desktop/src/main/platform/macos-tun.test.ts:401:29
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/23]⎯
+
+ FAIL  apps/desktop/src/main/platform/macos-tun.test.ts > live socket disconnect reconciles {"availability":"ready","state":"off"} to the store without another Command or automatic recovery
+Error: listen EPERM: operation not permitted /tmp/kt-v2-zhFIPM/s
+ ❯ path.path apps/desktop/src/main/platform/macos-tun.test.ts:173:87
+    171|     socket.on('error', () => {})
+    172|   })
+    173|   await new Promise<void>((resolve, reject) => { server.once('error', …
+       |                                                                                       ^
+    174|   return { path, dispose: async () => {
+    175|     for (const socket of sockets) socket.destroy()
+ ❯ fixture apps/desktop/src/main/platform/macos-tun.test.ts:173:9
+ ❯ apps/desktop/src/main/platform/macos-tun.test.ts:401:29
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22/23]⎯
+
+ FAIL  apps/desktop/src/main/platform/macos-tun.test.ts > session failure subscription notifies once and honors unsubscribe
+Error: listen EPERM: operation not permitted /tmp/kt-v2-235RU1/s
+ ❯ path.path apps/desktop/src/main/platform/macos-tun.test.ts:173:87
+    171|     socket.on('error', () => {})
+    172|   })
+    173|   await new Promise<void>((resolve, reject) => { server.once('error', …
+       |                                                                                       ^
+    174|   return { path, dispose: async () => {
+    175|     for (const socket of sockets) socket.destroy()
+ ❯ fixture apps/desktop/src/main/platform/macos-tun.test.ts:173:9
+ ❯ apps/desktop/src/main/platform/macos-tun.test.ts:430:29
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[23/23]⎯
+

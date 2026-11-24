@@ -1,0 +1,50 @@
+{
+  "format": 1,
+  "scope": "test and documentation only; acceptance remains strict and recovery uses independent evidence",
+  "patchSHA256": "45ac1abdb3a6df935c54044be27f08d96cc4ea0ee4366cd975c32cd8c49c1887",
+  "sourceFiles": {
+    "README.md": "514d19f904bef520fd1a2cf5b5209017dd75c22ca38129a878ef6bceb7b0ccbc",
+    "test_retire.py": "7d844b80d35b0ae8c297a8be86e2df395c2997ad05a8a6d469b0b9446f9ac5bc"
+  },
+  "baseFiles": {
+    "README.md": "0274190be79ffcd36d37a369a235dfeffe427d069735e4a3bfc835575b3d7b37",
+    "test_retire.py": "526863824eae58f7e9c304d392c41ff46d0b98e6112d925e4367ddcde1c41098"
+  },
+  "entryUnchangedSHA256": "29c5fc0ae37902f77a89ed1f03ff2fcaeabe4dbad541d096d24ab6432a61fd27",
+  "historicalSnapshot": {
+    "freezeSHA256": "d0fff6cbe39be9aef291bd02d5f8c0a2e4d8f5d00f8be5e299b751bce4b2963f",
+    "unchanged": true,
+    "originalTests": 6,
+    "notCurrentREADMEOrTestHashes": true
+  },
+  "currentTests": {
+    "count": 8,
+    "passed": true,
+    "command": [
+      "/usr/bin/python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "/private/tmp/kuro-root858-recovery-separation-candidate/root858-normal-retire",
+      "-p",
+      "test_retire.py",
+      "-v"
+    ]
+  },
+  "actualFoundationWireTests": {
+    "count": 16,
+    "passed": true,
+    "sourceBuilderAndTestMatchCurrentShared": true,
+    "JSONDataSourceMatchesCurrentShared": true
+  },
+  "logs": {
+    "tests.stdout.log": "9926c3cfd1de9328112b405e0f0f2f7b85648c824bdad28df0f99f89dda328dc",
+    "tests.stderr.log": "0e922f2dccb1f2d0a3b4fce9de52286cb4f297325b3a54253e317806d6a9a9b8",
+    "native-wire.stdout.log": "80de3e06508e7f183506810bb6e24ce33db071fa88854ee218780b4aecfa0b76",
+    "native-wire.stderr.log": "00dbef6dc8b868cca98f82e10761f2a95017115a3b88d1cc9ce3ef2b6226cf6e"
+  },
+  "systemOperationsExecutedByThisCandidate": false,
+  "realCoreExecuted": false,
+  "root858FrozenPackageChanged": false
+}

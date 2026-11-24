@@ -1,0 +1,66 @@
+{
+  "format": 1,
+  "scope": "Unmodified raw evidence and fixture bytes only; no App bundle or Chromium userData copied. No App/Core launched during archival.",
+  "files": [
+    {
+      "archived": "runtime-pass/runs.json",
+      "original": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-runtime-evidence-Xh7YAK/runs.json",
+      "bytes": 27415,
+      "sha256": "d0526ee15bb634cb17b659bd7c77f09ce5764d56c51c0b75333468989caefb89"
+    },
+    {
+      "archived": "runtime-pass/result.json",
+      "original": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-runtime-evidence-Xh7YAK/result.json",
+      "bytes": 683,
+      "sha256": "e679316709bfa57ac73bbe9a2a6d573266a966f4698e3b0a236d56ab7f0fd9e3"
+    },
+    {
+      "archived": "runtime-pass/attack.c",
+      "original": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-runtime-evidence-Xh7YAK/attack.c",
+      "bytes": 128,
+      "sha256": "47900b27dbd54f5e1b7a757b5eff12967d00865ce4120a493ef5e15126c1559c"
+    },
+    {
+      "archived": "runtime-pass/attack.dylib",
+      "original": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-runtime-evidence-Xh7YAK/attack.dylib",
+      "bytes": 33360,
+      "sha256": "ecf6338d03dd069857182fa8ed55fe8dd3a6dd419c8f197e46bf57fccd88210c"
+    },
+    {
+      "archived": "runtime-pass/external-marker.cjs",
+      "original": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-runtime-evidence-Xh7YAK/external-marker.cjs",
+      "bytes": 84,
+      "sha256": "9477de1e4dfaa914d01f100b4701429ea277fa7d3f8602b3c89fd754268ad74f"
+    },
+    {
+      "archived": "file-fuse-failure/runs.json",
+      "original": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-runtime-evidence-DgoMca/runs.json",
+      "bytes": 1439,
+      "sha256": "d8f36c0825b8d469bf4f25c28d1f2c2f4e8246319773bf6fdcaa8fbae54736dc"
+    },
+    {
+      "archived": "tamper/result.json",
+      "original": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-client-tampering-j1QPsQ/result.json",
+      "bytes": 3868,
+      "sha256": "fe29b171e0e3eb9aa9e3f628abe532329eb116c9e655f16675f9018323904203"
+    },
+    {
+      "archived": "tamper/entitlements.plist",
+      "original": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-client-tampering-j1QPsQ/entitlements.plist",
+      "bytes": 299,
+      "sha256": "61a85a6cee6e26cb7644d4b490848ef52938c4cea3e61d304547c6d61460baec"
+    },
+    {
+      "archived": "tamper/replacement.c",
+      "original": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-client-tampering-j1QPsQ/replacement.c",
+      "bytes": 57,
+      "sha256": "93fd7bd153600fd5b5c0d62b38d459df4dcd5706e7944466540a22a6860ed9da"
+    },
+    {
+      "archived": "tamper/replacement.dylib",
+      "original": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-client-tampering-j1QPsQ/replacement.dylib",
+      "bytes": 16880,
+      "sha256": "614fb6b854dc100200c391a2d8822cbf499bb0c168d1224759daf5b9f36dda1e"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "sourceCommit": "aaa85e82376cd7a99009730a06c6cae8f231b21a",
+  "directory": "/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/core-control-experiment-aaa85e82376cd7a99009730a06c6cae8f231b21a",
+  "sha256sums": "all six passed",
+  "inventory": "passed",
+  "sourceGitBlobs": 19,
+  "runnerSHA256": "e85d6f9b8d41ab9bc0192b60a1b22d4f16c7d23f1054781ee53f76768ef6a3b6",
+  "inventorySHA256": "3e468529db99f87f820294d5ee95d75b5067ae929069ab8c813bfc2fda09a3ce",
+  "coreSHA256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+  "inspect": {
+    "normalPassed": false,
+    "receipt": {
+      "coreArchiveSHA256": "060b64b0f2c9a310831db0fe4adb2878de67bfa606c311813c1f13966aa504b6",
+      "coreSHA256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+      "coreVersion": "v1.19.33",
+      "epoch": "62A5C7A2-373A-4785-9323-6DCBAFFDA544",
+      "format": 1,
+      "protocol": 1,
+      "runnerSHA256": "e85d6f9b8d41ab9bc0192b60a1b22d4f16c7d23f1054781ee53f76768ef6a3b6",
+      "target": "darwin-arm64"
+    },
+    "stage3": "not implemented or authorized",
+    "status": "prepared"
+  },
+  "verificationScriptCorrection": "inventory is format/files object; initial verification stopped before inspect/Core execution"
+}

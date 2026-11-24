@@ -1,0 +1,21 @@
+# Diagnostic assertion input fix; separate startup uncertainty retained
+
+CI run41985465733 at source7820a60 failed the exact invalid-frame diagnostic assertion. A controlled reproduction using credential prefix `e` made the actual harmless service pipeline write `invalid session frame or sequenc[REDACTED]`, while unexpected remained true. The existing fixture derives that prefix from its executable SHA suffix. The CI binary itself was not recovered, so its exact SHA suffix is not confirmed.
+
+The narrow test-only fix uses prefix `!` only for scenario6. All seven other scenarios keep SHA-suffix credential stress. Exact error text, unexpected context, exact Core digest and secret-redaction assertions remain unchanged; production redaction is unchanged. Author strict compile and eight harmless service scenarios passed; independent non-author review approved this narrow fix. Patch SHA256 `88fe0015ac12d782a83b6aadc575730b3a52e7e7236861b715755fd9ecb12150`; original failure and candidate evidence `/private/tmp/kuro-service-diagnostic-ci-candidate`.
+
+## Independent integration limitation (not resolved)
+
+Main integrated focused test failed before scenario0 readiness, both inside and outside the sandbox. `/private/tmp/kuro-diag-service-CcEm26` records fixture stdout/stderr then exit97 (socket/bind/listen path). `/private/tmp/kuro-diag-service-5ThD2I` records zero output and supervisor TERM15 while the socket was not ready. These are different failures; the earlier sandbox attribution was withdrawn.
+
+A single instrumented temporary build added entry/socket/bind/listen errno observations and passed all eight cases, so it did not capture the failing syscall errno. That pass does not explain or erase the failed original binary. Evidence stays in `/private/tmp/kuro-service-diagnostic-errno`, original integrated binary in `/private/tmp/kuro-service-diagnostic-integration`. No production timeout/validation was relaxed and no repeated trial was used to declare stability. Overall service integration stability remains unverified; the hash-dependent assertion fix is a separate proven improvement. No real Core, system job or network setting was used in these tests.
+
+## Integrated evidence improvement (not a startup root-cause fix)
+
+Source32af9dd CI completed successfully (run41994119137); this does not resolve the separate local startup failures. The test-only patch `377709dc4814182242628575eb7f2099fe91a9f5d877cbd2435a8d7679744529` adds fixture entry/runtime/listener/version timestamps and exact socket/bind/listen errno/path length. Open-status mismatch prints only existing redacted diagnostic files. The one-second deadline, exit97 and original strict assertions remain intact. Real temporary listener success, address collision and overlong path tests preserve the existing socket. Author strict compile and one ordinary-user eight-case diagnostic run passed; independent review and integrated exact-byte review passed. Further bounded discrimination is in progress; a passing instrumented run is not a root-cause fix.
+
+## Finite follow-up discrimination
+
+One bounded group of ten ordinary-UID501 runs outside the sandbox passed all80 original cases and ten listener-positive/negative groups. The observation-only copy adds five post-assertion lines to retain already-redacted stage/termination data before existing cleanup; it is not a production or proposed root-cause fix. Independent review verified all hashes and original deadline/exit/assertion checks.70 expected child entries were observed at202–257ms from dispatch;40 normal listeners at203–258ms, entry-to-listen0–2ms and listen-to-version1–14ms. Evidence: `/private/tmp/kuro-service-startup-bounded-runs/{summary.json,runs.json,analysis.md,SHA256SUMS}`. No real Core, root job or system-network operation ran.
+
+The readiness clock starts after spawn/resume returns, so pre-service queue waiting alone does not exhaust it; SIGCONT success does not prove main entered. The earlier exit97 has no captured errno, and the earlier zero-byte TERM15 has no entry timestamp. Those historical causes remain unknown. The newly committed diagnostics distinguish the next real failure. No timeout increase, retry workaround or claim that ten passes establish stability is made; further identical runs are not scheduled.

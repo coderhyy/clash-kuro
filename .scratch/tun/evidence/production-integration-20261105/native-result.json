@@ -1,0 +1,41 @@
+{
+  "compile": [
+    "/usr/bin/clang",
+    "-arch",
+    "arm64",
+    "-fobjc-arc",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-Wno-unused-function",
+    "-O2",
+    "-framework",
+    "Foundation",
+    "-framework",
+    "Security",
+    "-framework",
+    "SystemConfiguration",
+    "-lbsm",
+    "apps/desktop/native/mac/kuro-tun-helper.test.m",
+    "-o",
+    "/private/tmp/kuro-integrated-native-tests-20261105"
+  ],
+  "compileExit": 0,
+  "run": [
+    "/private/tmp/kuro-integrated-native-tests-20261105"
+  ],
+  "environment": {
+    "KURO_REQUIRE_CORE": "1"
+  },
+  "runExit": 0,
+  "coreSHA256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+  "fixedCoreSyntax": "passed; /tmp/kuro-native-syntax-3WXKse removed by fixture",
+  "checks": [
+    "full native boundary suite passed",
+    "production cache durable receipt and exact cleanup passed",
+    "25 service fixtures passed",
+    "restart owner/work fixtures passed",
+    "no system install or network mutation"
+  ],
+  "outputLocation": "execution tool transcript (full output); this file records summary, not raw stdout"
+}

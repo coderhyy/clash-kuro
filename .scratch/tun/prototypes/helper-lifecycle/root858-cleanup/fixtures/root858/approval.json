@@ -1,0 +1,10 @@
+{
+  "coreArchiveSHA256": "060b64b0f2c9a310831db0fe4adb2878de67bfa606c311813c1f13966aa504b6",
+  "coreSHA256": "f3e8ae41397c08cbf900ce1f7c8a168285d29954e9bca5d84d69a2b2561adfe9",
+  "fixtureSHA256": "e5c949f29785297b8ba8ac5a5be76f8483dea17d0bf7daf20860cbd33daeb1f1",
+  "format": 1,
+  "killConfigSHA256": "fe9e7e5276a44d29b8efa56ceed275f5ecbbdcb06b357b97e104a753147d6bf9",
+  "killEpoch": "2F6D8E0A-F1A4-445C-A123-44D86B1CE2E3",
+  "normalConfigSHA256": "33d8f77b2a2c3fc504263a99cb56e8743bf0b1634b0d3b605b23ccedb7982f24",
+  "normalEpoch": "91EE2723-A085-485F-A9E9-E24155642B5B"
+}

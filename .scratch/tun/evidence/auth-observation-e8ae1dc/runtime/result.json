@@ -1,0 +1,10 @@
+{
+  "ok": true,
+  "bundle": "/Users/hyy/.codex/worktrees/windows-launch-at-login/clash-kuro/apps/desktop/dist/electron-runtime-candidate/mac-arm64/Clash Kuro.app",
+  "evidence": "/private/var/folders/08/49qljhcd40jbdr05n6w59v9m0000gn/T/kuro-runtime-evidence-nJV0Gs",
+  "executableSHA256": "5f4ad8c0852b5ff700909bbf12e2c74eca04427043ecbe080e3a71d078ca80f6",
+  "infoSHA256": "881d4dbc253a497f9a1fbf726535ebf6f8f934913dfc87ca12da90575806a56e",
+  "asarSHA256": "97a6d66d4e0f71fdd2120609d127d23ba77b7caf74b23bdaf3e1c47a5025e3f9",
+  "tests": 14,
+  "limitation": "Actual isolated Electron only; no real Core/helper/network capability verified. TCP polling is sampled, not kernel tracing."
+}

@@ -1,0 +1,27 @@
+FIXTURE ONLY; dummy compile-time Core/archive pins; no real Core, Core -t, install, network or helper execution
+2026-11-05T02:54:01.092880+00:00
+EXPERIMENT COMPILE argv ["/usr/bin/clang", "-DKURO_CORE_EXPERIMENT=1", "-DKURO_EXPERIMENT_CORE_SHA256=\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"", "-DKURO_EXPERIMENT_ARCHIVE_SHA256=\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"", "-fobjc-arc", "-Wall", "-Wextra", "-Werror", "-Wno-unused-function", "-O2", "-framework", "Foundation", "-framework", "Security", "-framework", "SystemConfiguration", "-lbsm", "apps/desktop/native/mac/core-experiment.m", "-o", "/private/tmp/kuro-core-build-test/core-experiment"]
+exit 0
+stdout:
+
+stderr:
+
+PRODUCTION COMPILE ONLY argv ["/usr/bin/clang", "-arch", "arm64", "-fobjc-arc", "-Wall", "-Wextra", "-Werror", "-Wno-unused-function", "-O2", "-framework", "Foundation", "-framework", "Security", "-framework", "SystemConfiguration", "-lbsm", "apps/desktop/native/mac/kuro-tun-helper.m", "-o", "/private/tmp/kuro-core-build-test/helper-compile-only"]
+exit 0
+stdout:
+
+stderr:
+
+SELFTEST KURO_SKIP_CORE_SYNTAX=1 argv ["/private/tmp/kuro-core-build-test/core-experiment", "--self-test"]
+exit 0
+stdout:
+fixture diagnostics fixture-early-exit: /private/tmp/kuro-core-evidence-vLJugA
+fixture diagnostics fixture-output: /private/tmp/kuro-core-evidence-Q800EX
+fixture diagnostics fixture-timeout: /private/tmp/kuro-core-evidence-feHpRM
+fixture diagnostics log-save-failure: /private/tmp/kuro-core-evidence-LranMM
+fixture log-save-failure: Core exit37 preserved, owner/work retained; test-only directory restored to0700 without retry
+fixture abnormal-exit retained evidence: /private/tmp/kuro-core-EdbJeN
+core experiment: 153 fixture assertions passed; no real Core, Core -t, install or network mutation
+
+stderr:
+

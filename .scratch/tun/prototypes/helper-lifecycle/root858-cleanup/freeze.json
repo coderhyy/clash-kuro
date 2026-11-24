@@ -1,0 +1,14 @@
+{
+  "format": 1,
+  "frozenSource": "85834ab8bc8d45c24f232883133a58d13b2daa6f",
+  "scope": "four exact installation files only",
+  "systemOperationsExecuted": false,
+  "files": {
+    "cleanup-root858.py": "768d0938c0d0e321f8152c0328c8a629d0e30379ad57aa3052f1094ccfe482dc",
+    "test_cleanup.py": "c9d45da35bf1fd06d4d0fdfd92000e44d8d5927c9473dd0719c6a7070499748b",
+    "README.md": "36cdf97675314725645504577844f4ac88cfb622e0efcac460b7da14b3490875",
+    "tests.stdout.log": "67260c8e29c4112d3fc4bc01f06e2a4515598d42979d90db2faddc5bb6deb452",
+    "tests.stderr.log": "558af83c94fb96edc497de8af431fdfbb7114d8c9b665b09e82b937848c86b86",
+    "fixtures/root858/approval.json": "c20eb39a0032b73a4b6b5b229377642f2504aac30b77fe9ae592b3bb5ed29ec1"
+  }
+}

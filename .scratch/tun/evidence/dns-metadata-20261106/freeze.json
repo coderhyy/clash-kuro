@@ -1,0 +1,36 @@
+{
+  "patchSHA256": "b40be18e2b4627ec67c1934599c44f565625a444580490e7d5ac274c961c3593",
+  "files": {
+    "tun-network.m": {
+      "baseSHA256": "e9a88978f86cf213a863206815579ea8a694d4dd7cc04634d43371649764c52f",
+      "candidateSHA256": "59afd8ae680798717f4045cc3a3b6cb67010147fd4639529492dfbb8c3b38eed"
+    },
+    "tun-network.test.m": {
+      "baseSHA256": "d7bff061bd5330590336bc017f7c64a3e32eae53385b53497c17eb6918e6f215",
+      "candidateSHA256": "ea20770f8ad09f0f20415c4864bab0915ebb741240ef613f560b65eccb30c5eb"
+    },
+    "tun-production-network.m": {
+      "baseSHA256": "f4eb115a32e7ff694861ac6521a8cf3dbb6085a9635a853e297512f178b04f02",
+      "candidateSHA256": "fabefc0da4c3b29a62aaead86bb3db7ec3b08ee63a6484165b14df89389216ac"
+    },
+    "tun-production-network.test.m": {
+      "baseSHA256": "e39247b4713f4ef7584df7cc73987934d978d9f4a3c516f09d26c016507c9573",
+      "candidateSHA256": "ebe3a54fa8f9a547be888a1cefd2808ad00bdb6b1525fb9266a2b4402c628f28"
+    }
+  },
+  "evidence": {
+    "focused-compile.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "focused-compile.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "focused.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "focused.stdout.log": "03d76561cd37e05d8971a509f44276ed2b6c8da4484f138600f6ed088af867a7",
+    "production-compile.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "production-compile.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "red-compile.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "red-compile.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "red.stderr.log": "4675d9569ce0df82f1237a77a5e64ba5ea2bdc2215d13991df9ecfe4a791d5a7",
+    "red.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "verificationSHA256": "97be6a35b2192147d832ed8def7041b57bd6764168df37ae3960da69b736d6e2",
+  "redVerificationSHA256": "4ae53872fb2123b445c168047af9d4b7e40c41fc2fd72e6505db292d9b921dc5",
+  "scope": "ordinary UID offline fixture only; production compile only; no Core/system network/installation"
+}

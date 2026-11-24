@@ -1,0 +1,32 @@
+{
+  "review": "read-only constants/source validation; no wrappers or system observations executed",
+  "sourceCommit": "10fc6a8e5a598bb812da70a6a691714d42ec51d8",
+  "sourceFilesCheckedAgainstGitBlobs": 30,
+  "sourceMismatch": [],
+  "preflightWrapperOnlyChangesFrom11902": [
+    "sourceCommit",
+    "new-window-saved-baseline-path"
+  ],
+  "packageSHA256": "fce8938f150cd0b24b4875fb7ffe27289e70c3f9d8b24181acb1dcd4fe937c33",
+  "packageMatchesSidecarAndCandidate": true,
+  "preflightBinarySHA256": "4f36a145e45cd3dbe1681af21c7e814fce094ae702fd20612daae032e539c52d",
+  "files": {
+    "/private/tmp/kuro-10fc6a8-window-vtrjgsb5/preflight.py": "2660056db59e0ac14b49c4aeb56a2bf79cca1103f0800e4267ea93d263066946",
+    "/private/tmp/kuro-10fc6a8-window-vtrjgsb5/install.py": "5dcf7dfeceb30c4b1d86e68eb6df183dfaa4df3e08dc2669bc5e2bade11579dd",
+    "/private/tmp/kuro-10fc6a8-window-vtrjgsb5/verify-installed.py": "5b8f2297a9e3285695616e4214e77fcf7c967eb2d2594660dd09595473813903",
+    "/private/tmp/kuro-10fc6a8-window-vtrjgsb5/expected-absent-paths.json": "ecc967aaca8787f5c1ccc8a864c3fb9264a3e4b1fcc3c338e38acd06b664eca2",
+    "/private/tmp/kuro-10fc6a8-window-vtrjgsb5/baseline-command-spec.json": "ef91fef19e8a6adc33f0fe2e58387b2d25edc6bea4d0eddfb8adce0d9c37f420",
+    "/private/tmp/kuro-10fc6a8-window-vtrjgsb5/held-cleanup.py": "a868f5c96a431601bc854a2f10f02140d6a40f0c321c3155df38358623f8a955",
+    "/private/tmp/kuro-10fc6a8-window-vtrjgsb5/load-helper.py": "56c1c7c439c4252f9bd1577dd723eddecd9f8118c3eede28f86c692b393ec47a",
+    "/private/tmp/kuro-10fc6a8-window-vtrjgsb5/verify-app.mjs": "fa1aba6dd7b7ae7b595cd566575928b088157bf0df3f761c93c1aa8618907205",
+    "/private/tmp/kuro-10fc6a8-window-vtrjgsb5/observe-test-flow.py": "efbbd905ca82559c6a2a7d8b5d0ce43e2b57ab4a59b34ed1fec362d2e97830d5",
+    "/private/tmp/kuro-10fc6a8-window-vtrjgsb5/inspect-state.py": "e0ca6bd3d86f1803671b86f6c6737d1b51b1ba57010b45c5f5f450f25d051e6e"
+  },
+  "blocking": [],
+  "operationalPreconditions": [
+    "Do not run held-cleanup before genuine held stopped proof exists and inspect-state has saved the current timeout-state.json; neverStarted true requires the existing fresh-uninstall path instead.",
+    "Retain full installed App seal/inventory and precise plist/recovery/disabled-job readback checks; helper/Core-only verify-installed.py is not a substitute.",
+    "Root cleanup approval/receipt must bind actual installed identity/release/time after installation; not claimed prepared here.",
+    "Read-only preflight success does not test Core readiness/multicast or route write/readback."
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "expandedAppPin": true,
+  "expandedInventory": true,
+  "sidecarHelper": true,
+  "activationAllowed": false,
+  "fixedBundles": 9,
+  "bomRootOwnedEntries": 1255,
+  "disabledPlist": true,
+  "systemInstalled": false,
+  "actualInstalledAuthExecuted": false
+}

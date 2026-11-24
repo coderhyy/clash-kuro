@@ -1,0 +1,35 @@
+{
+  "patchSHA256": "3afcd439d385874e8879ab6a4ff0125eb52e302f591a2a14bf3aa655308ab3b8",
+  "sources": [
+    {
+      "path": "apps/desktop/native/mac/tun-production-network.m",
+      "baseSHA256": "fae0ea0191b18a3caa45b4bd79655670939a84c1ba4b8f3e29d5cd07ccc5d139",
+      "candidateSHA256": "783622c89abaf41dd508c759788f07613bbee5da36583ba6fa85d39120b9fff3"
+    },
+    {
+      "path": "apps/desktop/native/mac/tun-production-network.test.m",
+      "baseSHA256": "b144bd394eb1f2c818a0654ee594792a1f3fbb254f8c3747a18a91340d58b980",
+      "candidateSHA256": "fdf4ce56bc6548228fcf1bb6a41006ce938d34bbc9673c10c78a006e758aac7c"
+    }
+  ],
+  "requiredRoutesSHA256": "3bbf104cdbaf236d894326758e6fb61cca701195e9727627d41317923145d3bc",
+  "evidence": {
+    "production-compile.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "focused-compile.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "initial-compile.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "baseline.stderr.log": "75cf9a5d800836986cba0dd2163fe9cdc2990ddd84126e915de162fb3e06ad6f",
+    "initial-test.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "baseline-compile.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "focused.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "production-compile.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "initial-compile.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "focused-compile.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "baseline.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "focused.stdout.log": "80df9c55cb0d59578c7b2de5596928a9843950a30d7422a71e28e9d6c52a30c5",
+    "baseline-compile.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "initial-test.stdout.log": "21fe25dc320b5b9725afae33864ebab7f2f20731dc7d9987e1edd3988b1181ff",
+    "final-focused-verification.json": "be3f8505ee2749aeedfa25812cd9be66a8c17c69740025e23247807cfc0684d4",
+    "verification.json": "6ed1564356195910a1eca961c4ca6583c9f552e9940c6d6d2030decba168345f",
+    "RESULT.md": "49e8bae16784f638306cfcd35a18ccc8fe4829510e29b5b6efc42f8cc9c9bb89"
+  }
+}

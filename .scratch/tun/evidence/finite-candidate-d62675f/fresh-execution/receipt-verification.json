@@ -1,0 +1,12 @@
+{
+  "packageFileListEqualsReceipt": true,
+  "entries": 1252,
+  "receipt": {
+    "install-location": "",
+    "install-time": 1793853506,
+    "pkg-version": "0.1.0",
+    "pkgid": "dev.kuro.tun.disabled",
+    "receipt-plist-version": 1.0,
+    "volume": "/"
+  }
+}

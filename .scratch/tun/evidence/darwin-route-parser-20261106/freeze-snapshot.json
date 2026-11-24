@@ -1,0 +1,47 @@
+{
+  "scope": "Only tun-admission.test.m; no shared source changes",
+  "file": "apps/desktop/native/mac/tun-admission.test.m",
+  "baseSHA256": "10b42ebe0827e953e58643f1f99c417fea0fa0b568b72e7d327c9a637b47e799",
+  "sourceSHA256": "fd18becdab13c35bddcdc62e1905c9a79e2aa539e400271c12ee982d23081f6a",
+  "patchSHA256": "2d5890bd8937bee73f2af9a1830343135adaece509179b63f4dd282d7c010903",
+  "requiredParserPatchSHA256": "7c591b87534cd721c2f4ab7ce66acb56f8fa821f724b148bf4cc761dca4f0d24",
+  "requiredParserSourceSHA256": "8751a49b894364961bed091c5ad439a5ad77460fcd9e0ccea05948d20a50b9f4",
+  "requiredParserTestSHA256": "541a97bd6f43b972f779d4bc8bb432c51183af901f23b91ae0096b1d6e04c08b",
+  "greenBinarySHA256": "1d8520031a9633eac0fe07ab6cd109c4ba846d97cc7c3b1f5cd5a740b02065a7",
+  "redBinarySHA256": "47ba86df345148414e3b5e52a0d3d0ca348b60c318ef88ebfc4214b8df9ed9ce",
+  "redParserSHA256": "5ee78a705ddbdf19b1afa120c97586e495054e8ce6d2bdddc7ef4e30122f2156",
+  "verification": {
+    "strictCompileBoth": 0,
+    "greenSevenAdmission": 0,
+    "redOriginalDecoderFresh": 1,
+    "redFailure": {
+      "availability": "blocked",
+      "state": "unknown",
+      "error": "routes: invalid route mask"
+    },
+    "freshDecodedPackets": 4,
+    "freshStarts": 1,
+    "freshRouteAdds": 4,
+    "freshFinalStatus": {
+      "availability": "ready",
+      "state": "off"
+    }
+  },
+  "evidence": {
+    "snapshot-compile-green.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "snapshot-compile-green.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "snapshot-compile-red.stdout.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "snapshot-compile-red.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "snapshot-green7.stdout.log": "508a80e1870a687a0d5d1d28c76d8dce510555fbc85b684928749384b51d493c",
+    "snapshot-green7.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "snapshot-red.stdout.log": "997207d39747260187e09422e2b60a7509ea1dcebc0303a730ba3130f47bdb93",
+    "snapshot-red.stderr.log": "5a60fb2e039de7035e50c7cd3ce0d168191960170fa9ed929d59bb6a6fbcf474",
+    "snapshot-stage-evidence.json": "26727638a9b8bf062643b281ed8bfa479e340601e0d918be0d72582d62585756"
+  },
+  "supersedes": "e2342b73 init-only patch is incomplete historical evidence; use this snapshot patch only",
+  "limits": [
+    "Four sanitized fixed RTM_GET packets are decoded on every actual route-backend snapshot, not during server initialization.",
+    "Fixed interface lookup and existing two default dictionaries supplement four decoded records; no live route/interface/raw-capture dependency.",
+    "Same existing seven-mode typed/native-client chain; fake writable routes/DNS and harmless child/signed native relay, not production ServicePeer/Electron/root/Core/network validation."
+  ]
+}
