@@ -103,7 +103,9 @@ static int AdmissionChainMain(NSString *mode) {
   hooks.ready=^BOOL(pid_t child,NSString *session,NSString **failure){
     interfaces=ProductionInterfaces(YES);NSMutableArray *coreRoutes=[ProductionCoreRoutes(RouteFixtureInterface())mutableCopy];
     if([mode isEqual:@"start-failed"])[coreRoutes removeObjectAtIndex:0]; // Core partial startup, not a helper route write.
-    [routes.entries addObjectsFromArray:coreRoutes];BOOL ok=[network readyChild:child session:session error:failure];if(ok)observedRouteCount=5;return ok;
+    [routes.entries addObjectsFromArray:coreRoutes];BOOL ok=[network readyChild:child session:session error:failure];
+    if(ok){NSDictionary *journal=ReadJSON(state,[state stringByAppendingPathComponent:KuroRouteJournal],geteuid(),failure);CHECK([journal[@"phase"]isEqual:@"observed"]&&[journal[@"session"]isEqual:session]);observedRouteCount=[journal[@"routes"]count];}
+    return ok;
   };
   hooks.applyNetwork=^BOOL(pid_t child,NSString *session,NSString **failure){BOOL ok=[network applyChild:child session:session error:failure];if(ok)@synchronized(stats){applications++;}return ok;};
   hooks.verifyNetwork=^BOOL(NSString *session,NSString **failure){return [network confirmSession:session error:failure];};

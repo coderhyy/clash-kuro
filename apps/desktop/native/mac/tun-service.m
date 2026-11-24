@@ -346,7 +346,16 @@ static BOOL KuroServiceReply(int peer, NSDictionary *value) {
     NSString *difference=KuroDiagnosticText(observation[@"routeDifference"],_diagnosticSecrets);
     if(![observation[@"kind"]isEqual:@"current-owned-absence"] || !KuroBool(observation[@"systemRouteBaselineRestored"]) || !difference || difference.length>4096)return Fail(error,@"network absence observation is invalid; preserve work");
     NSMutableDictionary *network=[metadata[@"networkRecovery"]mutableCopy];
-    network[@"observation"]=@{@"kind":@"current-owned-absence",@"systemRouteBaselineRestored":observation[@"systemRouteBaselineRestored"],@"routeDifference":difference};
+    NSMutableDictionary *saved=[@{@"kind":@"current-owned-absence",@"systemRouteBaselineRestored":observation[@"systemRouteBaselineRestored"],@"routeDifference":difference} mutableCopy];
+    NSDictionary *checks=observation[@"checksMonotonicMs"];
+    NSArray *order=@[@"coreAndUtunAbsent",@"routesChecked",@"dnsBaselineConfirmed",@"routeRetirementCompleted"];
+    uint64_t previous=0;BOOL valid=Keys(checks,order);
+    if(valid)for(NSString *key in order) {
+      if(!KuroNumber(checks[key],previous,NSUIntegerMax)){valid=NO;break;}
+      previous=[checks[key]unsignedLongLongValue];
+    }
+    if(valid)saved[@"checksMonotonicMs"]=checks;
+    network[@"observation"]=saved;
     NSMutableDictionary *updated=[metadata mutableCopy];updated[@"networkRecovery"]=network;metadata=updated;
   }
   return [self saveDiagnostic:@"diagnostics.json" bytes:JSONData(metadata) error:error];

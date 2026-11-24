@@ -365,47 +365,77 @@ static void ServiceFixtureReportDNSMismatch(KuroTunService *service,NSString *di
 // Metadata persistence only: no child, socket, Core, installation or OS network.
 static void ServiceRecoveryObservationSummaryTests(void) {
   char temporary[]="/tmp/kuro-recovery-summary-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));NSString *base=@(canonical);
-  for(NSUInteger scenario=0;scenario<2;scenario++) {
+  for(NSUInteger scenario=0;scenario<3;scenario++) {
     NSString *directory=[base stringByAppendingPathComponent:[NSString stringWithFormat:@"case%lu",(unsigned long)scenario]],*error=nil;FixtureDirectory(directory);NSString *evidence=[directory stringByAppendingPathComponent:@"evidence"];FixtureDirectory(evidence);
     KuroTunService *service=[[KuroTunService alloc]initFixtureDirectory:directory core:@"inert-unused" hooks:ServiceHooks()];
     KuroCoreOutput *output=[[KuroCoreOutput alloc]initWithSecrets:@[@"private-summary-credential"]];CHECK(output);[output closeWriters];CHECK([output finishTo:evidence error:&error]);
     [service setValue:evidence forKey:@"diagnosticDirectory"];[service setValue:[NSMutableDictionary dictionary] forKey:@"diagnosticPublished"];[service setValue:[NSMutableSet set] forKey:@"diagnosticDurable"];[service setValue:@[@"private-summary-credential"] forKey:@"diagnosticSecrets"];[service setValue:output forKey:@"output"];
-    NSDictionary *observation=@{@"kind":@"current-owned-absence",@"systemRouteBaselineRestored":@NO,@"routeDifference":@"routeDiff=bounded physical replacement"};NSMutableDictionary *network=[@{@"attempted":@YES,@"restored":@YES,@"error":@""}mutableCopy];if(scenario)network[@"observation"]=observation;
+    NSDictionary *baseObservation=@{@"kind":@"current-owned-absence",@"systemRouteBaselineRestored":@NO,@"routeDifference":@"routeDiff=bounded physical replacement"};
+    NSMutableDictionary *observation=[baseObservation mutableCopy];
+    observation[@"checksMonotonicMs"]=@{@"coreAndUtunAbsent":@100,@"routesChecked":@101,@"dnsBaselineConfirmed":scenario==2?@99:@102,@"routeRetirementCompleted":@105};
+    NSMutableDictionary *network=[@{@"attempted":@YES,@"restored":@YES,@"error":@""}mutableCopy];if(scenario)network[@"observation"]=observation;
     [service setValue:network forKey:@"diagnosticNetwork"];CHECK([service persistDiagnosticSummary:&error]);NSDictionary *metadata=ReadJSON(directory,[evidence stringByAppendingPathComponent:@"diagnostics.json"],geteuid(),&error);CHECK(metadata&&[metadata[@"networkRecovery"][@"restored"]isEqual:@YES]);
-    if(scenario)CHECK([metadata[@"networkRecovery"][@"observation"]isEqual:observation]);else CHECK(!metadata[@"networkRecovery"][@"observation"]);
+    if(scenario)CHECK([metadata[@"networkRecovery"][@"observation"]isEqual:scenario==1?observation:baseObservation]);else CHECK(!metadata[@"networkRecovery"][@"observation"]);
   }
-  CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);puts("PASS 2 service diagnostic persistence cases: actual protected summary with/without own-absence observation; pipes/tempfiles only");
+  CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);puts("PASS service diagnostic persistence: protected summary with ordering, invalid optional times omitted; pipes/tempfiles only");
 }
 // Actual held child/session/afterReap retries; kernel route/DNS/interface backends
 // alone are fake. Retired memory is only a readback/denial/report context.
 static void ServiceOwnAbsenceRetryTests(void) {
-  for(NSUInteger scenario=0;scenario<3;scenario++) {
-    char temporary[]="/tmp/koar-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));NSString *directory=@(canonical),*core=[directory stringByAppendingPathComponent:@"core"],*work=[directory stringByAppendingPathComponent:@"session-work"],*ownerPath=[directory stringByAppendingPathComponent:@"owner.json"],*routePath=[directory stringByAppendingPathComponent:KuroRouteJournal],*unknown=[work stringByAppendingPathComponent:@"unknown"];
+  for(NSUInteger scenario=0;scenario<4;scenario++) {
+    char temporary[]="/tmp/koar-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));NSString *prefix=@(canonical),*directory=prefix,*helper=nil;
+    BOOL physicalClone=scenario==3;
+    if(physicalClone) {
+      NSString *payload=[prefix stringByAppendingPathComponent:@"payload"];
+      NSDictionary *manifest=UpgradeFixtureSource(payload,@"stop-clone",@"isolated stop fixture",[NSData dataWithContentsOfFile:Executable()]);
+      UpgradeFixtureInstall(payload,prefix,manifest,NO);directory=At(prefix,State);
+      helper=[At(prefix,Tools) stringByAppendingPathComponent:@"versions/stop-clone/helper"];
+    }
+    NSString *core=[directory stringByAppendingPathComponent:@"core"],*work=[directory stringByAppendingPathComponent:@"session-work"],*ownerPath=[directory stringByAppendingPathComponent:@"owner.json"],*routePath=[directory stringByAppendingPathComponent:KuroRouteJournal],*unknown=[work stringByAppendingPathComponent:@"unknown"];
     Put(core,[NSData dataWithContentsOfFile:Executable()],0755);
     NSDictionary *old=ProductionRoute(4,@"192.168.1.61",32,@"link",@"en0",2,RTF_UP|RTF_CLONING|RTF_STATIC),*replacement=ProductionRoute(4,@"192.168.1.132",32,@"link",@"en0",2,RTF_UP|RTF_CLONING|RTF_STATIC);
-    KuroFakeRouteStore *routes=[KuroFakeRouteStore new];routes.directory=directory;routes.entries=[[ProductionBaseline()arrayByAddingObject:old]mutableCopy];KuroFakeDNSStore *dns=[KuroFakeDNSStore new];dns.directory=directory;
-    __block NSArray *interfaces=ProductionInterfaces(NO);__block KuroCoreInterface association=RouteFixtureInterface();__block KuroProductionNetwork *network=nil;__block BOOL tornDown=NO;__block NSUInteger recoveries=0,proofs=0;__block NSString *routeHash=nil,*diagnosticDirectory=nil;__block pthread_t worker;
+    // Use the actual rejected flags and destination, with the fixture's physical gateway/index.
+    NSDictionary *clone=ProductionRoute(4,@"198.18.0.2",32,@"192.168.1.1",@"en0",2,0x45020007);
+    KuroFakeRouteStore *routes=[KuroFakeRouteStore new];routes.directory=directory;routes.entries=[[ProductionBaseline()arrayByAddingObject:old]mutableCopy];KuroFakeDNSStore *dns=[KuroFakeDNSStore new];dns.directory=directory;NSDictionary *dnsBaseline=[dns.records copy];
+    __block NSArray *interfaces=ProductionInterfaces(NO);__block KuroCoreInterface association=RouteFixtureInterface();__block KuroProductionNetwork *network=nil;__block BOOL tornDown=NO;__block NSUInteger recoveries=0,proofs=0,stopReads=0;__block NSString *routeHash=nil,*diagnosticDirectory=nil;__block pthread_t worker;
     KuroNetworkEnvironment *environment=[KuroNetworkEnvironment new];
     environment.interfaces=^NSArray *(NSString **failure){(void)failure;return interfaces;};
     environment.observeChild=^BOOL(pid_t child,KuroCoreInterface *value,NSString **failure){(void)failure;CHECK(child==association.process.pid);*value=association;return YES;};
     environment.ownership=^KuroRouteOwnerState(KuroCoreInterface value,NSString **failure){(void)failure;CHECK([KuroRouteAssociation(value)isEqual:KuroRouteAssociation(association)]);return tornDown?KuroRouteOwnerExitedInterfaceGone:KuroRouteOwnerLive;};
     environment.probeDNS=^BOOL(KuroCoreInterface value,NSString **failure){(void)value;(void)failure;return YES;};
     KuroTunServiceHooks *hooks=ServiceHooks();
+    if(physicalClone)hooks.beforeResume=^BOOL(NSString **failure){return KuroMarkSessionStarted(prefix,geteuid(),helper,failure);};
     hooks.preflight=^BOOL(NSDictionary *config,NSString **failure){(void)config;worker=pthread_self();network=[[KuroProductionNetwork alloc]initWithDirectory:directory owner:geteuid() routes:routes dns:dns environment:environment];return [network preflightConfig:ProductionConfig() error:failure];};
     hooks.prepareNetwork=^BOOL(NSString *session,NSDictionary *binding,NSString **failure){association.process.pid=[binding[@"process"][@"pid"]intValue];association.process.startSeconds=[binding[@"process"][@"startSeconds"]unsignedLongLongValue];association.process.startMicros=[binding[@"process"][@"startMicros"]unsignedIntValue];return [network prepareSession:session binding:binding error:failure];};
     hooks.ready=^BOOL(pid_t child,NSString *session,NSString **failure){CHECK(child==association.process.pid);struct proc_bsdinfo info={0};CHECK(proc_pidinfo(child,PROC_PIDTBSDINFO,0,&info,sizeof(info))==sizeof(info)&&info.pbi_ppid==(uint32_t)getpid());interfaces=ProductionInterfaces(YES);[routes.entries addObjectsFromArray:ProductionCoreRoutes(association)];return [network readyChild:child session:session error:failure];};
     hooks.applyNetwork=^BOOL(pid_t child,NSString *session,NSString **failure){BOOL ok=[network applyChild:child session:session error:failure];if(ok)routeHash=Hash(ReadProtected(directory,routePath,geteuid(),NULL));return ok;};
     hooks.verifyNetwork=^BOOL(NSString *session,NSString **failure){return [network confirmSession:session error:failure];};
-    hooks.recoverNetwork=^BOOL(NSString *session,NSString **failure){CHECK(pthread_equal(worker,pthread_self()));recoveries++;errno=0;CHECK(waitpid(association.process.pid,NULL,WNOHANG)==-1&&errno==ECHILD);if(!tornDown){tornDown=YES;ProductionCoreGone(routes);interfaces=ProductionInterfaces(NO);[routes.entries removeObject:old];[routes.entries addObject:replacement];if(scenario)Put(unknown,Bytes(@"controlled retry obstruction"),0600);}return [network recoverSession:session error:failure];};
+    hooks.recoverNetwork=^BOOL(NSString *session,NSString **failure){CHECK(pthread_equal(worker,pthread_self()));recoveries++;errno=0;CHECK(waitpid(association.process.pid,NULL,WNOHANG)==-1&&errno==ECHILD);if(!tornDown){tornDown=YES;ProductionCoreGone(routes);interfaces=ProductionInterfaces(NO);if(!physicalClone){[routes.entries removeObject:old];[routes.entries addObject:replacement];}if(physicalClone) {
+      [routes.entries addObject:clone];routes.onSnapshot=^(KuroFakeRouteStore *backend){CHECK([backend.entries containsObject:clone]);stopReads++;};
+    } else if(scenario)Put(unknown,Bytes(@"controlled retry obstruction"),0600);}return [network recoverSession:session error:failure];};
     hooks.networkRecoveryObservation=^NSDictionary *{return network.recoveryObservation;};
-    hooks.confirmStopped=^BOOL(NSDictionary *proof,NSString **failure){CHECK(KuroCompletedStopEvidence(proof)&&!Exists(work));NSDictionary *evidence=[network stoppedEvidenceForSession:proof[@"session"] error:failure];CHECK(evidence&&[evidence[@"routeJournalSHA256"]isEqual:routeHash]);CHECK([network.recoveryObservation[@"systemRouteBaselineRestored"]isEqual:@NO]);proofs++;return YES;};
+    hooks.confirmStopped=^BOOL(NSDictionary *proof,NSString **failure){CHECK(KuroCompletedStopEvidence(proof)&&!Exists(work));NSDictionary *evidence=[network stoppedEvidenceForSession:proof[@"session"] error:failure];CHECK(evidence&&[evidence[@"routeJournalSHA256"]isEqual:routeHash]);CHECK([network.recoveryObservation[@"systemRouteBaselineRestored"]isEqual:@(physicalClone)]);proofs++;return !physicalClone||KuroMarkSessionStopped(prefix,geteuid(),helper,proof,evidence,failure);};
     KuroTunService *service=[[KuroTunService alloc]initFixtureDirectory:directory core:core hooks:hooks];dispatch_semaphore_t retained=dispatch_semaphore_create(0),done=dispatch_semaphore_create(0);
     service.fixtureRetained=^{dispatch_semaphore_signal(retained);};
     if(!scenario)service.fixtureBeforeDiagnosticFinish=^(NSString *path){diagnosticDirectory=path;CHECK(!chmod(path.fileSystemRepresentation,0755));};
     int peers[2];CHECK(!socketpair(AF_UNIX,SOCK_STREAM,0,peers));int peer=peers[0];
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT,0),^{NSString *failure=nil;(void)[service serveOpenFrame:ServiceOpen() peer:peer error:&failure];close(peer);dispatch_semaphore_signal(done);});
     NSDictionary *opened=ServiceRead(peers[1]);if(![opened[@"ok"]boolValue])ServiceFixtureReportMismatch(directory,scenario,0);CHECK([opened[@"ok"]boolValue]);
-    ServiceSend(peers[1],@{@"version":@2,@"operation":@"stop",@"session":opened[@"session"],@"sequence":@1});CHECK(![ServiceRead(peers[1])[@"ok"]boolValue]);ServiceWait(retained);
+    ServiceSend(peers[1],@{@"version":@2,@"operation":@"stop",@"session":opened[@"session"],@"sequence":@1});
+    NSDictionary *reply=ServiceRead(peers[1]);
+    if(physicalClone) {
+      if(![reply[@"ok"]boolValue])fprintf(stderr,"first stop clone replay rejected: %s\n",reply.description.UTF8String);
+      CHECK([reply[@"ok"]boolValue]);ServiceWait(done);close(peers[1]);
+      CHECK(recoveries==1&&proofs==1&&stopReads==4&&[routes.entries containsObject:clone]&&[dns.records isEqual:dnsBaseline]&&dns.removals==1);
+      CHECK(!Exists(ownerPath)&&!Exists(work)&&!Exists(routePath)&&!Exists([directory stringByAppendingPathComponent:KuroDNSJournal]));
+      NSDictionary *proof=ReadJSON(prefix,[directory stringByAppendingPathComponent:@"stopped.json"],geteuid(),NULL);
+      CHECK([proof[@"format"]isEqual:@1]&&[proof[@"network"][@"routeJournalSHA256"]isEqual:routeHash]);
+      CHECK(KuroStoppedBoundToReceipt(proof,ReadFreshReceipt(prefix,geteuid(),NULL),ReadJSON(prefix,[directory stringByAppendingPathComponent:@"installed.json"],geteuid(),NULL)));
+      CHECK([[NSFileManager defaultManager]removeItemAtPath:prefix error:NULL]);
+      puts("PASS first normal stop with observed physical clone in all four raw reads; actual durable format-1 proof, no recovery request");
+      continue;
+    }
+    CHECK(![reply[@"ok"]boolValue]);ServiceWait(retained);
     CHECK(Exists(ownerPath)&&Exists(work)&&!Exists(routePath)&&recoveries>0&&proofs==0&&network.recoveryObservation);
     if(!scenario){CHECK(!chmod(diagnosticDirectory.fileSystemRepresentation,0700));service.fixtureBeforeDiagnosticFinish=nil;}
     else {

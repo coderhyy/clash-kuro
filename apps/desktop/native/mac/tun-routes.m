@@ -19,17 +19,57 @@ static NSData *KuroRouteIP(id text, int family) {
   return [NSData dataWithBytes:bytes length:family == 4 ? 4 : 16];
 }
 // Fixed pool only: a more-specific route covering either end remains an
-// unknown footprint even when it is not one of Core's five planned keys.
-static BOOL KuroRouteOverlapsCorePool(NSDictionary *route) {
+// unknown footprint even when it is not one of Core's fixed planned keys.
+static NSString *KuroRouteCorePoolOverlap(NSDictionary *route) {
   NSUInteger bits=[route[@"prefix"]unsignedIntegerValue];int family=[route[@"family"]intValue];
   NSData *network=KuroRouteIP([[route[@"destination"]componentsSeparatedByString:@"%"]firstObject],family);
-  if(!bits || !network || bits>network.length*8)return NO;
+  if(!bits || !network || bits>network.length*8)return nil;
   for(NSString *text in @[@"198.18.0.1",@"198.18.0.2",@"fdfe:dcba:9876::1",@"fdfe:dcba:9876::2"]) {
     NSData *address=KuroRouteIP(text,family);if(!address)continue;const unsigned char *a=address.bytes,*n=network.bytes;BOOL same=YES;
     for(NSUInteger bit=0;bit<bits;bit++)if((a[bit/8]&(0x80>>(bit%8)))!=(n[bit/8]&(0x80>>(bit%8)))){same=NO;break;}
-    if(same)return YES;
+    if(same)return text;
   }
-  return NO;
+  return nil;
+}
+// The rejection and evidence use the same snapshot; a later read may miss the row.
+static NSString *KuroRouteAbsenceEvidence(NSDictionary *route, NSDictionary *association, NSString *poolAddress) {
+  id recorded=association?@{@"name":association[@"interfaceName"],@"index":association[@"interfaceIndex"]}:(id)NSNull.null;
+  NSData *bytes=JSONData(@{@"route":route,@"poolAddress":poolAddress?:NSNull.null,@"recordedInterface":recorded,@"monotonicMs":@(KuroMonotonicMilliseconds())});
+  return bytes && bytes.length<=1024?[[NSString alloc]initWithData:bytes encoding:NSUTF8StringEncoding]:@"unavailable";
+}
+// Only the stopped held session's validated observation supplies this context.
+// Darwin's host clone is on the physical default, not an owned route to retire.
+static NSDictionary *KuroClonePhysicalDefault(NSArray *routes, NSDictionary *clone) {
+  NSDictionary *result=nil;
+  for(NSDictionary *route in routes) {
+    if(![route[@"family"]isEqual:@4] || ![route[@"prefix"]isEqual:@0])continue;
+    unsigned int flags=[route[@"flags"]unsignedIntValue];
+    BOOL sameInterface=[route[@"interfaceName"]isEqual:clone[@"interfaceName"]] && [route[@"interfaceIndex"]isEqual:clone[@"interfaceIndex"]];
+    if(flags&RTF_IFSCOPE) {
+      if(![route[@"interfaceName"]isEqual:clone[@"interfaceName"]] && ![route[@"interfaceIndex"]isEqual:clone[@"interfaceIndex"]])continue;
+    } else if(result)return nil;
+    const unsigned int required=RTF_UP|RTF_GATEWAY;
+    const unsigned int allowed=required|RTF_STATIC|RTF_PRCLONING|RTF_GLOBAL|RTF_IFREF|RTF_DONE|RTF_IFSCOPE;
+    if(!sameInterface || ![route[@"destination"]isEqual:@"0.0.0.0"] || ![route[@"gateway"]isEqual:clone[@"gateway"]] ||
+       (flags&required)!=required || (flags&~allowed))return nil;
+    if(!(flags&RTF_IFSCOPE)) {
+      NSMutableDictionary *stable=[route mutableCopy];stable[@"flags"]=@(flags&~(RTF_DONE|RTF_IFREF));result=stable;
+    }
+  }
+  return result;
+}
+static BOOL KuroPhysicalDNSHostClone(NSDictionary *route, NSArray *snapshot, NSDictionary *heldObservation) {
+  const unsigned int required=RTF_UP|RTF_GATEWAY|RTF_HOST|RTF_WASCLONED|RTF_IFSCOPE;
+  const unsigned int allowed=required|RTF_IFREF|RTF_GLOBAL; // Exact observed optional interface-reference and global tags.
+  unsigned int flags=[route[@"flags"]unsignedIntValue];
+  if(![heldObservation[@"format"]isEqual:@2] || ![heldObservation[@"phase"]isEqual:@"observed"] ||
+     ![route[@"family"]isEqual:@4] || ![route[@"destination"]isEqual:@"198.18.0.2"] || ![route[@"prefix"]isEqual:@32] ||
+     ![route[@"interfaceName"]isEqual:heldObservation[@"physicalInterface"]] || (flags&required)!=required || (flags&~allowed))return NO;
+  NSData *gateway=KuroRouteIP(route[@"gateway"],4);
+  const unsigned char *bytes=gateway.bytes;
+  if(!bytes || !bytes[0] || bytes[0]==127 || bytes[0]>=224)return NO;
+  NSDictionary *before=KuroClonePhysicalDefault(heldObservation[@"baselineRoutes"],route);
+  return before && [before isEqual:KuroClonePhysicalDefault(snapshot,route)];
 }
 static BOOL KuroLegacyRouteEntry(id entry) {
   if (!Keys(entry, @[@"family", @"destination", @"prefix", @"gateway", @"interfaceIndex", @"interfaceName"]) ||
@@ -183,13 +223,19 @@ static NSArray<NSDictionary *> *KuroRouteDecodeDump(NSData *dump, NSString **err
   return result;
 }
 @end
-// Fixed mihomo v1.19.33 + sing-tun v0.4.28: four explicit /1 ranges;
+// Use sing-tun v0.4.28’s nonzero IPv4 ranges to preserve Darwin scoped egress.
 // BuildAutoRouteRanges also appends the IPv4 address's /30 (not IPv6 /126).
 // Darwin addRoute uses own .1/::1 as gateway, UP|STATIC|GATEWAY; XNU adds
 // PRCLONING for these non-host, non-multicast ranges. No route writer lives here.
 static NSArray<NSDictionary *> *KuroCoreAutoRoutePlan(void) {
   return @[
-    @{@"family":@4,@"destination":@"0.0.0.0",@"prefix":@1,@"gateway":@"198.18.0.1"},
+    @{@"family":@4,@"destination":@"1.0.0.0",@"prefix":@8,@"gateway":@"198.18.0.1"},
+    @{@"family":@4,@"destination":@"2.0.0.0",@"prefix":@7,@"gateway":@"198.18.0.1"},
+    @{@"family":@4,@"destination":@"4.0.0.0",@"prefix":@6,@"gateway":@"198.18.0.1"},
+    @{@"family":@4,@"destination":@"8.0.0.0",@"prefix":@5,@"gateway":@"198.18.0.1"},
+    @{@"family":@4,@"destination":@"16.0.0.0",@"prefix":@4,@"gateway":@"198.18.0.1"},
+    @{@"family":@4,@"destination":@"32.0.0.0",@"prefix":@3,@"gateway":@"198.18.0.1"},
+    @{@"family":@4,@"destination":@"64.0.0.0",@"prefix":@2,@"gateway":@"198.18.0.1"},
     @{@"family":@4,@"destination":@"128.0.0.0",@"prefix":@1,@"gateway":@"198.18.0.1"},
     @{@"family":@4,@"destination":@"198.18.0.0",@"prefix":@30,@"gateway":@"198.18.0.1"},
     @{@"family":@6,@"destination":@"::",@"prefix":@1,@"gateway":@"fdfe:dcba:9876::1"},
@@ -207,12 +253,20 @@ static NSArray<NSDictionary *> *KuroCoreAutoRouteCandidate(KuroCoreInterface ass
 static BOOL KuroRouteKey(NSDictionary *left,NSDictionary *right) {
   return [left[@"family"]isEqual:right[@"family"]] && [left[@"destination"]isEqual:right[@"destination"]] && [left[@"prefix"]isEqual:right[@"prefix"]];
 }
+// Fail closed on the previous zero-address prefix as well as this plan.
+static BOOL KuroPriorZeroIPv4Key(NSDictionary *route) {
+  return [route[@"family"]isEqual:@4] && [route[@"destination"]isEqual:@"0.0.0.0"] && [route[@"prefix"]isEqual:@1];
+}
+static BOOL KuroFixedCatchmentKey(NSDictionary *route) {
+  if(KuroPriorZeroIPv4Key(route))return YES;
+  for(NSDictionary *target in KuroCoreAutoRoutePlan())if(KuroRouteKey(route,target))return YES;
+  return NO;
+}
 // Fixed XNU f6217f89 route.c:402-409,2477-2486: SA_DEFAULT checks
 // zero destination (not prefix); NECP tags non-host RTM_ADD with RTF_GLOBAL.
-// Of this fixed plan only the lower IPv4/IPv6 /1 entries qualify.
+// Of this fixed plan only the lower IPv6 /1 qualifies.
 static BOOL KuroCoreAutoRouteAllowsGlobal(NSDictionary *target) {
-  return [target[@"prefix"]isEqual:@1] && (([target[@"family"]isEqual:@4]&&[target[@"destination"]isEqual:@"0.0.0.0"]) ||
-    ([target[@"family"]isEqual:@6]&&[target[@"destination"]isEqual:@"::"]));
+  return [target[@"prefix"]isEqual:@1] && [target[@"family"]isEqual:@6] && [target[@"destination"]isEqual:@"::"];
 }
 static BOOL KuroCoreAutoRouteEqual(NSDictionary *observed,NSDictionary *target) {
   if(!KuroLegacyRouteEntry(target) || !Keys(observed,@[@"family",@"destination",@"prefix",@"gateway",@"interfaceIndex",@"interfaceName",@"flags"]) || !KuroNumber(observed[@"flags"],0,UINT32_MAX))return NO;
@@ -288,7 +342,7 @@ typedef NS_ENUM(NSUInteger,KuroRouteObservationState) {
 - (BOOL)confirmObservedSession:(NSString *)session interface:(KuroCoreInterface)association ownership:(KuroRouteOwnership)ownership error:(NSString **)error;
 - (NSDictionary *)preparedRecord:(NSString **)error;
 - (NSDictionary *)recordForInterface:(KuroCoreInterface)association bytes:(NSData **)bytes error:(NSString **)error;
-- (BOOL)recoverRecordedAbsence:(NSString **)error;
+- (BOOL)recoverRecordedAbsenceForHeldObservation:(NSDictionary *)heldObservation error:(NSString **)error;
 @end
 @implementation KuroOwnedRoutes
 - (instancetype)initWithDirectory:(NSString *)directory owner:(uid_t)owner backend:(id<KuroRouteStore>)backend {
@@ -426,29 +480,42 @@ typedef NS_ENUM(NSUInteger,KuroRouteObservationState) {
   if(![[self journalBytes:error]isEqual:bytes])return Fail(error,@"route observation changed during confirmation");
   return [self syncDirectory:error];
 }
-- (BOOL)absent:(NSArray *)targets snapshot:(NSArray *)observed observation:(NSDictionary *)record error:(NSString **)error {
-  for(NSDictionary *route in observed){
-    if([record[@"format"]isEqual:@2]) {
-      NSDictionary *association=[record[@"interface"]isKindOfClass:NSDictionary.class]?record[@"interface"]:nil;
-      if(KuroRouteOverlapsCorePool(route) || (association && ([route[@"interfaceName"]isEqual:association[@"interfaceName"]] || [route[@"interfaceIndex"]isEqual:association[@"interfaceIndex"]])))return Fail(error,@"recorded utun or fixed pool route remains; preserving observation");
-    }
-    if([route[@"flags"]unsignedIntValue]&RTF_PROTO2)return Fail(error,@"legacy marked route remains; observation cannot authorize deletion");for(NSDictionary *target in targets)if(KuroRouteKey(route,target))return Fail(error,@"recorded Core route key remains; preserving route and observation");}return YES;
+- (BOOL)absent:(NSArray *)targets snapshot:(NSArray *)observed observation:(NSDictionary *)record heldObservation:(NSDictionary *)heldObservation error:(NSString **)error {
+  BOOL version2=[record[@"format"]isEqual:@2];
+  NSDictionary *association=version2 && [record[@"interface"]isKindOfClass:NSDictionary.class]?record[@"interface"]:nil;
+  for(NSDictionary *route in observed) {
+    NSString *reason=nil,*poolAddress=KuroRouteCorePoolOverlap(route);
+    if(association && ([route[@"interfaceName"]isEqual:association[@"interfaceName"]] || [route[@"interfaceIndex"]isEqual:association[@"interfaceIndex"]]))reason=@"recorded utun or fixed pool route remains; preserving observation";
+    else if([route[@"flags"]unsignedIntValue]&RTF_PROTO2)reason=@"legacy marked route remains; observation cannot authorize deletion";
+    else if(KuroPriorZeroIPv4Key(route))reason=@"prior zero-address IPv4 split route remains; preserving route and observation";
+    else for(NSDictionary *target in targets)if(KuroRouteKey(route,target)){reason=@"recorded Core route key remains; preserving route and observation";break;}
+    if(!reason && poolAddress && !KuroPhysicalDNSHostClone(route,observed,heldObservation))reason=@"recorded utun or fixed pool route remains; preserving observation";
+    if(reason)return Fail(error,[NSString stringWithFormat:@"%@; observed=%@",reason,KuroRouteAbsenceEvidence(route,association,poolAddress)]);
+  }
+  return YES;
 }
-- (BOOL)recoverRecordedAbsence:(NSString **)error {
-  _routesOff=NO;_preparedRecord=nil;if(![self prepared:error])return NO;
-  NSString *failure=nil;NSDictionary *record=[self preparedRecord:&failure];if(failure)return Fail(error,failure);
-  if(_pendingRetirement&&record&&![_pendingRetirement isEqual:record])return Fail(error,@"a different observation appeared during retirement");
+- (BOOL)recoverRecordedAbsenceForHeldObservation:(NSDictionary *)heldObservation error:(NSString **)error {
+  _routesOff=NO;_preparedRecord=nil;
+  NSString *failure=nil;
+  if(![self prepared:&failure])return Fail(error,[NSString stringWithFormat:@"stage=route-retirement-path; %@",failure?:@"unsafe retirement path"]);
+  NSDictionary *record=[self preparedRecord:&failure];if(failure)return Fail(error,[NSString stringWithFormat:@"stage=route-retirement-journal; %@",failure]);
+  if(_pendingRetirement&&record&&![_pendingRetirement isEqual:record])return Fail(error,@"stage=route-retirement-journal; a different observation appeared during retirement");
   if(!record)record=_pendingRetirement?:_retiredObservation;
+  if(heldObservation && ![record isEqual:heldObservation])return Fail(error,@"stage=route-retirement-journal; held route observation changed before retirement");
   NSArray *targets=record?record[@"routes"]:KuroCoreAutoRoutePlan();
-  NSArray *first=[self snapshot:error];if(!first||![self absent:targets snapshot:first observation:record error:error])return NO;
-  NSArray *again=[self snapshot:error];if(!again||![self absent:targets snapshot:again observation:record error:error])return NO;
+  for (unsigned pass=1;pass<=2;pass++) {
+    failure=nil;
+    NSArray *snapshot=[self snapshot:&failure];
+    if(!snapshot)return Fail(error,[NSString stringWithFormat:@"stage=route-retirement-read-%u; %@",pass,failure?:@"snapshot unavailable"]);
+    if(![self absent:targets snapshot:snapshot observation:record heldObservation:heldObservation error:&failure])return Fail(error,[NSString stringWithFormat:@"stage=route-retirement-absence-%u; %@",pass,failure]);
+  }
   NSString *path=[_directory stringByAppendingPathComponent:KuroRouteJournal];
   if(Exists(path)) {
-    NSData *bytes=nil;NSDictionary *current=[self validatedRecord:&bytes error:error];if(![current isEqual:record]||![[self journalBytes:error]isEqual:bytes])return Fail(error,@"route observation changed during absence check");
+    NSData *bytes=nil;failure=nil;NSDictionary *current=[self validatedRecord:&bytes error:&failure];if(![current isEqual:record]||![[self journalBytes:&failure]isEqual:bytes])return Fail(error,[NSString stringWithFormat:@"stage=route-retirement-revalidate; %@",failure?:@"route observation changed during absence check"]);
     _pendingRetirement=record;
-    if(unlink(path.fileSystemRepresentation))return Fail(error,@"route observation absence retirement failed");
+    if(unlink(path.fileSystemRepresentation))return Fail(error,@"stage=route-retirement-unlink; route observation absence retirement failed");
   }
-  if(![self syncDirectory:error])return NO;
+  failure=nil;if(![self syncDirectory:&failure])return Fail(error,[NSString stringWithFormat:@"stage=route-retirement-sync; %@",failure?:@"directory sync did not complete"]);
   _pendingRetirement=nil;_retiredObservation=[record[@"format"]isEqual:@2]?record:nil;_routesOff=YES;return YES;
 }
 @end

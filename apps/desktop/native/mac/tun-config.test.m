@@ -30,7 +30,7 @@ static void ConfigTests(void) {
   NSData *candidate = KuroTunRuntimeJSON(JSONData(config), &error);
   CHECK([[[NSString alloc] initWithData:candidate encoding:NSUTF8StringEncoding] rangeOfString:@"\\/"].location == NSNotFound);
   NSDictionary *runtime = KuroDecodeJSON(candidate, 128 * 1024, &error);
-  CHECK(([runtime[@"tun"][@"route-address"] isEqual:@[@"0.0.0.0/1",@"128.0.0.0/1",@"::/1",@"8000::/1"]]));
+  CHECK(([runtime[@"tun"][@"route-address"] isEqual:@[@"1.0.0.0/8",@"2.0.0.0/7",@"4.0.0.0/6",@"8.0.0.0/5",@"16.0.0.0/4",@"32.0.0.0/3",@"64.0.0.0/2",@"128.0.0.0/1",@"::/1",@"8000::/1"]]));
   CHECK([runtime[@"tun"][@"auto-route"] isEqual:@YES] && [runtime[@"tun"][@"dns-mode"] isEqual:@"disabled"]);
   CHECK([runtime[@"tun"][@"stack"] isEqual:@"mips"]); CHECK([runtime[@"rules"] isEqual:@[@"MATCH,DIRECT"]]);
   CHECK(!runtime[@"external-controller"] && !runtime[@"external-controller-unix"] && !runtime[@"proxy-providers"]);

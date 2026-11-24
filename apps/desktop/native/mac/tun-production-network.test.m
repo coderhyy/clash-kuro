@@ -61,6 +61,53 @@ static NSArray *ProductionMulticastCompanions(KuroCoreInterface association) {
   for(NSArray *value in @[@[@"ff00::",@8],@[@"ff01::",@32],@[@"ff02::",@32]])[routes addObject:ProductionRoute(6,[NSString stringWithFormat:@"%@%%%u",value[0],association.interfaceIndex],[value[1]intValue],gateway,@(association.interfaceName),association.interfaceIndex,RTF_UP|RTF_CLONING|RTF_MULTICAST|RTF_IFSCOPE)];return routes;
 }
 static void IPv4UpstreamTests(void);
+static void ProductionPhysicalCloneAbsenceTests(void) {
+  char temporary[]="/tmp/kuro-clone-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));
+  NSString *base=@(canonical),*session=@"00112233-4455-6677-8899-AABBCCDDEEFF";
+  KuroCoreInterface association=RouteFixtureInterface();NSDictionary *recorded=KuroRouteAssociation(association);
+  NSDictionary *physical=ProductionRoute(4,@"0.0.0.0",0,@"192.168.2.1",@"en0",14,0x40010803);
+  NSDictionary *clone=ProductionRoute(4,@"198.18.0.2",32,@"192.168.2.1",@"en0",14,0x45020007);
+  NSArray *mutations=@[@{@"interfaceName":@"en1"},@{@"interfaceIndex":@15},@{@"gateway":@"192.168.2.2"},
+    @{@"flags":@(0x45020007&~RTF_WASCLONED)},@{@"flags":@(0x45020007&~RTF_IFSCOPE)},@{@"flags":@(0x45020007&~RTF_UP)},
+    @{@"flags":@(0x45020007|RTF_REJECT)},@{@"flags":@(0x45020007|RTF_BLACKHOLE)},@{@"flags":@(0x45020007|RTF_PROTO2)},
+    @{@"interfaceName":recorded[@"interfaceName"]},@{@"interfaceIndex":recorded[@"interfaceIndex"]},
+    @{@"destination":@"198.18.0.0",@"prefix":@30},@{@"destination":@"198.18.0.1"},
+    @{@"destination":@"198.0.0.0",@"prefix":@8}];
+  for(NSUInteger scenario=0;scenario<mutations.count+8;scenario++) {
+    NSUInteger variant=scenario>=mutations.count?scenario-mutations.count:0;
+    NSString *directory=[base stringByAppendingPathComponent:[NSString stringWithFormat:@"case%lu",(unsigned long)scenario]],*error=nil;
+    FixtureDirectory(directory);NSString *journal=[directory stringByAppendingPathComponent:KuroRouteJournal];
+    KuroFakeRouteStore *store=[KuroFakeRouteStore new];NSArray *baseline=variant==2?@[]:variant==3?@[physical,physical]:@[physical];
+    store.entries=[baseline mutableCopy];KuroOwnedRoutes *actor=[[KuroOwnedRoutes alloc]initWithDirectory:directory owner:geteuid() backend:store];
+    if(variant!=7)CHECK([actor prepareForSession:session binding:RouteFixtureBinding() baselineRoutes:baseline baselineDNS:@{} physicalInterface:@"en0" error:&error]);
+    if(variant<6) {
+      RouteFixtureCoreAppears(store);
+      CHECK([actor observeForSession:session interface:association ownership:^KuroRouteOwnerState(KuroCoreInterface value,NSString **failure){(void)value;(void)failure;return KuroRouteOwnerLive;} error:&error]);
+    }
+    store.entries=[NSMutableArray arrayWithObject:physical];
+    if(variant==4)[store.entries removeAllObjects];
+    if(variant==5)[store.entries addObject:ProductionRoute(4,@"0.0.0.0",0,@"192.168.2.2",@"en0",14,RTF_UP|RTF_GATEWAY|RTF_IFSCOPE)];
+    NSMutableDictionary *entry=[clone mutableCopy];
+    if(scenario<mutations.count)[entry addEntriesFromDictionary:mutations[scenario]];
+    NSDictionary *receipt=[actor preparedRecord:&error],*context=variant==1?nil:receipt;
+    NSData *before=Exists(journal)?ReadProtected(directory,journal,geteuid(),NULL):nil;
+    BOOL expected=scenario==mutations.count;
+    CHECK(KuroCurrentOwnedRoutesAbsent([store.entries arrayByAddingObject:entry],recorded,context,&error)==expected);
+    CHECK(expected||[error containsString:@"stage=route-owned-absence"]);
+    store.snapshots=0;store.onSnapshot=^(KuroFakeRouteStore *value){if(value.snapshots==2)[value.entries addObject:entry];};
+    CHECK([actor recoverRecordedAbsenceForHeldObservation:context error:&error]==expected && store.snapshots==2 && [store.entries containsObject:entry]);
+    if(expected)CHECK(actor.routesOff&&!Exists(journal));
+    else {
+      CHECK(!actor.routesOff&&[error hasPrefix:@"stage=route-retirement-absence-2; "]);
+      NSRange marker=[error rangeOfString:@"observed="];CHECK(marker.location!=NSNotFound);
+      NSDictionary *observation=KuroDecodeJSON([[error substringFromIndex:NSMaxRange(marker)]dataUsingEncoding:NSUTF8StringEncoding],1024,NULL);
+      CHECK([observation[@"route"]isEqual:entry]);
+      CHECK(before?[ReadProtected(directory,journal,geteuid(),NULL)isEqual:before]:!Exists(journal));
+    }
+  }
+  CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);
+  puts("PASS physical clone replay: observed flags and matching physical default only; changed shape/authority refuses through last retirement read and preserves tuple");
+}
 static void ProductionDNSMetadataTests(void) {
   char temporary[]="/tmp/kuro-dns-meta-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));NSString *base=@(canonical),*session=@"00112233-4455-6677-8899-AABBCCDDEEFF";
   KuroCoreInterface association=RouteFixtureInterface();
@@ -191,7 +238,8 @@ static void ProductionRecoveryDNSDerivedTests(void) {
     if(scenario!=0)dns.records[global]=scenario>=9?original[global]:KuroDNSDerivedGlobal(original[global],session);CHECK(dns.records[global]);
     if(scenario==2){NSMutableDictionary *foreign=[dns.records[global]mutableCopy];foreign[@"__CONFIGURATION_ID__"]=@"Supplemental: private-service-marker 0";dns.records[global]=foreign;}
     if(scenario==3)dns.records[@"State:/Network/Service/private-service-marker/DNS"]=@{@"DomainName":@"private-domain-marker"};
-    NSDictionary *extra=ProductionRoute(4,@"198.18.0.2",32,@"link",@"en0",2,RTF_UP);if(scenario==4)[routes.entries addObject:extra];
+    // A down host clone on another interface is still an unknown pool overlap.
+    NSDictionary *extra=ProductionRoute(4,@"198.18.0.2",32,@"link",@"en0",2,RTF_HOST|RTF_WASCLONED);if(scenario==4)[routes.entries addObject:extra];
     if(scenario==5)routes.failRead=YES;if(scenario==7)refuseExit=YES;
     if(scenario==8){NSMutableDictionary *record=[ReadJSON(directory,journal,geteuid(),NULL)mutableCopy],*binding=[record[@"binding"]mutableCopy];binding[@"runtimeSHA256"]=Hash(Bytes(@"other runtime"));record[@"binding"]=binding;Put(journal,JSONData(record),0600);}
     KuroDNSDurabilityFixture *sync=nil;if(scenario==9){sync=[[KuroDNSDurabilityFixture alloc]initWithDirectory:directory owner:geteuid() backend:dns];sync.refuseSync=YES;[network setValue:sync forKey:@"dns"];}
@@ -200,11 +248,26 @@ static void ProductionRecoveryDNSDerivedTests(void) {
     uint64_t started=KuroMonotonicMilliseconds();BOOL recovered=[network recoverSession:session error:&error];uint64_t elapsed=KuroMonotonicMilliseconds()-started;
     if(recovered!=(scenario==0))fprintf(stderr,"recovery fixture scenario=%lu expected=%d actual=%d journalPreserved=%d error=%s\n",(unsigned long)scenario,scenario==0,recovered,Exists(journal),error.UTF8String);
     CHECK(recovered==(scenario==0));CHECK(dns.removals==1&&!Exists([directory stringByAppendingPathComponent:KuroDNSJournal]));
-    if(scenario==0){CHECK(postRemovalReads==4&&elapsed>=20&&network.networkOff&&[dns.records isEqual:original]&&!Exists(journal));}
+    if(scenario==0){
+      CHECK(postRemovalReads==4&&elapsed>=20&&network.networkOff&&[dns.records isEqual:original]&&!Exists(journal));
+      NSDictionary *checks=network.recoveryObservation[@"checksMonotonicMs"];
+      uint64_t previous=started;
+      for(NSString *key in @[@"coreAndUtunAbsent",@"routesChecked",@"dnsBaselineConfirmed",@"routeRetirementCompleted"]) {
+        CHECK(KuroNumber(checks[key],previous,started+elapsed));previous=[checks[key]unsignedLongLongValue];
+      }
+    }
     else {
       NSArray *stages=@[@"",@"dns-derived-pending-timeout",@"dns-changed",@"dns-changed",@"route-owned-absence",@"route-read",@"dns-read",@"owner-exit",@"owner-binding",@"dns-retirement",@"dns-changed"];
       CHECK([error containsString:[@"stage="stringByAppendingString:stages[scenario]]]&&!network.networkOff&&Exists(journal));
       CHECK(![error containsString:@"private-service-marker"]&&![error containsString:@"private-domain-marker"]&&![error containsString:session]&&error.length<1024);
+      if(scenario==4) {
+        NSRange marker=[error rangeOfString:@"overlap="];CHECK(marker.location!=NSNotFound);
+        NSDictionary *overlap=KuroDecodeJSON([[error substringFromIndex:NSMaxRange(marker)]dataUsingEncoding:NSUTF8StringEncoding],1024,NULL);
+        CHECK([overlap[@"route"]isEqual:extra]&&[overlap[@"poolAddress"]isEqual:@"198.18.0.2"]);
+        CHECK([overlap[@"recordedInterface"]isEqual:(@{@"name":@(association.interfaceName),@"index":@(association.interfaceIndex)})]);
+        CHECK(KuroNumber(overlap[@"monotonicMs"],started,started+elapsed));
+        CHECK([ReadProtected(directory,journal,geteuid(),NULL)isEqual:routeBytes]);
+      }
       if(scenario==1)CHECK(postRemovalReads>=2&&elapsed>=200);if(scenario==2||scenario==3||scenario==6)CHECK(postRemovalReads==1);if(scenario>=4&&scenario!=6&&scenario<9)CHECK(postRemovalReads==0);if(scenario==10)CHECK(postRemovalReads==2);if(scenario==9)CHECK(postRemovalReads==2&&[ReadProtected(directory,journal,geteuid(),NULL)isEqual:routeBytes]);
       printf("PASS recovery refusal scenario=%lu dnsReads=%lu: %s\n",(unsigned long)scenario,(unsigned long)postRemovalReads,error.UTF8String);
       // Explicit fixture restoration, never production repair of foreign DNS/routes.
@@ -265,7 +328,7 @@ static void HeldMulticastCompanionTests(void) {
     BOOL accepted=[network readyChild:association.process.pid session:session error:&error];CHECK(accepted==(scenario==0||scenario==9||scenario==14));
     if(!accepted){CHECK(!dns.additions&&!probes);CHECK([error containsString:@"unexpected route"]||[error containsString:@"baseline changed"]||[error containsString:@"utun index/flags"]);continue;}
     CHECK([network applyChild:association.process.pid session:session error:&error]);CHECK([network confirmSession:session error:&error]);
-    NSDictionary *journal=ReadJSON(directory,[directory stringByAppendingPathComponent:KuroRouteJournal],geteuid(),&error);CHECK(journal&&[journal[@"routes"]count]==5&&dns.additions==1);
+    NSDictionary *journal=ReadJSON(directory,[directory stringByAppendingPathComponent:KuroRouteJournal],geteuid(),&error);CHECK(journal&&[journal[@"routes"]isEqual:KuroCoreAutoRouteCandidate(association)]&&dns.additions==1);
     CHECK(![[[NSString alloc]initWithData:JSONData(journal) encoding:NSUTF8StringEncoding]containsString:@"ff00"]);
     if(scenario==9){NSMutableDictionary *newAddress=[linklocal mutableCopy];newAddress[@"address"]=@"fe80::4321";interfaces=[ProductionInterfaces(YES)arrayByAddingObject:newAddress];}
     if(scenario==14)interfaces=ProductionInterfaces(YES);
@@ -357,7 +420,7 @@ static void ProductionAutoRouteTests(void) {
       CHECK(!unlink([directory stringByAppendingPathComponent:@"owner.json"].fileSystemRepresentation));CHECK([fresh recoverRecordedOwner:recordedOwner error:&error]&&fresh.networkOff);
     }
   }
-  ProbeRouteBackend=nil;ProbeQuestion=nil;CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);puts("PASS 23 Core auto-route coordinator cases (including delayed complete route observation within original readiness deadline): protected pre-CONT intent/binding/baseline, independently observed five upstream routes, original dual-stack probe, DNS-only helper writes, partial startup/prepare-sync recovery and full-owner restart joins; simulated Core/kernel, no system calls");
+  ProbeRouteBackend=nil;ProbeQuestion=nil;CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);puts("PASS 23 Core auto-route coordinator cases (including delayed complete route observation within original readiness deadline): protected pre-CONT intent/binding/baseline, independently observed all 11 fixed diagnostic routes, original dual-stack probe, DNS-only helper writes, partial startup/prepare-sync recovery and full-owner restart joins; simulated Core/kernel, no system calls");
 }
 static void ProductionRouteBaselineDifferenceTests(void) {
   char temporary[]="/tmp/kuro-route-diff-XXXXXX",canonical[PATH_MAX];CHECK(mkdtemp(temporary)&&realpath(temporary,canonical));NSString *base=@(canonical),*session=@"00112233-4455-6677-8899-AABBCCDDEEFF";KuroCoreInterface association=RouteFixtureInterface();
@@ -529,7 +592,7 @@ static void ProductionLocalRouteServiceTests(void) {
 
 static void ProductionNetworkTests(void) {
   ProductionLocalRouteChangeTests();ProductionLocalRouteServiceTests();
-  ProductionOwnRouteAbsenceTests();ProductionRouteBaselineDifferenceTests();ProductionAutoRouteTests();InternalDNSProbeDiagnosticTests();IPv4UpstreamTests();ProductionDNSMetadataTests();ProductionActiveDNSDerivedTests();ProductionDNSDifferenceTests();ProductionRecoveryDNSDerivedTests();UnexpectedRouteEvidenceTests();HeldMulticastCompanionTests();
+  ProductionOwnRouteAbsenceTests();ProductionPhysicalCloneAbsenceTests();ProductionRouteBaselineDifferenceTests();ProductionAutoRouteTests();InternalDNSProbeDiagnosticTests();IPv4UpstreamTests();ProductionDNSMetadataTests();ProductionActiveDNSDerivedTests();ProductionDNSDifferenceTests();ProductionRecoveryDNSDerivedTests();UnexpectedRouteEvidenceTests();HeldMulticastCompanionTests();
   NSString *error=nil;CHECK(KuroCoreAddressesReady(RouteFixtureInterface(),ProductionInterfaces(YES),&error));CHECK(!KuroCoreAddressesReady(RouteFixtureInterface(),ProductionInterfaces(NO),&error));
   CHECK(!KuroPreservedEndpoint(@"fd00::1",ProductionBaseline(),@"en0",YES,NO,&error));CHECK(KuroPreservedEndpoint(@"192.168.1.53",ProductionBaseline(),@"en0",YES,NO,&error));
 }
@@ -537,7 +600,7 @@ static void ProductionNetworkTests(void) {
 static void IPv4UpstreamTests(void) {
   char temporary[]="/tmp/kuro-ipv4-upstream-XXXXXX";CHECK(mkdtemp(temporary));char canonical[PATH_MAX];CHECK(realpath(temporary,canonical));NSString *base=@(canonical);
   KuroCoreInterface association=RouteFixtureInterface();
-  for(NSUInteger scenario=0;scenario<18;scenario++) {
+  for(NSUInteger scenario=0;scenario<23;scenario++) {
     NSString *directory=[base stringByAppendingPathComponent:[NSString stringWithFormat:@"case%lu",(unsigned long)scenario]],*error=nil;FixtureDirectory(directory);
     KuroFakeRouteStore *routes=[KuroFakeRouteStore new];routes.directory=directory;routes.entries=[ProductionBaseline()mutableCopy];[routes.entries removeObjectAtIndex:1];
     KuroFakeDNSStore *dns=[KuroFakeDNSStore new];dns.directory=directory;
@@ -567,6 +630,13 @@ static void IPv4UpstreamTests(void) {
     }
     if(scenario==16) {NSMutableArray *changed=[interfaces mutableCopy];NSMutableDictionary *physical=[changed[0]mutableCopy];physical[@"flags"]=@(IFF_UP);changed[0]=physical;interfaces=changed;}
     if(scenario==17)config[@"proxies"]=@[@{@"type":@"http",@"name":@"edge",@"server":@"proxy.example",@"port":@8080}];
+    if(scenario>=18&&scenario<=20) {
+      dns.records[@"State:/Network/Interface/en1/DNS"]=@{@"ServerAddresses":@[@"10.0.0.53"],@"InterfaceIndex":@3,@"SupplementalMatchDomains":@[@"corp.example"]};
+      interfaces=[interfaces arrayByAddingObject:@{@"family":@0,@"name":@"en1",@"index":@3,@"flags":@(IFF_UP|IFF_RUNNING),@"linkType":@(IFT_ETHER)}];
+      [routes.entries addObject:ProductionRoute(4,scenario==19?@"10.0.0.0":@"0.0.0.0",scenario==19?24:4,@"link",@"en1",3,RTF_UP|RTF_IFSCOPE)];
+      if(scenario==20)[routes.entries addObject:ProductionRoute(4,@"10.0.0.0",24,@"link",@"en0",2,RTF_UP)];
+    }
+    if(scenario==21||scenario==22)[routes.entries addObject:ProductionRoute(4,scenario==21?@"8.0.0.0":@"0.0.0.0",scenario==21?5:1,@"link",@"en0",2,0)];
     NSData *originalConfig=JSONData(config);NSDictionary *originalDNS=[dns.records copy];NSArray *originalRoutes=[routes.entries copy];
     KuroNetworkEnvironment *environment=[KuroNetworkEnvironment new];
     environment.interfaces=^NSArray *(NSString **failure){(void)failure;return interfaces;};
@@ -574,7 +644,7 @@ static void IPv4UpstreamTests(void) {
     environment.ownership=^KuroRouteOwnerState(KuroCoreInterface expected,NSString **failure){(void)failure;CHECK([KuroRouteAssociation(expected)isEqual:KuroRouteAssociation(association)]);return KuroRouteOwnerLive;};
     environment.probeDNS=^BOOL(KuroCoreInterface expected,NSString **failure){(void)expected;(void)failure;probes++;return YES;};
     KuroProductionNetwork *network=[[KuroProductionNetwork alloc]initWithDirectory:directory owner:geteuid() routes:routes dns:dns environment:environment];
-    BOOL accepted=[network preflightConfig:config error:&error],expected=scenario==0||scenario==8||scenario==14||scenario==15||scenario==17;
+    BOOL accepted=[network preflightConfig:config error:&error],expected=scenario==0||scenario==8||scenario==14||scenario==15||scenario==17||scenario==19;
     CHECK(accepted==expected);CHECK([JSONData(config)isEqual:originalConfig]&&[dns.records isEqual:originalDNS]&&[routes.entries isEqual:originalRoutes]);
     CHECK(!dns.additions&&!probes);
     if(!expected) {
@@ -585,10 +655,13 @@ static void IPv4UpstreamTests(void) {
       if(scenario==10||scenario==11)CHECK([error containsString:@"common observable"]);
       if(scenario==12)CHECK([error containsString:@"ambiguous"]);
       if(scenario==16)CHECK([error containsString:@"verified running"]);
+      if(scenario==18)CHECK([error containsString:@"more-specific"]);
+      if(scenario==20)CHECK([error containsString:@"original interface"]);
+      if(scenario==21||scenario==22)CHECK([error containsString:@"conflicts with fixed plan"]);
       continue;
     }
     CHECK([network.runtimeInterfaceName isEqual:@"en0"]);
   }
   CHECK([[NSFileManager defaultManager]removeItemAtPath:base error:NULL]);
-  puts("PASS 18 IPv4-upstream admission cases: dual-stack template preserved, physical/LAN/scopedDNS paths and endpoint ambiguity remain guarded");
+  puts("PASS 23 IPv4-upstream admission cases: dual-stack template preserved, physical/LAN/scopedDNS paths and endpoint ambiguity remain guarded");
 }
