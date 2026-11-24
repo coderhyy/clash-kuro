@@ -319,7 +319,7 @@ dns:
       expect(stats.stoppedProofSession).toMatch(/^[0-9a-f-]{36}$/i)
       expect(stats).toMatchObject({ childReaped: true, cleanupComplete: true, routesOff: true, dnsOff: true, routeJournalAbsent: true })
       expect(stats.networkPrepares).toBe(1)
-      expect(stats.observedRouteCount).toBe(mode === 'start-failed' ? 0 : 5)
+      expect(stats.observedRouteCount).toBe(mode === 'start-failed' ? 0 : 11)
     }
     if (mode === 'start-failed') { expect(stats.probes).toBe(0); expect(stats.dnsAdds).toBe(0) }
     if (mode === 'residue') expect(stats.dnsRemovals).toBe(2)
